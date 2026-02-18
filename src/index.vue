@@ -47,8 +47,9 @@
         <!-- Mixer Console -->
         <main class="flex-1 flex gap-2 p-2 overflow-hidden">
             <!-- Audio Tracks Section (flexible) -->
-            <div class="tracks-scroll flex-1 overflow-x-auto overflow-y-hidden min-w-0 pb-[2px]">
-                <div class="flex gap-2 h-full min-w-max">
+            <div class="tracks-scroll-wrap flex-1 overflow-hidden min-w-0 pb-[2px]">
+                <div class="tracks-scroll overflow-x-auto overflow-y-hidden h-full">
+                    <div class="flex gap-2 h-full min-w-max">
                     <!-- Loading Skeletons -->
                     <template v-if="!isReady">
                         <div v-for="n in 24" :key="'skeleton-' + n" class="w-[8rem] h-full">
@@ -90,6 +91,7 @@
                                 @levelUpdate="handleLevelUpdate" />
                         </div>
                     </template>
+                    </div>
                 </div>
             </div>
 
@@ -584,5 +586,21 @@ onMounted(async () => {
 
 .tracks-scroll::-webkit-scrollbar-thumb:hover {
     background: rgba(96, 165, 250, 0.8);
+}
+
+.tracks-scroll-wrap {
+    position: relative;
+}
+
+.tracks-scroll-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 36px;
+    pointer-events: none;
+    z-index: 5;
+    background: linear-gradient(to left, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0));
 }
 </style>
