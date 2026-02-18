@@ -235,11 +235,17 @@ async function enumerateAudioOutputs() {
 
 // Initialize audio elements and stream destinations
 function initAudioOutputs() {
+  console.log('[initAudioOutputs] Called. Tone:', !!Tone, 'Tone.context:', !!Tone?.context)
+  
   if (!Tone || !Tone.context) return
 
+  console.log('[initAudioOutputs] Creating media stream destinations...')
+  
   // Create media stream destinations
   mainStreamDestination = Tone.context.rawContext.createMediaStreamDestination()
   headphonesStreamDestination = Tone.context.rawContext.createMediaStreamDestination()
+
+  console.log('[initAudioOutputs] Created destinations:', !!mainStreamDestination, !!headphonesStreamDestination)
 
   // Create Tone.js gain nodes for routing
   mainOutputGain = new Tone.Gain(1)
@@ -247,6 +253,7 @@ function initAudioOutputs() {
 
   // Create hidden audio elements
   if (!mainAudioElement && mainStreamDestination) {
+    console.log('[initAudioOutputs] Creating mainAudioElement...')
     mainAudioElement = document.createElement('audio')
     mainAudioElement.autoplay = true
     mainAudioElement.volume = 1.0 // Full volume
@@ -254,11 +261,16 @@ function initAudioOutputs() {
     mainAudioElement.srcObject = mainStreamDestination.stream
     document.body.appendChild(mainAudioElement)
 
+    console.log('[initAudioOutputs] mainAudioElement created and appended to body')
+
     // Force play (handle autoplay policy)
     mainAudioElement.play().then(() => {
+      console.log('[initAudioOutputs] Main audio element started successfully')
     }).catch(err => {
       console.warn('[Audio Outputs] Main autoplay blocked, will start on user interaction:', err)
     })
+  } else {
+    console.log('[initAudioOutputs] Skipping mainAudioElement creation - already exists or no destination')
   }
 
   if (!headphonesAudioElement && headphonesStreamDestination) {
@@ -344,11 +356,27 @@ async function changeHeadphonesOutput() {
 
 // Ensure audio elements are playing (call this from track when user clicks play)
 function ensureAudioPlaying() {
+  console.log('[ensureAudioPlaying] Called. mainAudioElement:', mainAudioElement, 'paused?', mainAudioElement?.paused)
+  
+  // Check if mainStreamDestination has active audio tracks
+  if (mainStreamDestination) {
+    const streamTracks = mainStreamDestination.stream.getTracks()
+    console.log('[ensureAudioPlaying] mainStreamDestination.stream tracks:', streamTracks.length, streamTracks.map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })))
+  }
+  
+  console.log('[ensureAudioPlaying] headphonesAudioElement:', headphonesAudioElement, 'paused?', headphonesAudioElement?.paused)
+  
   if (mainAudioElement && mainAudioElement.paused) {
+    console.log('[ensureAudioPlaying] Main audio is paused, calling play()...')
     mainAudioElement.play().catch(err => {
       console.warn('[Audio] Main output play blocked:', err)
     })
+  } else if (mainAudioElement) {
+    console.log('[ensureAudioPlaying] Main audio already playing')
+  } else {
+    console.error('[ensureAudioPlaying] mainAudioElement is NULL!')
   }
+  
   if (headphonesAudioElement && headphonesAudioElement.paused && !headphonesAudioElement.muted) {
     headphonesAudioElement.play().catch(err => {
       console.warn('[Audio] Headphones output play blocked:', err)
@@ -809,6 +837,19 @@ function connectMasterRouting() {
     // Then send to output
     masterFaderMergeWrapper.connect(mainOutputGain)
     mainOutputGain.connect(mainStreamDestination as any)
+    
+    console.log('[connectMasterRouting] Main output chain connected to mainStreamDestination')
+  } else {
+    console.error('[connectMasterRouting] Missing nodes for main output routing!', {
+      mainOutputGain: !!mainOutputGain,
+      mainStreamDestination: !!mainStreamDestination,
+      masterFaderSplit: !!masterFaderSplit,
+      masterFaderLeftGain: !!masterFaderLeftGain,
+      masterFaderRightGain: !!masterFaderRightGain,
+      masterFaderMerge: !!masterFaderMerge,
+      masterFaderMergeWrapper: !!masterFaderMergeWrapper,
+      splitNode: !!splitNode
+    })
   }
 
   // Headphones output: bypasses master faders, uses only HP volume knob
@@ -821,6 +862,7 @@ function connectMasterRouting() {
     }
 
     headphonesOutputGain.connect(headphonesStreamDestination as any)
+    console.log('[connectMasterRouting] Headphones output chain connected')
   }
 }
 

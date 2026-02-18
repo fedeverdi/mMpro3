@@ -15,13 +15,32 @@ const createWindow = () => {
     }
   })
 
+  // Automatically grant permission for media access
+  mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    // Allow all media-related permissions
+    callback(true)
+  })
+
+  // Also handle permission checks (for already granted permissions)
+  mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+    if (permission === 'media') {
+      return true
+    }
+    return true
+  })
+
+  // Handle device permission requests (needed for getUserMedia on macOS)
+  mainWindow.webContents.session.setDevicePermissionHandler((details) => {
+    return true
+  })
+
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL)
   } else {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`))
   }
 
- // mainWindow.webContents.openDevTools()
+  // mainWindow.webContents.openDevTools()
 }
 
 app.whenReady().then(() => {

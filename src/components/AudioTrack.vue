@@ -892,12 +892,15 @@ async function handleFileUpload(event: Event) {
       isPlaying.value = false
       stopWaveformDrawing()
       
-      // CRITICAL: Disable loop BEFORE stopping to prevent restart
-      player.loop = false
-      player.stop()
+      // CRITICAL: Only stop if it's a Tone.Player (has stop method)
+      // For audio input, player is a Tone.Gain which doesn't have stop()
+      if (typeof player.stop === 'function') {
+        player.loop = false
+        player.stop()
+      }
       
       // Unsync from transport if synced
-      if (player.sync) {
+      if (player.sync && typeof player.unsync === 'function') {
         try {
           player.unsync()
         } catch (e) {}
@@ -1077,7 +1080,9 @@ async function loadFileFromIndexedDB(savedFileId: string) {
     if (player) {
       isPlaying.value = false
       stopWaveformDrawing()
-      player.stop()
+      if (typeof player.stop === 'function') {
+        player.stop()
+      }
       player.disconnect()
       player.dispose()
       player = null
@@ -1141,7 +1146,9 @@ async function handleUrlLoad() {
     if (player) {
       isPlaying.value = false
       stopWaveformDrawing()
-      player.stop()
+      if (typeof player.stop === 'function') {
+        player.stop()
+      }
       player.disconnect()
       player.dispose()
       player = null
@@ -1239,9 +1246,117 @@ function handleSourceTypeChange() {
     audioInputStream = null
   }
   
+  // CRITICAL: Reset all audio nodes to ensure clean state when switching source types
+  // This prevents issues when switching from microphone to file or vice versa
+  if (gainNode) {
+    try {
+      gainNode.disconnect()
+      gainNode.dispose()
+    } catch (e) {}
+    gainNode = null
+  }
+  
+  if (monoConverter) {
+    try {
+      monoConverter.disconnect()
+      monoConverter.dispose()
+    } catch (e) {}
+    monoConverter = null
+  }
+  
+  if (eq3) {
+    try {
+      eq3.disconnect()
+      eq3.dispose()
+    } catch (e) {}
+    eq3 = null
+  }
+  
+  if (postFxMono) {
+    try {
+      postFxMono.disconnect()
+      postFxMono.dispose()
+    } catch (e) {}
+    postFxMono = null
+  }
+  
+  if (panLeftGain) {
+    try {
+      panLeftGain.disconnect()
+      panLeftGain.dispose()
+    } catch (e) {}
+    panLeftGain = null
+  }
+  
+  if (panRightGain) {
+    try {
+      panRightGain.disconnect()
+      panRightGain.dispose()
+    } catch (e) {}
+    panRightGain = null
+  }
+  
+  if (panMerge) {
+    try {
+      panMerge.disconnect()
+      panMerge.dispose()
+    } catch (e) {}
+    panMerge = null
+  }
+  
+  if (volumeNode) {
+    try {
+      volumeNode.disconnect()
+      volumeNode.dispose()
+    } catch (e) {}
+    volumeNode = null
+  }
+  
+  if (meter) {
+    try {
+      meter.disconnect()
+      meter.dispose()
+    } catch (e) {}
+    meter = null
+  }
+  
+  if (waveform) {
+    try {
+      waveform.disconnect()
+      waveform.dispose()
+    } catch (e) {}
+    waveform = null
+  }
+  
+  // Reset FX nodes
+  if (compressor) {
+    try {
+      compressor.disconnect()
+      compressor.dispose()
+    } catch (e) {}
+    compressor = null
+  }
+  
+  if (reverb) {
+    try {
+      reverb.disconnect()
+      reverb.dispose()
+    } catch (e) {}
+    reverb = null
+  }
+  
+  if (parametricEQFilters) {
+    try {
+      parametricEQFilters.disconnect()
+      parametricEQFilters.dispose()
+    } catch (e) {}
+    parametricEQFilters = null
+  }
+  
   audioLoaded.value = false
   isPlaying.value = false
   fileName.value = ''
+  fileId.value = ''
   selectedAudioInput.value = ''
 }
 
@@ -1249,8 +1364,15 @@ function handleSourceTypeChange() {
 async function handleAudioInputChange() {
   if (!selectedAudioInput.value || !Tone) return
   
+  console.log(`[Track ${props.trackNumber}] handleAudioInputChange called for device:`, selectedAudioInput.value)
+  
   // Initialize audio nodes if needed
   initAudioNodes()
+  
+  if (!gainNode) {
+    console.error(`[Track ${props.trackNumber}] gainNode failed to initialize!`)
+    return
+  }
   
   try {
     // Ensure audio context is running
@@ -1303,12 +1425,20 @@ async function handleAudioInputChange() {
     // Connect to audio chain
     player.connect(gainNode!)
     
+    // CRITICAL: Ensure volume node is connected to master output
+    connectToOutput()
+    
     // Find device name for display
     const device = audioInputs.value.find(d => d.deviceId === selectedAudioInput.value)
     fileName.value = device?.label || 'Audio Input'
     
     audioLoaded.value = true
     isPlaying.value = true // Input is always "playing"
+    
+    // Ensure master audio elements are playing (critical for output!)
+    if (props.masterChannel?.ensureAudioPlaying) {
+      props.masterChannel.ensureAudioPlaying()
+    }
     
     // Start waveform visualization for audio input
     startWaveformDrawing()
@@ -1350,20 +1480,24 @@ async function togglePlay() {
     }
     
     // CRITICAL: If player is already started (from previous loop), stop it first
-    if (player.state === 'started') {
+    if (player.state === 'started' && typeof player.stop === 'function') {
       player.stop()
       // Small delay to ensure clean stop
       await new Promise(resolve => setTimeout(resolve, 50))
     }
     
     
-    player.start()
+    if (typeof player.start === 'function') {
+      player.start()
+    }
     isPlaying.value = true
     
     // Start waveform (disabled)
     startWaveformDrawing()
   } else {
-    player.stop()
+    if (typeof player.stop === 'function') {
+      player.stop()
+    }
     isPlaying.value = false
     
     // Stop waveform (disabled)
@@ -1383,7 +1517,9 @@ function stopAudio() {
   // For file playback
   if (!player || !audioLoaded.value) return
     
-  player.stop()
+  if (typeof player.stop === 'function') {
+    player.stop()
+  }
   isPlaying.value = false
     
   // Stop waveform (disabled)

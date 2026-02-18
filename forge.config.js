@@ -4,6 +4,14 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
+    appBundleId: 'com.federicoverdi.mMpro3',
+    appCategoryType: 'public.app-category.music',
+    extendInfo: {
+      NSMicrophoneUsageDescription: 'This application needs access to the microphone to record and process audio.',
+      NSCameraUsageDescription: 'This application does not use the camera.',
+      LSMinimumSystemVersion: '10.15.0',
+      'com.apple.security.device.audio-input': true
+    }
   },
   rebuildConfig: {},
   makers: [
