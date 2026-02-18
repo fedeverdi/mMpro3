@@ -27,7 +27,7 @@
       >
         <!-- Visual track (narrower) -->
         <div 
-          class="fader-track-visual bg-gray-800 border border-gray-700"
+          class="fader-track-visual bg-gray-800 border border-gray-700 relative z-0"
           :style="{ width: '8px', height: (trackHeight + 2) + 'px' }"
         >
           <!-- Value fill -->
@@ -38,22 +38,22 @@
           ></div>
         </div>
         
+        <!-- Scale marks -->
+        <div class="absolute inset-0 pointer-events-none" :style="{ zIndex: 10 }">
+          <div v-for="mark in scaleMarks" :key="mark.label" 
+            class="absolute left-0 w-2 h-px bg-gray-500"
+            :style="{ bottom: mark.position + '%' }">
+          </div>
+        </div>
+        
         <!-- Fader thumb -->
         <div
           class="fader-thumb absolute left-1/2 transform -translate-y-[0.75rem] -translate-x-1/2 w-7 h-10 rounded-lg shadow-lg border-2 cursor-grab active:cursor-grabbing"
           :class="[thumbClass, isDragging ? '' : '']"
-          :style="{ bottom: thumbPosition + 'px' }"
+          :style="{ bottom: thumbPosition + 'px', zIndex: 100 }"
         >
           <div class="w-full h-full flex items-center justify-center">
             <div class="w-4 h-0.5 bg-gray-800 rounded"></div>
-          </div>
-        </div>
-        
-        <!-- Scale marks -->
-        <div class="absolute inset-0 pointer-events-none">
-          <div v-for="mark in scaleMarks" :key="mark.label" 
-            class="absolute left-0 w-2 h-px bg-gray-500"
-            :style="{ bottom: mark.position + '%' }">
           </div>
         </div>
       </div>
