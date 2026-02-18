@@ -1,0 +1,244 @@
+import { ref } from 'vue'
+
+export interface TrackSnapshot {
+  trackNumber: number
+  volume: number
+  pan: number
+  muted: boolean
+  soloed: boolean
+  sourceType: 'none' | 'youtube' | 'input' | 'file'
+  youtubeURL?: string
+  selectedInputDevice?: string
+  fileName?: string
+  fileId?: string
+  parametricEQFilters?: any[]
+  compressorEnabled?: boolean
+  compressorThreshold?: number
+  compressorRatio?: number
+  compressorAttack?: number
+  compressorRelease?: number
+  reverbEnabled?: boolean
+  reverbDecay?: number
+  reverbPreDelay?: number
+  reverbWet?: number
+}
+
+export interface MasterSnapshot {
+  leftVolume: number
+  rightVolume: number
+  headphonesVolume: number
+  isLinked: boolean
+  masterEQFilters: any[]
+  compressorEnabled: boolean
+  reverbEnabled: boolean
+  limiterEnabled: boolean
+}
+
+export interface Scene {
+  id: string
+  name: string
+  tracks: TrackSnapshot[]
+  master: MasterSnapshot
+  createdAt: number
+  updatedAt: number
+}
+
+const DB_NAME = 'MMpro3_Scenes'
+const DB_VERSION = 1
+const SCENES_STORE = 'scenes'
+
+const scenes = ref<Scene[]>([])
+const currentSceneId = ref<string | null>(null)
+let db: IDBDatabase | null = null
+
+export function useScenes() {
+  // Initialize IndexedDB
+  async function initDB(): Promise<IDBDatabase> {
+    if (db) return db
+
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION)
+
+      request.onerror = () => reject(request.error)
+      request.onsuccess = () => {
+        db = request.result
+        resolve(db)
+      }
+
+      request.onupgradeneeded = (event) => {
+        const database = (event.target as IDBOpenDBRequest).result
+        if (!database.objectStoreNames.contains(SCENES_STORE)) {
+          database.createObjectStore(SCENES_STORE, { keyPath: 'id' })
+        }
+      }
+    })
+  }
+
+  async function loadScenesFromStorage() {
+    try {
+      const database = await initDB()
+      
+      return new Promise<void>(async (resolve, reject) => {
+        const transaction = database.transaction([SCENES_STORE], 'readonly')
+        const store = transaction.objectStore(SCENES_STORE)
+        const request = store.getAll()
+
+        request.onsuccess = async () => {
+          scenes.value = request.result || []
+          
+          // Migration: check if there are scenes in localStorage and migrate them
+          if (scenes.value.length === 0) {
+            await migrateFromLocalStorage()
+          }
+          
+          resolve()
+        }
+        request.onerror = () => reject(request.error)
+      })
+    } catch (error) {
+      console.error('Error loading scenes from IndexedDB:', error)
+    }
+  }
+
+  // Migrate existing scenes from localStorage to IndexedDB
+  async function migrateFromLocalStorage() {
+    try {
+      const stored = localStorage.getItem('mixer_scenes')
+      if (stored) {
+        const oldScenes: Scene[] = JSON.parse(stored)
+        
+        if (oldScenes.length > 0) {
+          console.log(`Migrating ${oldScenes.length} scenes from localStorage to IndexedDB...`)
+          
+          // Save all scenes to IndexedDB
+          for (const scene of oldScenes) {
+            await saveSceneToStorage(scene)
+            scenes.value.push(scene)
+          }
+          
+          // Clear localStorage after successful migration
+          localStorage.removeItem('mixer_scenes')
+          console.log('Migration completed successfully')
+        }
+      }
+    } catch (error) {
+      console.error('Error migrating scenes from localStorage:', error)
+    }
+  }
+
+  async function saveSceneToStorage(scene: Scene) {
+    try {
+      const database = await initDB()
+      
+      return new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction([SCENES_STORE], 'readwrite')
+        const store = transaction.objectStore(SCENES_STORE)
+        const request = store.put(scene)
+
+        request.onsuccess = () => resolve()
+        request.onerror = () => reject(request.error)
+      })
+    } catch (error) {
+      console.error('Error saving scene to IndexedDB:', error)
+      throw error
+    }
+  }
+
+  async function deleteSceneFromStorage(sceneId: string) {
+    try {
+      const database = await initDB()
+      
+      return new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction([SCENES_STORE], 'readwrite')
+        const store = transaction.objectStore(SCENES_STORE)
+        const request = store.delete(sceneId)
+
+        request.onsuccess = () => resolve()
+        request.onerror = () => reject(request.error)
+      })
+    } catch (error) {
+      console.error('Error deleting scene from IndexedDB:', error)
+      throw error
+    }
+  }
+
+  async function createScene(name: string, tracks: TrackSnapshot[], master: MasterSnapshot): Promise<Scene> {
+    const scene: Scene = {
+      id: `scene_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      name,
+      tracks,
+      master,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+    
+    await saveSceneToStorage(scene)
+    scenes.value.push(scene)
+    return scene
+  }
+
+  async function updateScene(sceneId: string, tracks: TrackSnapshot[], master: MasterSnapshot) {
+    const index = scenes.value.findIndex(s => s.id === sceneId)
+    if (index !== -1) {
+      const scene = scenes.value[index]
+      const updatedScene: Scene = {
+        ...scene,
+        tracks,
+        master,
+        updatedAt: Date.now()
+      }
+      
+      // Update in IndexedDB
+      await saveSceneToStorage(updatedScene)
+      
+      // Update reactive array
+      scenes.value[index] = updatedScene
+    }
+  }
+
+  async function deleteScene(sceneId: string) {
+    const index = scenes.value.findIndex(s => s.id === sceneId)
+    if (index !== -1) {
+      scenes.value.splice(index, 1)
+      await deleteSceneFromStorage(sceneId)
+    }
+  }
+
+  async function renameScene(sceneId: string, newName: string) {
+    const index = scenes.value.findIndex(s => s.id === sceneId)
+    if (index !== -1) {
+      const scene = scenes.value[index]
+      const updatedScene: Scene = {
+        ...scene,
+        name: newName,
+        updatedAt: Date.now()
+      }
+      
+      // Update in IndexedDB
+      await saveSceneToStorage(updatedScene)
+      
+      // Update reactive array
+      scenes.value[index] = updatedScene
+    }
+  }
+
+  function getSceneById(sceneId: string): Scene | undefined {
+    return scenes.value.find(s => s.id === sceneId)
+  }
+
+  function setCurrentScene(sceneId: string | null) {
+    currentSceneId.value = sceneId
+  }
+
+  return {
+    scenes,
+    currentSceneId,
+    loadScenesFromStorage,
+    createScene,
+    updateScene,
+    deleteScene,
+    renameScene,
+    getSceneById,
+    setCurrentScene
+  }
+}
