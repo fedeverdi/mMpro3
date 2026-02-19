@@ -43,6 +43,18 @@
           @update="(params) => handleEffectUpdate(index, params)"
         />
 
+        <!-- Delay Effect -->
+        <DelayEffect 
+          v-else-if="effect.type === 'delay'"
+          :enabled="effect.enabled"
+          :initial-delay-time="effect.params.delayTime"
+          :initial-feedback="effect.params.feedback"
+          :initial-wet="effect.params.wet"
+          :effect-node="effect.node"
+          @toggle="(enabled) => handleEffectToggle(index, enabled)"
+          @update="(params) => handleEffectUpdate(index, params)"
+        />
+
         <!-- Limiter Effect -->
         <LimiterEffect 
           v-else-if="effect.type === 'limiter'"
@@ -86,6 +98,13 @@
             <span>Reverb</span>
           </button>
           <button
+            @click="addEffect('delay')"
+            class="w-full px-4 py-3 text-left text-sm hover:bg-gray-700 transition-colors border-b border-gray-700 flex items-center gap-2"
+          >
+            <span class="text-green-400 font-bold">DL</span>
+            <span>Delay</span>
+          </button>
+          <button
             @click="addEffect('limiter')"
             class="w-full px-4 py-3 text-left text-sm hover:bg-gray-700 transition-colors flex items-center gap-2"
           >
@@ -102,6 +121,7 @@
 import { ref, watch } from 'vue'
 import CompressorEffect from './CompressorEffect.vue'
 import ReverbEffect from './ReverbEffect.vue'
+import DelayEffect from './DelayEffect.vue'
 import LimiterEffect from './LimiterEffect.vue'
 
 interface Props {
@@ -111,7 +131,7 @@ interface Props {
 const props = defineProps<Props>()
 
 // Effect types
-type EffectType = 'compressor' | 'reverb' | 'limiter'
+type EffectType = 'compressor' | 'reverb' | 'delay' | 'limiter'
 
 interface Effect {
   id: number
@@ -137,6 +157,11 @@ const defaultParams = {
   reverb: {
     decay: 1.5,
     preDelay: 0.01,
+    wet: 0.3
+  },
+  delay: {
+    delayTime: 0.25,
+    feedback: 0.5,
     wet: 0.3
   },
   limiter: {
@@ -197,6 +222,13 @@ async function handleEffectToggle(index: number, enabled: boolean) {
         }
         break
         
+      case 'delay':
+        await props.masterSection.toggleDelay(enabled, effect.params)
+        if (enabled) {
+          effect.node = props.masterSection.delayNode?.value
+        }
+        break
+        
       case 'limiter':
         // Ensure threshold is in valid range
         effect.params.threshold = Math.max(-20, Math.min(3, effect.params.threshold))
@@ -226,6 +258,10 @@ function handleEffectUpdate(index: number, params: any) {
       
     case 'reverb':
       props.masterSection.updateReverb(params)
+      break
+      
+    case 'delay':
+      props.masterSection.updateDelay(params)
       break
       
     case 'limiter':

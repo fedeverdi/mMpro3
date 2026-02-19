@@ -31,6 +31,7 @@ export interface MasterSnapshot {
   masterEQFilters: any[]
   compressorEnabled: boolean
   reverbEnabled: boolean
+  delayEnabled: boolean
   limiterEnabled: boolean
 }
 

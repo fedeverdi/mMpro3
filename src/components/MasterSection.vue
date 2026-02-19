@@ -186,6 +186,7 @@ const masterEQFiltersData = ref<any[]>([])
 // FX nodes
 let compressor: any = null
 let reverb: any = null
+let delay: any = null
 let limiter: any = null
 let limiterGain: any = null  // Pre-gain for limiter
 let limiterWaveShaper: any = null  // Hard clipper
@@ -194,11 +195,13 @@ let limiterUpdateTimeout: number | null = null
 // FX enabled states
 const compressorEnabled = ref(false)
 const reverbEnabled = ref(false)
+const delayEnabled = ref(false)
 const limiterEnabled = ref(false)
 
 // Reactive FX references for components
 const compressorNode = ref<any>(null)
 const reverbNode = ref<any>(null)
+const delayNode = ref<any>(null)
 const limiterNode = ref<any>(null)
 
 // Reactive master output
@@ -752,6 +755,9 @@ function connectMasterRouting() {
   if (reverb) {
     try { reverb.disconnect() } catch (e) { }
   }
+  if (delay) {
+    try { delay.disconnect() } catch (e) { }
+  }
   if (limiter) {
     try { limiter.disconnect() } catch (e) { }
   }
@@ -811,7 +817,13 @@ function connectMasterRouting() {
     currentNode = reverb
   }
 
-  // 4. Limiter (if enabled)
+  // 4. Delay (if enabled)
+  if (delayEnabled.value && delay) {
+    currentNode.connect(delay)
+    currentNode = delay
+  }
+
+  // 5. Limiter (if enabled)
   if (limiterEnabled.value && limiter) {
     // Connect pre-limiter meters
     currentNode.connect(preLimiterSplit!)
@@ -824,13 +836,13 @@ function connectMasterRouting() {
     console.warn('[MasterSection] ⚠️ Limiter enabled but node is null!')
   }
 
-  // 5. Connect to FX chain output (end of effects)
+  // 6. Connect to FX chain output (end of effects)
   currentNode.connect(fxChainOutput)
 
-  // 6. Connect analysis tap for spectrum analyzer
+  // 7. Connect analysis tap for spectrum analyzer
   fxChainOutput.connect(analysisTap)
 
-  // 7. Route to audio outputs with INDEPENDENT volume controls
+  // 8. Route to audio outputs with INDEPENDENT volume controls
   // Main output: goes through stereo split -> L/R fader gains -> native merger -> wrapper
   if (mainOutputGain && mainStreamDestination && masterFaderSplit && masterFaderLeftGain && masterFaderRightGain && masterFaderMerge && masterFaderMergeWrapper && splitNode) {
     fxChainOutput.connect(masterFaderSplit)
@@ -1085,6 +1097,32 @@ function updateReverb(params: { decay: number, preDelay: number, wet: number }) 
   }
 }
 
+async function toggleDelay(enabled: boolean, params?: { delayTime: number, feedback: number, wet: number }) {
+  if (!Tone) return
+
+  delayEnabled.value = enabled
+
+  if (enabled && !delay) {
+    delay = new Tone.FeedbackDelay({
+      delayTime: params?.delayTime ?? 0.25,
+      feedback: params?.feedback ?? 0.5,
+      wet: params?.wet ?? 0.3
+    })
+    delayNode.value = delay
+  }
+
+  connectMasterRouting()
+}
+
+function updateDelay(params: { delayTime: number, feedback: number, wet: number }) {
+  if (delay && delayEnabled.value) {
+    // Direct assignment to avoid scheduling events
+    delay.delayTime.value = params.delayTime
+    delay.feedback.value = params.feedback
+    delay.wet.value = params.wet
+  }
+}
+
 async function toggleLimiter(enabled: boolean, params?: { threshold: number }) {
   if (!Tone) return
 
@@ -1174,11 +1212,14 @@ defineExpose({
   updateCompressor,
   toggleReverb,
   updateReverb,
+  toggleDelay,
+  updateDelay,
   toggleLimiter,
   updateLimiter,
   // FX nodes for visualization
   compressorNode,
   reverbNode,
+  delayNode,
   limiterNode,
   
   // Scene management
@@ -1197,6 +1238,7 @@ defineExpose({
       })),
       compressorEnabled: compressorEnabled.value,
       reverbEnabled: reverbEnabled.value,
+      delayEnabled: delayEnabled.value,
       limiterEnabled: limiterEnabled.value
     }
   },
@@ -1216,6 +1258,7 @@ defineExpose({
     // Restore FX states
     toggleCompressor(snapshot.compressorEnabled)
     toggleReverb(snapshot.reverbEnabled)
+    toggleDelay(snapshot.delayEnabled)
     toggleLimiter(snapshot.limiterEnabled)
   }
 })
