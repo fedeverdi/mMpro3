@@ -539,34 +539,46 @@ async function handleFileUpload(event: Event) {
     const arrayBuffer = await file.arrayBuffer()
     const audioBuffer = await Tone.context.decodeAudioData(arrayBuffer)
 
-    // Store buffer for waveform display
-    currentAudioBuffer = audioBuffer
-
-    // Stop and reuse player if exists
-    if (player) {
-      isPlaying.value = false
-      waveformDisplayRef.value?.stop()
-
-      // Check if it's a Tone.Player (has stop method and buffer property)
-      if (typeof player.stop === 'function' && 'buffer' in player) {
-        // It's a Tone.Player, reuse it by changing buffer
-        player.loop = false
-        player.stop()
-        player.buffer = audioBuffer
-      } else {
-        // It's a Gain node (from audio input), dispose and create new Player
-        player.disconnect()
-        player.dispose()
-        player = new Tone.Player(audioBuffer)
-        player.connect(gainNode)
-        player.loop = true
+    // Stop playback and waveform
+    if (isPlaying.value) {
+      stopAudio()
+    }
+    
+    // CRITICAL: Properly dispose old buffer and reuse player
+    if (player && typeof player.stop === 'function' && 'buffer' in player) {
+      // It's a Tone.Player - dispose old buffer and reuse player
+      if (player.buffer) {
+        try {
+          // Dispose the old Tone.ToneAudioBuffer
+          if (typeof player.buffer.dispose === 'function') {
+            player.buffer.dispose()
+          }
+        } catch (e) {
+          console.warn('Could not dispose old buffer:', e)
+        }
       }
+      
+      // Assign new buffer to existing player (more efficient than recreating)
+      player.buffer = audioBuffer
+      
     } else {
-      // Create new player
+      // Need to create new player (first time or was audio input)
+      if (player) {
+        // Clean up old player (was audio input Gain node)
+        try {
+          player.disconnect()
+          player.dispose()
+        } catch (e) {}
+      }
+      
+      // Create new Tone.Player
       player = new Tone.Player(audioBuffer)
       player.connect(gainNode)
       player.loop = true
     }
+    
+    // Update current buffer reference for waveform
+    currentAudioBuffer = audioBuffer
 
     // Verify audio chain is connected
     if (!gainNode || !eq3 || !volumeNode) {
@@ -619,33 +631,45 @@ async function loadFileFromIndexedDB(savedFileId: string) {
     // Decode audio buffer
     const audioBuffer = await Tone.context.decodeAudioData(storedFile.arrayBuffer)
 
-    // Stop old player if exists and reuse it
-    if (player) {
-      isPlaying.value = false
-      waveformDisplayRef.value?.stop()
-
-      // Only stop if it's a Tone.Player (has stop method)
-      if (typeof player.stop === 'function') {
-        player.loop = false
-        player.stop()
-        // Reuse player by changing buffer
-        player.buffer = audioBuffer
-      } else {
-        // If it's not a player (e.g., audio input Gain), dispose and create new
-        player.disconnect()
-        player.dispose()
-        player = new Tone.Player(audioBuffer)
-        player.connect(gainNode)
-        player.loop = true
+    // Stop playback and waveform
+    if (isPlaying.value) {
+      stopAudio()
+    }
+    
+    // CRITICAL: Properly dispose old buffer and reuse player
+    if (player && typeof player.stop === 'function' && 'buffer' in player) {
+      // It's a Tone.Player - dispose old buffer and reuse player
+      if (player.buffer) {
+        try {
+          // Dispose the old Tone.ToneAudioBuffer
+          if (typeof player.buffer.dispose === 'function') {
+            player.buffer.dispose()
+          }
+        } catch (e) {
+          console.warn('Could not dispose old buffer:', e)
+        }
       }
+      
+      // Assign new buffer to existing player (more efficient than recreating)
+      player.buffer = audioBuffer
+      
     } else {
-      // Create new player
+      // Need to create new player (first time or was audio input)
+      if (player) {
+        // Clean up old player (was audio input Gain node)
+        try {
+          player.disconnect()
+          player.dispose()
+        } catch (e) {}
+      }
+      
+      // Create new Tone.Player
       player = new Tone.Player(audioBuffer)
       player.connect(gainNode)
       player.loop = true
     }
 
-    // Store current buffer for waveform display
+    // Update current buffer reference for waveform
     currentAudioBuffer = audioBuffer
 
     // Verify audio chain is connected
@@ -683,13 +707,21 @@ function handleSourceTypeChange() {
       if (typeof player.stop === 'function') {
         player.stop()
       }
+      
+      // Dispose old buffer to free memory
+      if (player.buffer && typeof player.buffer.dispose === 'function') {
+        try {
+          player.buffer.dispose()
+        } catch (e) {}
+      }
+      
       player.disconnect()
       player.dispose()
     } catch (e) {}
     player = null
   }
   
-  // Clear audio buffer
+  // Clear audio buffer reference
   currentAudioBuffer = null
   
   // Disconnect and clean up audio input source
@@ -1042,10 +1074,20 @@ onUnmounted(() => {
     audioInputStream = null
   }
 
-  // Cleanup player
+  // Cleanup player and free buffer memory
   if (player) {
+    // Dispose buffer first to free memory
+    if (player.buffer && typeof player.buffer.dispose === 'function') {
+      try {
+        player.buffer.dispose()
+      } catch (e) {}
+    }
     player.dispose()
   }
+  
+  // Clear audio buffer reference
+  currentAudioBuffer = null
+  
   if (gainNode) gainNode.dispose()
   if (eq3) eq3.dispose()
   if (panNode) panNode.dispose()
