@@ -1,5 +1,5 @@
 <template>
-  <div class="limiter-effect bg-gray-800/50 rounded-lg p-3 border border-gray-700 flex flex-col items-center gap-2">
+  <div class="limiter-effect bg-gray-800/50 justify-center h-full rounded-lg p-3 border border-gray-700 flex flex-col items-center gap-2">
     <span class="text-xs font-bold text-green-300">LIMITER</span>
 
     <button @click="toggleEffect" :class="[

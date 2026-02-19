@@ -1,5 +1,5 @@
 <template>
-  <div class="compressor-effect bg-gray-800/50 rounded-lg p-3 border border-gray-700 flex flex-col items-center gap-2">
+  <div class="compressor-effect h-full bg-gray-800/50 rounded-lg p-3 justify-center border border-gray-700 flex flex-col items-center gap-2">
     <span class="text-xs font-bold text-green-300">COMPRESSOR</span>
 
     <button @click="toggleEffect" :class="[
