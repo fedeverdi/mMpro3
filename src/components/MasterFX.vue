@@ -1,20 +1,24 @@
 <template>
-  <div class="master-fx bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-green-600/60 p-3 flex flex-col gap-2 h-full" :class="showAddEffectMenu ? 'overflow-visible' : 'overflow-hidden'">
+  <div class="master-fx bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-green-600/60 p-3 flex flex-col gap-2 h-full overflow-visible">
     <div class="text-left flex-shrink-0">
       <p class="text-sm font-bold text-green-200 tracking-wide uppercase">Master FX Chain</p>
       <p class="text-[10px] text-gray-400">Click + to add effects</p>
     </div>
 
-    <div class="flex-1 flex flex-col gap-2 min-h-0 pr-1 custom-scrollbar" :class="showAddEffectMenu ? 'overflow-visible' : 'overflow-y-auto'">
+    <div class="flex-1 h-full  grid grid-cols-4 gap-3 min-h-0 pr-1 custom-scrollbar overflow-y-none content-start">
       <!-- Existing effects -->
-      <div v-for="(effect, index) in effects" :key="effect.id" class="relative">
+      <div v-for="(effect, index) in effects" :key="effect.id" class="relative h-fit" style="overflow: visible;">
         <!-- Remove button -->
         <button 
           @click="removeEffect(index)"
-          class="absolute -top-1 -right-1 z-10 w-5 h-5 bg-red-600 hover:bg-red-500 rounded-full text-white text-xs flex items-center justify-center transition-colors"
+          class="absolute -top-3 pt-0.5 -right-3 w-7 h-7 bg-red-600 hover:bg-red-500 rounded-full text-white font-bold flex items-center justify-center transition-colors shadow-xl border-2 border-gray-900"
+          style="z-index: 50;"
           title="Remove effect"
         >
-          ×
+          <!-- X in svg -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5">
+            <path fill-rule="evenodd" d="M6.225 4.811a.75.75 0 011.06 0L12 9.525l4.715-4.714a.75.75 0 111.06 1.06L13.06 10.586l4.715 4.715a.75.75 0 11-1.06 1.06L12 11.646l-4.715 4.715a.75.75 0 11-1.06-1.06l4.715-4.715-4.715-4.715a.75.75 0 010-1.06z" clip-rule="evenodd" />
+          </svg>
         </button>
 
         <!-- Compressor Effect -->
@@ -69,18 +73,26 @@
 
       <!-- Add effect button -->
       <div 
-        class="relative border-2 border-dashed border-gray-600 rounded-lg p-4 hover:border-green-500 transition-colors cursor-pointer bg-gray-800/50 hover:bg-gray-800 flex items-center justify-center min-h-[80px]"
+        class="relative h-full border-2 border-dashed border-gray-600 rounded-lg p-4 hover:border-green-500 transition-colors cursor-pointer bg-gray-800/50 hover:bg-gray-800 flex items-center justify-center h-fit"
         @click="showAddEffectMenu = !showAddEffectMenu"
       >
         <div class="text-center">
           <div class="text-3xl text-gray-400 hover:text-green-400 transition-colors">+</div>
           <div class="text-xs text-gray-500 mt-1">Add Effect</div>
         </div>
+      </div>
+    </div>
 
-        <!-- Add effect dropdown menu -->
+    <!-- Add effect dropdown menu (outside scrollable area) -->
+    <Teleport to="body">
+      <div 
+        v-if="showAddEffectMenu"
+        class="fixed inset-0 z-[9998]"
+        @click="showAddEffectMenu = false"
+      >
         <div 
-          v-if="showAddEffectMenu"
-          class="absolute bottom-full left-0 right-0 mb-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 overflow-hidden"
+          class="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 border border-gray-600 rounded-lg shadow-xl overflow-hidden min-w-[200px]"
+          style="z-index: 9999;"
           @click.stop
         >
           <button
@@ -113,12 +125,12 @@
           </button>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import CompressorEffect from './CompressorEffect.vue'
 import ReverbEffect from './ReverbEffect.vue'
 import DelayEffect from './DelayEffect.vue'
@@ -269,22 +281,6 @@ function handleEffectUpdate(index: number, params: any) {
       break
   }
 }
-
-// Close menu when clicking outside
-function handleClickOutside(event: MouseEvent) {
-  showAddEffectMenu.value = false
-}
-
-// Watch for clicks to close menu
-watch(showAddEffectMenu, (isOpen) => {
-  if (isOpen) {
-    setTimeout(() => {
-      document.addEventListener('click', handleClickOutside)
-    }, 0)
-  } else {
-    document.removeEventListener('click', handleClickOutside)
-  }
-})
 </script>
 
 <style scoped>

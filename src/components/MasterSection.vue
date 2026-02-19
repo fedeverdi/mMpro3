@@ -423,9 +423,7 @@ function rebuildFXChain() {
   }
 
   // Connect final node to destination
-  currentNode.toDestination()
-  
-  console.log('[MasterSection FX] Chain rebuilt:', Array.from(fxChainEnabled))
+  currentNode.toDestination()  
 }
 
 // FX Control Methods
@@ -453,7 +451,7 @@ function updateCompressor(params: any) {
   if (!compressorNode) return
   
   if (params.threshold !== undefined) compressorNode.threshold.rampTo(params.threshold, 0.01)
-  if (params.ratio !== undefined) compressorNode.ratio.value = params.ratio
+  if (params.ratio !== undefined) compressorNode.ratio.rampTo(params.ratio, 0.01)
   if (params.attack !== undefined) compressorNode.attack.rampTo(params.attack, 0.01)
   if (params.release !== undefined) compressorNode.release.rampTo(params.release, 0.01)
 }
@@ -467,7 +465,7 @@ async function toggleReverb(enabled: boolean, params?: any) {
         decay: params?.decay ?? 1.5,
         preDelay: params?.preDelay ?? 0.01
       })
-      reverbNode.wet.value = params?.wet ?? 0.3
+      reverbNode.wet.rampTo(params?.wet ?? 0.3, 0.01)
       await reverbNode.generate()
     }
     fxChainEnabled.add('reverb')
@@ -489,7 +487,7 @@ function updateReverb(params: any) {
       decay: params.decay ?? reverbNode.decay,
       preDelay: params.preDelay ?? reverbNode.preDelay
     })
-    newReverb.wet.value = params.wet ?? reverbNode.wet.value
+    newReverb.wet.rampTo(params.wet ?? reverbNode.wet.value, 0.01)
     newReverb.generate().then(() => {
       const oldReverb = reverbNode
       reverbNode = newReverb
@@ -515,7 +513,7 @@ async function toggleDelay(enabled: boolean, params?: any) {
         delayTime: params?.delayTime ?? 0.25,
         feedback: params?.feedback ?? 0.5
       })
-      delayNode.wet.value = params?.wet ?? 0.3
+      delayNode.wet.rampTo(params?.wet ?? 0.3, 0.01)
     }
     fxChainEnabled.add('delay')
   } else {
