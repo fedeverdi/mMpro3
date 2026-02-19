@@ -133,26 +133,9 @@
       </div>
       <!-- EQ Curve Thumbnail -->
       <EQThumbnail :filters="eqFiltersData" />
-      
+
       <!-- 3-Band EQ Knobs (Accordion) -->
-      <div v-show="showEQ3Bands" class="grid grid-cols-2 gap-2 items-center max-h-[10.5rem] -mt-4">
-        <!-- Left column: Mid -->
-        <div class="flex justify-center">
-          <div class="scale-[0.75]">
-            <Knob v-model="eqMid" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Mid" unit="dB" color="#f59e0b" />
-          </div>
-        </div>
-        
-        <!-- Right column: High and Low stacked -->
-        <div class="flex flex-col -space-y-6">
-          <div class="scale-[0.75]">
-            <Knob v-model="eqHigh" :min="-12" :max="12" :step="0.5" :centerValue="0" label="High" unit="dB" color="#ef4444" />
-          </div>
-          <div class="scale-[0.75]">
-            <Knob v-model="eqLow" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Low" unit="dB" color="#10b981" />
-          </div>
-        </div>
-      </div>
+      <TrackEQ ref="trackEQRef" :eq3Node="eq3" :show="showEQ3Bands" />
     </div>
 
     <!-- Mute & Solo Buttons -->
@@ -200,6 +183,7 @@ import ParametricEQModal from './ParametricEQModal.vue'
 import VuMeter from './VuMeter.vue'
 import TrackCompressor from './audioTrack/TrackCompressor.vue'
 import TrackReverb from './audioTrack/TrackReverb.vue'
+import TrackEQ from './audioTrack/TrackEQ.vue'
 import EQThumbnail from './audioTrack/EQThumbnail.vue'
 import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
 
@@ -252,10 +236,6 @@ let audioInputSource: MediaStreamAudioSourceNode | null = null
 const compressorEnabled = ref(false)
 const reverbEnabled = ref(false)
 
-// Refs to component instances
-const trackCompressorRef = ref<any>(null)
-const trackReverbRef = ref<any>(null)
-
 // Store EQ filters data for thumbnail
 const eqFiltersData = ref<any[]>([])
 
@@ -266,11 +246,13 @@ const showEQ3Bands = ref(false)
 const volume = ref(0)
 const gain = ref(0)
 const pan = ref(0) // -1 (left) to +1 (right)
-const eqLow = ref(0)
-const eqMid = ref(0)
-const eqHigh = ref(0)
 const trackLevel = ref(-60)
 const currentPlaybackTime = ref(0)
+
+// Component refs
+const trackEQRef = ref<InstanceType<typeof TrackEQ> | null>(null)
+const trackCompressorRef = ref<InstanceType<typeof TrackCompressor> | null>(null)
+const trackReverbRef = ref<InstanceType<typeof TrackReverb> | null>(null)
 
 // Tone.js nodes
 let player: any = null // Can be Tone.Player or Tone.UserMedia
@@ -1183,12 +1165,7 @@ function updateGain() {
   gainNode.gain.value = Tone.dbToGain(gain.value)
 }
 
-function updateEQ() {
-  if (!eq3) return
-  eq3.low.value = eqLow.value
-  eq3.mid.value = eqMid.value
-  eq3.high.value = eqHigh.value
-}
+
 
 function updatePan() {
   if (!panLeftGain || !panRightGain) return
@@ -1217,7 +1194,6 @@ function updatePan() {
 watch(volume, updateVolume)
 watch(gain, updateGain)
 watch(pan, updatePan)
-watch([eqLow, eqMid, eqHigh], updateEQ)
 
 // Expose methods for external control
 defineExpose({
@@ -1238,6 +1214,7 @@ defineExpose({
       selectedInputDevice: audioSourceType.value === 'input' ? selectedAudioInput.value : undefined,
       fileName: audioSourceType.value === 'file' ? fileName.value : undefined,
       fileId: audioSourceType.value === 'file' ? fileId.value : undefined,
+      eq3: trackEQRef.value?.getParams(),
       parametricEQFilters: eqFiltersData.value.map(f => ({
         id: f.id,
         type: f.type,
@@ -1275,6 +1252,11 @@ defineExpose({
       nextTick(async () => {
         await loadFileFromIndexedDB(snapshot.fileId!)
       })
+    }
+    
+    // Restore 3-band EQ
+    if (snapshot.eq3) {
+      trackEQRef.value?.setParams(snapshot.eq3)
     }
     
     // Restore parametric EQ
