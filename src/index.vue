@@ -14,7 +14,8 @@
                     <button @click="showAudioFlowModal = true"
                         class="px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded text-xs font-semibold transition-colors flex items-center gap-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
                         Signal Flow
                     </button>
@@ -24,9 +25,9 @@
                         🎬
                         Scenes
                     </button>
-                    
+
                     <div class="w-px h-6 bg-gray-600"></div>
-                    
+
                     <button @click="addTrack" :disabled="tracks.length >= 24"
                         class="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded text-xs font-semibold transition-colors">
                         + Add
@@ -50,47 +51,48 @@
             <div class="tracks-scroll-wrap flex-1 overflow-hidden min-w-0 pb-[2px]">
                 <div class="tracks-scroll overflow-x-auto overflow-y-hidden h-full">
                     <div class="flex gap-2 h-full min-w-max">
-                    <!-- Loading Skeletons -->
-                    <template v-if="!isReady">
-                        <div v-for="n in 24" :key="'skeleton-' + n" class="w-[8rem] h-full">
-                            <div class="bg-gray-800 rounded-lg border border-gray-700 p-1 h-full flex flex-col gap-2">
-                                <!-- Header -->
-                                <div class="h-4 bg-gray-700 rounded animate-pulse"></div>
-                                <!-- Controls -->
-                                <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
-                                <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
-                                <div class="flex gap-1">
-                                    <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
-                                    <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
-                                </div>
-                                <!-- Knob area -->
-                                <div class="flex-1 flex items-center justify-center">
-                                    <div class="w-16 h-16 bg-gray-700 rounded-full animate-pulse"></div>
-                                </div>
-                                <!-- Fader area -->
-                                <div class="flex-1 flex flex-col items-center justify-center gap-2 py-4">
-                                    <!-- VU Meter skeleton -->
-                                    <div class="w-12 flex-1 bg-gray-700 rounded animate-pulse"></div>
-                                    <!-- Fader skeleton -->
-                                    <div class="w-8 h-32 bg-gray-700 rounded animate-pulse"></div>
-                                </div>
-                                <!-- Bottom controls -->
-                                <div class="flex gap-1">
-                                    <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
-                                    <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
+                        <!-- Loading Skeletons -->
+                        <template v-if="!isReady">
+                            <div v-for="n in 24" :key="'skeleton-' + n" class="w-[8rem] h-full">
+                                <div
+                                    class="bg-gray-800 rounded-lg border border-gray-700 p-1 h-full flex flex-col gap-2">
+                                    <!-- Header -->
+                                    <div class="h-4 bg-gray-700 rounded animate-pulse"></div>
+                                    <!-- Controls -->
+                                    <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
+                                    <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
+                                    <div class="flex gap-1">
+                                        <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
+                                        <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
+                                    </div>
+                                    <!-- Knob area -->
+                                    <div class="flex-1 flex items-center justify-center">
+                                        <div class="w-16 h-16 bg-gray-700 rounded-full animate-pulse"></div>
+                                    </div>
+                                    <!-- Fader area -->
+                                    <div class="flex-1 flex flex-col items-center justify-center gap-2 py-4">
+                                        <!-- VU Meter skeleton -->
+                                        <div class="w-12 flex-1 bg-gray-700 rounded animate-pulse"></div>
+                                        <!-- Fader skeleton -->
+                                        <div class="w-8 h-32 bg-gray-700 rounded animate-pulse"></div>
+                                    </div>
+                                    <!-- Bottom controls -->
+                                    <div class="flex gap-1">
+                                        <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
+                                        <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </template>
-                    
-                    <!-- Audio Tracks -->
-                    <template v-else>
-                        <div v-for="track in tracks" :key="track.id" class="w-[8rem] h-full mixer-fade-in">
-                            <AudioTrack :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
-                                :master-channel="masterSectionRef" @soloChange="handleSoloChange"
-                                @levelUpdate="handleLevelUpdate" />
-                        </div>
-                    </template>
+                        </template>
+
+                        <!-- Audio Tracks -->
+                        <template v-else>
+                            <div v-for="track in tracks" :key="track.id" class="w-[8rem] h-full mixer-fade-in">
+                                <AudioTrack :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
+                                    :master-channel="masterChannel" @soloChange="handleSoloChange"
+                                    @levelUpdate="handleLevelUpdate" />
+                            </div>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -133,7 +135,7 @@
                         </div>
                     </div>
                 </template>
-                
+
                 <!-- Master EQ Display, Spectrum & FX -->
                 <template v-else>
                     <div class="w-[32rem] flex flex-col h-full gap-2 mixer-fade-in">
@@ -145,15 +147,13 @@
                             <SpectrumMeter :master-channel="masterSectionRef?.analysisOutput" />
                         </div>
                         <div class="flex-1 min-h-0">
-                            <MasterFX 
-                                :master-section="masterSectionRef"
-                            />
+                            <MasterFX :master-section="masterSectionRef" />
                         </div>
                     </div>
 
                     <!-- Master Section -->
                     <div class="w-44 h-full mixer-fade-in">
-                        <MasterSection ref="masterSectionRef" />
+                        <MasterSection ref="masterSectionRef" :master-channel="masterChannel" />
                     </div>
                 </template>
             </div>
@@ -170,21 +170,14 @@
                 </div>
             </div>
         </footer>
-        
+
         <!-- Audio Flow Modal -->
         <AudioFlowModal v-model="showAudioFlowModal" />
 
         <!-- Scenes Modal -->
-        <ScenesModal 
-            v-model="showScenesModal"
-            :scenes="scenes"
-            :current-scene-id="currentSceneId"
-            @save="handleSaveScene"
-            @load="handleLoadScene"
-            @update="handleUpdateScene"
-            @delete="handleDeleteScene"
-            @rename="handleRenameScene"
-        />
+        <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId"
+            @save="handleSaveScene" @load="handleLoadScene" @update="handleUpdateScene" @delete="handleDeleteScene"
+            @rename="handleRenameScene" />
     </div>
 </template>
 
@@ -204,6 +197,7 @@ import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 const ToneRef = inject<any>('Tone')
 let Tone: any = null
 const toneReady = ref(false)
+const masterChannel = ref<any>(null)
 
 interface Track {
     id: number
@@ -247,7 +241,7 @@ function addTrack() {
 function removeTrack() {
     if (tracks.value.length <= 1) return
     const removedTrack = tracks.value.pop()
-    
+
     // Remove the track ref from the map
     if (removedTrack) {
         trackRefs.value.delete(removedTrack.id)
@@ -327,8 +321,8 @@ const sampleRate = computed(() => {
 const bufferSize = computed(() => {
     if (toneReady.value && Tone?.context?.rawContext) {
         const audioContext = Tone.context.rawContext
-        
-        return audioContext.baseLatency 
+
+        return audioContext.baseLatency
             ? Math.round(audioContext.baseLatency * audioContext.sampleRate)
             : (audioContext.sampleRate ? 128 : 0) // Default buffer size estimate
     }
@@ -339,8 +333,8 @@ const bufferSize = computed(() => {
 const { enumerateAudioInputs } = useAudioDevices()
 
 // Scene management
-const { 
-    scenes, 
+const {
+    scenes,
     currentSceneId,
     loadScenesFromStorage,
     createScene,
@@ -361,7 +355,7 @@ async function handleSaveScene(sceneName: string) {
             trackSnapshots.push(trackRef.getSnapshot())
         }
     })
-    
+
     // Collect master snapshot
     const masterSnapshot = masterSectionRef.value?.getSnapshot() || {
         leftVolume: 0,
@@ -373,18 +367,16 @@ async function handleSaveScene(sceneName: string) {
         reverbEnabled: false,
         limiterEnabled: false
     }
-    
+
     // Create and save scene
     const scene = await createScene(sceneName, trackSnapshots, masterSnapshot)
     setCurrentScene(scene.id)
-    
-    console.log(`Scene "${sceneName}" saved successfully`)
 }
 
 function handleLoadScene(sceneId: string) {
     const scene = scenes.value.find((s: Scene) => s.id === sceneId)
     if (!scene) return
-    
+
     // Restore each track's state
     scene.tracks.forEach((trackSnapshot: TrackSnapshot) => {
         const trackRef = trackRefs.value.get(trackSnapshot.trackNumber)
@@ -392,11 +384,11 @@ function handleLoadScene(sceneId: string) {
             trackRef.restoreFromSnapshot(trackSnapshot)
         }
     })
-    
+
     // Restore master section state
     if (masterSectionRef.value && masterSectionRef.value.restoreFromSnapshot) {
         masterSectionRef.value.restoreFromSnapshot(scene.master)
-        
+
         // Update masterEqFiltersData to sync with MasterEQDisplay component
         if (scene.master.masterEQFilters && scene.master.masterEQFilters.length > 0) {
             masterEqFiltersData.value = scene.master.masterEQFilters.map((filter: any) => ({
@@ -410,17 +402,15 @@ function handleLoadScene(sceneId: string) {
             masterEqFiltersData.value = []
         }
     }
-    
+
     // Set as current scene
     setCurrentScene(scene.id)
-    
-    console.log(`Scene "${scene.name}" loaded successfully`)
 }
 
 async function handleUpdateScene(sceneId: string) {
     // Get old scene to clean up orphaned files
     const oldScene = scenes.value.find((s: Scene) => s.id === sceneId)
-    
+
     // Collect current state
     const trackSnapshots: TrackSnapshot[] = []
     tracks.value.forEach(track => {
@@ -429,7 +419,7 @@ async function handleUpdateScene(sceneId: string) {
             trackSnapshots.push(trackRef.getSnapshot())
         }
     })
-    
+
     const masterSnapshot = masterSectionRef.value?.getSnapshot() || {
         leftVolume: 0,
         rightVolume: 0,
@@ -440,10 +430,10 @@ async function handleUpdateScene(sceneId: string) {
         reverbEnabled: false,
         limiterEnabled: false
     }
-    
+
     // Update scene
     await updateScene(sceneId, trackSnapshots, masterSnapshot)
-    
+
     // Clean up old audio files that are no longer in the scene
     if (oldScene) {
         const oldFileIds = new Set(
@@ -456,10 +446,10 @@ async function handleUpdateScene(sceneId: string) {
                 .filter(t => t.fileId)
                 .map(t => t.fileId!)
         )
-        
+
         // Delete files that were in old scene but not in new scene
         const filesToDelete = Array.from(oldFileIds).filter(id => !newFileIds.has(id))
-        
+
         for (const fileId of filesToDelete) {
             try {
                 await deleteAudioFile(fileId)
@@ -468,18 +458,16 @@ async function handleUpdateScene(sceneId: string) {
             }
         }
     }
-    
-    console.log('Scene updated successfully')
 }
 
 async function handleDeleteScene(sceneId: string) {
     // Find scene to get file IDs before deletion
     const scene = scenes.value.find((s: Scene) => s.id === sceneId)
-    
+
     if (scene) {
         // Delete all audio files associated with this scene from IndexedDB
         const fileDeletePromises: Promise<void>[] = []
-        
+
         scene.tracks.forEach((track: TrackSnapshot) => {
             if (track.fileId) {
                 fileDeletePromises.push(
@@ -489,14 +477,14 @@ async function handleDeleteScene(sceneId: string) {
                 )
             }
         })
-        
+
         // Wait for all file deletions to complete
         await Promise.all(fileDeletePromises)
     }
-    
+
     // Delete scene from storage
     await deleteSceneFromStorage(sceneId)
-    
+
     // If deleted scene was current, clear current
     if (currentSceneId.value === sceneId) {
         setCurrentScene(null)
@@ -510,49 +498,40 @@ async function handleRenameScene(sceneId: string, newName: string) {
 // Initialize audio
 onMounted(async () => {
     document.title = 'Audio Mixer Pro - Multi-Track Mixer'
-    
+
     // Load scenes from IndexedDB
     await loadScenesFromStorage()
-    
+
     // Get Tone.js from inject
     if (ToneRef?.value) {
-      Tone = ToneRef.value
+        Tone = ToneRef.value
     } else {
-      // Fallback: wait for it
-      await new Promise<void>((resolve) => {
-        const checkTone = setInterval(() => {
-          if (ToneRef?.value) {
-            Tone = ToneRef.value
-            clearInterval(checkTone)
-            resolve()
-          }
-        }, 100)
-      })
-    }
-    
-    // Mark Tone as ready immediately after import
-    toneReady.value = true
-    
-    // Log audio context info once
-    if (Tone?.context?.rawContext) {
-        const ctx = Tone.context.rawContext
-        const toneCtx = Tone.getContext()
-        console.log('Audio Context Info:', {
-            sampleRate: ctx.sampleRate,
-            baseLatency: ctx.baseLatency,
-            outputLatency: ctx.outputLatency,
-            state: ctx.state,
-            lookAhead: toneCtx.lookAhead,
-            updateInterval: toneCtx.updateInterval
+        // Fallback: wait for it
+        await new Promise<void>((resolve) => {
+            const checkTone = setInterval(() => {
+                if (ToneRef?.value) {
+                    Tone = ToneRef.value
+                    clearInterval(checkTone)
+                    resolve()
+                }
+            }, 100)
         })
     }
-    
+
+    // Mark Tone as ready immediately after import
+    toneReady.value = true
+
+    masterChannel.value = new Tone.Channel({
+        volume: 0,      // dB
+        mute: false,
+    }).toDestination()
+
     // Enumerate audio devices ONCE for all tracks
     await enumerateAudioInputs()
-    
+
     // Wait for next tick to ensure all components are ready
     await nextTick()
-    
+
     // Delay to ensure all components are fully mounted and initialized
     setTimeout(() => {
         isReady.value = true
@@ -574,6 +553,7 @@ onMounted(async () => {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }

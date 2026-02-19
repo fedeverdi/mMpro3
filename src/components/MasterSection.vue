@@ -116,7 +116,14 @@ import AudioOutputModal from './AudioOutputModal.vue'
 import MasterFader from './MasterFader.vue'
 import Knob from './Knob.vue'
 import VuMeter from './VuMeter.vue'
-import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, inject, toRaw } from 'vue'
+
+// Props
+interface Props {
+  masterChannel?: any
+}
+
+const props = defineProps<Props>()
 
 // Inject Tone.js from App.vue
 const ToneRef = inject<any>('Tone')
@@ -555,24 +562,27 @@ function initMasterChannel() {
     return
   }
 
-  // Create master channel with separate left/right control
-  masterChannel = new Tone.Channel({
-    volume: 0,
-    pan: 0
-  })
-  
-  // Configure master channel to maintain stereo (don't collapse to mono)
-  const masterChannelIn = masterChannel.input as AudioNode
-  masterChannelIn.channelCount = 2
-  masterChannelIn.channelCountMode = 'explicit'
-  masterChannelIn.channelInterpretation = 'discrete'
-  
-  const masterChannelOut = masterChannel.output as AudioNode
-  masterChannelOut.channelCount = 2
-  masterChannelOut.channelCountMode = 'explicit'
-  masterChannelOut.channelInterpretation = 'discrete'
-  
-  console.log(`Master Channel created - stereo passthrough configured`)
+  // Use master channel from props if provided, otherwise create new one
+  if (props.masterChannel) {
+    masterChannel = toRaw(props.masterChannel)
+  } else {
+    // Create master channel with separate left/right control
+    masterChannel = new Tone.Channel({
+      volume: 0,
+      pan: 0
+    })
+    
+    // Configure master channel to maintain stereo (don't collapse to mono)
+    const masterChannelIn = masterChannel.input as AudioNode
+    masterChannelIn.channelCount = 2
+    masterChannelIn.channelCountMode = 'explicit'
+    masterChannelIn.channelInterpretation = 'discrete'
+    
+    const masterChannelOut = masterChannel.output as AudioNode
+    masterChannelOut.channelCount = 2
+    masterChannelOut.channelCountMode = 'explicit'
+    masterChannelOut.channelInterpretation = 'discrete'
+  }
 
 
   // Create meters for L/R
@@ -862,8 +872,6 @@ function connectMasterRouting() {
     // Then send to output
     masterFaderMergeWrapper.connect(mainOutputGain)
     mainOutputGain.connect(mainStreamDestination as any)
-    
-    console.log('[connectMasterRouting] Main output chain connected to mainStreamDestination')
   } else {
     console.error('[connectMasterRouting] Missing nodes for main output routing!', {
       mainOutputGain: !!mainOutputGain,
@@ -887,7 +895,6 @@ function connectMasterRouting() {
     }
 
     headphonesOutputGain.connect(headphonesStreamDestination as any)
-    console.log('[connectMasterRouting] Headphones output chain connected')
   }
 }
 
