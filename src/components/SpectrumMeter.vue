@@ -93,7 +93,7 @@
 import { ref, watch, onMounted, onUnmounted, toRaw, inject } from 'vue'
 
 interface Props {
-  masterChannel?: any
+  masterEqDisplay?: any
 }
 
 const props = defineProps<Props>()
@@ -157,10 +157,10 @@ const ensureAnalyser = async () => {
 }
 
 const getMasterNode = () => {
-  const channel = props.masterChannel as any
-  if (!channel) return null
-  const node = channel?.value ?? channel
-  return toRaw(node)
+  // Get output node from MasterEQDisplay
+  if (!props.masterEqDisplay || !props.masterEqDisplay.getOutputNode) return null
+  const node = props.masterEqDisplay.getOutputNode()
+  return node ? toRaw(node) : null
 }
 
 const connectAnalyser = async () => {
@@ -192,11 +192,19 @@ const connectAnalyser = async () => {
 
 watch(
   () => {
-    const channel = props.masterChannel as any
-    return channel?.value ?? channel
+    // Get output node from MasterEQDisplay
+    if (!props.masterEqDisplay || !props.masterEqDisplay.getOutputNode) return null
+    return props.masterEqDisplay.getOutputNode()
   },
-  () => {
-    connectAnalyser()
+  (newNode) => {
+    if (newNode) {
+      connectAnalyser()
+    } else {
+      // Wait a bit for outputNode to be created
+      setTimeout(() => {
+        connectAnalyser()
+      }, 100)
+    }
   },
   { immediate: true }
 )

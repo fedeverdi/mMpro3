@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, toRaw, inject } from 'vue'
 import { PeakingFilter } from '~/lib/filters/peaking.class'
 import { LowShelvingFilter } from '~/lib/filters/lowShelving.class'
 import { HighShelvingFilter } from '~/lib/filters/highShelving.class'
@@ -41,12 +41,14 @@ import ParametricEQModal from './ParametricEQModal.vue'
 
 interface Props {
   filtersData?: any[]
+  masterChannel?: any
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{
-  (e: 'filters-change', filters: any): void
-}>()
+
+// Inject Tone.js
+const ToneRef = inject<any>('Tone')
+let Tone: any = null
 
 const showMasterEQ = ref(false)
 const masterEqCanvas = ref<HTMLCanvasElement | null>(null)
@@ -58,6 +60,8 @@ const highShelvingCalculator = new HighShelvingFilter()
 
 let rafId: number | null = null
 let needsRedraw = false
+let masterParametricEQFilters: any = null
+let outputNode: any = null  // Output node for chaining to MasterSection
 
 function syncFiltersData(newData?: any[]) {
   internalFiltersData.value = (newData || []).map(filter => ({ ...filter }))
@@ -81,19 +85,87 @@ watch(() => props.filtersData, (newVal) => {
 }, { immediate: true })
 
 onMounted(async () => {
+  // Get Tone.js
+  if (ToneRef?.value) {
+    Tone = ToneRef.value
+  }
+  
   await nextTick()
   requestRedraw()
   window.addEventListener('resize', requestRedraw)
+  
+  // Create output node for chaining
+  if (Tone && props.masterChannel) {
+    outputNode = new Tone.Gain(1)
+    // Initially connect master directly to output
+    const masterChan = toRaw(props.masterChannel)
+    masterChan.connect(outputNode)
+  }
 })
 
 onUnmounted(() => {
   if (rafId) cancelAnimationFrame(rafId)
   window.removeEventListener('resize', requestRedraw)
+  
+  // Cleanup audio nodes
+  if (outputNode) {
+    outputNode.dispose()
+  }
 })
 
+// Handle parametric EQ update
 function handleMasterParametricEQUpdate(filters: any) {
   if (!filters) return
-  emit('filters-change', filters)
+  
+  // Store the latest filter chain
+  masterParametricEQFilters = filters
+  
+  // Store filter data for thumbnail AND update the preview
+  if (filters.filtersData) {
+    const rawFiltersData = toRaw(filters.filtersData)
+    internalFiltersData.value = rawFiltersData.map((f: any) => ({
+      type: f.type,
+      frequency: f.frequency,
+      gain: f.gain,
+      Q: f.Q,
+      color: f.color
+    }))
+    
+    // Redraw the preview when filters change
+    requestRedraw()
+  }
+  
+  // Apply the parametric EQ to the audio chain
+  applyMasterEQ()
+}
+
+// Insert or remove parametric EQ from the master chain
+function applyMasterEQ() {
+  if (!props.masterChannel || !outputNode) return
+  
+  const masterChan = toRaw(props.masterChannel)
+  
+  // Disconnect master channel
+  try {
+    masterChan.disconnect()
+  } catch (e) {
+    // Ignore disconnection errors
+  }
+  
+  // Insert parametric EQ between master and output if present
+  if (masterParametricEQFilters && masterParametricEQFilters.input && masterParametricEQFilters.output) {
+    masterChan.connect(masterParametricEQFilters.input)
+    
+    // Disconnect old parametric output if needed
+    try {
+      masterParametricEQFilters.output.disconnect()
+    } catch (e) { }
+    
+    masterParametricEQFilters.output.connect(outputNode)
+  } else {
+    // No parametric EQ: connect master directly to output
+    masterChan.connect(outputNode)
+  }
 }
 
 function drawMasterEQPreview() {
@@ -252,4 +324,9 @@ function calculateFilterGain(filter: any, freq: number): number {
   }
   return 0
 }
+
+// Expose output node for MasterSection to connect to
+defineExpose({
+  getOutputNode: () => outputNode
+})
 </script>

@@ -140,11 +140,10 @@
                 <template v-else>
                     <div class="w-[32rem] flex flex-col h-full gap-2 mixer-fade-in">
                         <div class="flex-[2] min-h-0">
-                            <MasterEQDisplay :filters-data="masterEqFiltersData"
-                                @filters-change="handleMasterEQFiltersChange" />
+                            <MasterEQDisplay ref="masterEQDisplayRef" :filters-data="masterEqFiltersData" :master-channel="masterChannel" />
                         </div>
                         <div class="flex-[1.5] min-h-0">
-                            <SpectrumMeter :master-channel="masterChannel" />
+                            <SpectrumMeter :master-eq-display="masterEQDisplayRef" />
                         </div>
                         <div class="flex-1 min-h-0">
                             <MasterFX />
@@ -153,7 +152,7 @@
 
                     <!-- Master Section -->
                     <div class="w-44 h-full mixer-fade-in">
-                        <MasterSection :master-channel="masterChannel" />
+                        <MasterSection :master-eq-display="masterEQDisplayRef" />
                     </div>
                 </template>
             </div>
@@ -193,6 +192,7 @@ import SpectrumMeter from './components/SpectrumMeter.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useScenes, type Scene, type TrackSnapshot } from '~/composables/useScenes'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
+import { channel } from 'diagnostics_channel'
 
 const ToneRef = inject<any>('Tone')
 let Tone: any = null
@@ -252,6 +252,7 @@ function removeTrack() {
 
 // Track refs management
 const trackRefs = ref<Map<number, any>>(new Map())
+const masterEQDisplayRef = ref<any>(null)
 
 function setTrackRef(trackId: number, el: any | null) {
     if (el) {
@@ -291,19 +292,6 @@ function handleSoloChange(data: { trackNumber: number, isSolo: boolean }) {
 // Level updates (for future visualizations)
 function handleLevelUpdate(data: { trackNumber: number, level: number }) {
     // Can be used for additional visualizations if needed
-}
-
-function handleMasterEQFiltersChange(filters: any) {
-    if (!filters) return
-
-    const rawFilters = filters.filtersData ? toRaw(filters.filtersData) : []
-    masterEqFiltersData.value = rawFilters.map((filter: any) => ({
-        type: filter.type,
-        frequency: filter.frequency,
-        gain: filter.gain,
-        Q: filter.Q,
-        color: filter.color
-    }))
 }
 
 // Audio context info (reactive)
@@ -515,7 +503,13 @@ onMounted(async () => {
 
     // Use Gain instead of Channel to preserve stereo
     // Tone.Channel converts stereo to mono!
-    masterChannel.value = new Tone.Gain(1)  // Unity gain (0dB)
+    masterChannel.value = new Tone.Channel({
+        volume: 0,
+        pan: 0,
+        channelCount: 2,
+        channelCountMode: 'explicit',
+        channelInterpretation: 'speakers'
+    })
 
     // Enumerate audio devices ONCE for all tracks
     await enumerateAudioInputs()

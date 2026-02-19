@@ -55,11 +55,11 @@
 <script setup lang="ts">
 import MasterFader from './MasterFader.vue'
 import VuMeter from './VuMeter.vue'
-import { ref, watch, onMounted, onUnmounted, nextTick, inject, toRaw } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 
 // Props
 interface Props {
-  masterChannel?: any
+  masterEqDisplay?: any
 }
 
 const props = defineProps<Props>()
@@ -112,12 +112,14 @@ function initMasterChannel() {
     return
   }
 
-  // Use master channel from props
-  if (props.masterChannel) {
-    masterChannel = toRaw(props.masterChannel)
+  // Get output node from MasterEQDisplay
+  if (props.masterEqDisplay && props.masterEqDisplay.getOutputNode) {
+    masterChannel = props.masterEqDisplay.getOutputNode()
   } else {
     return
   }
+
+  if (!masterChannel) return
 
   // Create stereo routing: Split → [LeftGain, RightGain] → Merge → Destination
   splitNode = new Tone.Split()
@@ -183,6 +185,16 @@ watch(leftVolume, (newVal) => {
   }
 })
 
+// Watch for masterEQDisplay to become available and init
+watch(() => props.masterEqDisplay, (newVal) => {
+  if (newVal && newVal.getOutputNode && !masterChannel) {
+    // Wait a bit for outputNode to be created
+    setTimeout(() => {
+      initMasterChannel()
+    }, 100)
+  }
+}, { immediate: true })
+
 // Link/unlink channels
 function toggleLink() {
   isLinked.value = !isLinked.value
@@ -239,8 +251,7 @@ onMounted(async () => {
     resizeObserver.observe(metersContainer.value)
   }
 
-  // Initialize master channel
-  initMasterChannel()
+  // Master channel init is handled by watcher
 
   // Start level monitoring
   startLevelMonitoring()
