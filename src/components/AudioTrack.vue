@@ -22,7 +22,6 @@
         >
           <option value="file">📁 File</option>
           <option value="input">🎤 Audio Input</option>
-          <option value="youtube">🎵 YouTube</option>
         </select>
       </div>
 
@@ -48,32 +47,6 @@
           </option>
         </select>
       </div>
-
-      <!-- YouTube URL Input (shown when source is 'youtube') -->
-      <div v-if="audioSourceType === 'youtube'" class="w-full flex gap-1 items-center">
-        <input 
-          v-model="audioUrl"
-          type="text"
-          placeholder="Paste YouTube URL..."
-          class="flex-1 min-w-0 px-2 py-1 text-xs bg-gray-900 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-          @keyup.enter="handleUrlLoad"
-        />
-        <button 
-          @click="handleUrlLoad"
-          :disabled="!audioUrl || isLoading"
-          class="flex-shrink-0 px-1.5 py-1 text-[10px] rounded transition-colors flex items-center justify-center"
-          :class="audioLoaded ? 'bg-green-600 text-white cursor-default' : (audioUrl && !isLoading ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 text-gray-500 cursor-not-allowed')"
-        >
-          <span v-if="isLoading" class="flex items-center gap-0.5">
-            <svg class="animate-spin h-2.5 w-2.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          </span>
-          <span v-else>{{ audioLoaded ? 'Loaded' : 'Load' }}</span>
-        </button>
-      </div>
-
 
       <!-- Transport Controls -->
       <div class="flex gap-1 justify-center">
@@ -120,39 +93,26 @@
     <!-- FX Section -->
     <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
       <div class="flex gap-1">
-        <!-- Compressor Toggle -->
-        <div @click="toggleCompressor" :class="[
-          'w-full cursor-pointer py-1 px-2 text-[10px] font-bold rounded transition-all flex items-center justify-between',
-          compressorEnabled ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-        ]">
-          <span>CO</span>
-          <button :disabled="!compressorEnabled" @click.stop="showCompressorModal = true"
-            class="p-0.5 rounded hover:bg-green-700">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Reverb Toggle -->
-        <div @click="toggleReverb" :class="[
-          'w-full cursor-pointer py-1 px-2 text-[10px] font-bold rounded transition-all flex items-center justify-between',
-          reverbEnabled ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-        ]">
-          <span>RE</span>
-          <button :disabled="!reverbEnabled" @click.stop="showReverbModal = true"
-            class="p-0.5 rounded hover:bg-green-700">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-        </div>
+        <TrackCompressor 
+          :track-number="trackNumber"
+          :enabled="compressorEnabled"
+          :threshold="compressorThreshold"
+          :ratio="compressorRatio"
+          :attack="compressorAttack"
+          :release="compressorRelease"
+          :meter="meter"
+          @toggle="toggleCompressor"
+          @update="updateCompressor"
+        />
+        <TrackReverb 
+          :track-number="trackNumber"
+          :enabled="reverbEnabled"
+          :decay="reverbDecay"
+          :pre-delay="reverbPreDelay"
+          :wet="reverbWet"
+          @toggle="toggleReverb"
+          @update="updateReverb"
+        />
       </div>
     </div>
 
@@ -232,55 +192,6 @@
 
   <!-- Parametric EQ Modal -->
   <ParametricEQModal v-model="showParametricEQ" :trackNumber="trackNumber" :eq-filters="eqFiltersData" @update="handleParametricEQUpdate" />
-
-  <!-- FX Modals -->
-  <Teleport to="body">
-    <!-- Compressor Modal -->
-    <div v-if="showCompressorModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
-      @click="showCompressorModal = false">
-      <div class="bg-gray-900 rounded-lg border-2 border-green-600 p-6 max-w-2xl w-full mx-4" @click.stop>
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-xl font-bold text-green-300">Track {{ trackNumber }} - Compressor</h3>
-          <button @click="showCompressorModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
-        </div>
-        <!-- Compression Curve Display -->
-        <div class="mb-6 bg-black/50 rounded-lg p-4 border border-green-600/30">
-          <p class="text-xs text-green-300 font-bold mb-2 text-center">COMPRESSION CURVE</p>
-          <canvas ref="compressorCanvas" class="w-full rounded" style="height: 300px;"></canvas>
-        </div>
-
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Knob v-model="compressorThreshold" :min="-60" :max="0" :step="0.5" label="Threshold" unit="dB"
-            color="#10b981" @update:modelValue="updateCompressor" />
-          <Knob v-model="compressorRatio" :min="1" :max="20" :step="0.1" label="Ratio" unit=":1" color="#10b981"
-            @update:modelValue="updateCompressor" />
-          <Knob v-model="compressorAttack" :min="0" :max="1" :step="0.01" label="Attack" unit="s" color="#10b981"
-            @update:modelValue="updateCompressor" />
-          <Knob v-model="compressorRelease" :min="0" :max="4" :step="0.01" label="Release" unit="s" color="#10b981"
-            @update:modelValue="updateCompressor" />
-        </div>
-      </div>
-    </div>
-
-    <!-- Reverb Modal -->
-    <div v-if="showReverbModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
-      @click="showReverbModal = false">
-      <div class="bg-gray-900 rounded-lg border-2 border-green-600 p-6 max-w-2xl w-full mx-4" @click.stop>
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-xl font-bold text-green-300">Track {{ trackNumber }} - Reverb</h3>
-          <button @click="showReverbModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
-        </div>
-        <div class="flex flex-wrap gap-4 justify-center">
-          <Knob v-model="reverbDecay" :min="0.1" :max="10" :step="0.1" label="Decay" unit="s" color="#10b981"
-            @update:modelValue="updateReverb" />
-          <Knob v-model="reverbPreDelay" :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#f59e0b"
-            @update:modelValue="updateReverb" />
-          <Knob v-model="reverbWet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4"
-            @update:modelValue="updateReverb" />
-        </div>
-      </div>
-    </div>
-  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -296,6 +207,8 @@ import Knob from './Knob.vue'
 import PanKnob from './PanKnob.vue'
 import ParametricEQModal from './ParametricEQModal.vue'
 import VuMeter from './VuMeter.vue'
+import TrackCompressor from './TrackCompressor.vue'
+import TrackReverb from './TrackReverb.vue'
 
 defineOptions({
   inheritAttrs: false
@@ -327,14 +240,13 @@ const faderHeight = ref(0)
 const isPlaying = ref(false)
 const isMuted = ref(false)
 const isSolo = ref(false)
-const audioUrl = ref<string>('')
 const isLoading = ref(false)
 const showParametricEQ = ref(false)
 const eqThumbnail = ref<HTMLCanvasElement | null>(null)
 const waveformCanvas = ref<HTMLCanvasElement | null>(null)
 
 // Audio source selection
-const audioSourceType = ref<'file' | 'input' | 'youtube'>('file')
+const audioSourceType = ref<'file' | 'input'>('file')
 
 // Audio inputs from shared composable
 const { audioInputDevices, refreshAudioInputs } = useAudioDevices()
@@ -345,8 +257,6 @@ let audioInputStream: MediaStream | null = null
 let audioInputSource: MediaStreamAudioSourceNode | null = null
 
 // FX state
-const showCompressorModal = ref(false)
-const showReverbModal = ref(false)
 const compressorEnabled = ref(false)
 const reverbEnabled = ref(false)
 const compressorThreshold = ref(-20)
@@ -356,12 +266,6 @@ const compressorRelease = ref(0.25)
 const reverbDecay = ref(1.5)
 const reverbPreDelay = ref(0.01)
 const reverbWet = ref(0.3)
-
-// Compressor visualization
-const compressorCanvas = ref<HTMLCanvasElement | null>(null)
-const currentInputLevel = ref(-60)
-const currentGainReduction = ref(0)
-let compressorAnimationId: number | null = null
 
 // Filter calculators for thumbnail
 const peakingCalculator = new PeakingFilter()
@@ -1127,91 +1031,7 @@ async function loadFileFromIndexedDB(savedFileId: string) {
   }
 }
 
-// Helper to check if URL is YouTube
-function isYouTubeUrl(url: string): boolean {
-  return /(?:youtube\.com|youtu\.be)/.test(url)
-}
 
-// URL handler (supports YouTube and direct audio URLs)
-async function handleUrlLoad() {
-  if (!audioUrl.value || !Tone) return
-
-  // Initialize audio nodes on first use
-  initAudioNodes()
-
-  isLoading.value = true
-
-  try {
-    // Stop and dispose old player if exists
-    if (player) {
-      isPlaying.value = false
-      stopWaveformDrawing()
-      if (typeof player.stop === 'function') {
-        player.stop()
-      }
-      player.disconnect()
-      player.dispose()
-      player = null
-    }
-    
-    currentAudioBuffer = null
-
-    // Small delay to ensure clean state
-    await new Promise(resolve => setTimeout(resolve, 100))
-
-    let finalUrl = audioUrl.value
-    let audioTitle = 'Audio from URL'
-
-    // Check if it's a YouTube URL
-    if (isYouTubeUrl(audioUrl.value)) {
-      try {
-        // Get YouTube info
-        const infoResponse = await $fetch<any>('/api/youtube', {
-          query: { url: audioUrl.value }
-        })
-
-        if (infoResponse.success) {
-          audioTitle = infoResponse.title || 'YouTube Audio'
-          
-          // Use the server as a proxy - the server will stream the audio from YouTube
-          finalUrl = `/api/youtube-stream?url=${encodeURIComponent(audioUrl.value)}`
-        } else {
-          throw new Error('YouTube API failed')
-        }
-      } catch (ytError: any) {
-        console.error('[YouTube Client] Loading failed:', ytError)
-        alert('Failed to load YouTube video: ' + (ytError.message || ytError))
-        isLoading.value = false
-        audioLoaded.value = false
-        return
-      }
-    }
-
-    // Create new player from URL
-    player = new Tone.Player({
-      url: finalUrl,
-      onload: () => {
-        audioLoaded.value = true
-        fileName.value = audioTitle
-        isLoading.value = false
-      },
-      onerror: (error: any) => {
-        console.error('Error loading audio:', error)
-        alert('Error loading audio. Make sure the URL is accessible and in a supported format (MP3, WAV, OGG).')
-        isLoading.value = false
-        audioLoaded.value = false
-      }
-    }).connect(gainNode!)
-
-    player.loop = true
-
-  } catch (error: any) {
-    console.error('URL load error:', error)
-    alert('Failed to load audio. Please check the URL and try again.')
-    isLoading.value = false
-    audioLoaded.value = false
-  }
-}
 
 // Handle source type change
 function handleSourceTypeChange() {
@@ -1609,7 +1429,6 @@ defineExpose({
       muted: isMuted.value,
       soloed: isSolo.value,
       sourceType: audioSourceType.value,
-      youtubeURL: audioSourceType.value === 'youtube' ? audioUrl.value : undefined,
       selectedInputDevice: audioSourceType.value === 'input' ? selectedAudioInput.value : undefined,
       fileName: audioSourceType.value === 'file' ? fileName.value : undefined,
       fileId: audioSourceType.value === 'file' ? fileId.value : undefined,
@@ -1642,13 +1461,6 @@ defineExpose({
     
     // Restore source type and related data
     audioSourceType.value = snapshot.sourceType || 'file'
-    if (snapshot.youtubeURL) {
-      audioUrl.value = snapshot.youtubeURL
-      // Auto-reload YouTube URL
-      nextTick(() => {
-        handleUrlLoad()
-      })
-    }
     if (snapshot.selectedInputDevice) {
       selectedAudioInput.value = snapshot.selectedInputDevice
       nextTick(() => {
@@ -1740,9 +1552,6 @@ onUnmounted(() => {
   if (levelMonitorInterval) {
     clearInterval(levelMonitorInterval)
   }
-
-  // Stop compressor monitoring
-  stopCompressorMonitoring()
   
   // Stop waveform drawing
   stopWaveformDrawing()
@@ -1815,289 +1624,35 @@ function removeReverb() {
   }
 }
 
-function updateCompressor() {
+function updateCompressor(params: { threshold: number, ratio: number, attack: number, release: number }) {
+  compressorThreshold.value = params.threshold
+  compressorRatio.value = params.ratio
+  compressorAttack.value = params.attack
+  compressorRelease.value = params.release
+  
   if (!compressor) return
 
   // Use parameter ramping to prevent audio spikes
   const rampTime = 0.05 // 50ms smooth transition
-  compressor.threshold.rampTo(compressorThreshold.value, rampTime)
-  compressor.ratio.rampTo(compressorRatio.value, rampTime)
-  compressor.attack.rampTo(compressorAttack.value, rampTime)
-  compressor.release.rampTo(compressorRelease.value, rampTime)
-
-  // Redraw curve if modal is open
-  if (showCompressorModal.value) {
-    nextTick(() => drawTrackCompressionCurve())
-  }
+  compressor.threshold.rampTo(params.threshold, rampTime)
+  compressor.ratio.rampTo(params.ratio, rampTime)
+  compressor.attack.rampTo(params.attack, rampTime)
+  compressor.release.rampTo(params.release, rampTime)
 }
 
-function updateReverb() {
+function updateReverb(params: { decay: number, preDelay: number, wet: number }) {
+  reverbDecay.value = params.decay
+  reverbPreDelay.value = params.preDelay
+  reverbWet.value = params.wet
+  
   if (!reverb) return
 
   // Use parameter ramping for smooth changes
   const rampTime = 0.05 // 50ms
-  reverb.decay = reverbDecay.value // Decay can't be ramped, it's a constructor property
-  reverb.preDelay = reverbPreDelay.value // PreDelay can't be ramped either
-  reverb.wet.rampTo(reverbWet.value, rampTime)
+  reverb.decay = params.decay // Decay can't be ramped, it's a constructor property
+  reverb.preDelay = params.preDelay // PreDelay can't be ramped either
+  reverb.wet.rampTo(params.wet, rampTime)
 }
-
-// Track compressor visualization
-watch(showCompressorModal, (isOpen) => {
-  if (isOpen) {
-    startCompressorMonitoring()
-    nextTick(() => drawTrackCompressionCurve())
-  } else {
-    stopCompressorMonitoring()
-  }
-})
-
-function startCompressorMonitoring() {
-  if (compressorAnimationId) return
-
-  function updateTrackLevels() {
-    if (!showCompressorModal.value || !meter) {
-      compressorAnimationId = null
-      return
-    }
-
-    try {
-      // Get track-specific meter values
-      const leftLevel = meter.getLevel('left')
-      const rightLevel = meter.getLevel('right')
-      const avgLevel = (leftLevel + rightLevel) / 2
-      currentInputLevel.value = Math.max(-60, Math.min(0, avgLevel))
-    } catch (error) {
-      currentInputLevel.value = -60
-    }
-
-    // Calculate gain reduction for this track
-    const inputDb = currentInputLevel.value
-    if (inputDb > compressorThreshold.value && compressorEnabled.value) {
-      const excess = inputDb - compressorThreshold.value
-      const reducedExcess = excess / compressorRatio.value
-      currentGainReduction.value = excess - reducedExcess
-    } else {
-      currentGainReduction.value = 0
-    }
-
-    drawTrackCompressionCurve()
-    compressorAnimationId = requestAnimationFrame(updateTrackLevels)
-  }
-
-  updateTrackLevels()
-}
-
-function stopCompressorMonitoring() {
-  if (compressorAnimationId) {
-    cancelAnimationFrame(compressorAnimationId)
-    compressorAnimationId = null
-  }
-}
-
-function drawTrackCompressionCurve() {
-  if (!compressorCanvas.value || !showCompressorModal.value) return
-
-  const canvas = compressorCanvas.value
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  // Get display size and scale for high DPI
-  const rect = canvas.getBoundingClientRect()
-  const width = rect.width
-  const height = rect.height
-  const dpr = window.devicePixelRatio || 1
-
-  canvas.width = width * dpr
-  canvas.height = height * dpr
-  ctx.scale(dpr, dpr)
-
-  // Clear canvas
-  ctx.fillStyle = '#000000'
-  ctx.fillRect(0, 0, width, height)
-
-  const padding = 40
-  const graphWidth = width - padding * 2
-  const graphHeight = height - padding * 2
-
-  // Helper functions for coordinate mapping
-  const dbToX = (db: number) => padding + ((db + 60) / 60) * graphWidth
-  const dbToY = (db: number) => height - padding - ((db + 60) / 60) * graphHeight
-
-  // Draw grid
-  ctx.strokeStyle = '#333333'
-  ctx.lineWidth = 1
-  for (let db = -60; db <= 0; db += 10) {
-    // Vertical lines
-    ctx.beginPath()
-    ctx.moveTo(dbToX(db), padding)
-    ctx.lineTo(dbToX(db), height - padding)
-    ctx.stroke()
-
-    // Horizontal lines
-    ctx.beginPath()
-    ctx.moveTo(padding, dbToY(db))
-    ctx.lineTo(width - padding, dbToY(db))
-    ctx.stroke()
-  }
-
-  // Draw axes
-  ctx.strokeStyle = '#666666'
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(padding, padding)
-  ctx.lineTo(padding, height - padding)
-  ctx.lineTo(width - padding, height - padding)
-  ctx.stroke()
-
-  // Axis labels
-  ctx.fillStyle = '#999999'
-  ctx.font = '10px monospace'
-  ctx.textAlign = 'center'
-
-  // X-axis labels
-  for (let db = -60; db <= 0; db += 20) {
-    ctx.fillText(`${db}`, dbToX(db), height - padding + 15)
-  }
-  ctx.fillText('Input (dB)', width / 2, height - 5)
-
-  // Y-axis labels
-  ctx.textAlign = 'right'
-  for (let db = -60; db <= 0; db += 20) {
-    ctx.fillText(`${db}`, padding - 5, dbToY(db) + 3)
-  }
-  ctx.save()
-  ctx.translate(12, height / 2)
-  ctx.rotate(-Math.PI / 2)
-  ctx.textAlign = 'center'
-  ctx.fillText('Output (dB)', 0, 0)
-  ctx.restore()
-
-  // Draw 1:1 reference line (no compression)
-  ctx.strokeStyle = '#555555'
-  ctx.lineWidth = 1
-  ctx.setLineDash([5, 5])
-  ctx.beginPath()
-  ctx.moveTo(dbToX(-60), dbToY(-60))
-  ctx.lineTo(dbToX(0), dbToY(0))
-  ctx.stroke()
-  ctx.setLineDash([])
-
-  // Draw compression curve
-  ctx.strokeStyle = '#10b981'
-  ctx.lineWidth = 3
-  ctx.beginPath()
-
-  const knee = 6
-  const thresholdValue = compressorThreshold.value
-  const ratioValue = compressorRatio.value
-
-  for (let inputDb = -60; inputDb <= 0; inputDb += 0.5) {
-    let outputDb: number
-
-    if (inputDb < thresholdValue - knee / 2) {
-      outputDb = inputDb
-    } else if (inputDb > thresholdValue + knee / 2) {
-      const excess = inputDb - thresholdValue
-      outputDb = thresholdValue + excess / ratioValue
-    } else {
-      const kneeInput = inputDb - thresholdValue + knee / 2
-      const kneeRatio = kneeInput / knee
-      const excess = inputDb - thresholdValue
-      outputDb = inputDb + ((excess / ratioValue) - excess) * kneeRatio
-    }
-
-    const x = dbToX(inputDb)
-    const y = dbToY(outputDb)
-
-    if (inputDb === -60) {
-      ctx.moveTo(x, y)
-    } else {
-      ctx.lineTo(x, y)
-    }
-  }
-
-  ctx.stroke()
-
-  // Draw threshold line
-  ctx.strokeStyle = '#ef4444'
-  ctx.lineWidth = 2
-  ctx.setLineDash([3, 3])
-  ctx.beginPath()
-  ctx.moveTo(dbToX(thresholdValue), padding)
-  ctx.lineTo(dbToX(thresholdValue), height - padding)
-  ctx.stroke()
-  ctx.setLineDash([])
-
-  // Threshold and ratio labels
-  ctx.fillStyle = '#ef4444'
-  ctx.font = 'bold 11px sans-serif'
-  ctx.textAlign = 'center'
-  ctx.fillText(`Threshold: ${thresholdValue}dB`, dbToX(thresholdValue), padding - 10)
-
-  ctx.fillStyle = '#10b981'
-  ctx.textAlign = 'left'
-  ctx.fillText(`Ratio: ${ratioValue.toFixed(1)}:1`, width - padding - 80, padding + 15)
-
-  // Draw realtime signal indicator
-  if (currentInputLevel.value > -60) {
-    const inputDb = currentInputLevel.value
-
-    // Calculate output level with compression
-    let outputDb = inputDb
-    if (compressorEnabled.value) {
-      if (inputDb > thresholdValue - knee / 2) {
-        if (inputDb > thresholdValue + knee / 2) {
-          const excess = inputDb - thresholdValue
-          outputDb = thresholdValue + excess / ratioValue
-        } else {
-          const kneeInput = inputDb - thresholdValue + knee / 2
-          const kneeRatio = kneeInput / knee
-          const excess = inputDb - thresholdValue
-          outputDb = inputDb + ((excess / ratioValue) - excess) * kneeRatio
-        }
-      }
-    }
-
-    // Draw input level marker
-    ctx.strokeStyle = '#fbbf24'
-    ctx.lineWidth = 2
-    ctx.setLineDash([2, 2])
-    ctx.beginPath()
-    ctx.moveTo(dbToX(inputDb), padding)
-    ctx.lineTo(dbToX(inputDb), height - padding)
-    ctx.stroke()
-    ctx.setLineDash([])
-
-    // Draw signal point on curve
-    ctx.fillStyle = '#fbbf24'
-    ctx.beginPath()
-    ctx.arc(dbToX(inputDb), dbToY(outputDb), 5, 0, 2 * Math.PI)
-    ctx.fill()
-
-    // Add glow
-    ctx.shadowBlur = 15
-    ctx.shadowColor = '#fbbf24'
-    ctx.beginPath()
-    ctx.arc(dbToX(inputDb), dbToY(outputDb), 5, 0, 2 * Math.PI)
-    ctx.fill()
-    ctx.shadowBlur = 0
-
-    // Gain reduction display
-    if (compressorEnabled.value && currentGainReduction.value > 0.1) {
-      ctx.fillStyle = '#fbbf24'
-      ctx.font = 'bold 12px sans-serif'
-      ctx.textAlign = 'right'
-      ctx.fillText(`GR: -${currentGainReduction.value.toFixed(1)}dB`, width - padding - 10, padding + 35)
-    }
-  }
-}
-
-// Watch for parameter changes to redraw curve
-watch([compressorThreshold, compressorRatio, compressorAttack, compressorRelease], () => {
-  if (showCompressorModal.value) {
-    nextTick(() => drawTrackCompressionCurve())
-  }
-})
 
 function rebuildAudioChain() {
   if (!eq3 || !panLeftGain || !panRightGain || !panMerge || !volumeNode || !postFxMono || !nativeMerger) return

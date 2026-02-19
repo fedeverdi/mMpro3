@@ -50,7 +50,7 @@
         <div
           class="fader-thumb absolute left-1/2 transform -translate-y-[0.75rem] -translate-x-1/2 w-7 h-10 rounded-lg shadow-lg border-2 cursor-grab active:cursor-grabbing"
           :class="[thumbClass, isDragging ? '' : '']"
-          :style="{ bottom: thumbPosition + 'px', zIndex: 100 }"
+          :style="{ bottom: thumbPosition + 'px', zIndex: 20 }"
         >
           <div class="w-full h-full flex items-center justify-center">
             <div class="w-4 h-0.5 bg-gray-800 rounded"></div>

@@ -1,0 +1,273 @@
+<template>
+  <!-- Compressor Toggle -->
+  <div @click="handleToggle" :class="[
+    'w-full cursor-pointer py-1 px-2 text-[10px] font-bold rounded transition-all flex items-center justify-between',
+    enabled ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+  ]">
+    <span>CO</span>
+    <button :disabled="!enabled" @click.stop="showModal = true"
+      class="p-0.5 rounded hover:bg-green-700">
+      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Compressor Modal -->
+  <Teleport to="body">
+    <div v-if="showModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      @click="showModal = false">
+      <div class="bg-gray-900 rounded-lg border-2 border-green-600 p-6 max-w-2xl w-full mx-4" @click.stop>
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-bold text-green-300">Track {{ trackNumber }} - Compressor</h3>
+          <button @click="showModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        <!-- Compression Curve Display -->
+        <div class="mb-6 bg-black/50 rounded-lg p-4 border border-green-600/30">
+          <p class="text-xs text-green-300 font-bold mb-2 text-center">COMPRESSION CURVE</p>
+          <canvas ref="curveCanvas" class="w-full rounded" style="height: 300px;"></canvas>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Knob v-model="threshold" :min="-60" :max="0" :step="0.5" label="Threshold" unit="dB"
+            color="#10b981" @update:modelValue="emitUpdate" />
+          <Knob v-model="ratio" :min="1" :max="20" :step="0.1" label="Ratio" unit=":1" color="#10b981"
+            @update:modelValue="emitUpdate" />
+          <Knob v-model="attack" :min="0" :max="1" :step="0.01" label="Attack" unit="s" color="#10b981"
+            @update:modelValue="emitUpdate" />
+          <Knob v-model="release" :min="0" :max="4" :step="0.01" label="Release" unit="s" color="#10b981"
+            @update:modelValue="emitUpdate" />
+        </div>
+      </div>
+    </div>
+  </Teleport>
+</template>
+
+<script setup lang="ts">
+import { ref, watch, nextTick } from 'vue'
+import Knob from './Knob.vue'
+
+interface Props {
+  trackNumber: number
+  enabled: boolean
+  threshold: number
+  ratio: number
+  attack: number
+  release: number
+  meter?: any
+}
+
+const props = defineProps<Props>()
+
+const emit = defineEmits<{
+  (e: 'toggle'): void
+  (e: 'update', params: { threshold: number, ratio: number, attack: number, release: number }): void
+}>()
+
+const showModal = ref(false)
+const curveCanvas = ref<HTMLCanvasElement | null>(null)
+
+// Local state for controls
+const threshold = ref(props.threshold)
+const ratio = ref(props.ratio)
+const attack = ref(props.attack)
+const release = ref(props.release)
+
+// Sync props to local state
+watch(() => props.threshold, (val) => threshold.value = val)
+watch(() => props.ratio, (val) => ratio.value = val)
+watch(() => props.attack, (val) => attack.value = val)
+watch(() => props.release, (val) => release.value = val)
+
+function handleToggle() {
+  emit('toggle')
+}
+
+function emitUpdate() {
+  emit('update', {
+    threshold: threshold.value,
+    ratio: ratio.value,
+    attack: attack.value,
+    release: release.value
+  })
+  
+  // Redraw curve if modal is open
+  if (showModal.value) {
+    nextTick(() => drawCompressionCurve())
+  }
+}
+
+// Track compressor visualization
+watch(showModal, (isOpen) => {
+  if (isOpen) {
+    startCompressorMonitoring()
+    nextTick(() => drawCompressionCurve())
+  } else {
+    stopCompressorMonitoring()
+  }
+})
+
+let compressorAnimationId: number | null = null
+
+function startCompressorMonitoring() {
+  if (compressorAnimationId) return
+
+  function updateTrackLevels() {
+    if (!showModal.value || !props.meter) {
+      compressorAnimationId = null
+      return
+    }
+
+    drawCompressionCurve()
+    compressorAnimationId = requestAnimationFrame(updateTrackLevels)
+  }
+
+  updateTrackLevels()
+}
+
+function stopCompressorMonitoring() {
+  if (compressorAnimationId) {
+    cancelAnimationFrame(compressorAnimationId)
+    compressorAnimationId = null
+  }
+}
+
+function drawCompressionCurve() {
+  if (!curveCanvas.value) return
+
+  const canvas = curveCanvas.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const rect = canvas.getBoundingClientRect()
+  const width = rect.width
+  const height = rect.height
+  const dpr = window.devicePixelRatio || 1
+
+  canvas.width = width * dpr
+  canvas.height = height * dpr
+  ctx.scale(dpr, dpr)
+
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(0, 0, width, height)
+
+  const padding = 40
+  const graphWidth = width - padding * 2
+  const graphHeight = height - padding * 2
+
+  const dbToX = (db: number) => padding + ((db + 60) / 60) * graphWidth
+  const dbToY = (db: number) => height - padding - ((db + 60) / 60) * graphHeight
+
+  // Draw grid
+  ctx.strokeStyle = '#333333'
+  ctx.lineWidth = 1
+  for (let db = -60; db <= 0; db += 10) {
+    ctx.beginPath()
+    ctx.moveTo(dbToX(db), padding)
+    ctx.lineTo(dbToX(db), height - padding)
+    ctx.stroke()
+
+    ctx.beginPath()
+    ctx.moveTo(padding, dbToY(db))
+    ctx.lineTo(width - padding, dbToY(db))
+    ctx.stroke()
+  }
+
+  // Draw 1:1 line
+  ctx.strokeStyle = '#666666'
+  ctx.lineWidth = 2
+  ctx.setLineDash([5, 5])
+  ctx.beginPath()
+  ctx.moveTo(dbToX(-60), dbToY(-60))
+  ctx.lineTo(dbToX(0), dbToY(0))
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  // Draw compression curve
+  ctx.strokeStyle = '#10b981'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  
+  for (let inputDb = -60; inputDb <= 0; inputDb += 0.5) {
+    let outputDb = inputDb
+    
+    if (inputDb > threshold.value) {
+      const excess = inputDb - threshold.value
+      const reducedExcess = excess / ratio.value
+      outputDb = threshold.value + reducedExcess
+    }
+    
+    const x = dbToX(inputDb)
+    const y = dbToY(outputDb)
+    
+    if (inputDb === -60) {
+      ctx.moveTo(x, y)
+    } else {
+      ctx.lineTo(x, y)
+    }
+  }
+  ctx.stroke()
+
+  // Draw threshold line
+  ctx.strokeStyle = '#f59e0b'
+  ctx.lineWidth = 2
+  ctx.setLineDash([3, 3])
+  ctx.beginPath()
+  ctx.moveTo(dbToX(threshold.value), padding)
+  ctx.lineTo(dbToX(threshold.value), height - padding)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(padding, dbToY(threshold.value))
+  ctx.lineTo(width - padding, dbToY(threshold.value))
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  // Draw current input level indicator
+  if (props.meter) {
+    let currentInputLevel = -60
+    try {
+      const meterValue = props.meter.getValue()
+      currentInputLevel = Array.isArray(meterValue) 
+        ? (meterValue[0] + meterValue[1]) / 2 
+        : meterValue
+      currentInputLevel = Math.max(-60, Math.min(0, currentInputLevel))
+    } catch {}
+
+    // Calculate output level based on compression curve
+    let currentOutputLevel = currentInputLevel
+    if (currentInputLevel > threshold.value) {
+      const excess = currentInputLevel - threshold.value
+      const reducedExcess = excess / ratio.value
+      currentOutputLevel = threshold.value + reducedExcess
+    }
+
+    // Draw the point on the compression curve
+    ctx.fillStyle = '#ef4444'
+    ctx.beginPath()
+    ctx.arc(dbToX(currentInputLevel), dbToY(currentOutputLevel), 5, 0, Math.PI * 2)
+    ctx.fill()
+    
+    // Add glow effect
+    ctx.shadowBlur = 10
+    ctx.shadowColor = '#ef4444'
+    ctx.beginPath()
+    ctx.arc(dbToX(currentInputLevel), dbToY(currentOutputLevel), 5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.shadowBlur = 0
+  }
+
+  // Labels
+  ctx.fillStyle = '#ffffff'
+  ctx.font = '12px monospace'
+  ctx.fillText('Input (dB)', width / 2 - 40, height - 10)
+  
+  ctx.save()
+  ctx.translate(15, height / 2 + 50)
+  ctx.rotate(-Math.PI / 2)
+  ctx.fillText('Output (dB)', 0, 0)
+  ctx.restore()
+}
+</script>
