@@ -382,12 +382,12 @@ function updateFilterNode(index: number) {
   }
   
   // Update node parameters
-  filter.node.frequency.value = filter.frequency
+  filter.node.frequency.rampTo(filter.frequency, 0.01)
   if (filter.type !== 'lowpass' && filter.type !== 'highpass') {
-    filter.node.gain.value = filter.gain
+    filter.node.gain.rampTo(filter.gain, 0.01)
   }
   if (filter.type === 'peaking' || filter.type === 'lowpass' || filter.type === 'highpass') {
-    filter.node.Q.value = filter.Q
+    filter.node.Q.rampTo(filter.Q, 0.01)
   }
   
   // Emit update event for thumbnail
@@ -548,7 +548,7 @@ function handleCanvasMouseMove(e: MouseEvent) {
     
     // Update the filter node
     if (filter.node) {
-      filter.node.Q.value = filter.Q
+      filter.node.Q.rampTo(filter.Q, 0.01)
     }
   } else {
     // Dragging main point - change frequency and gain
@@ -566,9 +566,9 @@ function handleCanvasMouseMove(e: MouseEvent) {
     
     // Update the filter node
     if (filter.node) {
-      filter.node.frequency.value = filter.frequency
+      filter.node.frequency.rampTo(filter.frequency, 0.01)
       if (filter.type !== 'lowpass' && filter.type !== 'highpass') {
-        filter.node.gain.value = filter.gain
+        filter.node.gain.rampTo(filter.gain, 0.01)
       }
     }
   }

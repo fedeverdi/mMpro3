@@ -6,7 +6,17 @@
       <div class="text-xs font-bold text-blue-400">MASTER</div>
     </div>
 
-    <!-- VU Meters and Fader -->
+    <!-- Headphones Control -->
+    <HeadphonesControl
+      :devices="audioOutputs"
+      :selected-device-id="selectedHeadphonesOutput"
+      :volume="headphonesVolume"
+      :level="headphonesLevel"
+      @select="onHeadphonesOutputSelect"
+      @update:volume="headphonesVolume = $event"
+    />
+
+    <!-- VU Meters and Faders -->
     <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-4 min-h-0 mt-2">
       <!-- VU Meters Row -->
       <div v-if="vuMetersHeight > 0"
@@ -17,8 +27,8 @@
 
       <!-- Faders Row -->
       <div v-if="fadersHeight > 0" class="flex gap-2 items-end mb-6">
-        <MasterFader v-model="leftVolume" label="Left" :trackHeight="fadersHeight" />
-        <MasterFader v-model="rightVolume" label="Right" :trackHeight="fadersHeight" />
+        <MasterFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" />
+        <MasterFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" />
       </div>
     </div>
 
@@ -55,6 +65,7 @@
 <script setup lang="ts">
 import MasterFader from './MasterFader.vue'
 import VuMeter from './VuMeter.vue'
+import HeadphonesControl from './HeadphonesControl.vue'
 import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 
 // Props
@@ -71,15 +82,26 @@ let Tone: any = null
 // Master volumes
 const leftVolume = ref(0)
 const rightVolume = ref(0)
+const headphonesVolume = ref(0)
 const isLinked = ref(true)
 
 // VU meter levels
 const leftLevel = ref(-60)
 const rightLevel = ref(-60)
+const headphonesLevel = ref(-60)
 
 // Recording state
 const isRecording = ref(false)
 const recordingTime = ref('00:00')
+
+// Audio outputs
+const audioOutputs = ref<MediaDeviceInfo[]>([])
+const selectedHeadphonesOutput = ref<string | null>(null)
+
+// Headphones output routing
+let headphonesGain: any = null
+let headphonesStreamDest: MediaStreamAudioDestinationNode | null = null
+let headphonesAudioElement: HTMLAudioElement | null = null
 
 // Container and dynamic height
 const metersContainer = ref<HTMLElement | null>(null)
@@ -91,6 +113,7 @@ let resizeObserver: ResizeObserver | null = null
 let masterChannel: any = null
 let leftMeter: any = null
 let rightMeter: any = null
+let headphonesMeter: any = null
 let splitNode: any = null
 let leftGain: any = null
 let rightGain: any = null
@@ -103,6 +126,52 @@ function updateMetersHeight() {
     const availableHeight = Math.max(160, height - 80)
     vuMetersHeight.value = Math.max(60, Math.floor(availableHeight * 0.4))
     fadersHeight.value = Math.max(100, Math.floor(availableHeight * 0.6))
+  }
+}
+
+// Enumerate audio output devices
+async function enumerateAudioOutputs() {
+  try {
+    // Request microphone permission to unlock device labels
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(track => track.stop())
+    } catch (permError) {
+      console.warn('[Audio Outputs] Permission denied for device labels')
+    }
+
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    audioOutputs.value = devices.filter(device => device.kind === 'audiooutput')
+  } catch (error) {
+    console.error('[Audio Outputs] Error enumerating devices:', error)
+  }
+}
+
+// Handle headphones output selection
+async function onHeadphonesOutputSelect(deviceId: string | null) {
+  selectedHeadphonesOutput.value = deviceId
+  
+  if (!headphonesAudioElement) return
+  
+  try {
+    if (deviceId) {
+      // Set device and unmute
+      await (headphonesAudioElement as any).setSinkId(deviceId)
+      headphonesAudioElement.muted = false
+      
+      // Ensure playback
+      if (headphonesAudioElement.paused) {
+        await headphonesAudioElement.play()
+      }
+      
+      console.log('[Headphones Output] Changed to:', deviceId)
+    } else {
+      // Mute when "Off"
+      headphonesAudioElement.muted = true
+      console.log('[Headphones Output] Muted (Off)')
+    }
+  } catch (error) {
+    console.error('[Headphones Output] Error changing device:', error)
   }
 }
 
@@ -121,17 +190,23 @@ function initMasterChannel() {
 
   if (!masterChannel) return
 
-  // Create stereo routing: Split → [LeftGain, RightGain] → Merge → Destination
+  // Create stereo routing: Split → [LeftGain, RightGain] → Merge
   splitNode = new Tone.Split()
-  leftGain = new Tone.Gain(1) // Unity gain initially
-  rightGain = new Tone.Gain(1) // Unity gain initially
+  leftGain = new Tone.Gain(1)
+  rightGain = new Tone.Gain(1)
   mergeNode = new Tone.Merge()
 
-  // Create meters for L/R channels (output after gain)
+  // Create meters
   leftMeter = new Tone.Meter()
   rightMeter = new Tone.Meter()
+  headphonesMeter = new Tone.Meter()
 
-  // Build the main chain
+  // Create headphones routing
+  headphonesGain = new Tone.Gain(1)
+  const audioContext = Tone.context.rawContext as AudioContext
+  headphonesStreamDest = audioContext.createMediaStreamDestination()
+
+  // Build main chain
   masterChannel.connect(splitNode)
   
   // Left channel: split → gain → meter → merge
@@ -144,8 +219,30 @@ function initMasterChannel() {
   rightGain.connect(rightMeter)
   rightGain.connect(mergeNode, 0, 1)
   
-  // Final output
+  // Main output to default destination (uses main output selector)
   mergeNode.toDestination()
+  
+  // Headphones output: separate routing via MediaStream
+  mergeNode.connect(headphonesGain)
+  headphonesGain.connect(headphonesMeter)
+  headphonesGain.connect(headphonesStreamDest as any)
+
+  // Create headphones audio element
+  if (!headphonesAudioElement && headphonesStreamDest) {
+    headphonesAudioElement = new Audio()
+    headphonesAudioElement.srcObject = headphonesStreamDest.stream
+    headphonesAudioElement.muted = true // Start muted (Off)
+    document.body.appendChild(headphonesAudioElement)
+    
+    // Start playback immediately (muted)
+    headphonesAudioElement.play().catch(err => {
+      console.warn('[Headphones] Autoplay blocked, will start on first interaction:', err)
+    })
+  }
+
+  // Update initial volumes
+  updateMasterVolume()
+  updateHeadphonesVolume()
 }
 
 // Level monitoring
@@ -160,6 +257,11 @@ function startLevelMonitoring() {
       leftLevel.value = Math.max(-60, leftValue)
       rightLevel.value = Math.max(-60, rightValue)
     }
+
+    if (headphonesMeter && Tone) {
+      const hpValue = headphonesMeter.getValue() as number
+      headphonesLevel.value = Math.max(-60, hpValue)
+    }
   }, 50)
 }
 
@@ -170,13 +272,20 @@ function updateMasterVolume() {
     if (!leftGain || !rightGain) return
   }
 
-  // Apply separate volume to each channel
   leftGain.gain.value = Tone.dbToGain(leftVolume.value)
   rightGain.gain.value = Tone.dbToGain(rightVolume.value)
 }
 
+// Update headphones volume
+function updateHeadphonesVolume() {
+  if (!headphonesGain || !Tone) return
+
+  headphonesGain.gain.value = Tone.dbToGain(headphonesVolume.value)
+}
+
 // Watch for volume changes
 watch([leftVolume, rightVolume], updateMasterVolume)
+watch(headphonesVolume, updateHeadphonesVolume)
 
 // When linked, sync right to left
 watch(leftVolume, (newVal) => {
@@ -188,7 +297,6 @@ watch(leftVolume, (newVal) => {
 // Watch for masterEQDisplay to become available and init
 watch(() => props.masterEqDisplay, (newVal) => {
   if (newVal && newVal.getOutputNode && !masterChannel) {
-    // Wait a bit for outputNode to be created
     setTimeout(() => {
       initMasterChannel()
     }, 100)
@@ -239,6 +347,9 @@ onMounted(async () => {
     }, 100)
   }
 
+  // Enumerate audio outputs
+  await enumerateAudioOutputs()
+
   // Calculate initial height
   await nextTick()
   updateMetersHeight()
@@ -251,10 +362,11 @@ onMounted(async () => {
     resizeObserver.observe(metersContainer.value)
   }
 
-  // Master channel init is handled by watcher
-
   // Start level monitoring
   startLevelMonitoring()
+
+  // Listen for device changes
+  navigator.mediaDevices.addEventListener('devicechange', enumerateAudioOutputs)
 })
 
 // Expose minimal interface
@@ -264,10 +376,23 @@ defineExpose({})
 onUnmounted(() => {
   if (leftMeter) leftMeter.dispose()
   if (rightMeter) rightMeter.dispose()
+  if (headphonesMeter) headphonesMeter.dispose()
   if (splitNode) splitNode.dispose()
   if (leftGain) leftGain.dispose()
   if (rightGain) rightGain.dispose()
   if (mergeNode) mergeNode.dispose()
+  if (headphonesGain) headphonesGain.dispose()
+
+  // Cleanup headphones audio element
+  if (headphonesAudioElement) {
+    headphonesAudioElement.pause()
+    headphonesAudioElement.srcObject = null
+    headphonesAudioElement.remove()
+    headphonesAudioElement = null
+  }
+
+  // Remove device change listener
+  navigator.mediaDevices.removeEventListener('devicechange', enumerateAudioOutputs)
 
   if (resizeObserver) {
     resizeObserver.disconnect()
