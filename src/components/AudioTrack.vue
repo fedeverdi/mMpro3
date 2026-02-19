@@ -558,6 +558,15 @@ async function handleFileUpload(event: Event) {
         }
       }
       
+      // Dispose old currentAudioBuffer reference to prevent memory leak
+      if (currentAudioBuffer && currentAudioBuffer !== player.buffer) {
+        try {
+          if (typeof (currentAudioBuffer as any).dispose === 'function') {
+            (currentAudioBuffer as any).dispose()
+          }
+        } catch (e) {}
+      }
+      
       // Assign new buffer to existing player (more efficient than recreating)
       player.buffer = audioBuffer
       
@@ -650,6 +659,15 @@ async function loadFileFromIndexedDB(savedFileId: string) {
         }
       }
       
+      // Dispose old currentAudioBuffer reference to prevent memory leak
+      if (currentAudioBuffer && currentAudioBuffer !== player.buffer) {
+        try {
+          if (typeof (currentAudioBuffer as any).dispose === 'function') {
+            (currentAudioBuffer as any).dispose()
+          }
+        } catch (e) {}
+      }
+      
       // Assign new buffer to existing player (more efficient than recreating)
       player.buffer = audioBuffer
       
@@ -721,7 +739,14 @@ function handleSourceTypeChange() {
     player = null
   }
   
-  // Clear audio buffer reference
+  // Dispose and clear audio buffer reference
+  if (currentAudioBuffer) {
+    try {
+      if (typeof (currentAudioBuffer as any).dispose === 'function') {
+        (currentAudioBuffer as any).dispose()
+      }
+    } catch (e) {}
+  }
   currentAudioBuffer = null
   
   // Disconnect and clean up audio input source
@@ -1085,7 +1110,14 @@ onUnmounted(() => {
     player.dispose()
   }
   
-  // Clear audio buffer reference
+  // Dispose and clear audio buffer reference
+  if (currentAudioBuffer) {
+    try {
+      if (typeof (currentAudioBuffer as any).dispose === 'function') {
+        (currentAudioBuffer as any).dispose()
+      }
+    } catch (e) {}
+  }
   currentAudioBuffer = null
   
   if (gainNode) gainNode.dispose()
