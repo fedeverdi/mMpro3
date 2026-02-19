@@ -146,13 +146,13 @@
                             <SpectrumMeter :master-eq-display="masterEQDisplayRef" />
                         </div>
                         <div class="flex-1 min-h-0">
-                            <MasterFX />
+                            <MasterFX :master-section="masterSectionRef" />
                         </div>
                     </div>
 
                     <!-- Master Section -->
                     <div class="w-44 h-full mixer-fade-in">
-                        <MasterSection :master-eq-display="masterEQDisplayRef" />
+                        <MasterSection ref="masterSectionRef" :master-eq-display="masterEQDisplayRef" />
                     </div>
                 </template>
             </div>
@@ -253,6 +253,7 @@ function removeTrack() {
 // Track refs management
 const trackRefs = ref<Map<number, any>>(new Map())
 const masterEQDisplayRef = ref<any>(null)
+const masterSectionRef = ref<any>(null)
 
 function setTrackRef(trackId: number, el: any | null) {
     if (el) {

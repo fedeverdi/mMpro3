@@ -119,6 +119,13 @@ let leftGain: any = null
 let rightGain: any = null
 let mergeNode: any = null
 
+// FX nodes
+let compressorNode: any = null
+let reverbNode: any = null
+let delayNode: any = null
+let limiterNode: any = null
+const fxChainEnabled = new Set<string>()
+
 // Calculate meters height based on container
 function updateMetersHeight() {
   if (metersContainer.value) {
@@ -367,10 +374,234 @@ onMounted(async () => {
 
   // Listen for device changes
   navigator.mediaDevices.addEventListener('devicechange', enumerateAudioOutputs)
+  
+  // Wait for MasterEQDisplay to be ready, then establish initial connection
+  setTimeout(() => {
+    rebuildFXChain()
+  }, 200)
 })
 
+// Rebuild FX chain
+function rebuildFXChain() {
+  if (!props.masterEqDisplay?.getOutputNode || !Tone) return
+
+  const eqOutput = props.masterEqDisplay.getOutputNode()
+  if (!eqOutput) return
+
+  // Disconnect everything
+  try {
+    eqOutput.disconnect()
+    if (compressorNode) compressorNode.disconnect()
+    if (reverbNode) reverbNode.disconnect()
+    if (delayNode) delayNode.disconnect()
+    if (limiterNode) limiterNode.disconnect()
+  } catch (e) {
+    // Ignore disconnect errors
+  }
+
+  // Build chain based on enabled effects
+  let currentNode = eqOutput
+  
+  if (fxChainEnabled.has('compressor') && compressorNode) {
+    currentNode.connect(compressorNode)
+    currentNode = compressorNode
+  }
+  
+  if (fxChainEnabled.has('reverb') && reverbNode) {
+    currentNode.connect(reverbNode)
+    currentNode = reverbNode
+  }
+  
+  if (fxChainEnabled.has('delay') && delayNode) {
+    currentNode.connect(delayNode)
+    currentNode = delayNode
+  }
+  
+  if (fxChainEnabled.has('limiter') && limiterNode) {
+    currentNode.connect(limiterNode)
+    currentNode = limiterNode
+  }
+
+  // Connect final node to destination
+  currentNode.toDestination()
+  
+  console.log('[MasterSection FX] Chain rebuilt:', Array.from(fxChainEnabled))
+}
+
+// FX Control Methods
+async function toggleCompressor(enabled: boolean, params?: any) {
+  if (!Tone) return
+
+  if (enabled) {
+    if (!compressorNode) {
+      compressorNode = new Tone.Compressor({
+        threshold: params?.threshold ?? -24,
+        ratio: params?.ratio ?? 4,
+        attack: params?.attack ?? 0.003,
+        release: params?.release ?? 0.25
+      })
+    }
+    fxChainEnabled.add('compressor')
+  } else {
+    fxChainEnabled.delete('compressor')
+  }
+
+  rebuildFXChain()
+}
+
+function updateCompressor(params: any) {
+  if (!compressorNode) return
+  
+  if (params.threshold !== undefined) compressorNode.threshold.rampTo(params.threshold, 0.01)
+  if (params.ratio !== undefined) compressorNode.ratio.value = params.ratio
+  if (params.attack !== undefined) compressorNode.attack.rampTo(params.attack, 0.01)
+  if (params.release !== undefined) compressorNode.release.rampTo(params.release, 0.01)
+}
+
+async function toggleReverb(enabled: boolean, params?: any) {
+  if (!Tone) return
+
+  if (enabled) {
+    if (!reverbNode) {
+      reverbNode = new Tone.Reverb({
+        decay: params?.decay ?? 1.5,
+        preDelay: params?.preDelay ?? 0.01
+      })
+      reverbNode.wet.value = params?.wet ?? 0.3
+      await reverbNode.generate()
+    }
+    fxChainEnabled.add('reverb')
+  } else {
+    fxChainEnabled.delete('reverb')
+  }
+
+  rebuildFXChain()
+}
+
+function updateReverb(params: any) {
+  if (!reverbNode) return
+  
+  if (params.wet !== undefined) reverbNode.wet.rampTo(params.wet, 0.01)
+  
+  // Decay and preDelay require regeneration
+  if (params.decay !== undefined || params.preDelay !== undefined) {
+    const newReverb = new Tone.Reverb({
+      decay: params.decay ?? reverbNode.decay,
+      preDelay: params.preDelay ?? reverbNode.preDelay
+    })
+    newReverb.wet.value = params.wet ?? reverbNode.wet.value
+    newReverb.generate().then(() => {
+      const oldReverb = reverbNode
+      reverbNode = newReverb
+      rebuildFXChain()
+      setTimeout(() => {
+        if (oldReverb) {
+          try {
+            oldReverb.disconnect()
+            oldReverb.dispose()
+          } catch (e) {}
+        }
+      }, 200)
+    })
+  }
+}
+
+async function toggleDelay(enabled: boolean, params?: any) {
+  if (!Tone) return
+
+  if (enabled) {
+    if (!delayNode) {
+      delayNode = new Tone.FeedbackDelay({
+        delayTime: params?.delayTime ?? 0.25,
+        feedback: params?.feedback ?? 0.5
+      })
+      delayNode.wet.value = params?.wet ?? 0.3
+    }
+    fxChainEnabled.add('delay')
+  } else {
+    fxChainEnabled.delete('delay')
+  }
+
+  rebuildFXChain()
+}
+
+function updateDelay(params: any) {
+  if (!delayNode) return
+  
+  if (params.delayTime !== undefined) delayNode.delayTime.rampTo(params.delayTime, 0.01)
+  if (params.feedback !== undefined) delayNode.feedback.rampTo(params.feedback, 0.01)
+  if (params.wet !== undefined) delayNode.wet.rampTo(params.wet, 0.01)
+}
+
+async function toggleLimiter(enabled: boolean, params?: any) {
+  if (!Tone) return
+
+  if (enabled) {
+    if (!limiterNode) {
+      const threshold = Math.max(-20, Math.min(3, params?.threshold ?? -1))
+      limiterNode = new Tone.Limiter(threshold)
+    }
+    fxChainEnabled.add('limiter')
+  } else {
+    fxChainEnabled.delete('limiter')
+  }
+
+  rebuildFXChain()
+}
+
+function updateLimiter(params: any) {
+  if (!limiterNode || !Tone) return
+  
+  if (params.threshold !== undefined) {
+    const threshold = Math.max(-20, Math.min(3, params.threshold))
+    const newLimiter = new Tone.Limiter(threshold)
+    const oldLimiter = limiterNode
+    limiterNode = newLimiter
+    rebuildFXChain()
+    setTimeout(() => {
+      if (oldLimiter) {
+        try {
+          oldLimiter.disconnect()
+          oldLimiter.dispose()
+        } catch (e) {}
+      }
+    }, 200)
+  }
+}
+
+// Expose meter values for FX visualization
+function getMeterValues() {
+  if (!leftMeter || !rightMeter) return { left: -60, right: -60 }
+  const leftValue = leftMeter.getValue() as number
+  const rightValue = rightMeter.getValue() as number
+  return {
+    left: Math.max(-60, leftValue),
+    right: Math.max(-60, rightValue)
+  }
+}
+
+function getPreLimiterValues() {
+  // For now, same as regular meters (can add separate pre-limiter meters if needed)
+  return getMeterValues()
+}
+
 // Expose minimal interface
-defineExpose({})
+defineExpose({
+  toggleCompressor,
+  updateCompressor,
+  toggleReverb,
+  updateReverb,
+  toggleDelay,
+  updateDelay,
+  toggleLimiter,
+  updateLimiter,
+  getMeterValues,
+  getPreLimiterValues,
+  compressorNode: () => compressorNode,
+  reverbNode: () => reverbNode,
+  delayNode: () => delayNode,
+  limiterNode: () => limiterNode
+})
 
 // Cleanup
 onUnmounted(() => {
@@ -382,6 +613,12 @@ onUnmounted(() => {
   if (rightGain) rightGain.dispose()
   if (mergeNode) mergeNode.dispose()
   if (headphonesGain) headphonesGain.dispose()
+
+  // Cleanup FX nodes
+  if (compressorNode) compressorNode.dispose()
+  if (reverbNode) reverbNode.dispose()
+  if (delayNode) delayNode.dispose()
+  if (limiterNode) limiterNode.dispose()
 
   // Cleanup headphones audio element
   if (headphonesAudioElement) {

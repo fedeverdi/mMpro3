@@ -211,21 +211,21 @@ async function handleEffectToggle(index: number, enabled: boolean) {
       case 'compressor':
         await props.masterSection.toggleCompressor(enabled, effect.params)
         if (enabled) {
-          effect.node = props.masterSection.compressorNode?.value
+          effect.node = props.masterSection.compressorNode()
         }
         break
         
       case 'reverb':
         await props.masterSection.toggleReverb(enabled, effect.params)
         if (enabled) {
-          effect.node = props.masterSection.reverbNode?.value
+          effect.node = props.masterSection.reverbNode()
         }
         break
         
       case 'delay':
         await props.masterSection.toggleDelay(enabled, effect.params)
         if (enabled) {
-          effect.node = props.masterSection.delayNode?.value
+          effect.node = props.masterSection.delayNode()
         }
         break
         
@@ -234,7 +234,7 @@ async function handleEffectToggle(index: number, enabled: boolean) {
         effect.params.threshold = Math.max(-20, Math.min(3, effect.params.threshold))
         await props.masterSection.toggleLimiter(enabled, effect.params)
         if (enabled) {
-          effect.node = props.masterSection.limiterNode?.value
+          effect.node = props.masterSection.limiterNode()
         }
         break
     }
