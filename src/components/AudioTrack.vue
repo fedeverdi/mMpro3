@@ -258,16 +258,11 @@ const trackReverbRef = ref<InstanceType<typeof TrackReverb> | null>(null)
 let player: any = null // Can be Tone.Player or Tone.UserMedia
 let currentAudioBuffer: AudioBuffer | null = null // Store current audio buffer for player recreation
 let gainNode: any = null
-let monoConverter: any = null // Convert stereo to mono before panning
-let postFxMono: any = null // Ensure mono signal after effects (before pan split)
 let eq3: any = null
 let parametricEQFilters: any = null // Parametric EQ filter chain
 let compressor: any = null
 let reverb: any = null
-let panLeftGain: any = null // Left channel gain for manual panning
-let panRightGain: any = null // Right channel gain for manual panning
-let nativeMerger: any = null // Native Web Audio API ChannelMerger
-let panMerge: any = null // Tone.Gain wrapper for stereo output
+let panNode: any = null // Tone.Panner - handles both stereo balance and mono panning
 let volumeNode: any = null
 let meter: any = null
 let waveform: any = null // Waveform analyzer
@@ -324,75 +319,26 @@ function initAudioNodes() {
   // Create audio nodes
   gainNode = new Tone.Gain(1) // 1 = 0dB (unity gain), not 0!
   
-  // Convert stereo to mono (pan will create stereo from mono)
-  monoConverter = new Tone.Mono()
-  
-  // Second mono converter AFTER effects (ensures mono before pan split)
-  postFxMono = new Tone.Mono()
-  const postFxMonoNode = postFxMono.output as AudioNode
-  postFxMonoNode.channelCount = 1
-  postFxMonoNode.channelCountMode = 'explicit'
-  
   eq3 = new Tone.EQ3({
     low: 0,
     mid: 0,
     high: 0
   })
   
-  // CRITICAL: Force EQ3 output to be MONO (1 channel)
-  // This ensures when we duplicate to L/R gains, they get identical MONO signals
-  const eq3OutputNode = eq3.output as AudioNode
-  eq3OutputNode.channelCount = 1
-  eq3OutputNode.channelCountMode = 'explicit'
-  
-  // Manual pan: duplicate mono signal to L/R gains, then merge to stereo
-  panLeftGain = new Tone.Gain(0.707) // ~-3dB (equal power at center)
-  panRightGain = new Tone.Gain(0.707) // ~-3dB (equal power at center)
-  
-  // CRITICAL: Force these gains to be MONO throughout (input AND output)
-  // This ensures ChannelMerger receives true mono inputs on each channel
-  const leftGainInputNode = panLeftGain.input as GainNode
-  leftGainInputNode.channelCount = 1
-  leftGainInputNode.channelCountMode = 'explicit'
-  
-  const leftGainOutputNode = panLeftGain.output as GainNode
-  leftGainOutputNode.channelCount = 1
-  leftGainOutputNode.channelCountMode = 'explicit'
-  
-  const rightGainInputNode = panRightGain.input as GainNode
-  rightGainInputNode.channelCount = 1
-  rightGainInputNode.channelCountMode = 'explicit'
-  
-  const rightGainOutputNode = panRightGain.output as GainNode
-  rightGainOutputNode.channelCount = 1
-  rightGainOutputNode.channelCountMode = 'explicit'
-  
-  // Use native Web Audio API ChannelMerger (Tone.Merge collapses to mono)
-  // ChannelMerger with 2 inputs automatically produces 2 channel output
-  nativeMerger = Tone.context.createChannelMerger(2)
-  
-  // Wrap in Tone.Gain to interface with Tone.js ecosystem
-  // CRITICAL: Must configure to preserve stereo from ChannelMerger
-  panMerge = new Tone.Gain(1.0)
-  const panMergeNode = panMerge.input as GainNode
-  panMergeNode.channelCount = 2
-  panMergeNode.channelCountMode = 'explicit'
-  panMergeNode.channelInterpretation = 'discrete'
+  // Tone.Panner handles both stereo and mono correctly:
+  // - For stereo sources (files): acts as a balance control
+  // - For mono sources (mic): creates true stereo panning
+  panNode = new Tone.Panner(0) // -1 (left) to +1 (right)
   
   volumeNode = new Tone.Volume(0)
-  const volumeInputNode = volumeNode.input as GainNode
-  volumeInputNode.channelCount = 2
-  volumeInputNode.channelCountMode = 'explicit'
-  volumeInputNode.channelInterpretation = 'discrete'
   
   meter = new Tone.Meter()
   
   // Waveform analyzer (for visualization)
   waveform = new Tone.Waveform(512) // 512 samples for waveform display
 
-  // Connect chain: gain -> mono -> eq3 -> meter (pre-pan) -> postFxMono -> [dup to L/R gains] -> nativeMerger -> panMerge -> volume
-  gainNode.connect(monoConverter)
-  monoConverter.connect(eq3)
+  // Connect chain: gain -> eq3 -> [FX will be inserted] -> pan -> volume
+  gainNode.connect(eq3)
   
   // Connect meter to eq3 to measure signal BEFORE panning
   eq3.connect(meter)
@@ -400,26 +346,18 @@ function initAudioNodes() {
   // Connect waveform analyzer to eq3 for visualization
   eq3.connect(waveform)
   
-  // Initial pan connection (will be rebuilt when effects are added)
-  // Always go through postFxMono to ensure mono before split
-  eq3.connect(postFxMono)
-  postFxMono.connect(panLeftGain)
-  postFxMono.connect(panRightGain)
-  panLeftGain.connect(nativeMerger, 0, 0)
-  panRightGain.connect(nativeMerger, 0, 1)
+  // Initial connection (will be rebuilt when effects are added)
+  eq3.connect(panNode)
   
-  // Connect native merger to Tone.Gain wrapper
-  nativeMerger.connect(panMerge.input)
-  
-  // panMerge to volume
-  panMerge.connect(volumeNode)
+  // Pan to volume
+  panNode.connect(volumeNode)
 
   // Volume to output (master or destination)
   connectToOutput()
 }
 
 function applyParametricEQChain() {
-  if (!parametricEQFilters || !eq3 || !panMerge || !meter) return
+  if (!parametricEQFilters || !eq3 || !meter) return
 
   // Use rebuildAudioChain to properly handle FX chain
   rebuildAudioChain()
@@ -607,88 +545,26 @@ async function handleFileUpload(event: Event) {
       } catch (e) {}
       
       try {
-        monoConverter.disconnect()
-        monoConverter.dispose()
-      } catch (e) {}
-      
-      try {
         eq3.disconnect()
         eq3.dispose()
       } catch (e) {}
       
       try {
-        postFxMono.disconnect()  
-        postFxMono.dispose()
-      } catch (e) {}
-      
-      try {
-        panLeftGain.disconnect()
-        panLeftGain.dispose()
-      } catch (e) {}
-      
-      try {
-        panRightGain.disconnect()
-        panRightGain.dispose()
-      } catch (e) {}
-      
-      try {
-        panMerge.disconnect()
-        panMerge.dispose()
+        panNode.disconnect()
+        panNode.dispose()
       } catch (e) {}
       
       // Recreate all nodes
       gainNode = new Tone.Gain(1)
-      monoConverter = new Tone.Mono()
-      
-      postFxMono = new Tone.Mono()
-      const postFxMonoNode = postFxMono.output as AudioNode
-      postFxMonoNode.channelCount = 1
-      postFxMonoNode.channelCountMode = 'explicit'
-      
       eq3 = new Tone.EQ3({ low: 0, mid: 0, high: 0 })
-      const eq3OutputNode = eq3.output as AudioNode
-      eq3OutputNode.channelCount = 1
-      eq3OutputNode.channelCountMode = 'explicit'
-      
-      panLeftGain = new Tone.Gain(0.707)
-      panRightGain = new Tone.Gain(0.707)
-      
-      const leftGainInputNode = panLeftGain.input as GainNode
-      leftGainInputNode.channelCount = 1
-      leftGainInputNode.channelCountMode = 'explicit'
-      const leftGainOutputNode = panLeftGain.output as GainNode
-      leftGainOutputNode.channelCount = 1
-      leftGainOutputNode.channelCountMode = 'explicit'
-      
-      const rightGainInputNode = panRightGain.input as GainNode
-      rightGainInputNode.channelCount = 1
-      rightGainInputNode.channelCountMode = 'explicit'
-      const rightGainOutputNode = panRightGain.output as GainNode
-      rightGainOutputNode.channelCount = 1
-      rightGainOutputNode.channelCountMode = 'explicit'
-      
-      // Native merger doesn't need to be recreated (it's raw Web Audio API)
-      // But let's do it anyway
-      nativeMerger = Tone.context.createChannelMerger(2)
-      
-      panMerge = new Tone.Gain(1.0)
-      const panMergeNode = panMerge.input as GainNode
-      panMergeNode.channelCount = 2
-      panMergeNode.channelCountMode = 'explicit'
-      panMergeNode.channelInterpretation = 'discrete'
+      panNode = new Tone.Panner(0)
       
       // Reconnect the entire chain
-      gainNode.connect(monoConverter)
-      monoConverter.connect(eq3)
+      gainNode.connect(eq3)
       eq3.connect(meter)
       eq3.connect(waveform)
-      eq3.connect(postFxMono)
-      postFxMono.connect(panLeftGain)
-      postFxMono.connect(panRightGain)
-      panLeftGain.connect(nativeMerger, 0, 0)
-      panRightGain.connect(nativeMerger, 0, 1)
-      nativeMerger.connect(panMerge.input)
-      panMerge.connect(volumeNode)
+      eq3.connect(panNode)
+      panNode.connect(volumeNode)
       
       // Reconnect to master/destination
       connectToOutput()
@@ -853,14 +729,6 @@ function handleSourceTypeChange() {
     gainNode = null
   }
   
-  if (monoConverter) {
-    try {
-      monoConverter.disconnect()
-      monoConverter.dispose()
-    } catch (e) {}
-    monoConverter = null
-  }
-  
   if (eq3) {
     try {
       eq3.disconnect()
@@ -869,36 +737,12 @@ function handleSourceTypeChange() {
     eq3 = null
   }
   
-  if (postFxMono) {
+  if (panNode) {
     try {
-      postFxMono.disconnect()
-      postFxMono.dispose()
+      panNode.disconnect()
+      panNode.dispose()
     } catch (e) {}
-    postFxMono = null
-  }
-  
-  if (panLeftGain) {
-    try {
-      panLeftGain.disconnect()
-      panLeftGain.dispose()
-    } catch (e) {}
-    panLeftGain = null
-  }
-  
-  if (panRightGain) {
-    try {
-      panRightGain.disconnect()
-      panRightGain.dispose()
-    } catch (e) {}
-    panRightGain = null
-  }
-  
-  if (panMerge) {
-    try {
-      panMerge.disconnect()
-      panMerge.dispose()
-    } catch (e) {}
-    panMerge = null
+    panNode = null
   }
   
   if (volumeNode) {
@@ -1150,13 +994,8 @@ function updateVolume() {
 
   if (isMuted.value) {
     volumeNode.volume.value = -Infinity
-    // Also mute the pan gains
-    if (panLeftGain) panLeftGain.gain.value = 0
-    if (panRightGain) panRightGain.gain.value = 0
   } else {
     volumeNode.volume.value = volume.value
-    // Restore pan
-    updatePan()
   }
 }
 
@@ -1168,26 +1007,8 @@ function updateGain() {
 
 
 function updatePan() {
-  if (!panLeftGain || !panRightGain) return
-  
-  if (isMuted.value) {
-    panLeftGain.gain.value = 0
-    panRightGain.gain.value = 0
-    return
-  }
-  
-  const panValue = pan.value // -1 to +1
-  
-  // Constant power panning
-  // -1 = full left: L=1, R=0
-  //  0 = center: L=0.707, R=0.707 (equal power)
-  // +1 = full right: L=0, R=1
-  const theta = (panValue + 1) * Math.PI / 4 // Map -1..1 to 0..PI/2
-  const leftGain = Math.cos(theta)
-  const rightGain = Math.sin(theta)
-  
-  panLeftGain.gain.value = leftGain
-  panRightGain.gain.value = rightGain
+  if (!panNode || !Tone) return
+  panNode.pan.value = pan.value
 }
 
 // Watch for parameter changes
@@ -1314,13 +1135,8 @@ onUnmounted(() => {
     player.dispose()
   }
   if (gainNode) gainNode.dispose()
-  if (monoConverter) monoConverter.dispose()
-  if (postFxMono) postFxMono.dispose()
   if (eq3) eq3.dispose()
-  if (panLeftGain) panLeftGain.dispose()
-  if (panRightGain) panRightGain.dispose()
-  if (panMerge) panMerge.dispose()
-  // nativeMerger is Web Audio API node, not Tone.js - no dispose needed
+  if (panNode) panNode.dispose()
   if (volumeNode) volumeNode.dispose()
   if (meter) meter.dispose()
   if (waveform) waveform.dispose()
@@ -1416,10 +1232,8 @@ function removeReverb() {
   }
 }
 
-
-
 function rebuildAudioChain() {
-  if (!eq3 || !panLeftGain || !panRightGain || !panMerge || !volumeNode || !postFxMono || !nativeMerger) return
+  if (!eq3 || !panNode || !volumeNode) return
 
   // Disconnect everything
   try {
@@ -1427,14 +1241,11 @@ function rebuildAudioChain() {
     if (parametricEQFilters) parametricEQFilters.output.disconnect()
     if (compressor) compressor.disconnect()
     if (reverb) reverb.disconnect()
-    if (postFxMono) postFxMono.disconnect()
-    panLeftGain.disconnect()
-    panRightGain.disconnect()
   } catch (e) {
     // Ignore disconnection errors
   }
 
-  // Build new chain: eq3 -> [parametricEQ] -> [compressor] -> [reverb] -> postFxMono -> [dup to L/R gains] -> merge -> volume
+  // Build new chain: eq3 -> [parametricEQ] -> [compressor] -> [reverb] -> pan -> volume
   let currentNode: any = eq3
 
   // CRITICAL: Reconnect meter and waveform to eq3 (they were disconnected above)
@@ -1459,18 +1270,10 @@ function rebuildAudioChain() {
     currentNode = reverb
   }
   
-  // CRITICAL: Force mono AFTER all effects (effects might produce stereo)
-  // This ensures we split a true MONO signal to L/R gains
-  currentNode.connect(postFxMono)
-  currentNode = postFxMono
-
-  // Manual pan: duplicate MONO to L/R gains -> native merger -> wrapper
-  currentNode.connect(panLeftGain)
-  currentNode.connect(panRightGain)
-  panLeftGain.connect(nativeMerger, 0, 0)
-  panRightGain.connect(nativeMerger, 0, 1)
-
-  // panMerge to volume (already connected in initAudioNodes)
+  // Pan node handles both stereo and mono correctly
+  currentNode.connect(panNode)
+  
+  // Pan to volume (already connected in initAudioNodes)
   // connectToOutput() already called in initAudioNodes
 }
 </script>
