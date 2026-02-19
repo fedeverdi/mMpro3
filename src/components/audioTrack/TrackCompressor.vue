@@ -33,13 +33,10 @@
 
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Knob v-model="threshold" :min="-60" :max="0" :step="0.5" label="Threshold" unit="dB"
-            color="#10b981" @update:modelValue="emitUpdate" />
-          <Knob v-model="ratio" :min="1" :max="20" :step="0.1" label="Ratio" unit=":1" color="#10b981"
-            @update:modelValue="emitUpdate" />
-          <Knob v-model="attack" :min="0" :max="1" :step="0.01" label="Attack" unit="s" color="#10b981"
-            @update:modelValue="emitUpdate" />
-          <Knob v-model="release" :min="0" :max="4" :step="0.01" label="Release" unit="s" color="#10b981"
-            @update:modelValue="emitUpdate" />
+            color="#10b981" />
+          <Knob v-model="ratio" :min="1" :max="20" :step="0.1" label="Ratio" unit=":1" color="#10b981" />
+          <Knob v-model="attack" :min="0" :max="1" :step="0.01" label="Attack" unit="s" color="#10b981" />
+          <Knob v-model="release" :min="0" :max="4" :step="0.01" label="Release" unit="s" color="#10b981" />
         </div>
       </div>
     </div>
@@ -48,15 +45,12 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
-import Knob from './Knob.vue'
+import Knob from '../Knob.vue'
 
 interface Props {
   trackNumber: number
   enabled: boolean
-  threshold: number
-  ratio: number
-  attack: number
-  release: number
+  compressorNode?: any
   meter?: any
 }
 
@@ -64,41 +58,58 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'toggle'): void
-  (e: 'update', params: { threshold: number, ratio: number, attack: number, release: number }): void
 }>()
 
 const showModal = ref(false)
 const curveCanvas = ref<HTMLCanvasElement | null>(null)
 
-// Local state for controls
-const threshold = ref(props.threshold)
-const ratio = ref(props.ratio)
-const attack = ref(props.attack)
-const release = ref(props.release)
-
-// Sync props to local state
-watch(() => props.threshold, (val) => threshold.value = val)
-watch(() => props.ratio, (val) => ratio.value = val)
-watch(() => props.attack, (val) => attack.value = val)
-watch(() => props.release, (val) => release.value = val)
+// Internal state for controls
+const threshold = ref(-20)
+const ratio = ref(4)
+const attack = ref(0.1)
+const release = ref(0.25)
 
 function handleToggle() {
   emit('toggle')
 }
 
-function emitUpdate() {
-  emit('update', {
-    threshold: threshold.value,
-    ratio: ratio.value,
-    attack: attack.value,
-    release: release.value
-  })
+function updateCompressorNode() {
+  if (!props.compressorNode) return
+  
+  // Use parameter ramping to prevent audio spikes
+  const rampTime = 0.05 // 50ms smooth transition
+  props.compressorNode.threshold.rampTo(threshold.value, rampTime)
+  props.compressorNode.ratio.rampTo(ratio.value, rampTime)
+  props.compressorNode.attack.rampTo(attack.value, rampTime)
+  props.compressorNode.release.rampTo(release.value, rampTime)
   
   // Redraw curve if modal is open
   if (showModal.value) {
     nextTick(() => drawCompressionCurve())
   }
 }
+
+// Watch for parameter changes
+watch([threshold, ratio, attack, release], () => {
+  updateCompressorNode()
+})
+
+// Expose methods for snapshot save/restore
+defineExpose({
+  getParams: () => ({
+    threshold: threshold.value,
+    ratio: ratio.value,
+    attack: attack.value,
+    release: release.value
+  }),
+  setParams: (params: { threshold: number, ratio: number, attack: number, release: number }) => {
+    threshold.value = params.threshold
+    ratio.value = params.ratio
+    attack.value = params.attack
+    release.value = params.release
+    updateCompressorNode()
+  }
+})
 
 // Track compressor visualization
 watch(showModal, (isOpen) => {

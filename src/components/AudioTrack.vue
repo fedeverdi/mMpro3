@@ -76,12 +76,13 @@
     </div>
 
     <!-- Waveform Display -->
-    <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
-      <div class="px-0.5 py-0.5">
-        <canvas ref="waveformCanvas" class="w-full h-[30px] rounded border border-gray-700 bg-black"
-          style="image-rendering: crisp-edges;"></canvas>
-      </div>
-    </div>
+    <WaveformDisplay 
+      ref="waveformDisplayRef"
+      :waveform-node="waveform"
+      :audio-buffer="currentAudioBuffer"
+      :is-playing="isPlaying"
+      :current-time="currentPlaybackTime"
+    />
 
     <!-- Gain Control -->
     <div class="w-full flex items-center justify-center h-[4rem]">
@@ -94,24 +95,19 @@
     <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
       <div class="flex gap-1">
         <TrackCompressor 
+          ref="trackCompressorRef"
           :track-number="trackNumber"
           :enabled="compressorEnabled"
-          :threshold="compressorThreshold"
-          :ratio="compressorRatio"
-          :attack="compressorAttack"
-          :release="compressorRelease"
+          :compressor-node="compressor"
           :meter="meter"
           @toggle="toggleCompressor"
-          @update="updateCompressor"
         />
         <TrackReverb 
+          ref="trackReverbRef"
           :track-number="trackNumber"
           :enabled="reverbEnabled"
-          :decay="reverbDecay"
-          :pre-delay="reverbPreDelay"
-          :wet="reverbWet"
+          :reverb-node="reverb"
           @toggle="toggleReverb"
-          @update="updateReverb"
         />
       </div>
     </div>
@@ -136,10 +132,8 @@
         </button>
       </div>
       <!-- EQ Curve Thumbnail -->
-      <div class="px-1 py-2">
-        <canvas ref="eqThumbnail" class="w-full h-[50px] rounded border border-gray-700"
-          style="image-rendering: crisp-edges;"></canvas>
-      </div>
+      <EQThumbnail :filters="eqFiltersData" />
+      
       <!-- 3-Band EQ Knobs (Accordion) -->
       <div v-show="showEQ3Bands" class="grid grid-cols-2 gap-2 items-center max-h-[10.5rem] -mt-4">
         <!-- Left column: Mid -->
@@ -199,16 +193,15 @@ import { ref, watch, onMounted, onUnmounted, nextTick, computed, toRaw } from 'v
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import type { TrackSnapshot } from '~/composables/useScenes'
-import { PeakingFilter } from '~/lib/filters/peaking.class'
-import { LowShelvingFilter } from '~/lib/filters/lowShelving.class'
-import { HighShelvingFilter } from '~/lib/filters/highShelving.class'
 import Fader from './Fader.vue'
 import Knob from './Knob.vue'
 import PanKnob from './PanKnob.vue'
 import ParametricEQModal from './ParametricEQModal.vue'
 import VuMeter from './VuMeter.vue'
-import TrackCompressor from './TrackCompressor.vue'
-import TrackReverb from './TrackReverb.vue'
+import TrackCompressor from './audioTrack/TrackCompressor.vue'
+import TrackReverb from './audioTrack/TrackReverb.vue'
+import EQThumbnail from './audioTrack/EQThumbnail.vue'
+import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
 
 defineOptions({
   inheritAttrs: false
@@ -242,8 +235,7 @@ const isMuted = ref(false)
 const isSolo = ref(false)
 const isLoading = ref(false)
 const showParametricEQ = ref(false)
-const eqThumbnail = ref<HTMLCanvasElement | null>(null)
-const waveformCanvas = ref<HTMLCanvasElement | null>(null)
+const waveformDisplayRef = ref<any>(null)
 
 // Audio source selection
 const audioSourceType = ref<'file' | 'input'>('file')
@@ -259,18 +251,10 @@ let audioInputSource: MediaStreamAudioSourceNode | null = null
 // FX state
 const compressorEnabled = ref(false)
 const reverbEnabled = ref(false)
-const compressorThreshold = ref(-20)
-const compressorRatio = ref(4)
-const compressorAttack = ref(0.1)
-const compressorRelease = ref(0.25)
-const reverbDecay = ref(1.5)
-const reverbPreDelay = ref(0.01)
-const reverbWet = ref(0.3)
 
-// Filter calculators for thumbnail
-const peakingCalculator = new PeakingFilter()
-const lowShelvingCalculator = new LowShelvingFilter()
-const highShelvingCalculator = new HighShelvingFilter()
+// Refs to component instances
+const trackCompressorRef = ref<any>(null)
+const trackReverbRef = ref<any>(null)
 
 // Store EQ filters data for thumbnail
 const eqFiltersData = ref<any[]>([])
@@ -286,6 +270,7 @@ const eqLow = ref(0)
 const eqMid = ref(0)
 const eqHigh = ref(0)
 const trackLevel = ref(-60)
+const currentPlaybackTime = ref(0)
 
 // Tone.js nodes
 let player: any = null // Can be Tone.Player or Tone.UserMedia
@@ -304,8 +289,9 @@ let panMerge: any = null // Tone.Gain wrapper for stereo output
 let volumeNode: any = null
 let meter: any = null
 let waveform: any = null // Waveform analyzer
-let waveformAnimationId: number | null = null
 let resizeObserver: ResizeObserver | null = null
+let playbackTimeInterval: number | null = null
+let playbackStartTime: number = 0
 
 // DEBUG: Track player lifecycle
 let playerCreatedCount = 0
@@ -337,233 +323,12 @@ onMounted(async () => {
     resizeObserver.observe(faderContainer.value)
   }
 
-  // Draw initial empty EQ thumbnail
-  drawEQThumbnail()
-  
-  // Initialize waveform display
-  stopWaveformDrawing()
-
   // Start level monitoring
   startLevelMonitoring()
 
   // Listen for device changes and refresh the shared list
   navigator.mediaDevices.addEventListener('devicechange', refreshAudioInputs)
 })
-
-// Draw EQ curve thumbnail
-function drawEQThumbnail() {
-  if (!eqThumbnail.value) return
-
-  const canvas = eqThumbnail.value
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  const dpr = window.devicePixelRatio || 1
-  const rect = canvas.getBoundingClientRect()
-
-  canvas.width = rect.width * dpr
-  canvas.height = 40 * dpr
-  ctx.scale(dpr, dpr)
-
-  const width = rect.width
-  const height = 40
-
-  // Clear canvas
-  ctx.fillStyle = '#111827' // bg-gray-900
-  ctx.fillRect(0, 0, width, height)
-
-  // Draw grid
-  ctx.strokeStyle = 'rgba(75, 85, 99, 0.3)' // gray-600 with opacity
-  ctx.lineWidth = 0.5
-
-  // Horizontal lines (0dB center line more visible)
-  for (let i = 0; i <= 2; i++) {
-    const y = (height / 2) * i
-    ctx.globalAlpha = i === 1 ? 0.5 : 0.3
-    ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.lineTo(width, y)
-    ctx.stroke()
-  }
-  ctx.globalAlpha = 1
-
-  // If no filters, just show flat line
-  if (eqFiltersData.value.length === 0) {
-    ctx.strokeStyle = '#6B7280' // gray-500
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.moveTo(0, height / 2)
-    ctx.lineTo(width, height / 2)
-    ctx.stroke()
-    return
-  }
-
-  // Calculate convolution curve
-  const points = 200
-  const minFreq = Math.log10(20)
-  const maxFreq = Math.log10(20000)
-
-  ctx.strokeStyle = '#FFFFFF'
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
-
-  for (let i = 0; i < points; i++) {
-    const x = (i / points) * width
-    const logFreq = minFreq + (i / points) * (maxFreq - minFreq)
-    const freq = Math.pow(10, logFreq)
-
-    // Calculate total gain at this frequency
-    let totalGain = 0
-
-    eqFiltersData.value.forEach(filter => {
-      let gain = 0
-
-      if (filter.type === 'peaking') {
-        gain = peakingCalculator.computeResponseAtFrequency(
-          freq,
-          filter.frequency,
-          filter.gain,
-          filter.Q
-        )
-      } else if (filter.type === 'lowshelf') {
-        gain = lowShelvingCalculator.computeResponseAtFrequency(
-          freq,
-          filter.frequency,
-          filter.gain,
-          filter.Q
-        )
-      } else if (filter.type === 'highshelf') {
-        gain = highShelvingCalculator.computeResponseAtFrequency(
-          freq,
-          filter.frequency,
-          filter.gain,
-          filter.Q
-        )
-      } else if (filter.type === 'lowpass' || filter.type === 'highpass') {
-        // For lowpass/highpass, we don't have calculators so skip for now
-        gain = 0
-      }
-
-      totalGain += gain
-    })
-
-    // Map gain to y position (scale: -24dB to +24dB)
-    const y = height / 2 - (totalGain * (height / 48))
-
-    if (i === 0) {
-      ctx.moveTo(x, y)
-    } else {
-      ctx.lineTo(x, y)
-    }
-  }
-
-  ctx.stroke()
-}
-
-// Draw waveform visualization
-function drawWaveform() {
-  if (!waveformCanvas.value || !waveform) {
-    return
-  }
-
-  const canvas = waveformCanvas.value
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  const dpr = window.devicePixelRatio || 1
-  const rect = canvas.getBoundingClientRect()
-
-  // Set canvas size accounting for device pixel ratio
-  canvas.width = rect.width * dpr
-  canvas.height = 50 * dpr
-  ctx.scale(dpr, dpr)
-
-  const width = rect.width
-  const height = 50
-
-  // Clear canvas
-  ctx.fillStyle = '#000000' // black background
-  ctx.fillRect(0, 0, width, height)
-
-  // Get waveform data
-  const values = waveform.getValue()
-  
-  if (!values || values.length === 0) {
-    return
-  }
-
-  // Draw waveform
-  ctx.strokeStyle = '#22d3ee' // cyan-400
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
-
-  const sliceWidth = width / values.length
-  let x = 0
-
-  for (let i = 0; i < values.length; i++) {
-    // Normalize value from -1,1 to 0,height
-    const v = (values[i] + 1) / 2
-    const y = v * height
-
-    if (i === 0) {
-      ctx.moveTo(x, y)
-    } else {
-      ctx.lineTo(x, y)
-    }
-
-    x += sliceWidth
-  }
-
-  ctx.stroke()
-
-  // Draw center line
-  ctx.strokeStyle = 'rgba(100, 116, 139, 0.3)' // gray-500 with opacity
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(0, height / 2)
-  ctx.lineTo(width, height / 2)
-  ctx.stroke()
-}
-
-// Start waveform animation loop
-function startWaveformDrawing() {
- 
-  if (waveformAnimationId !== null) return
-
-  function animate() {
-    drawWaveform()
-    waveformAnimationId = requestAnimationFrame(animate)
-  }
-
-  waveformAnimationId = requestAnimationFrame(animate)
-}
-
-// Stop waveform animation loop
-function stopWaveformDrawing() {
-  if (waveformAnimationId !== null) {
-    cancelAnimationFrame(waveformAnimationId)
-    waveformAnimationId = null
-  }
-  
-  // Clear the canvas
-  if (waveformCanvas.value) {
-    const canvas = waveformCanvas.value
-    const ctx = canvas.getContext('2d')
-    if (ctx) {
-      const rect = canvas.getBoundingClientRect()
-      ctx.fillStyle = '#000000'
-      ctx.fillRect(0, 0, rect.width, 50)
-      
-      // Draw center line on empty canvas
-      ctx.strokeStyle = 'rgba(100, 116, 139, 0.3)'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.moveTo(0, 25)
-      ctx.lineTo(rect.width, 25)
-      ctx.stroke()
-    }
-  }
-}
 
 // Initialize audio nodes (called on first use)
 function initAudioNodes() {
@@ -699,7 +464,6 @@ function handleParametricEQUpdate(filters: any) {
       gain: f.gain,
       Q: f.Q
     }))
-    drawEQThumbnail()
   }
 }
 
@@ -769,6 +533,37 @@ function startLevelMonitoring() {
   }, 50)
 }
 
+// Playback time tracking
+function startPlaybackTimeTracking() {
+  if (playbackTimeInterval !== null) return
+  
+  if (!Tone) return
+  
+  // Record start time
+  playbackStartTime = Tone.now()
+  
+  playbackTimeInterval = window.setInterval(() => {
+    if (player && isPlaying.value && Tone) {
+      // Calculate elapsed time since start
+      const elapsed = Tone.now() - playbackStartTime
+      
+      // For looping player, use modulo of duration
+      if (currentAudioBuffer && currentAudioBuffer.duration) {
+        currentPlaybackTime.value = elapsed % currentAudioBuffer.duration
+      }
+    }
+  }, 50) // Update every 50ms for smooth animation
+}
+
+function stopPlaybackTimeTracking() {
+  if (playbackTimeInterval !== null) {
+    clearInterval(playbackTimeInterval)
+    playbackTimeInterval = null
+  }
+  currentPlaybackTime.value = 0
+  playbackStartTime = 0
+}
+
 // File upload handler
 async function handleFileUpload(event: Event) {
   const target = event.target as HTMLInputElement
@@ -794,7 +589,7 @@ async function handleFileUpload(event: Event) {
     if (player) {
       
       isPlaying.value = false
-      stopWaveformDrawing()
+      waveformDisplayRef.value?.stop()
       
       // CRITICAL: Only stop if it's a Tone.Player (has stop method)
       // For audio input, player is a Tone.Gain which doesn't have stop()
@@ -983,7 +778,7 @@ async function loadFileFromIndexedDB(savedFileId: string) {
     // Stop and dispose old player if exists
     if (player) {
       isPlaying.value = false
-      stopWaveformDrawing()
+      waveformDisplayRef.value?.stop()
       if (typeof player.stop === 'function') {
         player.stop()
       }
@@ -1039,7 +834,7 @@ function handleSourceTypeChange() {
   stopAudio()
   
   // Stop waveform visualization
-  stopWaveformDrawing()
+  waveformDisplayRef.value?.stop()
   
   // Clean up current source
   if (player) {
@@ -1261,7 +1056,9 @@ async function handleAudioInputChange() {
     }
     
     // Start waveform visualization for audio input
-    startWaveformDrawing()
+    waveformDisplayRef.value?.start()
+    
+    // Note: No playback time tracking for audio input (it's live)
     
   } catch (error) {
     console.error(`[Track ${props.trackNumber}] Error connecting audio input:`, error)
@@ -1312,16 +1109,22 @@ async function togglePlay() {
     }
     isPlaying.value = true
     
-    // Start waveform (disabled)
-    startWaveformDrawing()
+    // Start waveform
+    waveformDisplayRef.value?.start()
+    
+    // Start playback time tracking
+    startPlaybackTimeTracking()
   } else {
     if (typeof player.stop === 'function') {
       player.stop()
     }
     isPlaying.value = false
     
-    // Stop waveform (disabled)
-    stopWaveformDrawing()
+    // Stop waveform
+    waveformDisplayRef.value?.stop()
+    
+    // Stop playback time tracking
+    stopPlaybackTimeTracking()
   }
 }
 
@@ -1342,8 +1145,11 @@ function stopAudio() {
   }
   isPlaying.value = false
     
-  // Stop waveform (disabled)
-  stopWaveformDrawing()
+  // Stop waveform
+  waveformDisplayRef.value?.stop()
+  
+  // Stop playback time tracking
+  stopPlaybackTimeTracking()
 }
 
 function toggleMute() {
@@ -1441,14 +1247,9 @@ defineExpose({
         color: f.color
       })),
       compressorEnabled: compressorEnabled.value,
-      compressorThreshold: compressorThreshold.value,
-      compressorRatio: compressorRatio.value,
-      compressorAttack: compressorAttack.value,
-      compressorRelease: compressorRelease.value,
+      compressor: trackCompressorRef.value?.getParams(),
       reverbEnabled: reverbEnabled.value,
-      reverbDecay: reverbDecay.value,
-      reverbPreDelay: reverbPreDelay.value,
-      reverbWet: reverbWet.value
+      reverb: trackReverbRef.value?.getParams()
     }
   },
   
@@ -1492,19 +1293,18 @@ defineExpose({
     
     // Restore compressor
     const shouldEnableCompressor = snapshot.compressorEnabled || false
-    compressorThreshold.value = snapshot.compressorThreshold || -20
-    compressorRatio.value = snapshot.compressorRatio || 4
-    compressorAttack.value = snapshot.compressorAttack || 0.1
-    compressorRelease.value = snapshot.compressorRelease || 0.25
+    if (snapshot.compressor) {
+      trackCompressorRef.value?.setParams(snapshot.compressor)
+    }
     if (shouldEnableCompressor !== compressorEnabled.value) {
       toggleCompressor()
     }
     
     // Restore reverb
     const shouldEnableReverb = snapshot.reverbEnabled || false
-    reverbDecay.value = snapshot.reverbDecay || 1.5
-    reverbPreDelay.value = snapshot.reverbPreDelay || 0.01
-    reverbWet.value = snapshot.reverbWet || 0.3
+    if (snapshot.reverb) {
+      trackReverbRef.value?.setParams(snapshot.reverb)
+    }
     if (shouldEnableReverb !== reverbEnabled.value) {
       toggleReverb()
     }
@@ -1553,8 +1353,12 @@ onUnmounted(() => {
     clearInterval(levelMonitorInterval)
   }
   
+  if (playbackTimeInterval) {
+    clearInterval(playbackTimeInterval)
+  }
+  
   // Stop waveform drawing
-  stopWaveformDrawing()
+  waveformDisplayRef.value?.stop()
   
   // Remove device change listener
   navigator.mediaDevices.removeEventListener('devicechange', refreshAudioInputs)
@@ -1584,12 +1388,15 @@ function toggleReverb() {
 function createCompressor() {
   if (!Tone || compressor) return
 
-  compressor = new Tone.Compressor({
-    threshold: compressorThreshold.value,
-    ratio: compressorRatio.value,
-    attack: compressorAttack.value,
-    release: compressorRelease.value
-  })
+  // Get current params from component or use defaults
+  const params = trackCompressorRef.value?.getParams() || {
+    threshold: -20,
+    ratio: 4,
+    attack: 0.1,
+    release: 0.25
+  }
+
+  compressor = new Tone.Compressor(params)
 
   rebuildAudioChain()
 }
@@ -1606,11 +1413,14 @@ function removeCompressor() {
 function createReverb() {
   if (!Tone || reverb) return
 
-  reverb = new Tone.Reverb({
-    decay: reverbDecay.value,
-    preDelay: reverbPreDelay.value,
-    wet: reverbWet.value
-  })
+  // Get current params from component or use defaults
+  const params = trackReverbRef.value?.getParams() || {
+    decay: 1.5,
+    preDelay: 0.01,
+    wet: 0.3
+  }
+
+  reverb = new Tone.Reverb(params)
 
   rebuildAudioChain()
 }
@@ -1624,35 +1434,7 @@ function removeReverb() {
   }
 }
 
-function updateCompressor(params: { threshold: number, ratio: number, attack: number, release: number }) {
-  compressorThreshold.value = params.threshold
-  compressorRatio.value = params.ratio
-  compressorAttack.value = params.attack
-  compressorRelease.value = params.release
-  
-  if (!compressor) return
 
-  // Use parameter ramping to prevent audio spikes
-  const rampTime = 0.05 // 50ms smooth transition
-  compressor.threshold.rampTo(params.threshold, rampTime)
-  compressor.ratio.rampTo(params.ratio, rampTime)
-  compressor.attack.rampTo(params.attack, rampTime)
-  compressor.release.rampTo(params.release, rampTime)
-}
-
-function updateReverb(params: { decay: number, preDelay: number, wet: number }) {
-  reverbDecay.value = params.decay
-  reverbPreDelay.value = params.preDelay
-  reverbWet.value = params.wet
-  
-  if (!reverb) return
-
-  // Use parameter ramping for smooth changes
-  const rampTime = 0.05 // 50ms
-  reverb.decay = params.decay // Decay can't be ramped, it's a constructor property
-  reverb.preDelay = params.preDelay // PreDelay can't be ramped either
-  reverb.wet.rampTo(params.wet, rampTime)
-}
 
 function rebuildAudioChain() {
   if (!eq3 || !panLeftGain || !panRightGain || !panMerge || !volumeNode || !postFxMono || !nativeMerger) return

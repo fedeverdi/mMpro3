@@ -26,12 +26,9 @@
           <button @click="showModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
         </div>
         <div class="flex flex-wrap gap-4 justify-center">
-          <Knob v-model="decay" :min="0.1" :max="10" :step="0.1" label="Decay" unit="s" color="#10b981"
-            @update:modelValue="emitUpdate" />
-          <Knob v-model="preDelay" :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#f59e0b"
-            @update:modelValue="emitUpdate" />
-          <Knob v-model="wet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4"
-            @update:modelValue="emitUpdate" />
+          <Knob v-model="decay" :min="0.1" :max="10" :step="0.1" label="Decay" unit="s" color="#10b981" />
+          <Knob v-model="preDelay" :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#f59e0b" />
+          <Knob v-model="wet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
         </div>
       </div>
     </div>
@@ -40,44 +37,58 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import Knob from './Knob.vue'
+import Knob from '../Knob.vue'
 
 interface Props {
   trackNumber: number
   enabled: boolean
-  decay: number
-  preDelay: number
-  wet: number
+  reverbNode?: any
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'toggle'): void
-  (e: 'update', params: { decay: number, preDelay: number, wet: number }): void
 }>()
 
 const showModal = ref(false)
 
-// Local state for controls
-const decay = ref(props.decay)
-const preDelay = ref(props.preDelay)
-const wet = ref(props.wet)
-
-// Sync props to local state
-watch(() => props.decay, (val) => decay.value = val)
-watch(() => props.preDelay, (val) => preDelay.value = val)
-watch(() => props.wet, (val) => wet.value = val)
+// Internal state for controls
+const decay = ref(1.5)
+const preDelay = ref(0.01)
+const wet = ref(0.3)
 
 function handleToggle() {
   emit('toggle')
 }
 
-function emitUpdate() {
-  emit('update', {
+function updateReverbNode() {
+  if (!props.reverbNode) return
+  
+  // Use parameter ramping for smooth changes
+  const rampTime = 0.05 // 50ms
+  props.reverbNode.decay = decay.value // Decay can't be ramped, it's a constructor property
+  props.reverbNode.preDelay = preDelay.value // PreDelay can't be ramped either
+  props.reverbNode.wet.rampTo(wet.value, rampTime)
+}
+
+// Watch for parameter changes
+watch([decay, preDelay, wet], () => {
+  updateReverbNode()
+})
+
+// Expose methods for snapshot save/restore
+defineExpose({
+  getParams: () => ({
     decay: decay.value,
     preDelay: preDelay.value,
     wet: wet.value
-  })
-}
+  }),
+  setParams: (params: { decay: number, preDelay: number, wet: number }) => {
+    decay.value = params.decay
+    preDelay.value = params.preDelay
+    wet.value = params.wet
+    updateReverbNode()
+  }
+})
 </script>
