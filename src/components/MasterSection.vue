@@ -61,14 +61,14 @@
       </div>
 
       <!-- Faders Row -->
-      <div v-if="fadersHeight > 0" class="flex gap-1 items-end">
-        <Fader v-model="leftVolume" label="Left" :trackHeight="fadersHeight" color="green" />
-        <Fader v-model="rightVolume" label="Right" :trackHeight="fadersHeight" color="green" />
+      <div v-if="fadersHeight > 0" class="flex gap-2 items-end">
+        <MasterFader v-model="leftVolume" label="Left" :trackHeight="fadersHeight" />
+        <MasterFader v-model="rightVolume" label="Right" :trackHeight="fadersHeight" />
       </div>
     </div>
 
     <!-- Master Controls -->
-    <div class="w-full mt-2 flex gap-1">
+    <div class="w-full mt-4 flex gap-1">
       <!-- Link Button -->
       <button @click="toggleLink" class="flex-1 py-1 text-xs font-bold rounded transition-all"
         :class="isLinked ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
@@ -113,7 +113,7 @@
 
 <script setup lang="ts">
 import AudioOutputModal from './AudioOutputModal.vue'
-import Fader from './Fader.vue'
+import MasterFader from './MasterFader.vue'
 import Knob from './Knob.vue'
 import VuMeter from './VuMeter.vue'
 import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'

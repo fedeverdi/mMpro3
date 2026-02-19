@@ -1,5 +1,5 @@
 <template>
-  <div class="track-fader-container flex flex-col items-center gap-1 w-14">
+  <div class="master-fader-container flex flex-col items-center gap-1 w-16">
     <!-- Fader wrapper -->
     <div class="flex items-start gap-1" :style="{ height: trackHeight + 'px' }">
       <!-- Scale marks (left) -->
@@ -20,7 +20,7 @@
       <!-- Fader track -->
       <div 
         class="fader-track-wrapper relative cursor-ns-resize"
-        :style="{ width: '24px', height: trackHeight + 'px' }"
+        :style="{ width: '28px', height: trackHeight + 'px' }"
         @mousedown="startDrag"
         @touchstart="startDrag"
         @wheel.prevent="onWheel"
@@ -47,19 +47,19 @@
           </div>
         </div>
         
-        <!-- Fader cap/thumb -->
+        <!-- Fader cap/thumb - RED VERSION -->
         <div
           class="fader-cap absolute left-1/2 -translate-x-1/2 cursor-grab active:cursor-grabbing"
           :class="{ 'scale-105': isDragging }"
           :style="{ 
             bottom: thumbPosition + 'px',
-            width: '26px',
-            height: '52px',
+            width: '28px',
+            height: '60px',
             transition: isDragging ? 'none' : 'transform 0.1s ease'
           }"
         >
           <!-- Cap body with clean Tailwind design -->
-          <div class="relative w-full h-full rounded overflow-hidden border-2 border-gray-600 bg-gray-400 shadow-lg">
+          <div class="relative w-full h-full rounded overflow-hidden border-2 border-red-700 bg-red-600 shadow-lg">
             <!-- Subtle top highlight -->
             <div class="absolute top-0 left-0 right-0 h-1 bg-white/20"></div>
             
@@ -67,11 +67,11 @@
             <div class="absolute bottom-0 left-0 right-0 h-1 bg-black/20"></div>
             
             <!-- Central horizontal line -->
-            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-0.5 bg-gray-600/60 rounded-full"></div>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-0.5 bg-red-900/90 rounded-full"></div>
           </div>
           
           <!-- Cap shadow (projected on track) -->
-          <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-6 h-3 bg-black/50 blur-md rounded-full"></div>
+          <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-7 h-3 bg-black/50 blur-md rounded-full"></div>
         </div>
       </div>
       
@@ -91,15 +91,18 @@
       </div>
     </div>
     
-    <!-- Value display -->
-    <div class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-gray-800/50 border border-gray-700"
-      :class="{
-        'text-green-400': modelValue === 0,
-        'text-orange-400': modelValue > 0 && modelValue < 6,
-        'text-red-400': modelValue >= 6,
-        'text-gray-400': modelValue < 0
-      }">
-      {{ displayValue }}
+    <!-- Label and Value display -->
+    <div class="flex flex-col items-center gap-0.5">
+      <div class="text-[9px] text-gray-400 uppercase tracking-wide">{{ label }}</div>
+      <div class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-gray-800/50 border border-gray-700"
+        :class="{
+          'text-green-400': modelValue === 0,
+          'text-orange-400': modelValue > 0 && modelValue < 6,
+          'text-red-400': modelValue >= 6,
+          'text-gray-400': modelValue < 0
+        }">
+        {{ displayValue }}
+      </div>
     </div>
   </div>
 </template>
@@ -109,10 +112,12 @@ import { ref, computed, onUnmounted } from 'vue'
 
 interface Props {
   modelValue: number // Value in dB (-60 to 12)
+  label?: string     // Label (e.g., "Left", "Right")
   trackHeight?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  label: 'Master',
   trackHeight: 200
 })
 
@@ -168,7 +173,7 @@ function positionToDb(position: number): number {
 
 const thumbPosition = computed(() => {
   const position = dbToPosition(props.modelValue)
-  return position * props.trackHeight - 22.5 // -22.5 to center the 45px cap
+  return position * props.trackHeight - 30 // -30 to center the 60px cap
 })
 
 const displayValue = computed(() => {
@@ -263,7 +268,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.track-fader-container {
+.master-fader-container {
   user-select: none;
   -webkit-user-select: none;
 }
