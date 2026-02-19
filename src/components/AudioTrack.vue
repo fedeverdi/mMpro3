@@ -149,12 +149,8 @@
       <div class="text-[0.455rem] uppercase text-center">Volume</div>
       <div ref="faderContainer" class="flex-1 flex items-center justify-center gap-2  min-h-0">
         <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
-        <TrackMeter v-if="faderHeight > 0" 
-          :levelL="trackLevelL" 
-          :levelR="trackLevelR" 
-          :isStereo="isStereo" 
-          :height="faderHeight + 20" 
-        />
+        <TrackMeter v-if="faderHeight > 0" :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
+          :height="faderHeight + 20" />
       </div>
     </div>
 
@@ -260,8 +256,16 @@ let eq3: any = null
 let parametricEQFilters: any = null // Parametric EQ filter chain
 let compressor: any = null
 let reverb: any = null
-let panNode: any = null // Tone.Panner - handles both stereo balance and mono panning
-let volumeNode: any = null
+// Balance control (stereo-preserving): Split → Gain L/R → Merge
+let balanceSplit: any = null
+let balanceLeft: any = null
+let balanceRight: any = null
+let balanceMerge: any = null
+// Volume control (must preserve stereo)
+let volumeNodeL: any = null
+let volumeNodeR: any = null
+let volumeSplit: any = null
+let volumeMerge: any = null
 let meterL: any = null // Left channel meter (or mono)
 let meterR: any = null // Right channel meter (stereo only)
 let channelSplit: any = null // Split stereo to L/R for metering
@@ -332,12 +336,19 @@ function initAudioNodes() {
     high: 0
   })
 
-  // Tone.Panner handles both stereo and mono correctly:
-  // - For stereo sources (files): acts as a balance control
-  // - For mono sources (mic): creates true stereo panning
-  panNode = new Tone.Panner(0) // -1 (left) to +1 (right)
+  // Stereo-preserving balance control: Split → Gain L/R → Merge
+  // Preserves stereo width while allowing L/R balance (pan) adjustment
+  balanceSplit = new Tone.Split()
+  balanceLeft = new Tone.Gain(1)   // Left channel gain
+  balanceRight = new Tone.Gain(1)  // Right channel gain
+  balanceMerge = new Tone.Merge()
 
-  volumeNode = new Tone.Volume(0)
+  // Stereo-preserving volume control: Split → Gain L/R → Merge
+  // Tone.Volume converts stereo to mono, so we use separate gains
+  volumeSplit = new Tone.Split()
+  volumeNodeL = new Tone.Gain(1)  // Left volume (0dB = unity)
+  volumeNodeR = new Tone.Gain(1)  // Right volume (0dB = unity)
+  volumeMerge = new Tone.Merge()
 
   // Create stereo metering: split channels and meter each separately
   channelSplit = new Tone.Split() // Split stereo into L/R
@@ -361,8 +372,8 @@ function initAudioNodes() {
     wet: 0            // Bypassed: 0% wet = no reverb
   })
 
-  // Connect chain: gain -> eq3 -> compressor -> reverb -> pan -> volume
-  // FX are always in chain, bypassed when disabled
+  // Connect chain: gain -> eq3 -> reverb -> balance -> volume
+  // Compressor is bypassed by default (not in chain)
   gainNode.connect(eq3)
 
   // Connect stereo metering to eq3 (before effects)
@@ -373,13 +384,25 @@ function initAudioNodes() {
   // Connect waveform analyzer to eq3 for visualization
   eq3.connect(waveform)
 
-  // Initial FX chain: eq3 -> compressor -> reverb -> pan
-  eq3.connect(compressor)
-  compressor.connect(reverb)
-  reverb.connect(panNode)
+  // Initial FX chain: eq3 -> reverb -> balance (compressor bypassed)
+  // NOTE: Compressor is NOT connected by default to preserve stereo
+  // Use toggleCompressor() to enable it
+  eq3.connect(reverb)
 
-  // Pan to volume
-  panNode.connect(volumeNode)
+  reverb.connect(balanceSplit)
+
+  // Balance control: Split → Gain L/R → Merge
+  balanceSplit.connect(balanceLeft, 0)     // Left channel
+  balanceSplit.connect(balanceRight, 1)    // Right channel
+  balanceLeft.connect(balanceMerge, 0, 0)  // To left output
+  balanceRight.connect(balanceMerge, 0, 1) // To right output
+
+  // Volume control: Split → Gain L/R → Merge
+  balanceMerge.connect(volumeSplit)
+  volumeSplit.connect(volumeNodeL, 0)      // Left channel
+  volumeSplit.connect(volumeNodeR, 1)      // Right channel
+  volumeNodeL.connect(volumeMerge, 0, 0)   // To left output
+  volumeNodeR.connect(volumeMerge, 0, 1)   // To right output
 
   // Volume to output (master or destination)
   connectToOutput()
@@ -412,7 +435,7 @@ function handleParametricEQUpdate(filters: any) {
 
 // Insert or remove parametric EQ from the chain with minimal disconnections
 function applyParametricEQ() {
-  if (!eq3 || !compressor) return
+  if (!eq3 || !reverb) return
 
   // Disconnect only eq3 (meters and waveform stay connected)
   try {
@@ -425,71 +448,30 @@ function applyParametricEQ() {
   if (channelSplit) eq3.connect(channelSplit)
   if (waveform) eq3.connect(waveform)
 
-  // Insert parametric EQ between eq3 and compressor if present
+  // Determine next node in chain (compressor if enabled, reverb if not)
+  const nextNode = (compressorEnabled.value && compressor) ? compressor : reverb
+
+  // Insert parametric EQ between eq3 and next node if present
   if (parametricEQFilters && parametricEQFilters.input && parametricEQFilters.output) {
     eq3.connect(parametricEQFilters.input)
-    
+
     // Disconnect old parametric output if needed
     try {
       parametricEQFilters.output.disconnect()
-    } catch (e) {}
-    
-    parametricEQFilters.output.connect(compressor)
-  } else {
-    // No parametric EQ: connect eq3 directly to compressor
-    eq3.connect(compressor)
-  }
+    } catch (e) { }
 
-  // compressor → reverb → pan → volume already connected from initAudioNodes
+    parametricEQFilters.output.connect(nextNode)
+  } else {
+    // No parametric EQ: connect eq3 directly to next node
+    eq3.connect(nextNode)
+  }
 }
 
 // Connect to output (ONLY to master, NEVER to destination)
 function connectToOutput() {
-  if (!volumeNode || !Tone) return false
-
-  // Extract the masterOutput from the masterSection ref
-  let master = props.masterChannel?.masterOutput?.value || props.masterChannel?.masterOutput || props.masterChannel?.value || props.masterChannel
-
-  // Extract raw object from Vue Proxy (important for Tone.js!)
-  if (master) {
-    master = toRaw(master)
-  }
-
-  if (master) {
-    try {
-      // First disconnect from everything
-      try {
-        volumeNode.disconnect()
-      } catch (e) {
-        // Ignore
-      }
-
-      // Connect to master (now using raw object)
-      volumeNode.connect(master)
-      return true
-    } catch (e) {
-      console.error(`Track ${props.trackNumber}: Error connecting to master:`, e)
-      return false
-    }
-  } else {
-    // NO CONNECTION if master not ready - do NOT connect to destination!
-    console.warn(`Track ${props.trackNumber}: ⚠️ No master available, waiting...`)
-    return false
-  }
+  if (!volumeMerge || !Tone) return false
+  volumeMerge.connect(toRaw(props.masterChannel))
 }
-
-// Computed to track the actual master value
-const masterValue = computed(() => {
-  const mc = props.masterChannel
-  return mc?.masterOutput?.value || mc?.masterOutput || mc?.value || mc
-})
-
-// Watch for master value changes
-watch(masterValue, (newMaster) => {
-  if (newMaster && volumeNode && Tone) {
-    connectToOutput()
-  }
-})
 
 // Level monitoring for stereo/mono
 let levelMonitorInterval: number | null = null
@@ -498,7 +480,7 @@ function startLevelMonitoring() {
     if (meterL && Tone) {
       const levelL = meterL.getValue() as number
       trackLevelL.value = Math.max(-60, levelL)
-      
+
       // For stereo, also read right channel
       if (isStereo.value && meterR) {
         const levelR = meterR.getValue() as number
@@ -570,51 +552,51 @@ async function handleFileUpload(event: Event) {
     // Check if we need to create a new player or just swap buffer
     if (player && typeof player.stop === 'function' && 'buffer' in player) {
       // It's already a Tone.Player - just swap the buffer
-      
+
       // CRITICAL: Stop player first to reset internal state
       try {
         player.stop()
-      } catch (e) {}
-      
+      } catch (e) { }
+
       // Dispose old buffer
       if (player.buffer && typeof player.buffer.dispose === 'function') {
         try {
           player.buffer.dispose()
-        } catch (e) {}
+        } catch (e) { }
       }
-      
+
       // Dispose old currentAudioBuffer if different
       if (currentAudioBuffer && currentAudioBuffer !== player.buffer) {
         try {
           if (typeof (currentAudioBuffer as any).dispose === 'function') {
             (currentAudioBuffer as any).dispose()
           }
-        } catch (e) {}
+        } catch (e) { }
       }
-      
+
       // Assign new buffer
       player.buffer = audioBuffer
-      
+
     } else {
       // First time or was audio input - create new Tone.Player
-      
+
       if (player) {
         // Cleanup old player (was Gain node for mic input)
         try {
           player.disconnect()
           player.dispose()
-        } catch (e) {}
+        } catch (e) { }
       }
-      
+
       // Dispose old currentAudioBuffer
       if (currentAudioBuffer) {
         try {
           if (typeof (currentAudioBuffer as any).dispose === 'function') {
             (currentAudioBuffer as any).dispose()
           }
-        } catch (e) {}
+        } catch (e) { }
       }
-      
+
       // Create new Tone.Player
       player = new Tone.Player({
         url: audioBuffer,
@@ -623,16 +605,15 @@ async function handleFileUpload(event: Event) {
       })
       player.connect(gainNode)
     }
-    
+
     // Update current buffer reference for waveform
     currentAudioBuffer = audioBuffer
-    
+
     // Detect if stereo or mono
     isStereo.value = audioBuffer.numberOfChannels === 2
-    console.log(`🎵 Audio loaded: ${isStereo.value ? 'Stereo' : 'Mono'} (${audioBuffer.numberOfChannels} channels)`)
 
     // Verify audio chain is connected
-    if (!gainNode || !eq3 || !volumeNode) {
+    if (!gainNode || !eq3 || !volumeMerge) {
       alert('Audio system not ready. Please refresh the page.')
       isLoading.value = false
       return
@@ -685,50 +666,50 @@ async function loadFileFromIndexedDB(savedFileId: string) {
     // Check if we need to create a new player or just swap buffer
     if (player && typeof player.stop === 'function' && 'buffer' in player) {
       // It's already a Tone.Player - just swap the buffer
-      
+
       // CRITICAL: Stop player first to reset internal state
       try {
         player.stop()
-      } catch (e) {}
-      
+      } catch (e) { }
+
       if (player.buffer && typeof player.buffer.dispose === 'function') {
         try {
           player.buffer.dispose()
-        } catch (e) {}
+        } catch (e) { }
       }
-      
+
       if (currentAudioBuffer && currentAudioBuffer !== player.buffer) {
         try {
           if (typeof (currentAudioBuffer as any).dispose === 'function') {
             (currentAudioBuffer as any).dispose()
           }
-        } catch (e) {}
+        } catch (e) { }
       }
-      
+
       // Assign new buffer
       player.buffer = audioBuffer
-      
+
       // CRITICAL: Reset playback rate to 1.0
       player.playbackRate = 1.0
-      
+
     } else {
       // First time or was audio input - create new Tone.Player
-      
+
       if (player) {
         try {
           player.disconnect()
           player.dispose()
-        } catch (e) {}
+        } catch (e) { }
       }
-      
+
       if (currentAudioBuffer) {
         try {
           if (typeof (currentAudioBuffer as any).dispose === 'function') {
             (currentAudioBuffer as any).dispose()
           }
-        } catch (e) {}
+        } catch (e) { }
       }
-      
+
       // Create new Tone.Player
       player = new Tone.Player({
         url: audioBuffer,
@@ -742,13 +723,12 @@ async function loadFileFromIndexedDB(savedFileId: string) {
 
     // Update current buffer reference for waveform
     currentAudioBuffer = audioBuffer
-    
+
     // Detect if stereo or mono
     isStereo.value = audioBuffer.numberOfChannels === 2
-    console.log(`🎵 Audio restored from scene: ${isStereo.value ? 'Stereo' : 'Mono'} (${audioBuffer.numberOfChannels} channels)`)
 
     // Verify audio chain is connected
-    if (!gainNode || !eq3 || !volumeNode) {
+    if (!gainNode || !eq3 || !volumeMerge) {
       alert('Audio system not ready. Please refresh the page.')
       isLoading.value = false
       return
@@ -782,43 +762,43 @@ function handleSourceTypeChange() {
       if (typeof player.stop === 'function') {
         player.stop()
       }
-      
+
       // Dispose old buffer to free memory
       if (player.buffer && typeof player.buffer.dispose === 'function') {
         try {
           player.buffer.dispose()
-        } catch (e) {}
+        } catch (e) { }
       }
-      
+
       player.disconnect()
       player.dispose()
-    } catch (e) {}
+    } catch (e) { }
     player = null
   }
-  
+
   // Dispose and clear audio buffer reference
   if (currentAudioBuffer) {
     try {
       if (typeof (currentAudioBuffer as any).dispose === 'function') {
         (currentAudioBuffer as any).dispose()
       }
-    } catch (e) {}
+    } catch (e) { }
   }
   currentAudioBuffer = null
-  
+
   // Disconnect and clean up audio input source
   if (audioInputSource) {
     try {
       audioInputSource.disconnect()
-    } catch (e) {}
+    } catch (e) { }
     audioInputSource = null
   }
-  
+
   if (audioInputStream) {
     audioInputStream.getTracks().forEach(track => track.stop())
     audioInputStream = null
   }
-  
+
   // DON'T destroy audio nodes - they're reusable!
   // Just reset state
   audioLoaded.value = false
@@ -851,7 +831,7 @@ async function handleAudioInputChange() {
     if (audioInputSource) {
       try {
         audioInputSource.disconnect()
-      } catch (e) {}
+      } catch (e) { }
       audioInputSource = null
     }
 
@@ -862,7 +842,7 @@ async function handleAudioInputChange() {
         player.stop()
         player.disconnect()
         player.dispose()
-      } catch (e) {}
+      } catch (e) { }
       player = null
     }
 
@@ -878,12 +858,11 @@ async function handleAudioInputChange() {
 
     // Create MediaStreamSource from the stream (native Web Audio API node)
     audioInputSource = Tone.context.createMediaStreamSource(audioInputStream)
-    
+
     // Detect if stereo or mono based on audio tracks
     const audioTracks = audioInputStream.getAudioTracks()
     const channelCount = audioTracks.length > 0 ? audioTracks[0].getSettings().channelCount || 1 : 1
     isStereo.value = channelCount === 2
-    console.log(`🎤 Audio input: ${isStereo.value ? 'Stereo' : 'Mono'} (${channelCount} channels)`)
 
     // Reuse player if it's already a Gain node, otherwise create new
     if (!player || typeof player.stop === 'function') {
@@ -960,11 +939,11 @@ async function togglePlay() {
       try {
         player.disconnect()
         player.dispose()
-      } catch (e) {}
-      
+      } catch (e) { }
+
       // Small delay to ensure cleanup
       await new Promise(resolve => setTimeout(resolve, 10))
-      
+
       // Recreate player with same buffer
       player = new Tone.Player({
         url: currentAudioBuffer,
@@ -973,11 +952,9 @@ async function togglePlay() {
         fadeIn: 0.01,
         fadeOut: 0.01
       })
-      
+
       // Reconnect to audio chain
       player.connect(gainNode)
-      
-      console.log(`[Track ${props.trackNumber}] 🔄 Player recreated for playback`)
     }
 
     // Start with future time for more stable playback
@@ -1039,12 +1016,16 @@ function toggleSolo() {
 
 // Update audio parameters
 function updateVolume() {
-  if (!volumeNode) return
+  if (!volumeNodeL || !volumeNodeR || !Tone) return
 
   if (isMuted.value) {
-    volumeNode.volume.value = -Infinity
+    volumeNodeL.gain.value = 0  // Mute = 0 gain
+    volumeNodeR.gain.value = 0
   } else {
-    volumeNode.volume.value = volume.value
+    // Convert dB to linear gain
+    const gainValue = Tone.dbToGain(volume.value)
+    volumeNodeL.gain.value = gainValue
+    volumeNodeR.gain.value = gainValue
   }
 }
 
@@ -1053,11 +1034,16 @@ function updateGain() {
   gainNode.gain.value = Tone.dbToGain(gain.value)
 }
 
-
-
+// Update pan value (constant power panning for stereo preservation)
 function updatePan() {
-  if (!panNode || !Tone) return
-  panNode.pan.value = pan.value
+  if (!balanceLeft || !balanceRight || !Tone) return
+  
+  // Constant power panning formula
+  // Pan: -1 (left) to +1 (right)
+  const panRadians = (pan.value * Math.PI) / 4  // Map -1..+1 to -π/4..+π/4
+  
+  balanceLeft.gain.value = Math.cos(panRadians + Math.PI / 4)
+  balanceRight.gain.value = Math.sin(panRadians + Math.PI / 4)
 }
 
 // Watch for parameter changes
@@ -1185,39 +1171,45 @@ onUnmounted(() => {
     if (player.buffer && typeof player.buffer.dispose === 'function') {
       try {
         player.buffer.dispose()
-      } catch (e) {}
+      } catch (e) { }
     }
     player.dispose()
   }
-  
+
   // Dispose and clear audio buffer reference
   if (currentAudioBuffer) {
     try {
       if (typeof (currentAudioBuffer as any).dispose === 'function') {
         (currentAudioBuffer as any).dispose()
       }
-    } catch (e) {}
+    } catch (e) { }
   }
   currentAudioBuffer = null
-  
+
   if (gainNode) gainNode.dispose()
   if (eq3) eq3.dispose()
-  if (panNode) panNode.dispose()
-  if (volumeNode) volumeNode.dispose()
+  if (balanceSplit) balanceSplit.dispose()
+  if (balanceLeft) balanceLeft.dispose()
+  if (balanceRight) balanceRight.dispose()
+  if (balanceMerge) balanceMerge.dispose()
+  if (volumeSplit) volumeSplit.dispose()
+  if (volumeNodeL) volumeNodeL.dispose()
+  if (volumeNodeR) volumeNodeR.dispose()
+  if (volumeMerge) volumeMerge.dispose()
   if (meterL) meterL.dispose()
   if (meterR) meterR.dispose()
   if (channelSplit) channelSplit.dispose()
   if (waveform) waveform.dispose()
   if (compressor) compressor.dispose()
   if (reverb) reverb.dispose()
-  
+
   // Cleanup parametric EQ filters if present
   if (parametricEQFilters) {
     try {
       if (parametricEQFilters.dispose) {
         parametricEQFilters.dispose()
       }
-    } catch (e) {}
+    } catch (e) { }
     parametricEQFilters = null
   }
 
@@ -1240,12 +1232,25 @@ onUnmounted(() => {
   navigator.mediaDevices.removeEventListener('devicechange', refreshAudioInputs)
 })
 
-// FX Functions - Use bypass instead of create/destroy
+// FX Functions - Physically reconnect chain to preserve stereo
 function toggleCompressor() {
   compressorEnabled.value = !compressorEnabled.value
-  
-  if (!compressor) return
-  
+
+  if (!eq3 || !compressor || !reverb) return
+
+  // Disconnect eq3 from everything
+  try {
+    eq3.disconnect(compressor)
+  } catch (e) { }
+  try {
+    eq3.disconnect(reverb)
+  } catch (e) { }
+
+  // Disconnect compressor from reverb
+  try {
+    compressor.disconnect(reverb)
+  } catch (e) { }
+
   if (compressorEnabled.value) {
     // Apply real parameters from component
     const params = trackCompressorRef.value?.getParams() || {
@@ -1254,23 +1259,25 @@ function toggleCompressor() {
       attack: 0.1,
       release: 0.25
     }
-    // Direct assignment instead of rampTo to avoid scheduling events
     compressor.threshold.value = params.threshold
     compressor.ratio.value = params.ratio
     compressor.attack.value = params.attack
     compressor.release.value = params.release
+
+    // Chain: eq3 → compressor → reverb
+    eq3.connect(compressor)
+    compressor.connect(reverb)
   } else {
-    // Bypass: threshold=0, ratio=1 = no compression
-    compressor.threshold.value = 0
-    compressor.ratio.value = 1
+    // Bypass compressor completely: eq3 → reverb (skip compressor)
+    eq3.connect(reverb)
   }
 }
 
 function toggleReverb() {
   reverbEnabled.value = !reverbEnabled.value
-  
+
   if (!reverb) return
-  
+
   if (reverbEnabled.value) {
     // Apply real parameters from component
     const params = trackReverbRef.value?.getParams() || {

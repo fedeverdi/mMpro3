@@ -144,16 +144,16 @@
                                 @filters-change="handleMasterEQFiltersChange" />
                         </div>
                         <div class="flex-[1.5] min-h-0">
-                            <SpectrumMeter :master-channel="masterSectionRef?.analysisOutput" />
+                            <SpectrumMeter :master-channel="masterChannel" />
                         </div>
                         <div class="flex-1 min-h-0">
-                            <MasterFX :master-section="masterSectionRef" />
+                            <MasterFX />
                         </div>
                     </div>
 
                     <!-- Master Section -->
                     <div class="w-44 h-full mixer-fade-in">
-                        <MasterSection ref="masterSectionRef" :master-channel="masterChannel" />
+                        <MasterSection :master-channel="masterChannel" />
                     </div>
                 </template>
             </div>
@@ -172,12 +172,12 @@
         </footer>
 
         <!-- Audio Flow Modal -->
-        <AudioFlowModal v-model="showAudioFlowModal" />
+        <!-- <AudioFlowModal v-model="showAudioFlowModal" /> -->
 
         <!-- Scenes Modal -->
-        <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId"
+        <!-- <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId"
             @save="handleSaveScene" @load="handleLoadScene" @update="handleUpdateScene" @delete="handleDeleteScene"
-            @rename="handleRenameScene" />
+            @rename="handleRenameScene" /> -->
     </div>
 </template>
 
@@ -262,8 +262,7 @@ function setTrackRef(trackId: number, el: any | null) {
     }
 }
 
-// Master section ref
-const masterSectionRef = ref<any>(null)
+// Master EQ filters data
 const masterEqFiltersData = ref<any[]>([])
 
 // Solo handling
@@ -305,10 +304,6 @@ function handleMasterEQFiltersChange(filters: any) {
         Q: filter.Q,
         color: filter.color
     }))
-
-    if (masterSectionRef.value?.applyMasterEQ) {
-        masterSectionRef.value.applyMasterEQ(filters)
-    }
 }
 
 // Audio context info (reactive)
@@ -356,15 +351,16 @@ async function handleSaveScene(sceneName: string) {
         }
     })
 
-    // Collect master snapshot
-    const masterSnapshot = masterSectionRef.value?.getSnapshot() || {
+    // Collect master snapshot (simplified)
+    const masterSnapshot = {
         leftVolume: 0,
         rightVolume: 0,
         headphonesVolume: 0,
         isLinked: true,
-        masterEQFilters: [],
+        masterEQFilters: masterEqFiltersData.value,
         compressorEnabled: false,
         reverbEnabled: false,
+        delayEnabled: false,
         limiterEnabled: false
     }
 
@@ -385,22 +381,17 @@ function handleLoadScene(sceneId: string) {
         }
     })
 
-    // Restore master section state
-    if (masterSectionRef.value && masterSectionRef.value.restoreFromSnapshot) {
-        masterSectionRef.value.restoreFromSnapshot(scene.master)
-
-        // Update masterEqFiltersData to sync with MasterEQDisplay component
-        if (scene.master.masterEQFilters && scene.master.masterEQFilters.length > 0) {
-            masterEqFiltersData.value = scene.master.masterEQFilters.map((filter: any) => ({
-                type: filter.type,
-                frequency: filter.frequency,
-                gain: filter.gain,
-                Q: filter.Q,
-                color: filter.color || '#3b82f6'
-            }))
-        } else {
-            masterEqFiltersData.value = []
-        }
+    // Restore master section state (simplified)
+    if (scene.master.masterEQFilters && scene.master.masterEQFilters.length > 0) {
+        masterEqFiltersData.value = scene.master.masterEQFilters.map((filter: any) => ({
+            type: filter.type,
+            frequency: filter.frequency,
+            gain: filter.gain,
+            Q: filter.Q,
+            color: filter.color || '#3b82f6'
+        }))
+    } else {
+        masterEqFiltersData.value = []
     }
 
     // Set as current scene
@@ -420,14 +411,15 @@ async function handleUpdateScene(sceneId: string) {
         }
     })
 
-    const masterSnapshot = masterSectionRef.value?.getSnapshot() || {
+    const masterSnapshot = {
         leftVolume: 0,
         rightVolume: 0,
         headphonesVolume: 0,
         isLinked: true,
-        masterEQFilters: [],
+        masterEQFilters: masterEqFiltersData.value,
         compressorEnabled: false,
         reverbEnabled: false,
+        delayEnabled: false,
         limiterEnabled: false
     }
 
@@ -521,10 +513,9 @@ onMounted(async () => {
     // Mark Tone as ready immediately after import
     toneReady.value = true
 
-    masterChannel.value = new Tone.Channel({
-        volume: 0,      // dB
-        mute: false,
-    }).toDestination()
+    // Use Gain instead of Channel to preserve stereo
+    // Tone.Channel converts stereo to mono!
+    masterChannel.value = new Tone.Gain(1)  // Unity gain (0dB)
 
     // Enumerate audio devices ONCE for all tracks
     await enumerateAudioInputs()
