@@ -35,7 +35,7 @@
           </div>
           
           <!-- EQ Curve Display -->
-          <div class="bg-gray-900 rounded-lg border border-gray-700 p-4 mb-4">
+          <div class="bg-gray-900 rounded-lg border border-gray-700 p-4 mb-4 relative">
             <canvas
               ref="eqCanvas"
               class="w-full"
@@ -44,6 +44,34 @@
               @mouseup="handleCanvasMouseUp"
               @mouseleave="handleCanvasMouseUp"
             ></canvas>
+            
+            <!-- Drag Popover -->
+            <Transition name="fade">
+              <div
+                v-if="draggedFilterIndex !== null && popoverPosition.x > 0"
+                class="absolute pointer-events-none bg-gray-800/95 border border-gray-600 rounded-lg px-3 py-2 shadow-xl z-50"
+                :style="{
+                  left: `${popoverPosition.x}px`,
+                  top: `${popoverPosition.y}px`,
+                  transform: `translate(70px, ${filters[draggedFilterIndex].gain > 0 ? '-30%' : filters[draggedFilterIndex].gain < 0 ? '-30%' : '-50%'})`
+                }"
+              >
+                <div class="text-[11px] font-mono text-gray-200 space-y-0.5">
+                  <div class="flex items-center gap-2">
+                    <span class="text-gray-400">Freq:</span>
+                    <span class="font-semibold">{{ filters[draggedFilterIndex].frequency }} Hz</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-gray-400">Gain:</span>
+                    <span class="font-semibold">{{ filters[draggedFilterIndex].gain > 0 ? '+' : '' }}{{ filters[draggedFilterIndex].gain }} dB</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-gray-400">Q:</span>
+                    <span class="font-semibold">{{ filters[draggedFilterIndex].Q }}</span>
+                  </div>
+                </div>
+              </div>
+            </Transition>
           </div>
           
           <!-- Filters List -->
@@ -238,6 +266,7 @@ const highShelvingCalculator = new HighShelvingFilter()
 const draggedFilterIndex = ref<number | null>(null)
 const isDragging = ref(false)
 const isDraggingQ = ref(false)
+const popoverPosition = ref({ x: 0, y: 0 })
 let dragStartX = 0
 let dragStartQ = 0
 
@@ -443,6 +472,9 @@ function handleCanvasMouseDown(e: MouseEvent) {
         isDraggingQ.value = true
         dragStartX = x
         dragStartQ = filter.Q
+        
+        // Set initial popover position
+        popoverPosition.value = { x: filterX, y: filterY }
         return
       }
     }
@@ -454,6 +486,13 @@ function handleCanvasMouseDown(e: MouseEvent) {
   if (filterIndex !== -1) {
     draggedFilterIndex.value = filterIndex
     isDragging.value = true
+    
+    // Set initial popover position
+    const filter = filters.value[filterIndex]
+    const filterX = ((Math.log10(filter.frequency) - minFreq) / (maxFreq - minFreq)) * width
+    const actualGain = calculateFilterGain(filter, filter.frequency) * -1
+    const filterY = (actualGain * (height / 48)) + (height / 2)
+    popoverPosition.value = { x: filterX, y: filterY }
   }
 }
 
@@ -476,6 +515,24 @@ function handleCanvasMouseMove(e: MouseEvent) {
       }
     }
     return
+  }
+  
+  // Update popover position during drag - calculate from filter position, not mouse position
+  if (draggedFilterIndex.value !== null) {
+    const filter = filters.value[draggedFilterIndex.value]
+    const width = canvasRect.width
+    const height = 450
+    const minFreq = Math.log10(20)
+    const maxFreq = Math.log10(20000)
+    
+    // Calculate x from filter frequency
+    const filterX = ((Math.log10(filter.frequency) - minFreq) / (maxFreq - minFreq)) * width
+    
+    // Calculate y from filter gain
+    const actualGain = calculateFilterGain(filter, filter.frequency) * -1
+    const filterY = (actualGain * (height / 48)) + (height / 2)
+    
+    popoverPosition.value = { x: filterX, y: filterY }
   }
   
   if (draggedFilterIndex.value === null) return
@@ -533,6 +590,7 @@ function handleCanvasMouseUp() {
   isDragging.value = false
   isDraggingQ.value = false
   draggedFilterIndex.value = null
+  popoverPosition.value = { x: 0, y: 0 }
 }
 
 // Check if mouse is over a Q control area
@@ -910,6 +968,16 @@ function close() {
 
 .modal-enter-from,
 .modal-leave-to {
+  opacity: 0;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
 }
 </style>
