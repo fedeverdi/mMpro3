@@ -636,7 +636,7 @@ function drawEQCurve() {
   }
   
   // Vertical lines (frequency)
-  const freqs = [100, 1000, 10000]
+  const freqs = [30, 40, 50, 60, 80, 100, 200, 300, 400, 500, 600, 800, 1000, 2000, 4000, 6000, 8000, 10000, 20000]
   freqs.forEach(freq => {
     const minFreq = Math.log10(20)
     const maxFreq = Math.log10(20000)
@@ -647,7 +647,8 @@ function drawEQCurve() {
     ctx.stroke()
     
     ctx.fillStyle = '#6b7280'
-    ctx.fillText(`${freq}Hz`, x + 2, height - 5)
+    const label = freq >= 1000 ? `${freq/1000}k` : `${freq}`
+    ctx.fillText(`${label}Hz`, x + 2, height - 5)
   })
   
   // Draw 0dB line
