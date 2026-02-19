@@ -430,9 +430,9 @@ function applyParametricEQ() {
   // compressor → reverb → pan → volume already connected from initAudioNodes
 }
 
-// Connect to output (ONLY to master, not destination)
+// Connect to output (ONLY to master, NEVER to destination)
 function connectToOutput() {
-  if (!volumeNode || !Tone) return
+  if (!volumeNode || !Tone) return false
 
   // Extract the masterOutput from the masterSection ref
   let master = props.masterChannel?.masterOutput?.value || props.masterChannel?.masterOutput || props.masterChannel?.value || props.masterChannel
@@ -459,15 +459,11 @@ function connectToOutput() {
       return true
     } catch (e) {
       console.error(`Track ${props.trackNumber}: Error connecting to master:`, e)
-      // Fallback to destination if master fails
-      volumeNode.connect(meter!)
-      volumeNode.toDestination()
       return false
     }
   } else {
-    // Temporary connection to destination until master is ready
-    volumeNode.toDestination()
-    console.warn(`Track ${props.trackNumber}: ⚠️ No master available, connected to DESTINATION temporarily`)
+    // NO CONNECTION if master not ready - do NOT connect to destination!
+    console.warn(`Track ${props.trackNumber}: ⚠️ No master available, waiting...`)
     return false
   }
 }
@@ -556,6 +552,11 @@ async function handleFileUpload(event: Event) {
     if (player && typeof player.stop === 'function' && 'buffer' in player) {
       // It's already a Tone.Player - just swap the buffer
       
+      // CRITICAL: Stop player first to reset internal state
+      try {
+        player.stop()
+      } catch (e) {}
+      
       // Dispose old buffer
       if (player.buffer && typeof player.buffer.dispose === 'function') {
         try {
@@ -596,9 +597,12 @@ async function handleFileUpload(event: Event) {
       }
       
       // Create new Tone.Player
-      player = new Tone.Player(audioBuffer)
+      player = new Tone.Player({
+        url: audioBuffer,
+        loop: true,
+        playbackRate: 1.0,
+      })
       player.connect(gainNode)
-      player.loop = true
     }
     
     // Update current buffer reference for waveform
@@ -659,6 +663,11 @@ async function loadFileFromIndexedDB(savedFileId: string) {
     if (player && typeof player.stop === 'function' && 'buffer' in player) {
       // It's already a Tone.Player - just swap the buffer
       
+      // CRITICAL: Stop player first to reset internal state
+      try {
+        player.stop()
+      } catch (e) {}
+      
       if (player.buffer && typeof player.buffer.dispose === 'function') {
         try {
           player.buffer.dispose()
@@ -675,6 +684,9 @@ async function loadFileFromIndexedDB(savedFileId: string) {
       
       // Assign new buffer
       player.buffer = audioBuffer
+      
+      // CRITICAL: Reset playback rate to 1.0
+      player.playbackRate = 1.0
       
     } else {
       // First time or was audio input - create new Tone.Player
@@ -695,9 +707,14 @@ async function loadFileFromIndexedDB(savedFileId: string) {
       }
       
       // Create new Tone.Player
-      player = new Tone.Player(audioBuffer)
+      player = new Tone.Player({
+        url: audioBuffer,
+        loop: true,
+        playbackRate: 1.0,
+        fadeIn: 0.01,   // Prevent resampling artifacts
+        fadeOut: 0.01   // Prevent clicks on stop
+      })
       player.connect(gainNode)
-      player.loop = true
     }
 
     // Update current buffer reference for waveform
@@ -904,7 +921,35 @@ async function togglePlay() {
       props.masterChannel.ensureAudioPlaying()
     }
 
-    player.start()
+    // CRITICAL FIX: Recreate player after stop to avoid resampling issues
+    // AudioBufferSourceNode cannot be reused after stop in Web Audio API
+    if (player && currentAudioBuffer) {
+      try {
+        player.disconnect()
+        player.dispose()
+      } catch (e) {}
+      
+      // Small delay to ensure cleanup
+      await new Promise(resolve => setTimeout(resolve, 10))
+      
+      // Recreate player with same buffer
+      player = new Tone.Player({
+        url: currentAudioBuffer,
+        loop: true,
+        playbackRate: 1.0,
+        fadeIn: 0.01,
+        fadeOut: 0.01
+      })
+      
+      // Reconnect to audio chain
+      player.connect(gainNode)
+      
+      console.log(`[Track ${props.trackNumber}] 🔄 Player recreated for playback`)
+    }
+
+    // Start with future time for more stable playback
+    const startTime = Tone.now() + 0.05  // 50ms in future
+    player.start(startTime)
     isPlaying.value = true
 
     // Start waveform
@@ -1166,8 +1211,6 @@ function toggleCompressor() {
   
   if (!compressor) return
   
-  const rampTime = 0.05 // 50ms smooth transition
-  
   if (compressorEnabled.value) {
     // Apply real parameters from component
     const params = trackCompressorRef.value?.getParams() || {
@@ -1176,14 +1219,15 @@ function toggleCompressor() {
       attack: 0.1,
       release: 0.25
     }
-    compressor.threshold.rampTo(params.threshold, rampTime)
-    compressor.ratio.rampTo(params.ratio, rampTime)
-    compressor.attack.rampTo(params.attack, rampTime)
-    compressor.release.rampTo(params.release, rampTime)
+    // Direct assignment instead of rampTo to avoid scheduling events
+    compressor.threshold.value = params.threshold
+    compressor.ratio.value = params.ratio
+    compressor.attack.value = params.attack
+    compressor.release.value = params.release
   } else {
     // Bypass: threshold=0, ratio=1 = no compression
-    compressor.threshold.rampTo(0, rampTime)
-    compressor.ratio.rampTo(1, rampTime)
+    compressor.threshold.value = 0
+    compressor.ratio.value = 1
   }
 }
 
@@ -1191,8 +1235,6 @@ function toggleReverb() {
   reverbEnabled.value = !reverbEnabled.value
   
   if (!reverb) return
-  
-  const rampTime = 0.05 // 50ms smooth transition
   
   if (reverbEnabled.value) {
     // Apply real parameters from component
@@ -1203,10 +1245,11 @@ function toggleReverb() {
     }
     reverb.decay = params.decay
     reverb.preDelay = params.preDelay
-    reverb.wet.rampTo(params.wet, rampTime)
+    // Direct assignment instead of rampTo
+    reverb.wet.value = params.wet
   } else {
     // Bypass: wet=0 = no reverb
-    reverb.wet.rampTo(0, rampTime)
+    reverb.wet.value = 0
   }
 }
 </script>

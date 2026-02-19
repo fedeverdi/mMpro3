@@ -65,11 +65,10 @@ function handleToggle() {
 function updateReverbNode() {
   if (!props.reverbNode) return
   
-  // Use parameter ramping for smooth changes
-  const rampTime = 0.05 // 50ms
+  // Direct assignment instead of rampTo to avoid scheduling events
   props.reverbNode.decay = decay.value // Decay can't be ramped, it's a constructor property
   props.reverbNode.preDelay = preDelay.value // PreDelay can't be ramped either
-  props.reverbNode.wet.rampTo(wet.value, rampTime)
+  props.reverbNode.wet.value = wet.value
 }
 
 // Watch for parameter changes

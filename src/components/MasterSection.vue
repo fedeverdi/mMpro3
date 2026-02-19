@@ -720,8 +720,9 @@ function updateMasterVolume() {
   const leftGainValue = Tone.dbToGain(leftVolume.value)
   const rightGainValue = Tone.dbToGain(rightVolume.value)
   
-  masterFaderLeftGain.gain.rampTo(leftGainValue, 0.05)
-  masterFaderRightGain.gain.rampTo(rightGainValue, 0.05)
+  // Direct assignment to avoid scheduling events
+  masterFaderLeftGain.gain.value = leftGainValue
+  masterFaderRightGain.gain.value = rightGainValue
 }
 
 function connectMasterRouting() {
@@ -891,7 +892,8 @@ watch(leftVolume, (newVal) => {
 // Watch headphones volume
 watch(headphonesVolume, (newVol) => {
   if (headphonesOutputGain && Tone) {
-    headphonesOutputGain.gain.rampTo(Tone.dbToGain(newVol), 0.05)
+    // Direct assignment to avoid scheduling events
+    headphonesOutputGain.gain.value = Tone.dbToGain(newVol)
   }
 })
 
@@ -957,15 +959,14 @@ function applyMasterParametricEQ(filters: any) {
     }
 
     if (!needsRecreate) {
-      // Aggiorna solo i parametri con ramping (transizione fluida)
-      const rampTime = 0.05 // 50ms di transizione
+      // Direct assignment instead of rampTo to avoid event scheduling
       filtersData.forEach((filterData: any, index: number) => {
         const filter = masterParametricEQ.filters[index]
         if (filter) {
-          filter.frequency.rampTo(filterData.frequency, rampTime)
-          filter.Q.rampTo(filterData.Q, rampTime)
+          filter.frequency.value = filterData.frequency
+          filter.Q.value = filterData.Q
           if (filter.gain) {
-            filter.gain.linearRampTo(filterData.gain, rampTime)
+            filter.gain.value = filterData.gain
           }
         }
       })
@@ -1049,12 +1050,11 @@ async function toggleCompressor(enabled: boolean, params?: { threshold: number, 
 
 function updateCompressor(params: { threshold: number, ratio: number, attack: number, release: number }) {
   if (compressor && compressorEnabled.value) {
-    // Use rampTo for smooth parameter transitions (prevent clicking)
-    const rampTime = 0.05 // 50ms
-    compressor.threshold.rampTo(params.threshold, rampTime)
-    compressor.ratio.rampTo(params.ratio, rampTime)
-    compressor.attack.rampTo(params.attack, rampTime)
-    compressor.release.rampTo(params.release, rampTime)
+    // Direct assignment to avoid scheduling events
+    compressor.threshold.value = params.threshold
+    compressor.ratio.value = params.ratio
+    compressor.attack.value = params.attack
+    compressor.release.value = params.release
   }
 }
 
@@ -1079,8 +1079,8 @@ async function toggleReverb(enabled: boolean, params?: { decay: number, preDelay
 function updateReverb(params: { decay: number, preDelay: number, wet: number }) {
   if (reverb && reverbEnabled.value) {
     reverb.preDelay = params.preDelay
-    // Use rampTo for smooth wet transitions
-    reverb.wet.rampTo(params.wet, 0.05)
+    // Direct assignment to avoid scheduling events
+    reverb.wet.value = params.wet
     // Note: decay requires regeneration - toggle off/on to apply
   }
 }

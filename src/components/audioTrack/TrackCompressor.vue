@@ -76,12 +76,11 @@ function handleToggle() {
 function updateCompressorNode() {
   if (!props.compressorNode) return
   
-  // Use parameter ramping to prevent audio spikes
-  const rampTime = 0.05 // 50ms smooth transition
-  props.compressorNode.threshold.rampTo(threshold.value, rampTime)
-  props.compressorNode.ratio.rampTo(ratio.value, rampTime)
-  props.compressorNode.attack.rampTo(attack.value, rampTime)
-  props.compressorNode.release.rampTo(release.value, rampTime)
+  // Direct assignment instead of rampTo to avoid scheduling events
+  props.compressorNode.threshold.value = threshold.value
+  props.compressorNode.ratio.value = ratio.value
+  props.compressorNode.attack.value = attack.value
+  props.compressorNode.release.value = release.value
   
   // Redraw curve if modal is open
   if (showModal.value) {
