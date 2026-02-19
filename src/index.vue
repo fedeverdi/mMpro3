@@ -327,6 +327,7 @@ const sampleRate = computed(() => {
 const bufferSize = computed(() => {
     if (toneReady.value && Tone?.context?.rawContext) {
         const audioContext = Tone.context.rawContext
+        
         return audioContext.baseLatency 
             ? Math.round(audioContext.baseLatency * audioContext.sampleRate)
             : (audioContext.sampleRate ? 128 : 0) // Default buffer size estimate
@@ -531,6 +532,20 @@ onMounted(async () => {
     
     // Mark Tone as ready immediately after import
     toneReady.value = true
+    
+    // Log audio context info once
+    if (Tone?.context?.rawContext) {
+        const ctx = Tone.context.rawContext
+        const toneCtx = Tone.getContext()
+        console.log('Audio Context Info:', {
+            sampleRate: ctx.sampleRate,
+            baseLatency: ctx.baseLatency,
+            outputLatency: ctx.outputLatency,
+            state: ctx.state,
+            lookAhead: toneCtx.lookAhead,
+            updateInterval: toneCtx.updateInterval
+        })
+    }
     
     // Enumerate audio devices ONCE for all tracks
     await enumerateAudioInputs()

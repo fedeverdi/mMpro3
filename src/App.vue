@@ -11,6 +11,11 @@ const Tone = ref<any>(null)
 // Import Tone.js once for the entire app
 onMounted(async () => {
   Tone.value = await import('tone')
+
+  const context = Tone.value.getContext()
+  
+  // Set lookAhead for better timing precision (500ms)
+  context.lookAhead = 0.5
 })
 
 // Provide Tone.js to all child components
