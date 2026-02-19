@@ -213,8 +213,8 @@ function initMasterChannel() {
   const audioContext = Tone.context.rawContext as AudioContext
   headphonesStreamDest = audioContext.createMediaStreamDestination()
 
-  // Build main chain
-  masterChannel.connect(splitNode)
+  // Build main chain - connection will be done by rebuildFXChain()
+  // masterChannel will be connected to splitNode through FX chain or directly
   
   // Left channel: split → gain → meter → merge
   splitNode.connect(leftGain, 0)
@@ -250,6 +250,9 @@ function initMasterChannel() {
   // Update initial volumes
   updateMasterVolume()
   updateHeadphonesVolume()
+  
+  // Establish audio chain (FX → splitNode → faders → destination)
+  rebuildFXChain()
 }
 
 // Level monitoring
@@ -388,13 +391,29 @@ function rebuildFXChain() {
   const eqOutput = props.masterEqDisplay.getOutputNode()
   if (!eqOutput) return
 
-  // Disconnect everything
+  // Disconnect FX chain nodes (but preserve other connections like spectrum analyzer)
   try {
-    eqOutput.disconnect()
-    if (compressorNode) compressorNode.disconnect()
-    if (reverbNode) reverbNode.disconnect()
-    if (delayNode) delayNode.disconnect()
-    if (limiterNode) limiterNode.disconnect()
+    // Disconnect eqOutput only from compressor if it exists
+    if (compressorNode) {
+      try { eqOutput.disconnect(compressorNode) } catch (e) {}
+      compressorNode.disconnect()
+    }
+    if (reverbNode) {
+      try { eqOutput.disconnect(reverbNode) } catch (e) {}
+      reverbNode.disconnect()
+    }
+    if (delayNode) {
+      try { eqOutput.disconnect(delayNode) } catch (e) {}
+      delayNode.disconnect()
+    }
+    if (limiterNode) {
+      try { eqOutput.disconnect(limiterNode) } catch (e) {}
+      limiterNode.disconnect()
+    }
+    // Disconnect eqOutput from splitNode if no FX active
+    if (splitNode && fxChainEnabled.size === 0) {
+      try { eqOutput.disconnect(splitNode) } catch (e) {}
+    }
   } catch (e) {
     // Ignore disconnect errors
   }
@@ -422,8 +441,12 @@ function rebuildFXChain() {
     currentNode = limiterNode
   }
 
-  // Connect final node to destination
-  currentNode.toDestination()  
+  // Connect final node to splitNode if it exists, otherwise to destination
+  if (splitNode) {
+    currentNode.connect(splitNode)
+  } else {
+    currentNode.toDestination()
+  }
 }
 
 // FX Control Methods
