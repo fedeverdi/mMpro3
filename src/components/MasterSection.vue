@@ -126,6 +126,7 @@ let delayNode: any = null
 let limiterNode: any = null
 const fxChainEnabled = new Set<string>()
 let isRegeneratingReverb = false
+let isUpdatingLimiter = false
 
 // Calculate meters height based on container
 function updateMetersHeight() {
@@ -456,11 +457,13 @@ async function toggleCompressor(enabled: boolean, params?: any) {
 
   if (enabled) {
     if (!compressorNode) {
+      // Create with very conservative settings to avoid level changes
       compressorNode = new Tone.Compressor({
-        threshold: params?.threshold ?? -24,
-        ratio: params?.ratio ?? 4,
-        attack: params?.attack ?? 0.003,
-        release: params?.release ?? 0.25
+        threshold: params?.threshold ?? -40,  // Very high threshold
+        ratio: params?.ratio ?? 2,             // Gentle ratio
+        attack: params?.attack ?? 0.01,        // Slower attack for transparency
+        release: params?.release ?? 0.25,
+        knee: 30  // Very soft knee for maximum transparency
       })
     }
     fxChainEnabled.add('compressor')
@@ -474,10 +477,12 @@ async function toggleCompressor(enabled: boolean, params?: any) {
 function updateCompressor(params: any) {
   if (!compressorNode) return
   
-  if (params.threshold !== undefined) compressorNode.threshold.rampTo(params.threshold, 0.01)
-  if (params.ratio !== undefined) compressorNode.ratio.rampTo(params.ratio, 0.01)
-  if (params.attack !== undefined) compressorNode.attack.rampTo(params.attack, 0.01)
-  if (params.release !== undefined) compressorNode.release.rampTo(params.release, 0.01)
+  // Use longer ramp times to avoid metallic artifacts
+  if (params.threshold !== undefined) compressorNode.threshold.rampTo(params.threshold, 0.05)
+  if (params.ratio !== undefined) compressorNode.ratio.rampTo(params.ratio, 0.05)
+  if (params.attack !== undefined) compressorNode.attack.rampTo(params.attack, 0.05)
+  if (params.release !== undefined) compressorNode.release.rampTo(params.release, 0.05)
+  if (params.knee !== undefined && compressorNode.knee) compressorNode.knee.rampTo(params.knee, 0.05)
 }
 
 async function toggleReverb(enabled: boolean, params?: any) {
@@ -604,19 +609,54 @@ function updateLimiter(params: any) {
   if (!limiterNode || !Tone) return
   
   if (params.threshold !== undefined) {
+    // Prevent multiple simultaneous updates
+    if (isUpdatingLimiter) return
+    
+    isUpdatingLimiter = true
     const threshold = Math.max(-20, Math.min(3, params.threshold))
-    const newLimiter = new Tone.Limiter(threshold)
+    
+    // Create temporary gain for smooth transition
+    const fadeGain = new Tone.Gain(1)
     const oldLimiter = limiterNode
-    limiterNode = newLimiter
-    rebuildFXChain()
+    const newLimiter = new Tone.Limiter(threshold)
+    
+    // Insert fadeGain before the limiter in the chain
+    const eqOutput = props.masterEqDisplay?.getOutputNode()
+    if (!eqOutput) {
+      isUpdatingLimiter = false
+      return
+    }
+    
+    // Quick fade out (30ms)
+    fadeGain.gain.rampTo(0, 0.03)
+    
     setTimeout(() => {
+      // Swap limiter while volume is at 0
+      limiterNode = newLimiter
+      rebuildFXChain()
+      
+      // Dispose old limiter
       if (oldLimiter) {
         try {
           oldLimiter.disconnect()
           oldLimiter.dispose()
         } catch (e) {}
       }
-    }, 200)
+      
+      // Quick fade in (30ms)
+      setTimeout(() => {
+        fadeGain.gain.rampTo(1, 0.03)
+        
+        // Cleanup and reset flag
+        setTimeout(() => {
+          isUpdatingLimiter = false
+          try {
+            fadeGain.disconnect()
+            fadeGain.dispose()
+          } catch (e) {}
+        }, 50)
+      }, 10)
+    }, 40)
   }
 }
 
