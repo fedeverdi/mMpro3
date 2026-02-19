@@ -1,10 +1,15 @@
 <template>
-  <div class="track-channel relative bg-gray-800 rounded-lg border border-gray-700 p-1 flex flex-col items-center gap-1 h-full">
+  <div
+    class="track-channel relative bg-gray-800 rounded-lg border border-gray-700 p-1 flex flex-col items-center gap-1 h-full">
     <!-- Loading Overlay -->
-    <div v-if="isLoading" class="absolute inset-0 bg-gray-900 bg-opacity-80 rounded-lg z-50 flex flex-col items-center justify-center gap-2">
-      <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <div v-if="isLoading"
+      class="absolute inset-0 bg-gray-900 bg-opacity-80 rounded-lg z-50 flex flex-col items-center justify-center gap-2">
+      <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none"
+        viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        <path class="opacity-75" fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+        </path>
       </svg>
       <span class="text-sm text-gray-300 font-medium">Loading...</span>
     </div>
@@ -15,11 +20,8 @@
 
       <!-- Audio Source Selector -->
       <div class="w-full">
-        <select 
-          v-model="audioSourceType" 
-          @change="handleSourceTypeChange"
-          class="w-full text-xs bg-gray-700 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-blue-500 focus:outline-none"
-        >
+        <select v-model="audioSourceType" @change="handleSourceTypeChange"
+          class="w-full text-xs bg-gray-700 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-blue-500 focus:outline-none">
           <option value="file">📁 File</option>
           <option value="input">🎤 Audio Input</option>
         </select>
@@ -36,11 +38,8 @@
 
       <!-- Audio Input Device Selector (shown when source is 'input') -->
       <div v-if="audioSourceType === 'input'" class="w-full">
-        <select 
-          v-model="selectedAudioInput" 
-          @change="handleAudioInputChange"
-          class="w-full text-xs bg-gray-800 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-blue-500 focus:outline-none"
-        >
+        <select v-model="selectedAudioInput" @change="handleAudioInputChange"
+          class="w-full text-xs bg-gray-800 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-blue-500 focus:outline-none">
           <option value="">Select Input...</option>
           <option v-for="device in audioInputs" :key="device.deviceId" :value="device.deviceId">
             {{ device.label || `Input ${device.deviceId.substring(0, 12)}...` }}
@@ -54,9 +53,11 @@
           class="px-2 py-1 w-full text-xs rounded transition-colors flex items-center justify-center"
           :class="isPlaying ? 'bg-green-600 hover:bg-green-500 animate-pulse' : (audioLoaded ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500')">
           <!-- Show microphone icon for audio input -->
-          <svg v-if="audioSourceType === 'input'" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          <svg v-if="audioSourceType === 'input'" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"
+            class="w-3 h-3">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+            <path
+              d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
           </svg>
           <!-- Show play/pause for file playback -->
           <svg v-else-if="!isPlaying" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
@@ -76,13 +77,8 @@
     </div>
 
     <!-- Waveform Display -->
-    <WaveformDisplay 
-      ref="waveformDisplayRef"
-      :waveform-node="waveform"
-      :audio-buffer="currentAudioBuffer"
-      :is-playing="isPlaying"
-      :current-time="currentPlaybackTime"
-    />
+    <WaveformDisplay ref="waveformDisplayRef" :waveform-node="waveform" :audio-buffer="currentAudioBuffer"
+      :is-playing="isPlaying" :current-time="currentPlaybackTime" />
 
     <!-- Gain Control -->
     <div class="w-full flex items-center justify-center h-[4rem]">
@@ -94,21 +90,10 @@
     <!-- FX Section -->
     <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
       <div class="flex gap-1">
-        <TrackCompressor 
-          ref="trackCompressorRef"
-          :track-number="trackNumber"
-          :enabled="compressorEnabled"
-          :compressor-node="compressor"
-          :meter="meter"
-          @toggle="toggleCompressor"
-        />
-        <TrackReverb 
-          ref="trackReverbRef"
-          :track-number="trackNumber"
-          :enabled="reverbEnabled"
-          :reverb-node="reverb"
-          @toggle="toggleReverb"
-        />
+        <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
+          :compressor-node="compressor" :meter="meter" @toggle="toggleCompressor" />
+        <TrackReverb ref="trackReverbRef" :track-number="trackNumber" :enabled="reverbEnabled" :reverb-node="reverb"
+          @toggle="toggleReverb" />
       </div>
     </div>
 
@@ -116,9 +101,13 @@
     <!-- EQ Section -->
     <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
       <div class="flex items-center justify-between px-2">
-        <button @click="showEQ3Bands = !showEQ3Bands" class="flex items-center gap-1 hover:text-gray-200 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-gray-400 transition-transform" :class="showEQ3Bands ? 'rotate-90' : ''">
-            <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+        <button @click="showEQ3Bands = !showEQ3Bands"
+          class="flex items-center gap-1 hover:text-gray-200 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+            class="w-3 h-3 text-gray-400 transition-transform" :class="showEQ3Bands ? 'rotate-90' : ''">
+            <path fill-rule="evenodd"
+              d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+              clip-rule="evenodd" />
           </svg>
           <div class="text-xs text-gray-400 uppercase tracking-wide">EQ</div>
         </button>
@@ -168,7 +157,8 @@
   </div>
 
   <!-- Parametric EQ Modal -->
-  <ParametricEQModal v-model="showParametricEQ" :trackNumber="trackNumber" :eq-filters="eqFiltersData" @update="handleParametricEQUpdate" />
+  <ParametricEQModal v-model="showParametricEQ" :trackNumber="trackNumber" :eq-filters="eqFiltersData"
+    @update="handleParametricEQUpdate" />
 </template>
 
 <script setup lang="ts">
@@ -270,10 +260,6 @@ let resizeObserver: ResizeObserver | null = null
 let playbackTimeInterval: number | null = null
 let playbackStartTime: number = 0
 
-// DEBUG: Track player lifecycle
-let playerCreatedCount = 0
-let playerDisposedCount = 0
-
 // Calculate fader height based on container
 function updateFaderHeight() {
   if (faderContainer.value) {
@@ -318,37 +304,54 @@ function initAudioNodes() {
 
   // Create audio nodes
   gainNode = new Tone.Gain(1) // 1 = 0dB (unity gain), not 0!
-  
+
   eq3 = new Tone.EQ3({
     low: 0,
     mid: 0,
     high: 0
   })
-  
+
   // Tone.Panner handles both stereo and mono correctly:
   // - For stereo sources (files): acts as a balance control
   // - For mono sources (mic): creates true stereo panning
   panNode = new Tone.Panner(0) // -1 (left) to +1 (right)
-  
+
   volumeNode = new Tone.Volume(0)
-  
+
   meter = new Tone.Meter()
-  
+
   // Waveform analyzer (for visualization)
   waveform = new Tone.Waveform(512) // 512 samples for waveform display
 
-  // Connect chain: gain -> eq3 -> [FX will be inserted] -> pan -> volume
+  // Create FX nodes once (always present, bypassed when disabled)
+  compressor = new Tone.Compressor({
+    threshold: 0,     // Bypassed: 0dB threshold = no compression
+    ratio: 1,         // Bypassed: 1:1 ratio = no compression
+    attack: 0.1,
+    release: 0.25
+  })
+
+  reverb = new Tone.Reverb({
+    decay: 1.5,
+    preDelay: 0.01,
+    wet: 0            // Bypassed: 0% wet = no reverb
+  })
+
+  // Connect chain: gain -> eq3 -> compressor -> reverb -> pan -> volume
+  // FX are always in chain, bypassed when disabled
   gainNode.connect(eq3)
-  
-  // Connect meter to eq3 to measure signal BEFORE panning
+
+  // Connect meter to eq3 to measure signal BEFORE effects
   eq3.connect(meter)
-  
+
   // Connect waveform analyzer to eq3 for visualization
   eq3.connect(waveform)
-  
-  // Initial connection (will be rebuilt when effects are added)
-  eq3.connect(panNode)
-  
+
+  // Initial FX chain: eq3 -> compressor -> reverb -> pan
+  eq3.connect(compressor)
+  compressor.connect(reverb)
+  reverb.connect(panNode)
+
   // Pan to volume
   panNode.connect(volumeNode)
 
@@ -356,12 +359,6 @@ function initAudioNodes() {
   connectToOutput()
 }
 
-function applyParametricEQChain() {
-  if (!parametricEQFilters || !eq3 || !meter) return
-
-  // Use rebuildAudioChain to properly handle FX chain
-  rebuildAudioChain()
-}
 
 // Handle parametric EQ update
 function handleParametricEQUpdate(filters: any) {
@@ -369,9 +366,6 @@ function handleParametricEQUpdate(filters: any) {
 
   // Store the latest filter chain
   parametricEQFilters = filters
-
-  // Try to apply immediately (may no-op if audio chain not ready yet)
-  applyParametricEQChain()
 
   // Store filter data for thumbnail
   if (filters.filtersData) {
@@ -385,6 +379,42 @@ function handleParametricEQUpdate(filters: any) {
       Q: f.Q
     }))
   }
+
+  // Apply the parametric EQ to the audio chain
+  applyParametricEQ()
+}
+
+// Insert or remove parametric EQ from the chain with minimal disconnections
+function applyParametricEQ() {
+  if (!eq3 || !compressor) return
+
+  // Disconnect only eq3 (meter and waveform stay connected)
+  try {
+    eq3.disconnect()
+  } catch (e) {
+    // Ignore disconnection errors
+  }
+
+  // Reconnect meter and waveform to eq3
+  if (meter) eq3.connect(meter)
+  if (waveform) eq3.connect(waveform)
+
+  // Insert parametric EQ between eq3 and compressor if present
+  if (parametricEQFilters && parametricEQFilters.input && parametricEQFilters.output) {
+    eq3.connect(parametricEQFilters.input)
+    
+    // Disconnect old parametric output if needed
+    try {
+      parametricEQFilters.output.disconnect()
+    } catch (e) {}
+    
+    parametricEQFilters.output.connect(compressor)
+  } else {
+    // No parametric EQ: connect eq3 directly to compressor
+    eq3.connect(compressor)
+  }
+
+  // compressor → reverb → pan → volume already connected from initAudioNodes
 }
 
 // Connect to output (ONLY to master, not destination)
@@ -456,17 +486,17 @@ function startLevelMonitoring() {
 // Playback time tracking
 function startPlaybackTimeTracking() {
   if (playbackTimeInterval !== null) return
-  
+
   if (!Tone) return
-  
+
   // Record start time
   playbackStartTime = Tone.now()
-  
+
   playbackTimeInterval = window.setInterval(() => {
     if (player && isPlaying.value && Tone) {
       // Calculate elapsed time since start
       const elapsed = Tone.now() - playbackStartTime
-      
+
       // For looping player, use modulo of duration
       if (currentAudioBuffer && currentAudioBuffer.duration) {
         currentPlaybackTime.value = elapsed % currentAudioBuffer.duration
@@ -499,87 +529,44 @@ async function handleFileUpload(event: Event) {
 
   fileName.value = file.name
   isLoading.value = true
-  
+
   try {
     // Save file to IndexedDB for scene persistence
     const savedFileId = await saveAudioFile(file)
     fileId.value = savedFileId
 
-    // Stop and COMPLETELY disconnect old player
-    if (player) {
-      
-      isPlaying.value = false
-      waveformDisplayRef.value?.stop()
-      
-      // CRITICAL: Only stop if it's a Tone.Player (has stop method)
-      // For audio input, player is a Tone.Gain which doesn't have stop()
-      if (typeof player.stop === 'function') {
-        player.loop = false
-        player.stop()
-      }
-      
-      // Unsync from transport if synced
-      if (player.sync && typeof player.unsync === 'function') {
-        try {
-          player.unsync()
-        } catch (e) {}
-      }
-      
-      // Disconnect completely
-      player.disconnect()
-      
-      // Dispose player
-      player.dispose()
-      playerDisposedCount++
-      player = null   
-    }
-    
-    // CRITICAL: Instead of just recreating gainNode, REBUILD ENTIRE AUDIO CHAIN
-    // This prevents any lingering connections or state issues
-    if (gainNode) {
-      
-      // Disconnect and dispose ALL nodes
-      try {
-        gainNode.disconnect()
-        gainNode.dispose()
-      } catch (e) {}
-      
-      try {
-        eq3.disconnect()
-        eq3.dispose()
-      } catch (e) {}
-      
-      try {
-        panNode.disconnect()
-        panNode.dispose()
-      } catch (e) {}
-      
-      // Recreate all nodes
-      gainNode = new Tone.Gain(1)
-      eq3 = new Tone.EQ3({ low: 0, mid: 0, high: 0 })
-      panNode = new Tone.Panner(0)
-      
-      // Reconnect the entire chain
-      gainNode.connect(eq3)
-      eq3.connect(meter)
-      eq3.connect(waveform)
-      eq3.connect(panNode)
-      panNode.connect(volumeNode)
-      
-      // Reconnect to master/destination
-      connectToOutput()
-    }
-
-    // Longer delay to ensure Tone.js internals are completely cleaned
-    await new Promise(resolve => setTimeout(resolve, 150))
-    
     // Create buffer from file
     const arrayBuffer = await file.arrayBuffer()
     const audioBuffer = await Tone.context.decodeAudioData(arrayBuffer)
-    
-    // Store buffer and create new player
+
+    // Store buffer for waveform display
     currentAudioBuffer = audioBuffer
-    player = new Tone.Player(audioBuffer)
+
+    // Stop and reuse player if exists
+    if (player) {
+      isPlaying.value = false
+      waveformDisplayRef.value?.stop()
+
+      // Check if it's a Tone.Player (has stop method and buffer property)
+      if (typeof player.stop === 'function' && 'buffer' in player) {
+        // It's a Tone.Player, reuse it by changing buffer
+        player.loop = false
+        player.stop()
+        player.buffer = audioBuffer
+      } else {
+        // It's a Gain node (from audio input), dispose and create new Player
+        player.disconnect()
+        player.dispose()
+        player = new Tone.Player(audioBuffer)
+        player.connect(gainNode)
+        player.loop = true
+      }
+    } else {
+      // Create new player
+      player = new Tone.Player(audioBuffer)
+      player.connect(gainNode)
+      player.loop = true
+    }
 
     // Verify audio chain is connected
     if (!gainNode || !eq3 || !volumeNode) {
@@ -588,16 +575,12 @@ async function handleFileUpload(event: Event) {
       return
     }
 
-    player.connect(gainNode)
-    player.loop = true
-    playerCreatedCount++
-    
     audioLoaded.value = true
     isLoading.value = false
 
     // Force DOM update
     await nextTick()
-    
+
     // CRITICAL: Reset file input to allow reloading the same file
     // Without this, selecting the same file again won't trigger onChange
     target.value = ''
@@ -625,7 +608,7 @@ async function loadFileFromIndexedDB(savedFileId: string) {
   try {
     // Retrieve file from IndexedDB
     const storedFile = await getAudioFile(savedFileId)
-    
+
     if (!storedFile) {
       console.error('File not found in IndexedDB')
       alert('Could not restore audio file from scene. File may have been deleted.')
@@ -633,29 +616,37 @@ async function loadFileFromIndexedDB(savedFileId: string) {
       return
     }
 
-    // Stop and dispose old player if exists
+    // Decode audio buffer
+    const audioBuffer = await Tone.context.decodeAudioData(storedFile.arrayBuffer)
+
+    // Stop old player if exists and reuse it
     if (player) {
       isPlaying.value = false
       waveformDisplayRef.value?.stop()
+
+      // Only stop if it's a Tone.Player (has stop method)
       if (typeof player.stop === 'function') {
+        player.loop = false
         player.stop()
+        // Reuse player by changing buffer
+        player.buffer = audioBuffer
+      } else {
+        // If it's not a player (e.g., audio input Gain), dispose and create new
+        player.disconnect()
+        player.dispose()
+        player = new Tone.Player(audioBuffer)
+        player.connect(gainNode)
+        player.loop = true
       }
-      player.disconnect()
-      player.dispose()
-      player = null
+    } else {
+      // Create new player
+      player = new Tone.Player(audioBuffer)
+      player.connect(gainNode)
+      player.loop = true
     }
-    
-    currentAudioBuffer = null
 
-    // Small delay to ensure clean state
-    await new Promise(resolve => setTimeout(resolve, 100))
-
-    // Decode audio buffer
-    const audioBuffer = await Tone.context.decodeAudioData(storedFile.arrayBuffer)
-    
-    // Store buffer and create new player
+    // Store current buffer for waveform display
     currentAudioBuffer = audioBuffer
-    player = new Tone.Player(audioBuffer)
 
     // Verify audio chain is connected
     if (!gainNode || !eq3 || !volumeNode) {
@@ -664,16 +655,8 @@ async function loadFileFromIndexedDB(savedFileId: string) {
       return
     }
 
-    player.connect(gainNode)
-    player.loop = true
-
     audioLoaded.value = true
     isLoading.value = false
-
-    // Rebuild audio chain only if parametric EQ filters exist (from saved scene)
-    if (parametricEQFilters) {
-      applyParametricEQChain()
-    }
 
     // Force DOM update
     await nextTick()
@@ -690,13 +673,16 @@ async function loadFileFromIndexedDB(savedFileId: string) {
 function handleSourceTypeChange() {
   // Stop any current playback
   stopAudio()
-  
+
   // Stop waveform visualization
   waveformDisplayRef.value?.stop()
-  
-  // Clean up current source
+
+  // Clean up current source before switching
   if (player) {
     try {
+      if (typeof player.stop === 'function') {
+        player.stop()
+      }
       player.disconnect()
       player.dispose()
     } catch (e) {}
@@ -719,81 +705,8 @@ function handleSourceTypeChange() {
     audioInputStream = null
   }
   
-  // CRITICAL: Reset all audio nodes to ensure clean state when switching source types
-  // This prevents issues when switching from microphone to file or vice versa
-  if (gainNode) {
-    try {
-      gainNode.disconnect()
-      gainNode.dispose()
-    } catch (e) {}
-    gainNode = null
-  }
-  
-  if (eq3) {
-    try {
-      eq3.disconnect()
-      eq3.dispose()
-    } catch (e) {}
-    eq3 = null
-  }
-  
-  if (panNode) {
-    try {
-      panNode.disconnect()
-      panNode.dispose()
-    } catch (e) {}
-    panNode = null
-  }
-  
-  if (volumeNode) {
-    try {
-      volumeNode.disconnect()
-      volumeNode.dispose()
-    } catch (e) {}
-    volumeNode = null
-  }
-  
-  if (meter) {
-    try {
-      meter.disconnect()
-      meter.dispose()
-    } catch (e) {}
-    meter = null
-  }
-  
-  if (waveform) {
-    try {
-      waveform.disconnect()
-      waveform.dispose()
-    } catch (e) {}
-    waveform = null
-  }
-  
-  // Reset FX nodes
-  if (compressor) {
-    try {
-      compressor.disconnect()
-      compressor.dispose()
-    } catch (e) {}
-    compressor = null
-  }
-  
-  if (reverb) {
-    try {
-      reverb.disconnect()
-      reverb.dispose()
-    } catch (e) {}
-    reverb = null
-  }
-  
-  if (parametricEQFilters) {
-    try {
-      parametricEQFilters.disconnect()
-      parametricEQFilters.dispose()
-    } catch (e) {}
-    parametricEQFilters = null
-  }
-  
+  // DON'T destroy audio nodes - they're reusable!
+  // Just reset state
   audioLoaded.value = false
   isPlaying.value = false
   fileName.value = ''
@@ -804,35 +717,24 @@ function handleSourceTypeChange() {
 // Handle audio input device change
 async function handleAudioInputChange() {
   if (!selectedAudioInput.value || !Tone) return
-  
-  console.log(`[Track ${props.trackNumber}] handleAudioInputChange called for device:`, selectedAudioInput.value)
-  
+
   // Initialize audio nodes if needed
   initAudioNodes()
-  
+
   if (!gainNode) {
     console.error(`[Track ${props.trackNumber}] gainNode failed to initialize!`)
     return
   }
-  
+
   try {
     // Ensure audio context is running
     await Tone.start()
-    
+
     // Stop previous input stream if any
     if (audioInputStream) {
       audioInputStream.getTracks().forEach(track => track.stop())
     }
-    
-    // Dispose old player/source
-    if (player) {
-      try {
-        player.disconnect()
-        player.dispose()
-      } catch (e) {}
-      player = null
-    }
-    
+
     // Disconnect old audio input source
     if (audioInputSource) {
       try {
@@ -840,7 +742,18 @@ async function handleAudioInputChange() {
       } catch (e) {}
       audioInputSource = null
     }
-    
+
+    // Dispose old player if it exists and is not already a Gain (input wrapper)
+    if (player && typeof player.stop === 'function') {
+      // It's a Tone.Player, dispose it
+      try {
+        player.stop()
+        player.disconnect()
+        player.dispose()
+      } catch (e) {}
+      player = null
+    }
+
     // Get audio stream from selected device
     audioInputStream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -850,42 +763,41 @@ async function handleAudioInputChange() {
         autoGainControl: false
       }
     })
-    
+
     // Create MediaStreamSource from the stream (native Web Audio API node)
     audioInputSource = Tone.context.createMediaStreamSource(audioInputStream)
-    
-    // Wrap it in a Tone.js Gain node so we can use Tone's connect methods
-    player = new Tone.Gain(1)
-    
-    // Connect the native media stream source to Tone's input node
-    // player.input is the underlying Web Audio API node that Tone wraps
+
+    // Reuse player if it's already a Gain node, otherwise create new
+    if (!player || typeof player.stop === 'function') {
+      player = new Tone.Gain(1)
+      player.connect(gainNode!)
+    }
+
+    // Connect the native media stream source to player input
     if (audioInputSource) {
       audioInputSource.connect(player.input)
     }
-    
-    // Connect to audio chain
-    player.connect(gainNode!)
-    
+
     // CRITICAL: Ensure volume node is connected to master output
     connectToOutput()
-    
+
     // Find device name for display
     const device = audioInputs.value.find(d => d.deviceId === selectedAudioInput.value)
     fileName.value = device?.label || 'Audio Input'
-    
+
     audioLoaded.value = true
     isPlaying.value = true // Input is always "playing"
-    
+
     // Ensure master audio elements are playing (critical for output!)
     if (props.masterChannel?.ensureAudioPlaying) {
       props.masterChannel.ensureAudioPlaying()
     }
-    
+
     // Start waveform visualization for audio input
     waveformDisplayRef.value?.start()
-    
+
     // Note: No playback time tracking for audio input (it's live)
-    
+
   } catch (error) {
     console.error(`[Track ${props.trackNumber}] Error connecting audio input:`, error)
     alert('Error accessing audio input. Please check permissions and try again.')
@@ -897,7 +809,7 @@ async function handleAudioInputChange() {
 // Playback controls
 async function togglePlay() {
   if (!Tone) return
-  
+
   // For audio input, play/pause doesn't make sense - it's always live
   if (audioSourceType.value === 'input') {
     if (audioLoaded.value) {
@@ -906,7 +818,7 @@ async function togglePlay() {
     }
     return
   }
-  
+
   // For file playback
   if (!player || !audioLoaded.value) {
     console.warn('Cannot play: audio not loaded yet')
@@ -916,28 +828,28 @@ async function togglePlay() {
   if (!isPlaying.value) {
     await Tone.start()
 
-    
+
     // Ensure master audio elements are playing
     if (props.masterChannel?.ensureAudioPlaying) {
       props.masterChannel.ensureAudioPlaying()
     }
-    
+
     // CRITICAL: If player is already started (from previous loop), stop it first
     if (player.state === 'started' && typeof player.stop === 'function') {
       player.stop()
       // Small delay to ensure clean stop
       await new Promise(resolve => setTimeout(resolve, 50))
     }
-    
-    
+
+
     if (typeof player.start === 'function') {
       player.start()
     }
     isPlaying.value = true
-    
+
     // Start waveform
     waveformDisplayRef.value?.start()
-    
+
     // Start playback time tracking
     startPlaybackTimeTracking()
   } else {
@@ -945,10 +857,10 @@ async function togglePlay() {
       player.stop()
     }
     isPlaying.value = false
-    
+
     // Stop waveform
     waveformDisplayRef.value?.stop()
-    
+
     // Stop playback time tracking
     stopPlaybackTimeTracking()
   }
@@ -962,18 +874,18 @@ function stopAudio() {
     }
     return
   }
-  
+
   // For file playback
   if (!player || !audioLoaded.value) return
-    
+
   if (typeof player.stop === 'function') {
     player.stop()
   }
   isPlaying.value = false
-    
+
   // Stop waveform
   waveformDisplayRef.value?.stop()
-  
+
   // Stop playback time tracking
   stopPlaybackTimeTracking()
 }
@@ -1023,7 +935,7 @@ defineExpose({
     updateVolume()
   },
   isSolo: () => isSolo.value,
-  
+
   getSnapshot: () => {
     return {
       trackNumber: props.trackNumber,
@@ -1050,14 +962,14 @@ defineExpose({
       reverb: trackReverbRef.value?.getParams()
     }
   },
-  
+
   restoreFromSnapshot: (snapshot: any) => {
     // Restore volume and pan
     volume.value = snapshot.volume
     pan.value = snapshot.pan
     isMuted.value = snapshot.muted
     isSolo.value = snapshot.soloed
-    
+
     // Restore source type and related data
     audioSourceType.value = snapshot.sourceType || 'file'
     if (snapshot.selectedInputDevice) {
@@ -1074,12 +986,12 @@ defineExpose({
         await loadFileFromIndexedDB(snapshot.fileId!)
       })
     }
-    
+
     // Restore 3-band EQ
     if (snapshot.eq3) {
       trackEQRef.value?.setParams(snapshot.eq3)
     }
-    
+
     // Restore parametric EQ
     if (snapshot.parametricEQFilters && snapshot.parametricEQFilters.length > 0) {
       eqFiltersData.value = snapshot.parametricEQFilters.map((f: any) => ({
@@ -1093,7 +1005,7 @@ defineExpose({
       // Apply EQ filters via the update handler
       handleParametricEQUpdate({ filtersData: eqFiltersData.value })
     }
-    
+
     // Restore compressor
     const shouldEnableCompressor = snapshot.compressorEnabled || false
     if (snapshot.compressor) {
@@ -1102,7 +1014,7 @@ defineExpose({
     if (shouldEnableCompressor !== compressorEnabled.value) {
       toggleCompressor()
     }
-    
+
     // Restore reverb
     const shouldEnableReverb = snapshot.reverbEnabled || false
     if (snapshot.reverb) {
@@ -1120,16 +1032,16 @@ onUnmounted(() => {
   if (audioInputSource) {
     try {
       audioInputSource.disconnect()
-    } catch (e) {}
+    } catch (e) { }
     audioInputSource = null
   }
-  
+
   // Stop audio input stream if active
   if (audioInputStream) {
     audioInputStream.getTracks().forEach(track => track.stop())
     audioInputStream = null
   }
-  
+
   // Cleanup player
   if (player) {
     player.dispose()
@@ -1142,6 +1054,16 @@ onUnmounted(() => {
   if (waveform) waveform.dispose()
   if (compressor) compressor.dispose()
   if (reverb) reverb.dispose()
+  
+  // Cleanup parametric EQ filters if present
+  if (parametricEQFilters) {
+    try {
+      if (parametricEQFilters.dispose) {
+        parametricEQFilters.dispose()
+      }
+    } catch (e) {}
+    parametricEQFilters = null
+  }
 
   if (resizeObserver) {
     resizeObserver.disconnect()
@@ -1150,130 +1072,65 @@ onUnmounted(() => {
   if (levelMonitorInterval) {
     clearInterval(levelMonitorInterval)
   }
-  
+
   if (playbackTimeInterval) {
     clearInterval(playbackTimeInterval)
   }
-  
+
   // Stop waveform drawing
   waveformDisplayRef.value?.stop()
-  
+
   // Remove device change listener
   navigator.mediaDevices.removeEventListener('devicechange', refreshAudioInputs)
 })
 
-// FX Functions
+// FX Functions - Use bypass instead of create/destroy
 function toggleCompressor() {
   compressorEnabled.value = !compressorEnabled.value
-
+  
+  if (!compressor) return
+  
+  const rampTime = 0.05 // 50ms smooth transition
+  
   if (compressorEnabled.value) {
-    createCompressor()
+    // Apply real parameters from component
+    const params = trackCompressorRef.value?.getParams() || {
+      threshold: -20,
+      ratio: 4,
+      attack: 0.1,
+      release: 0.25
+    }
+    compressor.threshold.rampTo(params.threshold, rampTime)
+    compressor.ratio.rampTo(params.ratio, rampTime)
+    compressor.attack.rampTo(params.attack, rampTime)
+    compressor.release.rampTo(params.release, rampTime)
   } else {
-    removeCompressor()
+    // Bypass: threshold=0, ratio=1 = no compression
+    compressor.threshold.rampTo(0, rampTime)
+    compressor.ratio.rampTo(1, rampTime)
   }
 }
 
 function toggleReverb() {
   reverbEnabled.value = !reverbEnabled.value
-
+  
+  if (!reverb) return
+  
+  const rampTime = 0.05 // 50ms smooth transition
+  
   if (reverbEnabled.value) {
-    createReverb()
+    // Apply real parameters from component
+    const params = trackReverbRef.value?.getParams() || {
+      decay: 1.5,
+      preDelay: 0.01,
+      wet: 0.3
+    }
+    reverb.decay = params.decay
+    reverb.preDelay = params.preDelay
+    reverb.wet.rampTo(params.wet, rampTime)
   } else {
-    removeReverb()
+    // Bypass: wet=0 = no reverb
+    reverb.wet.rampTo(0, rampTime)
   }
-}
-
-function createCompressor() {
-  if (!Tone || compressor) return
-
-  // Get current params from component or use defaults
-  const params = trackCompressorRef.value?.getParams() || {
-    threshold: -20,
-    ratio: 4,
-    attack: 0.1,
-    release: 0.25
-  }
-
-  compressor = new Tone.Compressor(params)
-
-  rebuildAudioChain()
-}
-
-function removeCompressor() {
-  if (compressor) {
-    compressor.disconnect()
-    compressor.dispose()
-    compressor = null
-    rebuildAudioChain()
-  }
-}
-
-function createReverb() {
-  if (!Tone || reverb) return
-
-  // Get current params from component or use defaults
-  const params = trackReverbRef.value?.getParams() || {
-    decay: 1.5,
-    preDelay: 0.01,
-    wet: 0.3
-  }
-
-  reverb = new Tone.Reverb(params)
-
-  rebuildAudioChain()
-}
-
-function removeReverb() {
-  if (reverb) {
-    reverb.disconnect()
-    reverb.dispose()
-    reverb = null
-    rebuildAudioChain()
-  }
-}
-
-function rebuildAudioChain() {
-  if (!eq3 || !panNode || !volumeNode) return
-
-  // Disconnect everything
-  try {
-    eq3.disconnect()
-    if (parametricEQFilters) parametricEQFilters.output.disconnect()
-    if (compressor) compressor.disconnect()
-    if (reverb) reverb.disconnect()
-  } catch (e) {
-    // Ignore disconnection errors
-  }
-
-  // Build new chain: eq3 -> [parametricEQ] -> [compressor] -> [reverb] -> pan -> volume
-  let currentNode: any = eq3
-
-  // CRITICAL: Reconnect meter and waveform to eq3 (they were disconnected above)
-  if (meter) eq3.connect(meter)
-  if (waveform) eq3.connect(waveform)
-
-  // Parametric EQ
-  if (parametricEQFilters && parametricEQFilters.input && parametricEQFilters.output) {
-    currentNode.connect(parametricEQFilters.input)
-    currentNode = parametricEQFilters.output
-  }
-
-  // Compressor
-  if (compressor) {
-    currentNode.connect(compressor)
-    currentNode = compressor
-  }
-
-  // Reverb
-  if (reverb) {
-    currentNode.connect(reverb)
-    currentNode = reverb
-  }
-  
-  // Pan node handles both stereo and mono correctly
-  currentNode.connect(panNode)
-  
-  // Pan to volume (already connected in initAudioNodes)
-  // connectToOutput() already called in initAudioNodes
 }
 </script>
