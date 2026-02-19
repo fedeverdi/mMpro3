@@ -90,7 +90,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, toRaw } from 'vue'
+import { ref, watch, onMounted, onUnmounted, toRaw, inject } from 'vue'
 
 interface Props {
   masterChannel?: any
@@ -110,6 +110,7 @@ const barOptions = [
   { label: '128', bars: 128 }
 ]
 
+const ToneRef = inject<any>('Tone')
 let Tone: any = null
 let splitNode: any = null // Split stereo into L/R
 let analyserLeft: any = null
@@ -127,7 +128,21 @@ const PEAK_DECAY_RATE = 0.002 // velocità di decadimento del peak
 
 const ensureAnalyser = async () => {
   if (!Tone) {
-    Tone = await import('tone')
+    // Get Tone.js from inject
+    if (ToneRef?.value) {
+      Tone = ToneRef.value
+    } else {
+      // Fallback: wait for it
+      await new Promise<void>((resolve) => {
+        const checkTone = setInterval(() => {
+          if (ToneRef?.value) {
+            Tone = ToneRef.value
+            clearInterval(checkTone)
+            resolve()
+          }
+        }, 100)
+      })
+    }
   }
   if (!splitNode && Tone) {
     // Create split to separate L/R channels

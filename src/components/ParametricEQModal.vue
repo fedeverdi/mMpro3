@@ -152,7 +152,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, computed, inject } from 'vue'
 import { PeakingFilter } from '~/lib/filters/peaking.class'
 import { LowShelvingFilter } from '~/lib/filters/lowShelving.class'
 import { HighShelvingFilter } from '~/lib/filters/highShelving.class'
@@ -223,6 +223,7 @@ const getInitialFilters = (): EQFilter[] => {
 
 const filters = ref<EQFilter[]>(getInitialFilters())
 
+const ToneRef = inject<any>('Tone')
 let Tone: any = null
 let filterNodes: any[] = []
 let nextFilterId = filters.value.length + 1
@@ -241,7 +242,18 @@ let dragStartX = 0
 let dragStartQ = 0
 
 onMounted(async () => {
-  Tone = await import('tone')
+  // Get Tone.js from inject
+  if (ToneRef?.value) {
+    Tone = ToneRef.value
+  } else {
+    // Fallback: wait for it
+    const checkTone = setInterval(() => {
+      if (ToneRef?.value) {
+        Tone = ToneRef.value
+        clearInterval(checkTone)
+      }
+    }, 100)
+  }
   await nextTick()
   
   setupCanvas()

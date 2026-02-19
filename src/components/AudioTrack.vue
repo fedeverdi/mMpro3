@@ -162,7 +162,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick, computed, toRaw } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, computed, toRaw, inject } from 'vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import type { TrackSnapshot } from '~/composables/useScenes'
@@ -181,6 +181,8 @@ defineOptions({
   inheritAttrs: false
 })
 
+// Inject Tone.js from App.vue (imported once for entire app)
+const ToneRef = inject<any>('Tone')
 let Tone: any = null
 
 const { saveAudioFile, getAudioFile } = useAudioFileStorage()
@@ -259,6 +261,7 @@ let waveform: any = null // Waveform analyzer
 let resizeObserver: ResizeObserver | null = null
 let playbackTimeInterval: number | null = null
 let playbackStartTime: number = 0
+let audioContextStarted: boolean = false // Track if Tone.start() has been called
 
 // Calculate fader height based on container
 function updateFaderHeight() {
@@ -271,8 +274,18 @@ function updateFaderHeight() {
 
 // Initialize audio chain
 onMounted(async () => {
-  // Import Tone.js dynamically on client side only
-  Tone = await import('tone')
+  // Wait for Tone.js to be loaded from App.vue
+  if (ToneRef?.value) {
+    Tone = ToneRef.value
+  } else {
+    // Fallback: wait for it to be injected
+    const checkTone = setInterval(() => {
+      if (ToneRef?.value) {
+        Tone = ToneRef.value
+        clearInterval(checkTone)
+      }
+    }, 100)
+  }
 
   // Calculate initial fader height
   await nextTick()
@@ -539,26 +552,18 @@ async function handleFileUpload(event: Event) {
     const arrayBuffer = await file.arrayBuffer()
     const audioBuffer = await Tone.context.decodeAudioData(arrayBuffer)
 
-    // Stop playback and waveform
-    if (isPlaying.value) {
-      stopAudio()
-    }
-    
-    // CRITICAL: Properly dispose old buffer and reuse player
+    // Check if we need to create a new player or just swap buffer
     if (player && typeof player.stop === 'function' && 'buffer' in player) {
-      // It's a Tone.Player - dispose old buffer and reuse player
-      if (player.buffer) {
+      // It's already a Tone.Player - just swap the buffer
+      
+      // Dispose old buffer
+      if (player.buffer && typeof player.buffer.dispose === 'function') {
         try {
-          // Dispose the old Tone.ToneAudioBuffer
-          if (typeof player.buffer.dispose === 'function') {
-            player.buffer.dispose()
-          }
-        } catch (e) {
-          console.warn('Could not dispose old buffer:', e)
-        }
+          player.buffer.dispose()
+        } catch (e) {}
       }
       
-      // Dispose old currentAudioBuffer reference to prevent memory leak
+      // Dispose old currentAudioBuffer if different
       if (currentAudioBuffer && currentAudioBuffer !== player.buffer) {
         try {
           if (typeof (currentAudioBuffer as any).dispose === 'function') {
@@ -567,16 +572,26 @@ async function handleFileUpload(event: Event) {
         } catch (e) {}
       }
       
-      // Assign new buffer to existing player (more efficient than recreating)
+      // Assign new buffer
       player.buffer = audioBuffer
       
     } else {
-      // Need to create new player (first time or was audio input)
+      // First time or was audio input - create new Tone.Player
+      
       if (player) {
-        // Clean up old player (was audio input Gain node)
+        // Cleanup old player (was Gain node for mic input)
         try {
           player.disconnect()
           player.dispose()
+        } catch (e) {}
+      }
+      
+      // Dispose old currentAudioBuffer
+      if (currentAudioBuffer) {
+        try {
+          if (typeof (currentAudioBuffer as any).dispose === 'function') {
+            (currentAudioBuffer as any).dispose()
+          }
         } catch (e) {}
       }
       
@@ -640,26 +655,16 @@ async function loadFileFromIndexedDB(savedFileId: string) {
     // Decode audio buffer
     const audioBuffer = await Tone.context.decodeAudioData(storedFile.arrayBuffer)
 
-    // Stop playback and waveform
-    if (isPlaying.value) {
-      stopAudio()
-    }
-    
-    // CRITICAL: Properly dispose old buffer and reuse player
+    // Check if we need to create a new player or just swap buffer
     if (player && typeof player.stop === 'function' && 'buffer' in player) {
-      // It's a Tone.Player - dispose old buffer and reuse player
-      if (player.buffer) {
+      // It's already a Tone.Player - just swap the buffer
+      
+      if (player.buffer && typeof player.buffer.dispose === 'function') {
         try {
-          // Dispose the old Tone.ToneAudioBuffer
-          if (typeof player.buffer.dispose === 'function') {
-            player.buffer.dispose()
-          }
-        } catch (e) {
-          console.warn('Could not dispose old buffer:', e)
-        }
+          player.buffer.dispose()
+        } catch (e) {}
       }
       
-      // Dispose old currentAudioBuffer reference to prevent memory leak
       if (currentAudioBuffer && currentAudioBuffer !== player.buffer) {
         try {
           if (typeof (currentAudioBuffer as any).dispose === 'function') {
@@ -668,16 +673,24 @@ async function loadFileFromIndexedDB(savedFileId: string) {
         } catch (e) {}
       }
       
-      // Assign new buffer to existing player (more efficient than recreating)
+      // Assign new buffer
       player.buffer = audioBuffer
       
     } else {
-      // Need to create new player (first time or was audio input)
+      // First time or was audio input - create new Tone.Player
+      
       if (player) {
-        // Clean up old player (was audio input Gain node)
         try {
           player.disconnect()
           player.dispose()
+        } catch (e) {}
+      }
+      
+      if (currentAudioBuffer) {
+        try {
+          if (typeof (currentAudioBuffer as any).dispose === 'function') {
+            (currentAudioBuffer as any).dispose()
+          }
         } catch (e) {}
       }
       
@@ -778,14 +791,12 @@ async function handleAudioInputChange() {
   // Initialize audio nodes if needed
   initAudioNodes()
 
-  if (!gainNode) {
-    console.error(`[Track ${props.trackNumber}] gainNode failed to initialize!`)
-    return
-  }
-
   try {
-    // Ensure audio context is running
-    await Tone.start()
+    // Start audio context once (required by browsers for user interaction)
+    if (!audioContextStarted) {
+      await Tone.start()
+      audioContextStarted = true
+    }
 
     // Stop previous input stream if any
     if (audioInputStream) {
@@ -867,10 +878,9 @@ async function handleAudioInputChange() {
 async function togglePlay() {
   if (!Tone) return
 
-  // For audio input, play/pause doesn't make sense - it's always live
+  // For audio input, toggle mute instead
   if (audioSourceType.value === 'input') {
     if (audioLoaded.value) {
-      // Toggle mute instead
       toggleMute()
     }
     return
@@ -883,25 +893,18 @@ async function togglePlay() {
   }
 
   if (!isPlaying.value) {
-    await Tone.start()
-
+    // Start audio context once (required by browsers for user interaction)
+    if (!audioContextStarted) {
+      await Tone.start()
+      audioContextStarted = true
+    }
 
     // Ensure master audio elements are playing
     if (props.masterChannel?.ensureAudioPlaying) {
       props.masterChannel.ensureAudioPlaying()
     }
 
-    // CRITICAL: If player is already started (from previous loop), stop it first
-    if (player.state === 'started' && typeof player.stop === 'function') {
-      player.stop()
-      // Small delay to ensure clean stop
-      await new Promise(resolve => setTimeout(resolve, 50))
-    }
-
-
-    if (typeof player.start === 'function') {
-      player.start()
-    }
+    player.start()
     isPlaying.value = true
 
     // Start waveform
@@ -910,9 +913,8 @@ async function togglePlay() {
     // Start playback time tracking
     startPlaybackTimeTracking()
   } else {
-    if (typeof player.stop === 'function') {
-      player.stop()
-    }
+    // Stop playback
+    player.stop()
     isPlaying.value = false
 
     // Stop waveform
@@ -924,7 +926,7 @@ async function togglePlay() {
 }
 
 function stopAudio() {
-  // For audio input, we can't really "stop" - mute instead
+  // For audio input, mute instead
   if (audioSourceType.value === 'input') {
     if (!isMuted.value) {
       toggleMute()
@@ -935,16 +937,16 @@ function stopAudio() {
   // For file playback
   if (!player || !audioLoaded.value) return
 
-  if (typeof player.stop === 'function') {
-    player.stop()
-  }
+  // Stop player
+  player.stop()
   isPlaying.value = false
+
+  // Reset playback position to start
+  currentPlaybackTime.value = 0
+  stopPlaybackTimeTracking()
 
   // Stop waveform
   waveformDisplayRef.value?.stop()
-
-  // Stop playback time tracking
-  stopPlaybackTimeTracking()
 }
 
 function toggleMute() {

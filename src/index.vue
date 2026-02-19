@@ -189,7 +189,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, toRaw, nextTick } from 'vue'
+import { ref, onMounted, computed, toRaw, nextTick, inject } from 'vue'
 import AudioTrack from './components/AudioTrack.vue'
 import AudioFlowModal from './components/AudioFlowModal.vue'
 import MasterEQDisplay from './components/MasterEQDisplay.vue'
@@ -201,6 +201,7 @@ import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useScenes, type Scene, type TrackSnapshot } from '~/composables/useScenes'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 
+const ToneRef = inject<any>('Tone')
 let Tone: any = null
 const toneReady = ref(false)
 
@@ -512,8 +513,21 @@ onMounted(async () => {
     // Load scenes from IndexedDB
     await loadScenesFromStorage()
     
-    // Import Tone.js dynamically on client side only
-    Tone = await import('tone')
+    // Get Tone.js from inject
+    if (ToneRef?.value) {
+      Tone = ToneRef.value
+    } else {
+      // Fallback: wait for it
+      await new Promise<void>((resolve) => {
+        const checkTone = setInterval(() => {
+          if (ToneRef?.value) {
+            Tone = ToneRef.value
+            clearInterval(checkTone)
+            resolve()
+          }
+        }, 100)
+      })
+    }
     
     // Mark Tone as ready immediately after import
     toneReady.value = true

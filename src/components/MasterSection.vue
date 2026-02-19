@@ -116,8 +116,10 @@ import AudioOutputModal from './AudioOutputModal.vue'
 import Fader from './Fader.vue'
 import Knob from './Knob.vue'
 import VuMeter from './VuMeter.vue'
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 
+// Inject Tone.js from App.vue
+const ToneRef = inject<any>('Tone')
 let Tone: any = null
 
 // Master volumes
@@ -506,8 +508,18 @@ function saveRecording() {
 onMounted(async () => {
   const startTime = performance.now()
 
-  // Import Tone.js dynamically on client side only
-  Tone = await import('tone')
+  // Get Tone.js from inject
+  if (ToneRef?.value) {
+    Tone = ToneRef.value
+  } else {
+    // Fallback: wait for it
+    const checkTone = setInterval(() => {
+      if (ToneRef?.value) {
+        Tone = ToneRef.value
+        clearInterval(checkTone)
+      }
+    }, 100)
+  }
 
   // Enumerate audio outputs
   await enumerateAudioOutputs()
