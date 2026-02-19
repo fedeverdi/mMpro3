@@ -125,6 +125,7 @@ let reverbNode: any = null
 let delayNode: any = null
 let limiterNode: any = null
 const fxChainEnabled = new Set<string>()
+let isRegeneratingReverb = false
 
 // Calculate meters height based on container
 function updateMetersHeight() {
@@ -488,8 +489,9 @@ async function toggleReverb(enabled: boolean, params?: any) {
         decay: params?.decay ?? 1.5,
         preDelay: params?.preDelay ?? 0.01
       })
-      reverbNode.wet.rampTo(params?.wet ?? 0.3, 0.01)
+      reverbNode.wet.value = 0  // Start at 0
       await reverbNode.generate()
+      reverbNode.wet.rampTo(params?.wet ?? 0.3, 0.05)  // Smooth fade in
     }
     fxChainEnabled.add('reverb')
   } else {
@@ -502,27 +504,55 @@ async function toggleReverb(enabled: boolean, params?: any) {
 function updateReverb(params: any) {
   if (!reverbNode) return
   
-  if (params.wet !== undefined) reverbNode.wet.rampTo(params.wet, 0.01)
+  if (params.wet !== undefined && !isRegeneratingReverb) {
+    // Smooth transition for wet parameter (100ms)
+    reverbNode.wet.rampTo(params.wet, 0.1)
+  }
   
   // Decay and preDelay require regeneration
   if (params.decay !== undefined || params.preDelay !== undefined) {
+    // Prevent multiple simultaneous regenerations
+    if (isRegeneratingReverb) return
+    
+    isRegeneratingReverb = true
+    const currentWet = reverbNode.wet.value
+    const oldReverb = reverbNode
+    
+    // Create new reverb with updated parameters
     const newReverb = new Tone.Reverb({
-      decay: params.decay ?? reverbNode.decay,
-      preDelay: params.preDelay ?? reverbNode.preDelay
+      decay: params.decay ?? oldReverb.decay,
+      preDelay: params.preDelay ?? oldReverb.preDelay
     })
-    newReverb.wet.rampTo(params.wet ?? reverbNode.wet.value, 0.01)
+    newReverb.wet.value = 0
+    
+    // Step 1: Fade out old reverb to avoid click
+    if (oldReverb.wet.value > 0) {
+      oldReverb.wet.rampTo(0, 0.05)
+    }
+    
+    // Generate impulse response
     newReverb.generate().then(() => {
-      const oldReverb = reverbNode
-      reverbNode = newReverb
-      rebuildFXChain()
+      // Step 2: Wait for fade out to complete (60ms), then swap
       setTimeout(() => {
+        reverbNode = newReverb
+        rebuildFXChain()
+        
+        // Dispose old reverb (already disconnected by rebuildFXChain)
         if (oldReverb) {
           try {
             oldReverb.disconnect()
             oldReverb.dispose()
           } catch (e) {}
         }
-      }, 200)
+        
+        // Step 3: Fade in new reverb smoothly
+        newReverb.wet.rampTo(params.wet ?? currentWet, 0.05)
+        
+        // Reset regeneration flag
+        setTimeout(() => {
+          isRegeneratingReverb = false
+        }, 100)
+      }, 60)
     })
   }
 }
