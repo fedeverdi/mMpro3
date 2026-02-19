@@ -91,7 +91,7 @@
     <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
       <div class="flex gap-1">
         <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
-          :compressor-node="compressor" :meter="meter" @toggle="toggleCompressor" />
+          :compressor-node="compressor" :meter="meterL" @toggle="toggleCompressor" />
         <TrackReverb ref="trackReverbRef" :track-number="trackNumber" :enabled="reverbEnabled" :reverb-node="reverb"
           @toggle="toggleReverb" />
       </div>
@@ -148,9 +148,13 @@
     <div class="flex flex-col h-full">
       <div class="text-[0.455rem] uppercase text-center">Volume</div>
       <div ref="faderContainer" class="flex-1 flex items-center justify-center gap-2  min-h-0">
-        <Fader v-if="faderHeight > 0" v-model="volume" label="Volume" :trackHeight="faderHeight" color="blue" />
-        <VuMeter v-if="faderHeight > 0" :level="trackLevel" :label="''" :height="faderHeight + 20" :width="12"
-          :showValue="false" />
+        <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
+        <TrackMeter v-if="faderHeight > 0" 
+          :levelL="trackLevelL" 
+          :levelR="trackLevelR" 
+          :isStereo="isStereo" 
+          :height="faderHeight + 20" 
+        />
       </div>
     </div>
 
@@ -166,11 +170,11 @@ import { ref, watch, onMounted, onUnmounted, nextTick, computed, toRaw, inject }
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import type { TrackSnapshot } from '~/composables/useScenes'
-import Fader from './Fader.vue'
+import TrackFader from './TrackFader.vue'
+import TrackMeter from './TrackMeter.vue'
 import Knob from './Knob.vue'
 import PanKnob from './PanKnob.vue'
 import ParametricEQModal from './ParametricEQModal.vue'
-import VuMeter from './VuMeter.vue'
 import TrackCompressor from './audioTrack/TrackCompressor.vue'
 import TrackReverb from './audioTrack/TrackReverb.vue'
 import TrackEQ from './audioTrack/TrackEQ.vue'
@@ -238,7 +242,9 @@ const showEQ3Bands = ref(false)
 const volume = ref(0)
 const gain = ref(0)
 const pan = ref(0) // -1 (left) to +1 (right)
-const trackLevel = ref(-60)
+const isStereo = ref(true) // Track if source is stereo or mono (default stereo)
+const trackLevelL = ref(-60) // Left/Mono level
+const trackLevelR = ref(-60) // Right level (only for stereo)
 const currentPlaybackTime = ref(0)
 
 // Component refs
@@ -256,7 +262,9 @@ let compressor: any = null
 let reverb: any = null
 let panNode: any = null // Tone.Panner - handles both stereo balance and mono panning
 let volumeNode: any = null
-let meter: any = null
+let meterL: any = null // Left channel meter (or mono)
+let meterR: any = null // Right channel meter (stereo only)
+let channelSplit: any = null // Split stereo to L/R for metering
 let waveform: any = null // Waveform analyzer
 let resizeObserver: ResizeObserver | null = null
 let playbackTimeInterval: number | null = null
@@ -331,7 +339,10 @@ function initAudioNodes() {
 
   volumeNode = new Tone.Volume(0)
 
-  meter = new Tone.Meter()
+  // Create stereo metering: split channels and meter each separately
+  channelSplit = new Tone.Split() // Split stereo into L/R
+  meterL = new Tone.Meter() // Left channel (or mono)
+  meterR = new Tone.Meter() // Right channel
 
   // Waveform analyzer (for visualization)
   waveform = new Tone.Waveform(512) // 512 samples for waveform display
@@ -354,8 +365,10 @@ function initAudioNodes() {
   // FX are always in chain, bypassed when disabled
   gainNode.connect(eq3)
 
-  // Connect meter to eq3 to measure signal BEFORE effects
-  eq3.connect(meter)
+  // Connect stereo metering to eq3 (before effects)
+  eq3.connect(channelSplit)
+  channelSplit.connect(meterL, 0) // Left channel to meterL
+  channelSplit.connect(meterR, 1) // Right channel to meterR
 
   // Connect waveform analyzer to eq3 for visualization
   eq3.connect(waveform)
@@ -401,15 +414,15 @@ function handleParametricEQUpdate(filters: any) {
 function applyParametricEQ() {
   if (!eq3 || !compressor) return
 
-  // Disconnect only eq3 (meter and waveform stay connected)
+  // Disconnect only eq3 (meters and waveform stay connected)
   try {
     eq3.disconnect()
   } catch (e) {
     // Ignore disconnection errors
   }
 
-  // Reconnect meter and waveform to eq3
-  if (meter) eq3.connect(meter)
+  // Reconnect meters and waveform to eq3
+  if (channelSplit) eq3.connect(channelSplit)
   if (waveform) eq3.connect(waveform)
 
   // Insert parametric EQ between eq3 and compressor if present
@@ -451,9 +464,6 @@ function connectToOutput() {
         // Ignore
       }
 
-      // Reconnect to meter
-      volumeNode.connect(meter!)
-
       // Connect to master (now using raw object)
       volumeNode.connect(master)
       return true
@@ -481,13 +491,22 @@ watch(masterValue, (newMaster) => {
   }
 })
 
-// Level monitoring
+// Level monitoring for stereo/mono
 let levelMonitorInterval: number | null = null
 function startLevelMonitoring() {
   levelMonitorInterval = window.setInterval(() => {
-    if (meter && Tone) {
-      const level = meter.getValue() as number
-      trackLevel.value = Math.max(-60, level)
+    if (meterL && Tone) {
+      const levelL = meterL.getValue() as number
+      trackLevelL.value = Math.max(-60, levelL)
+      
+      // For stereo, also read right channel
+      if (isStereo.value && meterR) {
+        const levelR = meterR.getValue() as number
+        trackLevelR.value = Math.max(-60, levelR)
+      } else {
+        // Mono: copy left to right for consistency
+        trackLevelR.value = trackLevelL.value
+      }
     }
   }, 50)
 }
@@ -607,6 +626,10 @@ async function handleFileUpload(event: Event) {
     
     // Update current buffer reference for waveform
     currentAudioBuffer = audioBuffer
+    
+    // Detect if stereo or mono
+    isStereo.value = audioBuffer.numberOfChannels === 2
+    console.log(`🎵 Audio loaded: ${isStereo.value ? 'Stereo' : 'Mono'} (${audioBuffer.numberOfChannels} channels)`)
 
     // Verify audio chain is connected
     if (!gainNode || !eq3 || !volumeNode) {
@@ -719,6 +742,10 @@ async function loadFileFromIndexedDB(savedFileId: string) {
 
     // Update current buffer reference for waveform
     currentAudioBuffer = audioBuffer
+    
+    // Detect if stereo or mono
+    isStereo.value = audioBuffer.numberOfChannels === 2
+    console.log(`🎵 Audio restored from scene: ${isStereo.value ? 'Stereo' : 'Mono'} (${audioBuffer.numberOfChannels} channels)`)
 
     // Verify audio chain is connected
     if (!gainNode || !eq3 || !volumeNode) {
@@ -851,6 +878,12 @@ async function handleAudioInputChange() {
 
     // Create MediaStreamSource from the stream (native Web Audio API node)
     audioInputSource = Tone.context.createMediaStreamSource(audioInputStream)
+    
+    // Detect if stereo or mono based on audio tracks
+    const audioTracks = audioInputStream.getAudioTracks()
+    const channelCount = audioTracks.length > 0 ? audioTracks[0].getSettings().channelCount || 1 : 1
+    isStereo.value = channelCount === 2
+    console.log(`🎤 Audio input: ${isStereo.value ? 'Stereo' : 'Mono'} (${channelCount} channels)`)
 
     // Reuse player if it's already a Gain node, otherwise create new
     if (!player || typeof player.stop === 'function') {
@@ -1171,7 +1204,9 @@ onUnmounted(() => {
   if (eq3) eq3.dispose()
   if (panNode) panNode.dispose()
   if (volumeNode) volumeNode.dispose()
-  if (meter) meter.dispose()
+  if (meterL) meterL.dispose()
+  if (meterR) meterR.dispose()
+  if (channelSplit) channelSplit.dispose()
   if (waveform) waveform.dispose()
   if (compressor) compressor.dispose()
   if (reverb) reverb.dispose()

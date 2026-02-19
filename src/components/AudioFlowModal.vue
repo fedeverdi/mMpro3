@@ -56,18 +56,6 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
-                <!-- Mono Converter -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold">
-                    Mono
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">Stereo → Mono</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
                 <!-- EQ3 -->
                 <div class="flex flex-col items-center">
                   <div class="px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold">
@@ -80,63 +68,49 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
-                <!-- VU Meter -->
+                <!-- Meter/Waveform -->
+                <div class="flex flex-col items-center border-2 border-yellow-500/50 rounded-lg p-3 bg-yellow-900/10">
+                  <div class="text-xs text-yellow-400 font-bold mb-2">ANALYSIS</div>
+                  <div class="flex flex-col gap-1">
+                    <div class="px-3 py-1 bg-yellow-700/50 text-white rounded text-xs font-semibold">VU Meter</div>
+                    <div class="px-3 py-1 bg-yellow-700/50 text-white rounded text-xs font-semibold">Waveform</div>
+                  </div>
+                </div>
+                
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                
+                <!-- Compressor -->
                 <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-yellow-600 text-white rounded-lg font-semibold">
-                    VU Meter
+                  <div class="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold border-2 border-purple-500">
+                    Compressor
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">Pre-Pan</div>
+                  <div class="text-xs text-gray-500 mt-1">Optional FX</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
-                <!-- Optional Effects Box -->
-                <div class="flex flex-col items-center border-2 border-dashed border-purple-500/50 rounded-lg p-3 bg-purple-900/10">
-                  <div class="text-xs text-purple-400 font-bold mb-2">OPTIONAL FX</div>
-                  <div class="flex flex-col gap-2">
-                    <div class="px-3 py-1 bg-purple-700/50 text-white rounded text-xs font-semibold">Parametric EQ</div>
-                    <div class="px-3 py-1 bg-purple-700/50 text-white rounded text-xs font-semibold">Compressor</div>
-                    <div class="px-3 py-1 bg-purple-700/50 text-white rounded text-xs font-semibold">Reverb</div>
-                  </div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Post FX Mono -->
+                <!-- Reverb -->
                 <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold">
-                    Mono
+                  <div class="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold border-2 border-purple-500">
+                    Reverb
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">Enforce Mono</div>
+                  <div class="text-xs text-gray-500 mt-1">Optional FX</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
-                <!-- Pan Split -->
-                <div class="flex flex-col items-center border-2 border-cyan-500 rounded-lg p-3 bg-cyan-900/10">
-                  <div class="text-xs text-cyan-400 font-bold mb-2">PAN SPLIT</div>
-                  <div class="flex gap-2">
-                    <div class="px-3 py-1 bg-purple-600 text-white rounded text-xs font-semibold">L Gain</div>
-                    <div class="px-3 py-1 bg-blue-600 text-white rounded text-xs font-semibold">R Gain</div>
-                  </div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Channel Merger -->
+                <!-- Panner -->
                 <div class="flex flex-col items-center">
                   <div class="px-4 py-2 bg-cyan-700 text-white rounded-lg font-semibold">
-                    Merger
+                    Panner
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">L+R → Stereo</div>
+                  <div class="text-xs text-gray-500 mt-1">Stereo Balance/Pan</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

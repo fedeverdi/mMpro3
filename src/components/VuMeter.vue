@@ -7,14 +7,14 @@
       :style="{ width: width + 'px', height: height + 'px' }"
     >
       <!-- Segments -->
-      <div class="absolute inset-0 flex flex-col-reverse gap-0.5 p-1">
+      <div class="absolute inset-0 flex flex-col-reverse gap-px p-0.5">
         <div 
           v-for="(segment, index) in segments" 
           :key="index"
           class="segment transition-all duration-75"
           :class="[
             segment.active ? segment.color : 'bg-gray-800',
-            'rounded-sm'
+            'rounded-[1px]'
           ]"
           :style="{ flex: '1' }"
         ></div>
