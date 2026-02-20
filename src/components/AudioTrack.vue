@@ -27,6 +27,15 @@
         </select>
       </div>
 
+      <!-- Output Routing Selector -->
+      <div class="w-full">
+        <select v-model="outputDestination" @change="handleOutputChange"
+          class="w-full text-xs bg-gray-800 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-orange-500 focus:outline-none">
+          <option value="master">🔊 Master</option>
+          <option value="subgroup">🎛️ Subgroup</option>
+        </select>
+      </div>
+
       <!-- File Upload (shown when source is 'file') -->
       <div v-if="audioSourceType === 'file'" class="w-full">
         <input type="file" accept="audio/*" @change="handleFileUpload" ref="fileInput" class="hidden" />
@@ -190,6 +199,7 @@ const { saveAudioFile, getAudioFile } = useAudioFileStorage()
 interface Props {
   trackNumber: number
   masterChannel?: any
+  subgroupChannel?: any
 }
 
 const props = defineProps<Props>()
@@ -215,6 +225,9 @@ const waveformDisplayRef = ref<any>(null)
 
 // Audio source selection
 const audioSourceType = ref<'file' | 'input'>('file')
+
+// Output routing selection
+const outputDestination = ref<'master' | 'subgroup'>('master')
 
 // Audio inputs from shared composable
 const { audioInputDevices, refreshAudioInputs } = useAudioDevices()
@@ -467,10 +480,35 @@ function applyParametricEQ() {
   }
 }
 
-// Connect to output (ONLY to master, NEVER to destination)
+// Connect to output (master or subgroup based on outputDestination)
 function connectToOutput() {
   if (!volumeMerge || !Tone) return false
-  volumeMerge.connect(toRaw(props.masterChannel))
+  
+  // Disconnect from both destinations first
+  try {
+    volumeMerge.disconnect()
+  } catch (e) {
+    // Ignore if not connected
+  }
+  
+  // Connect to selected destination
+  const destinationType = outputDestination.value
+  const destination = destinationType === 'subgroup' && props.subgroupChannel
+    ? props.subgroupChannel
+    : props.masterChannel
+  
+  if (destination) {
+    volumeMerge.connect(toRaw(destination))
+    console.log(`[Track ${props.trackNumber}] Connected to ${destinationType}`, { destination })
+  } else {
+    console.warn(`[Track ${props.trackNumber}] No destination available for ${destinationType}`)
+  }
+}
+
+// Handle output routing change
+function handleOutputChange() {
+  console.log(`[Track ${props.trackNumber}] Output routing changed to:`, outputDestination.value)
+  connectToOutput()
 }
 
 // Level monitoring for stereo/mono
@@ -1077,6 +1115,7 @@ defineExpose({
       pan: pan.value,
       muted: isMuted.value,
       soloed: isSolo.value,
+      outputDestination: outputDestination.value,
       sourceType: audioSourceType.value,
       selectedInputDevice: audioSourceType.value === 'input' ? selectedAudioInput.value : undefined,
       fileName: audioSourceType.value === 'file' ? fileName.value : undefined,
@@ -1106,6 +1145,15 @@ defineExpose({
     pan.value = snapshot.pan
     isMuted.value = snapshot.muted
     isSolo.value = snapshot.soloed
+    
+    // Restore output routing
+    if (snapshot.outputDestination) {
+      outputDestination.value = snapshot.outputDestination
+      // Reconnect to correct destination
+      nextTick(() => {
+        connectToOutput()
+      })
+    }
 
     // Restore source type and related data
     audioSourceType.value = snapshot.sourceType || 'file'

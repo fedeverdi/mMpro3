@@ -5,6 +5,15 @@
     <!-- Track Header -->
     <div class="text-xs font-bold text-center text-gray-300">Track {{ trackNumber }}</div>
 
+    <!-- Output Routing Selector -->
+    <div class="w-full">
+      <select v-model="outputDestination" @change="handleOutputChange"
+        class="w-full text-xs bg-gray-800 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-orange-500 focus:outline-none">
+        <option value="master">🔊 Master</option>
+        <option value="subgroup">🎛️ Subgroup</option>
+      </select>
+    </div>
+
     <!-- Signal Selector Buttons -->
     <div class="w-full flex flex-col gap-0.5">
       <button @click="selectSignal('sine')"
@@ -120,6 +129,7 @@ let Tone: any = null
 interface Props {
   trackNumber: number
   masterChannel?: any
+  subgroupChannel?: any
 }
 
 const props = defineProps<Props>()
@@ -130,6 +140,9 @@ const emit = defineEmits<{
 }>()
 
 type SignalType = 'sine' | 'square' | 'sawtooth' | 'triangle' | 'whiteNoise' | 'pinkNoise'
+
+// Output routing
+const outputDestination = ref<'master' | 'subgroup'>('master')
 
 // Signal-specific state
 const selectedSignal = ref<SignalType>('sine')
@@ -402,10 +415,30 @@ function toggleFrequencySweep() {
   }
 }
 
-// Connect to master output
+// Connect to master or subgroup output based on outputDestination
 function connectToOutput() {
-  if (!volumeMerge || !props.masterChannel || !Tone) return
-  volumeMerge.connect(toRaw(props.masterChannel))
+  if (!volumeMerge || !Tone) return
+  
+  // Disconnect from both destinations first
+  try {
+    volumeMerge.disconnect()
+  } catch (e) {
+    // Ignore if not connected
+  }
+  
+  // Connect to selected destination
+  const destination = outputDestination.value === 'subgroup' && props.subgroupChannel
+    ? props.subgroupChannel
+    : props.masterChannel
+  
+  if (destination) {
+    volumeMerge.connect(toRaw(destination))
+  }
+}
+
+// Handle output routing change
+function handleOutputChange() {
+  connectToOutput()
 }
 
 // Level monitoring
@@ -567,11 +600,18 @@ defineExpose({
       volume: volume.value,
       pan: pan.value,
       isMuted: isMuted.value,
-      isSolo: isSolo.value
+      isSolo: isSolo.value,
+      outputDestination: outputDestination.value
     }
   },
 
   restoreFromSnapshot: (snapshot: any) => {
+    if (snapshot.outputDestination) {
+      outputDestination.value = snapshot.outputDestination
+      nextTick(() => {
+        connectToOutput()
+      })
+    }
     if (snapshot.selectedSignal) {
       selectedSignal.value = snapshot.selectedSignal
       handleSignalChange()

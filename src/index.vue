@@ -8,23 +8,18 @@
                         class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
                         Audio Mixer Pro
                     </h1>
-                    
+
                     <!-- Quick Scene Access -->
                     <template v-if="pinnedScenes.length > 0">
                         <div class="w-px h-6 bg-gray-600"></div>
                         <div class="flex gap-1 items-center">
                             <span class="text-[10px] text-gray-400 font-semibold uppercase">Quick scenes:</span>
-                            <button
-                                v-for="scene in pinnedScenes"
-                                :key="scene.id"
-                                @click="handleLoadScene(scene.id)"
-                                class="px-2 py-1 text-[0.5rem] rounded transition-colors uppercase"
-                                :class="scene.id === currentSceneId 
-                                    ? 'bg-green-600 hover:bg-green-500 text-white' 
+                            <button v-for="scene in pinnedScenes" :key="scene.id" @click="handleLoadScene(scene.id)"
+                                class="px-2 py-1 text-[0.5rem] rounded transition-colors uppercase" :class="scene.id === currentSceneId
+                                    ? 'bg-green-600 hover:bg-green-500 text-white'
                                     : 'bg-yellow-600 hover:bg-yellow-500 text-white'"
-                                :title="`Load scene: ${scene.name}`"
-                            >
-                            {{ scene.name }}
+                                :title="`Load scene: ${scene.name}`">
+                                {{ scene.name }}
                             </button>
                         </div>
                     </template>
@@ -54,14 +49,14 @@
 
                     <div class="w-px h-6 bg-gray-600"></div>
 
-                    <div class="relative -mt-[3px]" >
+                    <div class="relative -mt-[3px]">
                         <button @click="showAddTrackMenu = !showAddTrackMenu" :disabled="tracks.length >= 24"
                             class="px-3 h-full py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded text-xs font-semibold transition-colors">
                             + Add
                         </button>
-                        
+
                         <!-- Dropdown Menu -->
-                        <div v-if="showAddTrackMenu" 
+                        <div v-if="showAddTrackMenu"
                             class="absolute top-full left-0 mt-1 w-32 bg-gray-800 border border-gray-600 rounded shadow-lg z-50">
                             <button @click="addTrackOfType('audio')"
                                 class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2">
@@ -129,12 +124,13 @@
                         <!-- Audio Tracks -->
                         <template v-else>
                             <div v-for="track in tracks" :key="track.id" class="w-[8rem] h-full mixer-fade-in">
-                                <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
-                                    :master-channel="masterChannel" @soloChange="handleSoloChange"
+                                <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)"
+                                    :trackNumber="track.id" :master-channel="masterChannel"
+                                    :subgroup-channel="subgroupChannel" @soloChange="handleSoloChange"
                                     @levelUpdate="handleLevelUpdate" />
                                 <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
-                                    :master-channel="masterChannel" @soloChange="handleSoloChange"
-                                    @levelUpdate="handleLevelUpdate" />
+                                    :master-channel="masterChannel" :subgroup-channel="subgroupChannel"
+                                    @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate" />
                             </div>
                         </template>
                     </div>
@@ -186,7 +182,8 @@
                         <div class="w-[36rem] flex flex-col flex-1 min-h-0 gap-2 mixer-fade-in">
                             <div class="flex-1 min-h-0">
                                 <MasterEQDisplay ref="masterEQDisplayRef" :filters-data="masterEqFiltersData"
-                                    :master-channel="masterChannel" @update:filters-data="handleMasterEQFiltersUpdate" />
+                                    :master-channel="masterChannel"
+                                    @update:filters-data="handleMasterEQFiltersUpdate" />
 
                             </div>
                             <div class="flex-1 min-h-0">
@@ -199,10 +196,54 @@
                                 :master-section="masterSectionRef" />
                         </div>
                     </div>
+
+                    <!-- Subgroups Section -->
+                    <div class="flex-shrink-0">
+                        <template v-if="!isReady">
+                            <div class="w-44 h-full">
+                                <div
+                                    class="bg-gray-800 rounded-lg border border-gray-700 h-full p-2 flex flex-col gap-2">
+                                    <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
+                                    <div class="flex-1 flex items-center justify-center py-4">
+                                        <div class="flex gap-2">
+                                            <div class="w-8 h-48 bg-gray-700 rounded animate-pulse"></div>
+                                            <div class="w-8 h-48 bg-gray-700 rounded animate-pulse"></div>
+                                        </div>
+                                    </div>
+                                    <div class="h-8 bg-gray-700 rounded animate-pulse"></div>
+                                </div>
+                            </div>
+                        </template>
+                        <template v-else>
+                            <div class="w-full h-full mixer-fade-in">
+                                <SubgroupsSection ref="subgroupsSectionRef" />
+                            </div>
+                        </template>
+                    </div>
+
                     <!-- Master Section -->
-                    <div class="w-full h-full mixer-fade-in">
-                        <MasterSection ref="masterSectionRef" :master-eq-display="masterEQDisplayRef"
-                            :master-fx="masterFxRef" :loaded-tracks="loadedTracks" />
+                    <div class="flex-shrink-0">
+                        <template v-if="!isReady">
+                            <div class="w-44 h-full">
+                                <div
+                                    class="bg-gray-800 rounded-lg border border-gray-700 h-full p-2 flex flex-col gap-2">
+                                    <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
+                                    <div class="flex-1 flex items-center justify-center py-4">
+                                        <div class="flex gap-2">
+                                            <div class="w-8 h-48 bg-gray-700 rounded animate-pulse"></div>
+                                            <div class="w-8 h-48 bg-gray-700 rounded animate-pulse"></div>
+                                        </div>
+                                    </div>
+                                    <div class="h-8 bg-gray-700 rounded animate-pulse"></div>
+                                </div>
+                            </div>
+                        </template>
+                        <template v-else>
+                            <div class="w-full h-full mixer-fade-in">
+                                <MasterSection ref="masterSectionRef" :master-eq-display="masterEQDisplayRef"
+                                    :master-fx="masterFxRef" :loaded-tracks="loadedTracks" />
+                            </div>
+                        </template>
                     </div>
                 </template>
             </div>
@@ -229,25 +270,27 @@
             @rename="handleRenameScene" @toggle-pin="handleTogglePin" />
 
         <!-- Scene Loading Overlay -->
-        <Transition
-            enter-from-class="opacity-0 scale-90 -translate-y-12"
+        <Transition enter-from-class="opacity-0 scale-90 -translate-y-12"
             enter-active-class="transition-all duration-500 ease-out"
-            enter-to-class="opacity-100 scale-100 translate-y-0"
-            leave-from-class="opacity-100 scale-100 translate-y-0"
-            leave-active-class="transition-all duration-300 ease-in"
-            leave-to-class="opacity-0 scale-90 -translate-y-8">
-            <div v-if="isLoadingScene" 
-                class="fixed inset-0 flex items-start justify-center pt-20 z-[9999]">
-                <div class="bg-gradient-to-br from-gray-600 to-gray-700 border-2 border-blue-500/70 rounded-lg shadow-2xl px-6 py-3 flex items-center gap-3 whitespace-nowrap">
+            enter-to-class="opacity-100 scale-100 translate-y-0" leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition-all duration-300 ease-in" leave-to-class="opacity-0 scale-90 -translate-y-8">
+            <div v-if="isLoadingScene" class="fixed inset-0 flex items-start justify-center pt-20 z-[9999]">
+                <div
+                    class="bg-gradient-to-br from-gray-600 to-gray-700 border-2 border-blue-500/70 rounded-lg shadow-2xl px-6 py-3 flex items-center gap-3 whitespace-nowrap">
                     <div class="relative w-5 h-5">
                         <div class="absolute inset-0 border-2 border-blue-500/30 rounded-full"></div>
-                        <div class="absolute inset-0 border-2 border-transparent border-t-blue-500 rounded-full animate-spin"></div>
+                        <div
+                            class="absolute inset-0 border-2 border-transparent border-t-blue-500 rounded-full animate-spin">
+                        </div>
                     </div>
                     <span class="text-sm font-semibold text-white">Loading Scene</span>
                     <div class="flex gap-1 pt-2">
-                        <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
-                        <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
-                        <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                        <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0ms">
+                        </div>
+                        <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 150ms">
+                        </div>
+                        <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 300ms">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -263,6 +306,7 @@ import AudioFlowModal from './components/layout/AudioFlowModal.vue'
 import MasterEQDisplay from './components/master/MasterEQDisplay.vue'
 import MasterFX from './components/master/MasterFX.vue'
 import MasterSection from './components/MasterSection.vue'
+import SubgroupsSection from './components/SubgroupsSection.vue'
 import ScenesModal from './components/layout/ScenesModal.vue'
 import SpectrumMeter from './components/master/SpectrumMeter.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
@@ -274,6 +318,7 @@ const ToneRef = inject<any>('Tone')
 let Tone: any = null
 const toneReady = ref(false)
 const masterChannel = ref<any>(null)
+const subgroupChannel = ref<any>(null)
 
 interface Track {
     id: number
@@ -335,6 +380,7 @@ const trackRefs = ref<Map<number, any>>(new Map())
 const masterEQDisplayRef = ref<any>(null)
 const masterFxRef = ref<any>(null)
 const masterSectionRef = ref<any>(null)
+const subgroupsSectionRef = ref<any>(null)
 
 function setTrackRef(trackId: number, el: any | null) {
     if (el) {
@@ -355,9 +401,9 @@ function handleMasterEQFiltersUpdate(filters: any[]) {
 
 // Loaded tracks for recorder waveform display
 const loadedTracks = computed(() => {
-    const tracks: Array<{ 
-        trackNumber: number, 
-        fileName: string, 
+    const tracks: Array<{
+        trackNumber: number,
+        fileName: string,
         fileId: string,
         isPlaying: boolean,
         currentTime: number,
@@ -490,7 +536,7 @@ function handleLoadScene(sceneId: string) {
 
     // Close the modal first
     showScenesModal.value = false
-    
+
     // Show loading overlay
     isLoadingScene.value = true
 
@@ -502,15 +548,15 @@ function handleLoadScene(sceneId: string) {
                 trackRef.resetToDefaults()
             }
         })
-        
+
         // Reset master section to defaults
         if (masterSectionRef.value?.resetToDefaults) {
             masterSectionRef.value.resetToDefaults()
         }
-        
+
         // Clear master EQ filters
         masterEqFiltersData.value = []
-        
+
         // Animate faders to -∞ (mute) first (digital mixer effect)
         trackRefs.value.forEach((trackRef) => {
             if (trackRef && trackRef.getSnapshot) {
@@ -551,7 +597,7 @@ function handleLoadScene(sceneId: string) {
 
             // Set as current scene
             setCurrentScene(scene.id)
-            
+
             // Hide loading overlay after scene is restored and audio files have time to load
             setTimeout(() => {
                 isLoadingScene.value = false
@@ -710,6 +756,54 @@ onMounted(async () => {
         channelInterpretation: 'speakers'
     })
 
+    // Create subgroup channel (similar to master)
+    subgroupChannel.value = new Tone.Channel({
+        volume: 0,
+        pan: 0,
+        channelCount: 2,
+        channelCountMode: 'explicit',
+        channelInterpretation: 'speakers'
+    })
+
+    // Connect subgroup to SubgroupsSection input (with retry)
+    let retryCount = 0
+    const maxRetries = 10
+    const connectSubgroup = () => {
+        console.log('[Subgroup] Connection attempt', retryCount + 1, {
+            hasRef: !!subgroupsSectionRef.value,
+            hasGetInputNode: !!subgroupsSectionRef.value?.getInputNode,
+            subgroupChannel: subgroupChannel.value
+        })
+
+        if (subgroupsSectionRef.value?.getInputNode) {
+            const subgroupInput = subgroupsSectionRef.value.getInputNode()
+            console.log('[Subgroup] Got input node:', subgroupInput)
+
+            if (subgroupInput) {
+                const rawSubgroupChannel = toRaw(subgroupChannel.value)
+                const rawInputNode = toRaw(subgroupInput)
+                rawSubgroupChannel.connect(rawInputNode)
+                console.log('[Subgroup] ✓ Connected subgroupChannel to SubgroupsSection inputGainNode')
+                return true
+            } else {
+                console.error('[Subgroup] ✗ Input node is null')
+            }
+        } else {
+            console.error('[Subgroup] ✗ SubgroupsSection not ready')
+        }
+
+        // Retry if not successful
+        retryCount++
+        if (retryCount < maxRetries) {
+            setTimeout(connectSubgroup, 200)
+        } else {
+            console.error('[Subgroup] ✗ Failed to connect after', maxRetries, 'attempts')
+        }
+        return false
+    }
+
+    // Don't start connection here - wait for component to mount
+
     // Ensure audio context is running
     if (Tone.context.state !== 'running') {
         await Tone.context.resume()
@@ -724,6 +818,9 @@ onMounted(async () => {
     // Delay to ensure all components are fully mounted and initialized
     setTimeout(() => {
         isReady.value = true
+
+        // Connect subgroup AFTER components are mounted
+        setTimeout(connectSubgroup, 500)
     }, 100)
 
     // Close add track menu when clicking outside

@@ -1,0 +1,365 @@
+<template>
+  <div
+    class="subgroups-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-orange-600 p-2 flex flex-col items-center gap-1 h-full w-full max-w-[10rem]">
+    <!-- Subgroup Header -->
+    <div class="w-full text-center">
+      <div class="text-xs font-bold text-orange-400">SUBGROUP</div>
+    </div>
+
+    <!-- Output Device Selector -->
+    <div class="w-full mb-4">
+      <label class="text-[10px] text-gray-400 uppercase tracking-wide">Output Device</label>
+      <select 
+        v-model="selectedOutput" 
+        @change="onOutputSelect"
+        class="w-full text-xs bg-gray-900 text-gray-200 border border-orange-600 rounded px-2 py-1 focus:border-orange-400 focus:outline-none">
+        <option :value="null">Default Output</option>
+        <option v-for="device in audioOutputs" :key="device.deviceId" :value="device.deviceId">
+          {{ device.label || `Output ${device.deviceId.slice(0, 8)}...` }}
+        </option>
+      </select>
+    </div>
+
+    <!-- VU Meters and Faders -->
+    <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-4 min-h-0 mt-2">
+      <!-- VU Meters Row -->
+      <div v-if="vuMetersHeight > 0"
+        class="flex flex-col items-center gap-1 w-full justify-center bg-gray-900 rounded p-1 border border-gray-700">
+        <div class="flex gap-4 relative">
+          <VuMeter :level="leftLevel" label="L" :height="vuMetersHeight" :width="25" />
+          <VuMeter :level="rightLevel" label="R" :height="vuMetersHeight" :width="25" />
+          <div class="text-[8px] text-gray-500 uppercase tracking-wider absolute bottom-6 left-1/2 transform -translate-x-1/2">RMS</div>
+        </div>
+      </div>
+
+      <!-- Faders Row -->
+      <div v-if="fadersHeight > 0" class="flex gap-2 items-end mb-6">
+        <MasterFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" />
+        <MasterFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" />
+      </div>
+    </div>
+
+    <!-- Link Button -->
+    <div class="w-full mt-2">
+      <button @click="toggleLink" class="w-full py-1 text-xs font-bold rounded transition-all"
+        :class="isLinked ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+        <div class="flex items-center justify-center">
+          <svg v-if="isLinked" xmlns="http://www.w3.org/2000/svg" fill="white" class="h-3 w-3" viewBox="0 0 512 512">
+            <path
+              d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z" />
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" fill="white" class="h-3 w-3" viewBox="0 0 448 512">
+            <path
+              d="M400 224h-24v-72C376 68.2 307.8 0 224 0S72 68.2 72 152v72H48c-26.5 0-48 21.5-48 48v192c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V272c0-26.5-21.5-48-48-48zm-104 0H152v-72c0-39.7 32.3-72 72-72s72 32.3 72 72v72z" />
+          </svg>
+        </div>
+      </button>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import MasterFader from './master/MasterFader.vue'
+import VuMeter from './core/VuMeter.vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
+
+// Inject Tone.js from App.vue
+const ToneRef = inject<any>('Tone')
+let Tone: any = null
+
+// Subgroup volumes
+const leftVolume = ref(0)
+const rightVolume = ref(0)
+const isLinked = ref(true)
+
+// VU meter levels
+const leftLevel = ref(-60)
+const rightLevel = ref(-60)
+
+// Audio outputs
+const audioOutputs = ref<MediaDeviceInfo[]>([])
+const selectedOutput = ref<string | null>(null)
+
+// Container and dynamic height
+const metersContainer = ref<HTMLElement | null>(null)
+const vuMetersHeight = ref(0)
+const fadersHeight = ref(0)
+let resizeObserver: ResizeObserver | null = null
+
+// Tone.js nodes
+let inputGainNode: any = null // Input buffer node
+let leftMeter: any = null
+let rightMeter: any = null
+let splitNode: any = null
+let leftGain: any = null
+let rightGain: any = null
+let outputMerge: any = null // Output merge node
+
+// Calculate meters height based on container
+function updateMetersHeight() {
+  if (metersContainer.value) {
+    const height = metersContainer.value.clientHeight
+    const availableHeight = Math.max(160, height - 80)
+    vuMetersHeight.value = Math.max(60, Math.floor(availableHeight * 0.4))
+    fadersHeight.value = Math.max(100, Math.floor(availableHeight * 0.6))
+  }
+}
+
+// Enumerate audio output devices
+async function enumerateAudioOutputs() {
+  try {
+    // Request microphone permission to unlock device labels
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(track => track.stop())
+    } catch (permError) {
+      console.warn('[Subgroup Audio Outputs] Permission denied for device labels')
+    }
+
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    audioOutputs.value = devices.filter(device => device.kind === 'audiooutput')
+  } catch (error) {
+    console.error('[Subgroup Audio Outputs] Error enumerating devices:', error)
+  }
+}
+
+// Handle output selection
+async function onOutputSelect() {
+  if (!Tone) return
+  
+  try {
+    const audioContext = Tone.context.rawContext as AudioContext
+    const destination = audioContext.destination as any
+    
+    if (selectedOutput.value && destination.setSinkId) {
+      await destination.setSinkId(selectedOutput.value)
+      console.log('[Subgroup Output] Changed to:', selectedOutput.value)
+    } else if (!selectedOutput.value && destination.setSinkId) {
+      await destination.setSinkId('')
+      console.log('[Subgroup Output] Changed to default output')
+    }
+  } catch (error) {
+    console.error('[Subgroup Output] Error changing device:', error)
+  }
+}
+
+// Initialize subgroup channel
+function initSubgroupChannel() {
+  if (splitNode || !Tone) {
+    return
+  }
+
+  console.log('[Subgroup] Initializing audio chain...')
+
+  // Create INPUT gain node (buffer for subgroupChannel to connect to)
+  inputGainNode = new Tone.Gain(1)
+  
+  // Create stereo split/process/merge chain
+  splitNode = new Tone.Split()
+  leftGain = new Tone.Gain(1)
+  rightGain = new Tone.Gain(1)
+  outputMerge = new Tone.Merge()
+
+  // Create meters
+  leftMeter = new Tone.Meter()
+  rightMeter = new Tone.Meter()
+
+  // Build audio chain:
+  // INPUT: inputGainNode (subgroupChannel connects here)
+  //   ↓
+  // splitNode (split L/R)
+  //   ↓           ↓
+  // leftGain    rightGain
+  //   ↓           ↓
+  // leftMeter   rightMeter
+  //   ↓           ↓
+  // outputMerge → toDestination()
+  
+  // Connect input to split
+  inputGainNode.connect(splitNode)
+  
+  // Left channel chain
+  splitNode.connect(leftGain, 0)
+  leftGain.connect(leftMeter)
+  leftGain.connect(outputMerge, 0, 0)
+  
+  // Right channel chain
+  splitNode.connect(rightGain, 1)
+  rightGain.connect(rightMeter)
+  rightGain.connect(outputMerge, 0, 1)
+  
+  // Output to destination (use setSinkId to change device)
+  outputMerge.toDestination()
+
+  console.log('[Subgroup] Audio chain initialized')
+
+  // Update initial volumes
+  updateSubgroupVolume()
+}
+
+// Level monitoring
+let levelMonitorInterval: number | null = null
+let debugLogCounter = 0
+
+function startLevelMonitoring() {
+  levelMonitorInterval = window.setInterval(() => {
+    if (leftMeter && rightMeter && Tone) {
+      const leftValue = leftMeter.getValue() as number
+      const rightValue = rightMeter.getValue() as number
+
+      leftLevel.value = Math.max(-60, leftValue)
+      rightLevel.value = Math.max(-60, rightValue)
+      
+      // Debug log ogni 2 secondi (ogni 40 iterazioni a 50ms)
+      debugLogCounter++
+      if (debugLogCounter % 40 === 0) {
+        console.log('[Subgroup Meters] L:', leftValue.toFixed(2), 'R:', rightValue.toFixed(2))
+      }
+    }
+  }, 50)
+  
+  console.log('[Subgroup] Level monitoring started')
+}
+
+// Update subgroup volume
+function updateSubgroupVolume() {
+  if (!leftGain || !rightGain || !Tone) {
+    initSubgroupChannel()
+    if (!leftGain || !rightGain) return
+  }
+
+  const leftGainValue = Tone.dbToGain(leftVolume.value)
+  const rightGainValue = Tone.dbToGain(rightVolume.value)
+  
+  leftGain.gain.value = leftGainValue
+  rightGain.gain.value = rightGainValue
+  
+  console.log('[Subgroup] Volume updated:', { 
+    leftVolume: leftVolume.value, 
+    rightVolume: rightVolume.value,
+    leftGainValue,
+    rightGainValue
+  })
+}
+
+// Watch for volume changes
+watch([leftVolume, rightVolume], updateSubgroupVolume)
+
+// When linked, sync right to left
+watch(leftVolume, (newVal) => {
+  if (isLinked.value) {
+    rightVolume.value = newVal
+  }
+})
+
+// Link/unlink channels
+function toggleLink() {
+  isLinked.value = !isLinked.value
+  if (isLinked.value) {
+    rightVolume.value = leftVolume.value
+  }
+}
+
+// Initialize
+onMounted(async () => {
+  // Get Tone.js from inject
+  if (ToneRef?.value) {
+    Tone = ToneRef.value
+    initSubgroupChannel()
+  } else {
+    const checkTone = setInterval(() => {
+      if (ToneRef?.value) {
+        Tone = ToneRef.value
+        initSubgroupChannel()
+        clearInterval(checkTone)
+      }
+    }, 100)
+  }
+
+  // Enumerate audio outputs
+  await enumerateAudioOutputs()
+
+  // Calculate initial height
+  await nextTick()
+  updateMetersHeight()
+
+  // Watch for container size changes
+  if (metersContainer.value) {
+    resizeObserver = new ResizeObserver(() => {
+      updateMetersHeight()
+    })
+    resizeObserver.observe(metersContainer.value)
+  }
+
+  // Start level monitoring
+  startLevelMonitoring()
+
+  // Listen for device changes
+  navigator.mediaDevices.addEventListener('devicechange', enumerateAudioOutputs)
+})
+
+// Get subgroup input node for tracks to connect to
+function getInputNode() {
+  console.log('[Subgroup] getInputNode() called, inputGainNode:', inputGainNode)
+  return inputGainNode
+}
+
+// Scene Snapshot Support
+function getSnapshot() {
+  return {
+    leftVolume: leftVolume.value,
+    rightVolume: rightVolume.value,
+    isLinked: isLinked.value,
+    selectedOutput: selectedOutput.value
+  }
+}
+
+function restoreSnapshot(snapshot: any) {
+  if (!snapshot) return
+
+  if (snapshot.leftVolume !== undefined) leftVolume.value = snapshot.leftVolume
+  if (snapshot.rightVolume !== undefined) rightVolume.value = snapshot.rightVolume
+  if (snapshot.isLinked !== undefined) isLinked.value = snapshot.isLinked
+  if (snapshot.selectedOutput !== undefined) {
+    selectedOutput.value = snapshot.selectedOutput
+    nextTick(() => onOutputSelect())
+  }
+}
+
+// Expose interface
+defineExpose({
+  getInputNode,
+  getSnapshot,
+  restoreSnapshot,
+  resetToDefaults: () => {
+    leftVolume.value = 0
+    rightVolume.value = 0
+    isLinked.value = true
+    leftLevel.value = -60
+    rightLevel.value = -60
+    selectedOutput.value = null
+  }
+})
+
+// Cleanup
+onUnmounted(() => {
+  if (inputGainNode) inputGainNode.dispose()
+  if (leftMeter) leftMeter.dispose()
+  if (rightMeter) rightMeter.dispose()
+  if (splitNode) splitNode.dispose()
+  if (leftGain) leftGain.dispose()
+  if (rightGain) rightGain.dispose()
+  if (outputMerge) outputMerge.dispose()
+
+  // Remove device change listener
+  navigator.mediaDevices.removeEventListener('devicechange', enumerateAudioOutputs)
+
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+  }
+
+  if (levelMonitorInterval) {
+    clearInterval(levelMonitorInterval)
+  }
+})
+</script>
