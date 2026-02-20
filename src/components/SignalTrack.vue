@@ -130,7 +130,7 @@ type SignalType = 'sine' | 'square' | 'sawtooth' | 'triangle' | 'whiteNoise' | '
 // Signal-specific state
 const selectedSignal = ref<SignalType>('sine')
 const isPlaying = ref(false)
-const signalVolume = ref(-12)
+const signalVolume = ref(0) // Generator output level (0 dB = unity gain)
 const frequency = ref(1000)
 
 // Frequency sweep state
@@ -170,7 +170,7 @@ const trackLevelR = ref(-60)
 // Tone.js nodes - Signal
 let signalNode: any = null
 let signalVolumeNode: any = null
-let signalMerge: any = null // Convert mono signal to stereo
+let signalToStereo: any = null
 
 // Tone.js nodes - Track routing
 let gainNode: any = null
@@ -249,14 +249,16 @@ function initSignalNodes() {
   // Create volume node
   signalVolumeNode = new Tone.Volume(signalVolume.value)
   
-  // Create mono-to-stereo converter (signal sources are mono)
-  signalMerge = new Tone.Merge()
+  // Create mono-to-stereo converter
+  // Connect the mono source to both L and R inputs of Merge
+  signalToStereo = new Tone.Merge()
   
-  // Connect: signalVolume -> merge (mono to stereo) -> gain
   if (gainNode) {
-    signalVolumeNode.connect(signalMerge, 0, 0) // Connect to both L and R inputs
-    signalVolumeNode.connect(signalMerge, 0, 1)
-    signalMerge.connect(gainNode)
+    // Connect mono output to both L (channel 0) and R (channel 1) inputs
+    signalVolumeNode.connect(signalToStereo, 0, 0) // to left input
+    signalVolumeNode.connect(signalToStereo, 0, 1) // to right input
+    // Connect stereo output to gain node
+    signalToStereo.connect(gainNode)
   }
 }
 
@@ -403,9 +405,14 @@ function updateVolume() {
 function updatePan() {
   if (!balanceLeft || !balanceRight || !Tone) return
   
-  const panRadians = (pan.value * Math.PI) / 4
-  balanceLeft.gain.value = Math.cos(panRadians + Math.PI / 4)
-  balanceRight.gain.value = Math.sin(panRadians + Math.PI / 4)
+  // Linear pan for signal generators (better for testing/calibration)
+  // Pan range: -1 (full left) to +1 (full right)
+  // Center (0): both channels at 1.0 for unity gain
+  const leftGain = 1 - Math.max(0, pan.value)
+  const rightGain = 1 + Math.min(0, pan.value)
+  
+  balanceLeft.gain.value = leftGain
+  balanceRight.gain.value = rightGain
 }
 
 function toggleMute() {
@@ -482,8 +489,8 @@ onUnmounted(() => {
     signalVolumeNode.dispose()
   }
   
-  if (signalMerge) {
-    signalMerge.dispose()
+  if (signalToStereo) {
+    signalToStereo.dispose()
   }
 
   // Dispose track nodes
