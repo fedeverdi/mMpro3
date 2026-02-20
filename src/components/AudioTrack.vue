@@ -1184,9 +1184,9 @@ defineExpose({
     // Reset 3-band EQ to defaults
     if (trackEQRef.value?.setParams) {
       trackEQRef.value.setParams({
-        highGain: 0,
-        midGain: 0,
-        lowGain: 0
+        low: 0,
+        mid: 0,
+        high: 0
       })
     }
 
