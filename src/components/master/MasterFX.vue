@@ -112,14 +112,14 @@
             @click="addEffect('reverb')"
             class="w-full px-4 py-3 text-left text-sm hover:bg-gray-700 transition-colors border-b border-gray-700 flex items-center gap-2"
           >
-            <span class="text-purple-400 font-bold">RE</span>
+            <span class="text-green-400 font-bold">RE</span>
             <span>Reverb</span>
           </button>
           <button
             @click="addEffect('delay')"
             class="w-full px-4 py-3 text-left text-sm hover:bg-gray-700 transition-colors border-b border-gray-700 flex items-center gap-2"
           >
-            <span class="text-green-400 font-bold">DL</span>
+            <span class="text-purple-400 font-bold">DL</span>
             <span>Delay</span>
           </button>
           <button

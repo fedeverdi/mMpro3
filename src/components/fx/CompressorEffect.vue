@@ -1,12 +1,12 @@
 <template>
   <div
     class="compressor-effect h-full bg-gray-800/50 rounded-lg p-3 justify-center border border-gray-700 flex flex-col items-center gap-2">
-    <span class="text-xs font-bold text-green-300">COMPRESSOR</span>
+    <span class="text-xs font-bold text-blue-300">COMPRESSOR</span>
 
     <button @click="toggleEffect" :class="[
       'px-4 py-1 text-[0.6rem] font-bold rounded transition-colors w-full',
       isEnabled
-        ? 'bg-green-600 text-white'
+        ? 'bg-blue-600 text-white'
         : 'bg-gray-700 text-gray-400'
     ]">
       {{ isEnabled ? 'ON' : 'OFF' }}
@@ -30,16 +30,16 @@
       <div v-if="showModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
         @mousedown.self="showModal = false">
 
-        <div class="bg-gray-900 relative rounded-lg border-2 border-green-600 px-4 pt-4 pb-2 max-w-2xl w-full mx-4" @click.stop>
+        <div class="bg-gray-900 relative rounded-lg border-2 border-blue-600 px-4 pt-4 pb-2 max-w-2xl w-full mx-4" @click.stop>
           <button @click="showModal = false"
-            class="absolute right-4 top-[0.55rem] text-gray-400 hover:text-white text-2xl">&times;</button>
+            class="absolute right-4 top-[0.3rem] text-gray-400 hover:text-white text-2xl">&times;</button>
 
           <div class="flex justify-between items-center mb-3">
-            <h3 class="text-xs font-bold text-green-300">COMPRESSOR SETTINGS</h3>
+            <h3 class="text-xs font-bold text-blue-300">COMPRESSOR SETTINGS</h3>
             <button @click="toggleEffect" :class="[
               'px-3 py-1 text-[0.6rem] font-bold rounded transition-colors mr-8',
               isEnabled
-                ? 'bg-green-600 text-white'
+                ? 'bg-blue-600 text-white'
                 : 'bg-gray-700 text-gray-400'
             ]">
               {{ isEnabled ? 'ON' : 'OFF' }}
@@ -47,23 +47,23 @@
           </div>
 
           <!-- Compression Curve Display -->
-          <div class="mb-2 bg-black/50 rounded-lg border border-green-600/30">
+          <div class="mb-2 bg-black/50 rounded-lg border border-blue-600/30">
             <canvas ref="curveCanvas" class="w-full  rounded-lg" style="height: 300px;"></canvas>
           </div>
 
           <div class="flex gap-2 px-12">
             <div class="flex justify-center items-center w-full gap-6">
               <Knob class="scale-[0.8]" v-model="threshold" :min="-60" :max="0" :step="1" label="Threshold" unit="dB"
-                color="#10b981" />
+                color="#3b82f6" />
 
               <Knob class="scale-[0.8]" v-model="ratio" :min="1" :max="20" :step="0.1" label="Ratio" unit=":1"
-                color="#10b981" />
+                color="#3b82f6" />
 
               <Knob class="scale-[0.8]" v-model="attack" :min="0.001" :max="0.1" :step="0.001" label="Attack" unit="s"
-                color="#10b981" />
+                color="#3b82f6" />
 
               <Knob class="scale-[0.8]" v-model="release" :min="0.01" :max="1" :step="0.01" label="Release" unit="s"
-                color="#10b981" />
+                color="#3b82f6" />
             </div>
           </div>
         </div>
@@ -279,7 +279,7 @@ function drawCompressionCurve() {
   ctx.setLineDash([])
 
   // Draw compression curve
-  ctx.strokeStyle = '#10b981'
+  ctx.strokeStyle = '#3b82f6'
   ctx.lineWidth = 3
   ctx.beginPath()
 
@@ -334,7 +334,7 @@ function drawCompressionCurve() {
   ctx.fillText(`Threshold: ${thresholdValue}dB`, dbToX(thresholdValue), padding - 10)
 
   // Ratio label
-  ctx.fillStyle = '#10b981'
+  ctx.fillStyle = '#3b82f6'
   ctx.textAlign = 'left'
   ctx.fillText(`Ratio: ${ratioValue.toFixed(1)}:1`, width - padding - 80, padding + 15)
 

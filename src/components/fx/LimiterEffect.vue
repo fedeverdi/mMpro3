@@ -1,12 +1,12 @@
 <template>
   <div
     class="limiter-effect bg-gray-800/50 justify-center h-full rounded-lg p-3 border border-gray-700 flex flex-col items-center gap-2">
-    <span class="text-xs font-bold text-green-300">LIMITER</span>
+    <span class="text-xs font-bold text-red-300">LIMITER</span>
 
     <button @click="toggleEffect" :class="[
       'px-4 py-1 text-[0.6rem] font-bold rounded transition-colors w-full',
       isEnabled
-        ? 'bg-green-600 text-white'
+        ? 'bg-red-600 text-white'
         : 'bg-gray-700 text-gray-400'
     ]">
       {{ isEnabled ? 'ON' : 'OFF' }}
@@ -29,15 +29,15 @@
     <Teleport to="body">
       <div v-if="showModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
         @mousedown.self="showModal = false">
-        <div class="bg-gray-900 relative rounded-lg border-2 border-green-600 px-4 pt-4 pb-2 max-w-2xl w-full mx-4" @click.stop>
+        <div class="bg-gray-900 relative rounded-lg border-2 border-red-600 px-4 pt-4 pb-2 max-w-2xl w-full mx-4" @click.stop>
           <button @click="showModal = false"
             class="absolute right-4 top-[0.55rem] text-gray-400 hover:text-white text-2xl">&times;</button>
           <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xs font-bold text-green-300">LIMITER SETTINGS</h3>
+            <h3 class="text-xs font-bold text-red-300">LIMITER SETTINGS</h3>
             <button @click="toggleEffect" :class="[
               'px-3 py-1 text-[0.6rem] font-bold rounded transition-colors mr-8',
               isEnabled
-                ? 'bg-green-600 text-white'
+                ? 'bg-red-600 text-white'
                 : 'bg-gray-700 text-gray-400'
             ]">
               {{ isEnabled ? 'ON' : 'OFF' }}
@@ -45,12 +45,12 @@
           </div>
 
           <!-- Limiter Curve Display -->
-          <div class="mb-2 bg-black/50 rounded-lg border border-green-600/30">
+          <div class="mb-2 bg-black/50 rounded-lg border border-red-600/30">
             <canvas ref="curveCanvas" class="w-full rounded-lg" style="height: 300px;"></canvas>
           </div>
 
           <div class="flex justify-center">
-            <Knob class="scale-[0.8]" v-model="threshold" :min="-50" :max="3" :step="1" label="Threshold" unit="dB" color="#10b981" />
+            <Knob class="scale-[0.8]" v-model="threshold" :min="-50" :max="3" :step="1" label="Threshold" unit="dB" color="#ef4444" />
           </div>
 
         </div>
@@ -263,7 +263,7 @@ function drawLimiterCurve() {
   ctx.setLineDash([])
 
   // Draw limiter curve
-  ctx.strokeStyle = '#10b981'
+  ctx.strokeStyle = '#ef4444'
   ctx.lineWidth = 3
   ctx.beginPath()
 
@@ -299,7 +299,7 @@ function drawLimiterCurve() {
   ctx.fillText(`Threshold: ${thresholdValue}dB`, width / 2, padding - 10)
 
   // Info label
-  ctx.fillStyle = '#10b981'
+  ctx.fillStyle = '#ef4444'
   ctx.textAlign = 'left'
   ctx.fillText('Hard Ceiling', width - padding - 90, padding + 15)
 
