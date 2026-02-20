@@ -1,122 +1,87 @@
 <template>
   <div class="spectrum-meter bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-purple-600/60 p-3 flex flex-col gap-3 h-full">
+    <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <p class="text-sm font-bold text-purple-200 tracking-wide uppercase">Spectrum Meter</p>
-        <p class="text-[10px] text-gray-400">Live master analysis</p>
+        <p class="text-sm font-bold text-purple-200 tracking-wide uppercase">Spectrum Analyzer</p>
+        <p class="text-[10px] text-gray-400">20 Hz - 20 kHz</p>
       </div>
-      
-      <!-- Precisione (per bars, mirror, dots) -->
-      <div v-if="displayMode === 'bars' || displayMode === 'mirror' || displayMode === 'dots'" class="flex gap-1">
+
+      <!-- Numero di barre -->
+      <div class="flex gap-1">
         <button
           v-for="option in barOptions"
-          :key="option.bars"
-          @click="barCount = option.bars"
+          :key="option"
+          @click="bars = option"
           :class="[
             'px-2 py-1 text-[10px] font-bold rounded transition-colors',
-            barCount === option.bars 
-              ? 'bg-purple-600 text-white' 
+            bars === option
+              ? 'bg-purple-600 text-white'
               : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
           ]"
         >
-          {{ option.label }}
+          {{ option }}
         </button>
       </div>
     </div>
 
+    <!-- Canvas -->
     <div class="relative flex-1 rounded-lg border border-gray-800 bg-gray-950/80 overflow-hidden shadow-inner">
-      <canvas ref="spectrumCanvas" class="absolute inset-0 w-full h-full" style="image-rendering: pixelated;"></canvas>
+      <canvas ref="canvas" class="absolute inset-0 w-full h-full"></canvas>
       
-      <!-- Metodo di calcolo - in alto a destra -->
+      <!-- Modalità visualizzazione -->
       <div class="absolute top-2 right-2 flex gap-1 z-10">
         <button
-          @click="calculationMode = 'max'"
+          @click="displayMode = 'bars'"
           :class="[
-            'px-2 py-1 text-[10px] font-bold rounded transition-colors shadow-lg',
-            calculationMode === 'max' 
-              ? 'bg-green-600 text-white' 
-              : 'bg-gray-800/90 hover:bg-gray-700 text-gray-300'
+            'px-3 py-1 text-[10px] font-bold rounded transition-colors',
+            displayMode === 'bars'
+              ? 'bg-purple-600 text-white'
+              : 'bg-gray-700/90 hover:bg-gray-600 text-gray-300'
           ]"
         >
-          Max
+          Bars
         </button>
         <button
-          @click="calculationMode = 'avg'"
+          @click="displayMode = 'curve'"
           :class="[
-            'px-2 py-1 text-[10px] font-bold rounded transition-colors shadow-lg',
-            calculationMode === 'avg' 
-              ? 'bg-green-600 text-white' 
-              : 'bg-gray-800/90 hover:bg-gray-700 text-gray-300'
+            'px-3 py-1 text-[10px] font-bold rounded transition-colors',
+            displayMode === 'curve'
+              ? 'bg-purple-600 text-white'
+              : 'bg-gray-700/90 hover:bg-gray-600 text-gray-300'
           ]"
         >
-          Media
+          Curve
+        </button>
+        <button
+          @click="displayMode = 'mirror'"
+          :class="[
+            'px-3 py-1 text-[10px] font-bold rounded transition-colors',
+            displayMode === 'mirror'
+              ? 'bg-purple-600 text-white'
+              : 'bg-gray-700/90 hover:bg-gray-600 text-gray-300'
+          ]"
+        >
+          Mirror
+        </button>
+        <button
+          @click="displayMode = 'dots'"
+          :class="[
+            'px-3 py-1 text-[10px] font-bold rounded transition-colors',
+            displayMode === 'dots'
+              ? 'bg-purple-600 text-white'
+              : 'bg-gray-700/90 hover:bg-gray-600 text-gray-300'
+          ]"
+        >
+          Dots
         </button>
       </div>
-    </div>
-
-    <!-- Modalità visualizzazione -->
-    <div class="flex justify-center gap-1">
-      <button
-        @click="displayMode = 'bars'"
-        :class="[
-          'px-2 py-1 text-[10px] font-bold rounded transition-colors',
-          displayMode === 'bars' 
-            ? 'bg-purple-600 text-white' 
-            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-        ]"
-      >
-        Bars
-      </button>
-      <button
-        @click="displayMode = 'curve'"
-        :class="[
-          'px-2 py-1 text-[10px] font-bold rounded transition-colors',
-          displayMode === 'curve' 
-            ? 'bg-purple-600 text-white' 
-            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-        ]"
-      >
-        Curve
-      </button>
-      <button
-        @click="displayMode = 'mirror'"
-        :class="[
-          'px-2 py-1 text-[10px] font-bold rounded transition-colors',
-          displayMode === 'mirror' 
-            ? 'bg-purple-600 text-white' 
-            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-        ]"
-      >
-        Mirror
-      </button>
-      <button
-        @click="displayMode = 'dots'"
-        :class="[
-          'px-2 py-1 text-[10px] font-bold rounded transition-colors',
-          displayMode === 'dots' 
-            ? 'bg-purple-600 text-white' 
-            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-        ]"
-      >
-        Dots
-      </button>
-      <button
-        @click="displayMode = 'line'"
-        :class="[
-          'px-2 py-1 text-[10px] font-bold rounded transition-colors',
-          displayMode === 'line' 
-            ? 'bg-purple-600 text-white' 
-            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-        ]"
-      >
-        Line
-      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, toRaw, inject } from 'vue'
+import { ref, watch, onMounted, onUnmounted, inject, toRaw } from 'vue'
 
 interface Props {
   masterFx?: any
@@ -124,945 +89,739 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const spectrumCanvas = ref<HTMLCanvasElement | null>(null)
-const barCount = ref(128) // Default: 24 barre
-const displayMode = ref<'bars' | 'curve' | 'mirror' | 'dots' | 'line'>('bars') // Default: barre
-const calculationMode = ref<'max' | 'avg'>('max') // Default: massimo
-
-const barOptions = [
-  { label: '16', bars: 16 },
-  { label: '24', bars: 24 },
-  { label: '48', bars: 48 },
-  { label: '96', bars: 96 },
-  { label: '128', bars: 128 }
-]
+const canvas = ref<HTMLCanvasElement | null>(null)
+const bars = ref(128)
+const barOptions = [16, 24, 48, 96, 128]
+const displayMode = ref<'bars' | 'curve' | 'mirror' | 'dots'>('bars')
 
 const ToneRef = inject<any>('Tone')
 let Tone: any = null
-let splitNode: any = null // Split stereo into L/R
 let analyserLeft: any = null
 let analyserRight: any = null
-let animationFrame: number | null = null
+let splitNode: any = null
+let animationId: number | null = null
 let currentMasterNode: any = null
 
-// Peak hold per visualizzazione (separati per L/R in modalità mirror)
-let peakValues: number[] = []
+// Peak hold tracking
+let peakValuesLeft: number[] = []
+let peakValuesRight: number[] = []
 let peakTimestamps: number[] = []
-let peakValuesRight: number[] = [] // Per modalità mirror
-let peakTimestampsRight: number[] = [] // Per modalità mirror
-const PEAK_HOLD_TIME = 1500 // ms - quanto tempo tenere il peak
-const PEAK_DECAY_RATE = 0.002 // velocità di decadimento del peak
+const PEAK_HOLD_TIME = 1500 // ms
+const PEAK_DECAY_RATE = 0.002
 
-const ensureAnalyser = async () => {
+// Inizializza Tone.js e gli analyser stereo
+const initAnalyser = async () => {
   if (!Tone) {
-    // Get Tone.js from inject
     if (ToneRef?.value) {
       Tone = ToneRef.value
     } else {
-      // Fallback: wait for it
       await new Promise<void>((resolve) => {
-        const checkTone = setInterval(() => {
+        const check = setInterval(() => {
           if (ToneRef?.value) {
             Tone = ToneRef.value
-            clearInterval(checkTone)
+            clearInterval(check)
             resolve()
           }
         }, 100)
       })
     }
   }
+
   if (!splitNode && Tone) {
-    // Create split to separate L/R channels
+    // Crea split per separare i canali L/R
     splitNode = new Tone.Split()
-    // Create separate analysers for L and R
-    analyserLeft = new Tone.Analyser('fft', 2048)
-    analyserRight = new Tone.Analyser('fft', 2048)
-    // Chain: master (stereo) -> splitNode -> analyserLeft (ch0) / analyserRight (ch1)
+    // Crea analyser separati per L e R
+    analyserLeft = new Tone.Analyser('fft', 4096)
+    analyserRight = new Tone.Analyser('fft', 4096)
+    // Connetti: split -> analyserLeft (canale 0) / analyserRight (canale 1)
     splitNode.connect(analyserLeft, 0)
     splitNode.connect(analyserRight, 1)
   }
 }
 
+// Ottieni il nodo master da MasterFX
 const getMasterNode = () => {
-  // Get output node from MasterFX
-  if (!props.masterFx || !props.masterFx.getOutputNode) return null
+  if (!props.masterFx?.getOutputNode) return null
   const node = props.masterFx.getOutputNode()
   return node ? toRaw(node) : null
 }
 
+// Connetti gli analyser al master
 const connectAnalyser = async () => {
-  await ensureAnalyser()
+  await initAnalyser()
   if (!splitNode) return
 
   const masterNode = getMasterNode()
   if (!masterNode) return
 
+  // Disconnetti il nodo precedente
   if (currentMasterNode && currentMasterNode !== masterNode) {
     try {
       currentMasterNode.disconnect(splitNode)
-    } catch (error) {
-      console.warn('Spectrum meter: unable to disconnect previous analyser tap', error)
+    } catch (e) {
+      console.warn('Unable to disconnect previous node:', e)
     }
-    currentMasterNode = null
   }
 
   if (currentMasterNode === masterNode) return
-  currentMasterNode = masterNode
-
+  
+  // Connetti il nuovo nodo allo split
   try {
-    // Connect to splitNode which separates L/R channels to separate analysers
     masterNode.connect(splitNode)
-  } catch (error) {
-    console.warn('Spectrum meter: unable to connect to master channel', error)
+    currentMasterNode = masterNode
+  } catch (e) {
+    console.warn('Unable to connect analyser:', e)
   }
 }
 
+// Watch masterFx changes
 watch(
   () => props.masterFx,
-  (newVal) => {
-    if (newVal) {
-      // Try to connect immediately
-      const node = getMasterNode()
-      if (node) {
-        connectAnalyser()
-      } else {
-        // OutputNode might not be created yet, retry with increasing delays
-        setTimeout(() => {
-          const retryNode = getMasterNode()
-          if (retryNode) {
-            connectAnalyser()
-          } else {
-            // One more retry
-            setTimeout(() => {
-              connectAnalyser()
-            }, 150)
-          }
-        }, 100)
-      }
-    }
+  () => {
+    setTimeout(() => connectAnalyser(), 100)
   },
   { immediate: true }
 )
 
-const renderSpectrum = () => {
-  animationFrame = requestAnimationFrame(renderSpectrum)
-  if (!analyserLeft || !analyserRight || !spectrumCanvas.value) return
+// Converti frequenza in posizione X logaritmica (0-1)
+const freqToPosition = (freq: number): number => {
+  const minFreq = 20
+  const maxFreq = 20000
+  const logMin = Math.log10(minFreq)
+  const logMax = Math.log10(maxFreq)
+  const clamped = Math.max(minFreq, Math.min(maxFreq, freq))
+  const logFreq = Math.log10(clamped)
+  return (logFreq - logMin) / (logMax - logMin)
+}
 
-  const canvas = spectrumCanvas.value
-  const ctx = canvas.getContext('2d')
+// Calcola le bande di frequenza logaritmiche usando il numero REALE di bin FFT
+const getLogBands = (numBands: number, sampleRate: number, fftBins: number) => {
+  const bands: Array<{
+    freqStart: number
+    freqEnd: number
+    binStart: number
+    binEnd: number
+  }> = []
+
+  const minFreq = 20
+  const maxFreq = 20000
+  const logMin = Math.log10(minFreq)
+  const logMax = Math.log10(maxFreq)
+  const logStep = (logMax - logMin) / numBands
+  const nyquist = sampleRate / 2
+
+  for (let i = 0; i < numBands; i++) {
+    const freqStart = Math.pow(10, logMin + i * logStep)
+    const freqEnd = Math.pow(10, logMin + (i + 1) * logStep)
+
+    // Mapping frequenza -> bin FFT
+    // bin = (freq / nyquist) * fftBins, poi clampato a fftBins - 1
+    const rawStart = Math.floor((freqStart / nyquist) * fftBins)
+    const rawEnd = Math.ceil((freqEnd / nyquist) * fftBins)
+
+    const binStart = Math.max(0, Math.min(rawStart, fftBins - 1))
+    const binEnd = Math.max(binStart, Math.min(rawEnd, fftBins - 1))
+
+    bands.push({
+      freqStart,
+      freqEnd,
+      binStart,
+      binEnd
+    })
+  }
+
+  return bands
+}
+
+// Render loop
+const render = () => {
+  animationId = requestAnimationFrame(render)
+
+  if (!canvas.value || !analyserLeft || !analyserRight || !Tone) return
+
+  const ctx = canvas.value.getContext('2d')
   if (!ctx) return
 
+  // Setup canvas
   const dpr = window.devicePixelRatio || 1
-  const totalWidth = canvas.clientWidth || 200
-  const totalHeight = canvas.clientHeight || 200
-  const labelHeightBottom = 12 // Spazio riservato per le label Hz in basso
-  const labelWidthLeft = 30 // Spazio riservato per le label dB a sinistra
-  const width = totalWidth - labelWidthLeft // Larghezza del grafico
-  const height = totalHeight - labelHeightBottom // Altezza del grafico
-  
-  canvas.width = totalWidth * dpr
-  canvas.height = totalHeight * dpr
+  const width = canvas.value.clientWidth
+  const height = canvas.value.clientHeight
+
+  if (width <= 0 || height <= 0) return
+
+  const padding = { top: 10, right: 0, bottom: 20, left: 35 }
+  const graphWidth = width - padding.left - padding.right
+  const graphHeight = height - padding.top - padding.bottom
+
+  // Reset transform per evitare accumulo dello scale ad ogni frame
+  canvas.value.width = Math.floor(width * dpr)
+  canvas.value.height = Math.floor(height * dpr)
   ctx.setTransform(1, 0, 0, 1, 0, 0)
-  ctx.scale(dpr, dpr)
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
+  // Clear
   ctx.fillStyle = '#030712'
-  ctx.fillRect(0, 0, totalWidth, totalHeight)
+  ctx.fillRect(0, 0, width, height)
 
-  // Griglia orizzontale con etichette dB
+  // Griglia dB orizzontale
   ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)'
   ctx.lineWidth = 1
-  ctx.font = '7px monospace'
+  ctx.font = '8px monospace'
   ctx.fillStyle = 'rgba(148, 163, 184, 0.7)'
-  
-  for (let i = 1; i < 4; i++) {
-    const y = (height / 4) * i
+  ctx.textAlign = 'right'
+
+  const dbLevels = [0, -35, -70, -105, -140]
+  dbLevels.forEach((db, i) => {
+    const y = padding.top + (i / 4) * graphHeight
     
-    // Linea orizzontale (solo nell'area del grafico)
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)'
     ctx.beginPath()
-    ctx.moveTo(labelWidthLeft, y)
-    ctx.lineTo(totalWidth, y)
+    ctx.moveTo(padding.left, y)
+    ctx.lineTo(width - padding.right, y)
     ctx.stroke()
-    
-    // Etichette dB (nell'area riservata a sinistra)
-    const dbValue = Math.round(-140 * (1 - i / 4))
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.7)'
-    ctx.textAlign = 'right'
-    ctx.fillText(`${dbValue}dB`, labelWidthLeft - 3, y + 3)
-  }
-  
-  // Griglia verticale e etichette frequenze
-  const freqLabels = [
-    { label: '20', pos: 0.02 },
-    { label: '100', pos: 0.15 },
-    { label: '500', pos: 0.35 },
-    { label: '1k', pos: 0.5 },
-    { label: '5k', pos: 0.7 },
-    { label: '10k', pos: 0.85 },
-    { label: '20k', pos: 0.98 }
-  ]
-  
-  ctx.textAlign = 'left'
-  freqLabels.forEach(({ label, pos }) => {
-    const x = labelWidthLeft + width * pos
-    
-    // Linea verticale (solo nell'area del grafico)
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)'
-    ctx.beginPath()
-    ctx.moveTo(x, 0)
-    ctx.lineTo(x, height)
-    ctx.stroke()
-    
-    // Etichetta frequenza (nell'area riservata sotto il grafico)
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.7)'
-    ctx.fillText(label, x + 2, height + 9)
+
+    ctx.fillText(`${db}dB`, padding.left - 3, y + 3)
   })
 
-  // Get values from both channels
-  const valuesLeft = analyserLeft.getValue() as Float32Array
-  const valuesRight = analyserRight.getValue() as Float32Array
-  if (!valuesLeft || !valuesLeft.length || !valuesRight || !valuesRight.length) return
-  
-  // For non-mirror modes, average L+R channels
-  const values = new Float32Array(valuesLeft.length)
-  for (let i = 0; i < valuesLeft.length; i++) {
-    values[i] = (valuesLeft[i] + valuesRight[i]) / 2
+  // Griglia frequenze verticale
+  const freqLabels = [
+    { label: '20Hz', freq: 20 },
+    { label: '100Hz', freq: 100 },
+    { label: '500Hz', freq: 500 },
+    { label: '1kHz', freq: 1000 },
+    { label: '5kHz', freq: 5000 },
+    { label: '10kHz', freq: 10000 },
+    { label: '20kHz', freq: 20000 }
+  ]
+
+  ctx.textAlign = 'center'
+  freqLabels.forEach(({ label, freq }) => {
+    const x = padding.left + graphWidth * freqToPosition(freq)
+
+    ctx.beginPath()
+    ctx.moveTo(x, padding.top)
+    ctx.lineTo(x, height - padding.bottom)
+    ctx.stroke()
+
+    ctx.fillText(label, x, height - 5)
+  })
+
+  // Ottieni dati FFT da entrambi i canali
+  const fftDataLeft = analyserLeft.getValue() as Float32Array
+  const fftDataRight = analyserRight.getValue() as Float32Array
+  if (!fftDataLeft || fftDataLeft.length === 0 || !fftDataRight || fftDataRight.length === 0) return
+
+  // Calcola bande con lunghezza reale dei bin
+  const sampleRate = Tone.context.sampleRate
+  const bands = getLogBands(bars.value, sampleRate, fftDataLeft.length)
+
+  // Inizializza array peak se necessario
+  const numBands = bands.length
+  if (peakValuesLeft.length !== numBands) {
+    peakValuesLeft = new Array(numBands).fill(0)
+    peakValuesRight = new Array(numBands).fill(0)
+    peakTimestamps = new Array(numBands).fill(0)
   }
 
   const currentTime = Date.now()
-  
-  // Helper function per mapping logaritmico delle frequenze
-  const getLogFrequencyBands = (numBands: number, fftSize: number, sampleRate = 44100) => {
-    const minFreq = 20
-    const maxFreq = sampleRate / 2 // Nyquist frequency
-    const bands = []
-    const usedBins = new Set<number>() // Track per evitare sovrapposizioni
-    
-    for (let i = 0; i < numBands; i++) {
-      const logMin = Math.log10(minFreq)
-      const logMax = Math.log10(maxFreq)
-      const logStep = (logMax - logMin) / numBands
-      
-      const freqStart = Math.pow(10, logMin + i * logStep)
-      const freqEnd = Math.pow(10, logMin + (i + 1) * logStep)
-      
-      // Converte frequenze in bin index
-      let binStart = Math.floor((freqStart / sampleRate) * fftSize)
-      let binEnd = Math.floor((freqEnd / sampleRate) * fftSize)
-      
-      // Assicura che ogni banda abbia almeno 1 bin e non si sovrapponga
-      binStart = Math.min(binStart, values.length - 1)
-      binEnd = Math.min(binEnd, values.length - 1)
-      
-      // Per le barre con alta risoluzione, assicura separazione minima
-      if (binStart === binEnd) {
-        binEnd = Math.min(binStart + 1, values.length - 1)
-      }
-      
-      // Evita sovrapposizioni: se il binStart è già usato, sposta avanti
-      while (usedBins.has(binStart) && binStart < values.length - 1) {
-        binStart++
-      }
-      
-      // Aggiorna binEnd se necessario
-      if (binEnd <= binStart) {
-        binEnd = Math.min(binStart + 1, values.length - 1)
-      }
-      
-      // Marca i bin come usati
-      for (let bin = binStart; bin <= binEnd; bin++) {
-        usedBins.add(bin)
-      }
-      
-      // Solo aggiungi bande valide
-      if (binStart < values.length && binEnd < values.length && binStart <= binEnd) {
-        bands.push({
-          freqStart,
-          freqEnd,
-          binStart,
-          binEnd
-        })
-      }
-    }
-    
-    return bands
-  }
-
-  // Helper function per calcolare il valore da una banda (max o media)
-  const calculateBandValue = (values: Float32Array, binStart: number, binEnd: number) => {
-    if (calculationMode.value === 'max') {
-      // Modalità massimo
-      let maxValue = -100
-      for (let binIdx = binStart; binIdx <= binEnd; binIdx++) {
-        if (binIdx < values.length) {
-          maxValue = Math.max(maxValue, values[binIdx] || -100)
-        }
-      }
-      return maxValue
-    } else {
-      // Modalità media
-      let sum = 0
-      let count = 0
-      for (let binIdx = binStart; binIdx <= binEnd; binIdx++) {
-        if (binIdx < values.length) {
-          sum += values[binIdx] || -100
-          count++
-        }
-      }
-      return count > 0 ? sum / count : -100
-    }
-  }
 
   if (displayMode.value === 'bars') {
-    // Modalità barre stereo - L e R affiancate
-    const bars = barCount.value
-    const bands = getLogFrequencyBands(bars, 2048)
-    
-    // Inizializza peak arrays se necessario
-    if (peakValues.length !== bars) {
-      peakValues = new Array(bars).fill(0)
-      peakTimestamps = new Array(bars).fill(0)
-      peakValuesRight = new Array(bars).fill(0)
-      peakTimestampsRight = new Array(bars).fill(0)
-    }
-
-    for (let i = 0; i < bars; i++) {
+    // Disegna barre stereo (metà L, metà R)
+    for (let i = 0; i < bands.length; i++) {
       const band = bands[i]
-      if (!band || band.binStart >= band.binEnd) continue
       
-      // LEFT CHANNEL
-      const valueLeft = calculateBandValue(valuesLeft, band.binStart, band.binEnd)
-      const normalizedLeft = Math.max(0, Math.min(1, (valueLeft + 100) / 100))
-      const barHeightLeft = Math.max(0.02, normalizedLeft) * height
+      // Canale LEFT
+      let maxDbLeft = -140
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataLeft.length; bin++) {
+        maxDbLeft = Math.max(maxDbLeft, fftDataLeft[bin])
+      }
+      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
 
-      // Aggiorna peak LEFT
-      if (normalizedLeft > peakValues[i]) {
-        peakValues[i] = normalizedLeft
+      // Canale RIGHT
+      let maxDbRight = -140
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataRight.length; bin++) {
+        maxDbRight = Math.max(maxDbRight, fftDataRight[bin])
+      }
+      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
+
+      // Aggiorna peak hold
+      const maxNormalized = Math.max(normalizedLeft, normalizedRight)
+      if (maxNormalized > peakValuesLeft[i]) {
+        peakValuesLeft[i] = normalizedLeft
+        peakValuesRight[i] = normalizedRight
         peakTimestamps[i] = currentTime
       } else {
         const timeSincePeak = currentTime - peakTimestamps[i]
         if (timeSincePeak > PEAK_HOLD_TIME) {
-          peakValues[i] = Math.max(0, peakValues[i] - PEAK_DECAY_RATE)
-        }
-      }
-
-      // RIGHT CHANNEL
-      const valueRight = calculateBandValue(valuesRight, band.binStart, band.binEnd)
-      const normalizedRight = Math.max(0, Math.min(1, (valueRight + 100) / 100))
-      const barHeightRight = Math.max(0.02, normalizedRight) * height
-
-      // Aggiorna peak RIGHT
-      if (normalizedRight > peakValuesRight[i]) {
-        peakValuesRight[i] = normalizedRight
-        peakTimestampsRight[i] = currentTime
-      } else {
-        const timeSincePeak = currentTime - peakTimestampsRight[i]
-        if (timeSincePeak > PEAK_HOLD_TIME) {
+          peakValuesLeft[i] = Math.max(0, peakValuesLeft[i] - PEAK_DECAY_RATE)
           peakValuesRight[i] = Math.max(0, peakValuesRight[i] - PEAK_DECAY_RATE)
         }
       }
 
-      const barWidth = width / bars
-      const x = labelWidthLeft + i * barWidth
+      const posStart = freqToPosition(band.freqStart)
+      const posEnd = freqToPosition(band.freqEnd)
+
+      const xStart = padding.left + graphWidth * posStart
+      const xEnd = padding.left + graphWidth * posEnd
+      const barWidth = Math.max(1, xEnd - xStart)
       const halfBarWidth = barWidth / 2
 
-      // Disegna barra LEFT (metà sinistra - viola)
-      const yLeft = height - barHeightLeft
-      const gradientLeft = ctx.createLinearGradient(x, yLeft, x, height)
+      // Barra LEFT (metà sinistra - viola)
+      const barHeightLeft = normalizedLeft * graphHeight
+      const yTopLeft = height - padding.bottom - barHeightLeft
+
+      const gradientLeft = ctx.createLinearGradient(xStart, yTopLeft, xStart, height - padding.bottom)
       gradientLeft.addColorStop(0, '#a855f7')
       gradientLeft.addColorStop(0.5, '#8b5cf6')
       gradientLeft.addColorStop(1, '#7c3aed')
-      
+
       ctx.fillStyle = gradientLeft
-      ctx.fillRect(x, yLeft, Math.max(1, halfBarWidth - 0.5), barHeightLeft)
-      
-      // Disegna barra RIGHT (metà destra - blu)
-      const yRight = height - barHeightRight
-      const gradientRight = ctx.createLinearGradient(x + halfBarWidth, yRight, x + halfBarWidth, height)
+      ctx.fillRect(
+        xStart,
+        yTopLeft,
+        Math.max(1, halfBarWidth - 0.5),
+        barHeightLeft
+      )
+
+      // Barra RIGHT (metà destra - blu)
+      const barHeightRight = normalizedRight * graphHeight
+      const yTopRight = height - padding.bottom - barHeightRight
+
+      const gradientRight = ctx.createLinearGradient(xStart + halfBarWidth, yTopRight, xStart + halfBarWidth, height - padding.bottom)
       gradientRight.addColorStop(0, '#3b82f6')
       gradientRight.addColorStop(0.5, '#2563eb')
-      gradientRight.addColorStop(1, '#0ea5e9')
-      
-      ctx.fillStyle = gradientRight
-      ctx.fillRect(x + halfBarWidth, yRight, Math.max(1, halfBarWidth - 0.5), barHeightRight)
+      gradientRight.addColorStop(1, '#1d4ed8')
 
-      // Peak marker LEFT
-      if (peakValues[i] > 0.02) {
-        const peakYLeft = height - (peakValues[i] * height)
+      ctx.fillStyle = gradientRight
+      ctx.fillRect(
+        xStart + halfBarWidth,
+        yTopRight,
+        Math.max(1, halfBarWidth - 0.5),
+        barHeightRight
+      )
+
+      // Peak markers
+      if (peakValuesLeft[i] > 0.01) {
+        const peakYLeft = height - padding.bottom - (peakValuesLeft[i] * graphHeight)
         ctx.strokeStyle = '#fbbf24'
         ctx.lineWidth = 1.5
         ctx.beginPath()
-        ctx.moveTo(x, peakYLeft)
-        ctx.lineTo(x + halfBarWidth - 0.5, peakYLeft)
+        ctx.moveTo(xStart, peakYLeft)
+        ctx.lineTo(xStart + halfBarWidth - 0.5, peakYLeft)
         ctx.stroke()
       }
-      
-      // Peak marker RIGHT
-      if (peakValuesRight[i] > 0.02) {
-        const peakYRight = height - (peakValuesRight[i] * height)
+
+      if (peakValuesRight[i] > 0.01) {
+        const peakYRight = height - padding.bottom - (peakValuesRight[i] * graphHeight)
         ctx.strokeStyle = '#fbbf24'
         ctx.lineWidth = 1.5
         ctx.beginPath()
-        ctx.moveTo(x + halfBarWidth, peakYRight)
-        ctx.lineTo(x + barWidth - 0.5, peakYRight)
+        ctx.moveTo(xStart + halfBarWidth, peakYRight)
+        ctx.lineTo(xStart + barWidth - 0.5, peakYRight)
         ctx.stroke()
       }
     }
   } else if (displayMode.value === 'curve') {
-    // Modalità curve stereo - L e R sovrapposte
-    const points = 256
-    const bands = getLogFrequencyBands(points, 2048)
-    
-    // Inizializza peak arrays se necessario
-    if (peakValues.length !== points) {
-      peakValues = new Array(points).fill(0)
-      peakTimestamps = new Array(points).fill(0)
-      peakValuesRight = new Array(points).fill(0)
-      peakTimestampsRight = new Array(points).fill(0)
-    }
-    
-    // Calcola valori per LEFT e RIGHT
-    const curveDataLeft: Array<{x: number, y: number, normalized: number}> = []
-    const curveDataRight: Array<{x: number, y: number, normalized: number}> = []
-    
-    for (let i = 0; i < points; i++) {
+    // Disegna due curve separate (L e R)
+    const pointsLeft: Array<{ x: number; y: number }> = []
+    const pointsRight: Array<{ x: number; y: number }> = []
+    const peakPointsLeft: Array<{ x: number; y: number }> = []
+    const peakPointsRight: Array<{ x: number; y: number }> = []
+
+    for (let i = 0; i < bands.length; i++) {
       const band = bands[i]
       
-      // LEFT CHANNEL
-      let normalizedLeft = 0
-      if (band && band.binStart < band.binEnd) {
-        const valueLeft = calculateBandValue(valuesLeft, band.binStart, band.binEnd)
-        normalizedLeft = Math.max(0, Math.min(1, (valueLeft + 100) / 100))
+      // Canale LEFT
+      let maxDbLeft = -140
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataLeft.length; bin++) {
+        maxDbLeft = Math.max(maxDbLeft, fftDataLeft[bin])
       }
-      
-      const yLeft = height - Math.max(0.02, normalizedLeft) * height
-      const x = labelWidthLeft + (i / (points - 1)) * width
-      curveDataLeft.push({ x, y: yLeft, normalized: normalizedLeft })
-      
-      // Aggiorna peak LEFT
-      if (normalizedLeft > peakValues[i]) {
-        peakValues[i] = normalizedLeft
+      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
+
+      // Canale RIGHT
+      let maxDbRight = -140
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataRight.length; bin++) {
+        maxDbRight = Math.max(maxDbRight, fftDataRight[bin])
+      }
+      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
+
+      // Aggiorna peak hold
+      const maxNormalized = Math.max(normalizedLeft, normalizedRight)
+      if (maxNormalized > peakValuesLeft[i]) {
+        peakValuesLeft[i] = normalizedLeft
+        peakValuesRight[i] = normalizedRight
         peakTimestamps[i] = currentTime
       } else {
         const timeSincePeak = currentTime - peakTimestamps[i]
         if (timeSincePeak > PEAK_HOLD_TIME) {
-          peakValues[i] = Math.max(0, peakValues[i] - PEAK_DECAY_RATE)
-        }
-      }
-      
-      // RIGHT CHANNEL
-      let normalizedRight = 0
-      if (band && band.binStart < band.binEnd) {
-        const valueRight = calculateBandValue(valuesRight, band.binStart, band.binEnd)
-        normalizedRight = Math.max(0, Math.min(1, (valueRight + 100) / 100))
-      }
-      
-      const yRight = height - Math.max(0.02, normalizedRight) * height
-      curveDataRight.push({ x, y: yRight, normalized: normalizedRight })
-      
-      // Aggiorna peak RIGHT
-      if (normalizedRight > peakValuesRight[i]) {
-        peakValuesRight[i] = normalizedRight
-        peakTimestampsRight[i] = currentTime
-      } else {
-        const timeSincePeak = currentTime - peakTimestampsRight[i]
-        if (timeSincePeak > PEAK_HOLD_TIME) {
+          peakValuesLeft[i] = Math.max(0, peakValuesLeft[i] - PEAK_DECAY_RATE)
           peakValuesRight[i] = Math.max(0, peakValuesRight[i] - PEAK_DECAY_RATE)
         }
       }
+
+      // Usa la frequenza centrale della banda
+      const freqCenter = Math.sqrt(band.freqStart * band.freqEnd)
+      const x = padding.left + graphWidth * freqToPosition(freqCenter)
+      const yLeft = height - padding.bottom - (normalizedLeft * graphHeight)
+      const yRight = height - padding.bottom - (normalizedRight * graphHeight)
+
+      pointsLeft.push({ x, y: yLeft })
+      pointsRight.push({ x, y: yRight })
+
+      // Aggiungi punti peak
+      if (peakValuesLeft[i] > 0.01) {
+        const peakYLeft = height - padding.bottom - (peakValuesLeft[i] * graphHeight)
+        peakPointsLeft.push({ x, y: peakYLeft })
+      }
+      if (peakValuesRight[i] > 0.01) {
+        const peakYRight = height - padding.bottom - (peakValuesRight[i] * graphHeight)
+        peakPointsRight.push({ x, y: peakYRight })
+      }
     }
-    
-    // Disegna area sotto la curva LEFT (viola)
-    if (curveDataLeft.length > 0) {
+
+    // Disegna curva LEFT (viola)
+    if (pointsLeft.length > 0) {
+      // Area sotto la curva
       ctx.fillStyle = 'rgba(168, 85, 247, 0.15)'
       ctx.beginPath()
-      ctx.moveTo(labelWidthLeft, height)
-      ctx.lineTo(curveDataLeft[0].x, curveDataLeft[0].y)
-      
-      for (let i = 0; i < curveDataLeft.length - 1; i++) {
-        const current = curveDataLeft[i]
-        const next = curveDataLeft[i + 1]
-        const xc = (current.x + next.x) / 2
-        const yc = (current.y + next.y) / 2
-        ctx.quadraticCurveTo(current.x, current.y, xc, yc)
+      ctx.moveTo(padding.left, height - padding.bottom)
+      ctx.lineTo(pointsLeft[0].x, pointsLeft[0].y)
+
+      for (let i = 0; i < pointsLeft.length - 1; i++) {
+        const current = pointsLeft[i]
+        const next = pointsLeft[i + 1]
+        const xMid = (current.x + next.x) / 2
+        const yMid = (current.y + next.y) / 2
+        ctx.quadraticCurveTo(current.x, current.y, xMid, yMid)
       }
-      
-      const last = curveDataLeft[curveDataLeft.length - 1]
-      ctx.lineTo(last.x, last.y)
-      ctx.lineTo(labelWidthLeft + width, height)
+
+      const lastLeft = pointsLeft[pointsLeft.length - 1]
+      ctx.lineTo(lastLeft.x, lastLeft.y)
+      ctx.lineTo(padding.left + graphWidth, height - padding.bottom)
       ctx.closePath()
       ctx.fill()
-    }
-    
-    // Disegna area sotto la curva RIGHT (blu)
-    if (curveDataRight.length > 0) {
-      ctx.fillStyle = 'rgba(59, 130, 246, 0.15)'
-      ctx.beginPath()
-      ctx.moveTo(labelWidthLeft, height)
-      ctx.lineTo(curveDataRight[0].x, curveDataRight[0].y)
-      
-      for (let i = 0; i < curveDataRight.length - 1; i++) {
-        const current = curveDataRight[i]
-        const next = curveDataRight[i + 1]
-        const xc = (current.x + next.x) / 2
-        const yc = (current.y + next.y) / 2
-        ctx.quadraticCurveTo(current.x, current.y, xc, yc)
-      }
-      
-      const last = curveDataRight[curveDataRight.length - 1]
-      ctx.lineTo(last.x, last.y)
-      ctx.lineTo(labelWidthLeft + width, height)
-      ctx.closePath()
-      ctx.fill()
-    }
-    
-    // Disegna curva LEFT (viola)
-    if (curveDataLeft.length > 0) {
+
+      // Linea della curva
       ctx.strokeStyle = '#a855f7'
       ctx.lineWidth = 2.5
       ctx.beginPath()
-      ctx.moveTo(curveDataLeft[0].x, curveDataLeft[0].y)
-      
-      for (let i = 0; i < curveDataLeft.length - 1; i++) {
-        const current = curveDataLeft[i]
-        const next = curveDataLeft[i + 1]
-        const xc = (current.x + next.x) / 2
-        const yc = (current.y + next.y) / 2
-        ctx.quadraticCurveTo(current.x, current.y, xc, yc)
+      ctx.moveTo(pointsLeft[0].x, pointsLeft[0].y)
+
+      for (let i = 0; i < pointsLeft.length - 1; i++) {
+        const current = pointsLeft[i]
+        const next = pointsLeft[i + 1]
+        const xMid = (current.x + next.x) / 2
+        const yMid = (current.y + next.y) / 2
+        ctx.quadraticCurveTo(current.x, current.y, xMid, yMid)
       }
-      
-      const last = curveDataLeft[curveDataLeft.length - 1]
-      ctx.lineTo(last.x, last.y)
+
+      ctx.lineTo(lastLeft.x, lastLeft.y)
       ctx.stroke()
     }
-    
+
     // Disegna curva RIGHT (blu)
-    if (curveDataRight.length > 0) {
+    if (pointsRight.length > 0) {
+      // Area sotto la curva
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.15)'
+      ctx.beginPath()
+      ctx.moveTo(padding.left, height - padding.bottom)
+      ctx.lineTo(pointsRight[0].x, pointsRight[0].y)
+
+      for (let i = 0; i < pointsRight.length - 1; i++) {
+        const current = pointsRight[i]
+        const next = pointsRight[i + 1]
+        const xMid = (current.x + next.x) / 2
+        const yMid = (current.y + next.y) / 2
+        ctx.quadraticCurveTo(current.x, current.y, xMid, yMid)
+      }
+
+      const lastRight = pointsRight[pointsRight.length - 1]
+      ctx.lineTo(lastRight.x, lastRight.y)
+      ctx.lineTo(padding.left + graphWidth, height - padding.bottom)
+      ctx.closePath()
+      ctx.fill()
+
+      // Linea della curva
       ctx.strokeStyle = '#3b82f6'
       ctx.lineWidth = 2.5
       ctx.beginPath()
-      ctx.moveTo(curveDataRight[0].x, curveDataRight[0].y)
-      
-      for (let i = 0; i < curveDataRight.length - 1; i++) {
-        const current = curveDataRight[i]
-        const next = curveDataRight[i + 1]
-        const xc = (current.x + next.x) / 2
-        const yc = (current.y + next.y) / 2
-        ctx.quadraticCurveTo(current.x, current.y, xc, yc)
+      ctx.moveTo(pointsRight[0].x, pointsRight[0].y)
+
+      for (let i = 0; i < pointsRight.length - 1; i++) {
+        const current = pointsRight[i]
+        const next = pointsRight[i + 1]
+        const xMid = (current.x + next.x) / 2
+        const yMid = (current.y + next.y) / 2
+        ctx.quadraticCurveTo(current.x, current.y, xMid, yMid)
       }
-      
-      const last = curveDataRight[curveDataRight.length - 1]
-      ctx.lineTo(last.x, last.y)
+
+      ctx.lineTo(lastRight.x, lastRight.y)
       ctx.stroke()
     }
-    
-    // Disegna peak curve LEFT
-    const peakPointsLeft: Array<{x: number, y: number}> = []
-    for (let i = 0; i < points; i++) {
-      if (peakValues[i] > 0.02) {
-        const peakY = height - (peakValues[i] * height)
-        const x = labelWidthLeft + (i / (points - 1)) * width
-        peakPointsLeft.push({ x, y: peakY })
-      }
-    }
-    
+
+    // Disegna curve peak LEFT
     if (peakPointsLeft.length > 1) {
       ctx.strokeStyle = '#fbbf24'
       ctx.lineWidth = 1.5
-      ctx.globalAlpha = 0.7
+      ctx.globalAlpha = 0.8
       ctx.beginPath()
       ctx.moveTo(peakPointsLeft[0].x, peakPointsLeft[0].y)
-      
+
       for (let i = 0; i < peakPointsLeft.length - 1; i++) {
         const current = peakPointsLeft[i]
         const next = peakPointsLeft[i + 1]
-        const xc = (current.x + next.x) / 2
-        const yc = (current.y + next.y) / 2
-        ctx.quadraticCurveTo(current.x, current.y, xc, yc)
+        const xMid = (current.x + next.x) / 2
+        const yMid = (current.y + next.y) / 2
+        ctx.quadraticCurveTo(current.x, current.y, xMid, yMid)
       }
-      
-      const lastPeak = peakPointsLeft[peakPointsLeft.length - 1]
-      ctx.lineTo(lastPeak.x, lastPeak.y)
+
+      const lastPeakLeft = peakPointsLeft[peakPointsLeft.length - 1]
+      ctx.lineTo(lastPeakLeft.x, lastPeakLeft.y)
       ctx.stroke()
       ctx.globalAlpha = 1
     }
-    
-    // Disegna peak curve RIGHT
-    const peakPointsRight: Array<{x: number, y: number}> = []
-    for (let i = 0; i < points; i++) {
-      if (peakValuesRight[i] > 0.02) {
-        const peakY = height - (peakValuesRight[i] * height)
-        const x = labelWidthLeft + (i / (points - 1)) * width
-        peakPointsRight.push({ x, y: peakY })
-      }
-    }
-    
+
+    // Disegna curve peak RIGHT
     if (peakPointsRight.length > 1) {
       ctx.strokeStyle = '#fbbf24'
       ctx.lineWidth = 1.5
-      ctx.globalAlpha = 0.7
+      ctx.globalAlpha = 0.8
       ctx.beginPath()
       ctx.moveTo(peakPointsRight[0].x, peakPointsRight[0].y)
-      
+
       for (let i = 0; i < peakPointsRight.length - 1; i++) {
         const current = peakPointsRight[i]
         const next = peakPointsRight[i + 1]
-        const xc = (current.x + next.x) / 2
-        const yc = (current.y + next.y) / 2
-        ctx.quadraticCurveTo(current.x, current.y, xc, yc)
+        const xMid = (current.x + next.x) / 2
+        const yMid = (current.y + next.y) / 2
+        ctx.quadraticCurveTo(current.x, current.y, xMid, yMid)
       }
-      
-      const lastPeak = peakPointsRight[peakPointsRight.length - 1]
-      ctx.lineTo(lastPeak.x, lastPeak.y)
+
+      const lastPeakRight = peakPointsRight[peakPointsRight.length - 1]
+      ctx.lineTo(lastPeakRight.x, lastPeakRight.y)
       ctx.stroke()
       ctx.globalAlpha = 1
     }
   } else if (displayMode.value === 'mirror') {
-    // Modalità mirror (speculare) - LEFT superiore, RIGHT inferiore
-    const bars = barCount.value
-    const bands = getLogFrequencyBands(bars, 2048)
-    const halfHeight = height / 2
-    
-    if (peakValues.length !== bars) {
-      peakValues = new Array(bars).fill(0)
-      peakTimestamps = new Array(bars).fill(0)
-      peakValuesRight = new Array(bars).fill(0)
-      peakTimestampsRight = new Array(bars).fill(0)
-    }
+    // Disegna mirror (L in alto, R specchiato in basso)
+    const centerY = height / 2
+    const halfGraphHeight = graphHeight / 2
 
-    for (let i = 0; i < bars; i++) {
+    for (let i = 0; i < bands.length; i++) {
       const band = bands[i]
-      if (!band || band.binStart >= band.binEnd) continue
       
-      // LEFT CHANNEL (parte superiore - barre verso l'alto)
-      const valueLeft = calculateBandValue(valuesLeft, band.binStart, band.binEnd)
-      const normalizedLeft = Math.max(0, Math.min(1, (valueLeft + 100) / 100))
-      const barHeightLeft = Math.max(0.02, normalizedLeft) * halfHeight
+      // Canale LEFT
+      let maxDbLeft = -140
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataLeft.length; bin++) {
+        maxDbLeft = Math.max(maxDbLeft, fftDataLeft[bin])
+      }
+      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
 
-      // Aggiorna peak LEFT
-      if (normalizedLeft > peakValues[i]) {
-        peakValues[i] = normalizedLeft
+      // Canale RIGHT
+      let maxDbRight = -140
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataRight.length; bin++) {
+        maxDbRight = Math.max(maxDbRight, fftDataRight[bin])
+      }
+      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
+
+      // Aggiorna peak hold
+      const maxNormalized = Math.max(normalizedLeft, normalizedRight)
+      if (maxNormalized > peakValuesLeft[i]) {
+        peakValuesLeft[i] = normalizedLeft
+        peakValuesRight[i] = normalizedRight
         peakTimestamps[i] = currentTime
       } else {
         const timeSincePeak = currentTime - peakTimestamps[i]
         if (timeSincePeak > PEAK_HOLD_TIME) {
-          peakValues[i] = Math.max(0, peakValues[i] - PEAK_DECAY_RATE)
-        }
-      }
-
-      // RIGHT CHANNEL (parte inferiore - barre verso il basso)
-      const valueRight = calculateBandValue(valuesRight, band.binStart, band.binEnd)
-      const normalizedRight = Math.max(0, Math.min(1, (valueRight + 100) / 100))
-      const barHeightRight = Math.max(0.02, normalizedRight) * halfHeight
-
-      // Aggiorna peak RIGHT
-      if (normalizedRight > peakValuesRight[i]) {
-        peakValuesRight[i] = normalizedRight
-        peakTimestampsRight[i] = currentTime
-      } else {
-        const timeSincePeak = currentTime - peakTimestampsRight[i]
-        if (timeSincePeak > PEAK_HOLD_TIME) {
+          peakValuesLeft[i] = Math.max(0, peakValuesLeft[i] - PEAK_DECAY_RATE)
           peakValuesRight[i] = Math.max(0, peakValuesRight[i] - PEAK_DECAY_RATE)
         }
       }
 
-      const barWidth = width / bars
-      const x = labelWidthLeft + i * barWidth
-      
-      // Gradient per LEFT (superiore): viola -> blu
-      const gradientLeft = ctx.createLinearGradient(x, halfHeight - barHeightLeft, x, halfHeight)
+      const posStart = freqToPosition(band.freqStart)
+      const posEnd = freqToPosition(band.freqEnd)
+
+      const xStart = padding.left + graphWidth * posStart
+      const xEnd = padding.left + graphWidth * posEnd
+      const barWidth = Math.max(1, xEnd - xStart)
+
+      // Barra LEFT superiore (viola) - cresce verso l'alto da centerY
+      const barHeightLeft = normalizedLeft * halfGraphHeight
+      const yTopLeft = centerY - barHeightLeft
+
+      const gradientLeft = ctx.createLinearGradient(xStart, yTopLeft, xStart, centerY)
       gradientLeft.addColorStop(0, '#a855f7')
-      gradientLeft.addColorStop(1, '#3b82f6')
-      
-      // Gradient per RIGHT (inferiore): blu -> cyan
-      const gradientRight = ctx.createLinearGradient(x, halfHeight, x, halfHeight + barHeightRight)
-      gradientRight.addColorStop(0, '#3b82f6')
-      gradientRight.addColorStop(1, '#0ea5e9')
+      gradientLeft.addColorStop(0.5, '#8b5cf6')
+      gradientLeft.addColorStop(1, '#7c3aed')
 
-      // Barra superiore (LEFT)
       ctx.fillStyle = gradientLeft
-      ctx.fillRect(x, halfHeight - barHeightLeft, Math.max(1, barWidth - 1), barHeightLeft)
-      
-      // Barra inferiore (RIGHT)
+      ctx.fillRect(
+        xStart,
+        yTopLeft,
+        Math.max(1, barWidth - 1),
+        barHeightLeft
+      )
+
+      // Barra RIGHT inferiore (blu) - cresce verso il basso da centerY
+      const barHeightRight = normalizedRight * halfGraphHeight
+
+      const gradientRight = ctx.createLinearGradient(xStart, centerY, xStart, centerY + barHeightRight)
+      gradientRight.addColorStop(0, '#3b82f6')
+      gradientRight.addColorStop(0.5, '#2563eb')
+      gradientRight.addColorStop(1, '#1d4ed8')
+
       ctx.fillStyle = gradientRight
-      ctx.fillRect(x, halfHeight, Math.max(1, barWidth - 1), barHeightRight)
-      
-      // Peak marker LEFT (superiore)
-      if (peakValues[i] > 0.02) {
-        const peakHeightLeft = peakValues[i] * halfHeight
+      ctx.fillRect(
+        xStart,
+        centerY,
+        Math.max(1, barWidth - 1),
+        barHeightRight
+      )
+
+      // Peak markers
+      if (peakValuesLeft[i] > 0.01) {
+        const peakYLeft = centerY - (peakValuesLeft[i] * halfGraphHeight)
         ctx.strokeStyle = '#fbbf24'
-        ctx.lineWidth = 2
+        ctx.lineWidth = 1.5
         ctx.beginPath()
-        ctx.moveTo(x, halfHeight - peakHeightLeft)
-        ctx.lineTo(x + barWidth - 1, halfHeight - peakHeightLeft)
+        ctx.moveTo(xStart, peakYLeft)
+        ctx.lineTo(xStart + barWidth - 1, peakYLeft)
         ctx.stroke()
       }
-      
-      // Peak marker RIGHT (inferiore)
-      if (peakValuesRight[i] > 0.02) {
-        const peakHeightRight = peakValuesRight[i] * halfHeight
+
+      if (peakValuesRight[i] > 0.01) {
+        const peakYRight = centerY + (peakValuesRight[i] * halfGraphHeight)
         ctx.strokeStyle = '#fbbf24'
-        ctx.lineWidth = 2
+        ctx.lineWidth = 1.5
         ctx.beginPath()
-        ctx.moveTo(x, halfHeight + peakHeightRight)
-        ctx.lineTo(x + barWidth - 1, halfHeight + peakHeightRight)
+        ctx.moveTo(xStart, peakYRight)
+        ctx.lineTo(xStart + barWidth - 1, peakYRight)
         ctx.stroke()
       }
     }
+
+    // Linea centrale
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(padding.left, centerY)
+    ctx.lineTo(width - padding.right, centerY)
+    ctx.stroke()
   } else if (displayMode.value === 'dots') {
-    // Modalità dots stereo - L e R affiancati
-    const bars = barCount.value
-    const bands = getLogFrequencyBands(bars, 2048)
-    
-    if (peakValues.length !== bars) {
-      peakValues = new Array(bars).fill(0)
-      peakTimestamps = new Array(bars).fill(0)
-      peakValuesRight = new Array(bars).fill(0)
-      peakTimestampsRight = new Array(bars).fill(0)
-    }
-
-    for (let i = 0; i < bars; i++) {
+    // Disegna dots stereo (L e R come punti)
+    for (let i = 0; i < bands.length; i++) {
       const band = bands[i]
-      if (!band || band.binStart >= band.binEnd) continue
       
-      // LEFT CHANNEL
-      const valueLeft = calculateBandValue(valuesLeft, band.binStart, band.binEnd)
-      const normalizedLeft = Math.max(0, Math.min(1, (valueLeft + 100) / 100))
+      // Canale LEFT
+      let maxDbLeft = -140
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataLeft.length; bin++) {
+        maxDbLeft = Math.max(maxDbLeft, fftDataLeft[bin])
+      }
+      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
 
-      // Aggiorna peak LEFT
-      if (normalizedLeft > peakValues[i]) {
-        peakValues[i] = normalizedLeft
+      // Canale RIGHT
+      let maxDbRight = -140
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataRight.length; bin++) {
+        maxDbRight = Math.max(maxDbRight, fftDataRight[bin])
+      }
+      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
+
+      // Aggiorna peak hold
+      const maxNormalized = Math.max(normalizedLeft, normalizedRight)
+      if (maxNormalized > peakValuesLeft[i]) {
+        peakValuesLeft[i] = normalizedLeft
+        peakValuesRight[i] = normalizedRight
         peakTimestamps[i] = currentTime
       } else {
         const timeSincePeak = currentTime - peakTimestamps[i]
         if (timeSincePeak > PEAK_HOLD_TIME) {
-          peakValues[i] = Math.max(0, peakValues[i] - PEAK_DECAY_RATE)
-        }
-      }
-
-      // RIGHT CHANNEL
-      const valueRight = calculateBandValue(valuesRight, band.binStart, band.binEnd)
-      const normalizedRight = Math.max(0, Math.min(1, (valueRight + 100) / 100))
-
-      // Aggiorna peak RIGHT
-      if (normalizedRight > peakValuesRight[i]) {
-        peakValuesRight[i] = normalizedRight
-        peakTimestampsRight[i] = currentTime
-      } else {
-        const timeSincePeak = currentTime - peakTimestampsRight[i]
-        if (timeSincePeak > PEAK_HOLD_TIME) {
+          peakValuesLeft[i] = Math.max(0, peakValuesLeft[i] - PEAK_DECAY_RATE)
           peakValuesRight[i] = Math.max(0, peakValuesRight[i] - PEAK_DECAY_RATE)
         }
       }
 
-      const barWidth = width / bars
-      const x = labelWidthLeft + i * barWidth + barWidth / 2
+      const freqCenter = Math.sqrt(band.freqStart * band.freqEnd)
+      const x = padding.left + graphWidth * freqToPosition(freqCenter)
       
-      // Dot LEFT (viola - sinistra)
-      const yLeft = height - Math.max(0.02, normalizedLeft) * height
-      const xLeft = x - 2
-      const dotGradientLeft = ctx.createRadialGradient(xLeft, yLeft, 0, xLeft, yLeft, 3)
-      dotGradientLeft.addColorStop(0, '#a855f7')
-      dotGradientLeft.addColorStop(1, '#7c3aed')
+      // Calcola dimensione punto basata sulla larghezza della banda
+      const posStart = freqToPosition(band.freqStart)
+      const posEnd = freqToPosition(band.freqEnd)
+      const bandPixelWidth = graphWidth * (posEnd - posStart)
+      const dotRadius = Math.min(Math.max(bandPixelWidth * 0.4, 2), 6)
+
+      // Punto LEFT (viola)
+      const yLeft = height - padding.bottom - (normalizedLeft * graphHeight)
       
-      ctx.fillStyle = dotGradientLeft
       ctx.beginPath()
-      ctx.arc(xLeft, yLeft, 3, 0, Math.PI * 2)
+      ctx.arc(x - dotRadius * 0.6, yLeft, dotRadius, 0, Math.PI * 2)
+      ctx.fillStyle = '#a855f7'
       ctx.fill()
+      ctx.strokeStyle = '#7c3aed'
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      // Punto RIGHT (blu)
+      const yRight = height - padding.bottom - (normalizedRight * graphHeight)
       
-      // Dot RIGHT (blu - destra)
-      const yRight = height - Math.max(0.02, normalizedRight) * height
-      const xRight = x + 2
-      const dotGradientRight = ctx.createRadialGradient(xRight, yRight, 0, xRight, yRight, 3)
-      dotGradientRight.addColorStop(0, '#3b82f6')
-      dotGradientRight.addColorStop(1, '#0ea5e9')
-      
-      ctx.fillStyle = dotGradientRight
       ctx.beginPath()
-      ctx.arc(xRight, yRight, 3, 0, Math.PI * 2)
+      ctx.arc(x + dotRadius * 0.6, yRight, dotRadius, 0, Math.PI * 2)
+      ctx.fillStyle = '#3b82f6'
       ctx.fill()
-      
-      // Peak dot LEFT
-      if (peakValues[i] > 0.02) {
-        const peakYLeft = height - (peakValues[i] * height)
-        ctx.fillStyle = '#fbbf24'
+      ctx.strokeStyle = '#1d4ed8'
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      // Peak dots
+      if (peakValuesLeft[i] > 0.01) {
+        const peakYLeft = height - padding.bottom - (peakValuesLeft[i] * graphHeight)
         ctx.beginPath()
-        ctx.arc(xLeft, peakYLeft, 2, 0, Math.PI * 2)
+        ctx.arc(x - dotRadius * 0.6, peakYLeft, dotRadius * 0.6, 0, Math.PI * 2)
+        ctx.fillStyle = '#fbbf24'
         ctx.fill()
       }
-      
-      // Peak dot RIGHT
-      if (peakValuesRight[i] > 0.02) {
-        const peakYRight = height - (peakValuesRight[i] * height)
-        ctx.fillStyle = '#fbbf24'
+
+      if (peakValuesRight[i] > 0.01) {
+        const peakYRight = height - padding.bottom - (peakValuesRight[i] * graphHeight)
         ctx.beginPath()
-        ctx.arc(xRight, peakYRight, 2, 0, Math.PI * 2)
+        ctx.arc(x + dotRadius * 0.6, peakYRight, dotRadius * 0.6, 0, Math.PI * 2)
+        ctx.fillStyle = '#fbbf24'
         ctx.fill()
       }
     }
-  } else if (displayMode.value === 'line') {
-    // Modalità line stereo - L e R sovrapposte
-    const points = 256
-    const bands = getLogFrequencyBands(points, 2048)
-    
-    if (peakValues.length !== points) {
-      peakValues = new Array(points).fill(0)
-      peakTimestamps = new Array(points).fill(0)
-      peakValuesRight = new Array(points).fill(0)
-      peakTimestampsRight = new Array(points).fill(0)
-    }
-    
-    const curveDataLeft: Array<{x: number, y: number, normalized: number}> = []
-    const curveDataRight: Array<{x: number, y: number, normalized: number}> = []
-    
-    for (let i = 0; i < points; i++) {
-      const band = bands[i]
-      if (!band || band.binStart >= band.binEnd) continue
-      
-      // LEFT CHANNEL
-      const valueLeft = calculateBandValue(valuesLeft, band.binStart, band.binEnd)
-      const normalizedLeft = Math.max(0, Math.min(1, (valueLeft + 100) / 100))
-      const yLeft = height - Math.max(0.02, normalizedLeft) * height
-      const x = labelWidthLeft + (i / (points - 1)) * width
-      
-      curveDataLeft.push({ x, y: yLeft, normalized: normalizedLeft })
-      
-      // Aggiorna peak LEFT
-      if (normalizedLeft > peakValues[i]) {
-        peakValues[i] = normalizedLeft
-        peakTimestamps[i] = currentTime
-      } else {
-        const timeSincePeak = currentTime - peakTimestamps[i]
-        if (timeSincePeak > PEAK_HOLD_TIME) {
-          peakValues[i] = Math.max(0, peakValues[i] - PEAK_DECAY_RATE)
-        }
-      }
-      
-      // RIGHT CHANNEL
-      const valueRight = calculateBandValue(valuesRight, band.binStart, band.binEnd)
-      const normalizedRight = Math.max(0, Math.min(1, (valueRight + 100) / 100))
-      const yRight = height - Math.max(0.02, normalizedRight) * height
-      
-      curveDataRight.push({ x, y: yRight, normalized: normalizedRight })
-      
-      // Aggiorna peak RIGHT
-      if (normalizedRight > peakValuesRight[i]) {
-        peakValuesRight[i] = normalizedRight
-        peakTimestampsRight[i] = currentTime
-      } else {
-        const timeSincePeak = currentTime - peakTimestampsRight[i]
-        if (timeSincePeak > PEAK_HOLD_TIME) {
-          peakValuesRight[i] = Math.max(0, peakValuesRight[i] - PEAK_DECAY_RATE)
-        }
-      }
-    }
-    
-    // Disegna linea LEFT (viola con glow)
-    if (curveDataLeft.length > 0) {
-      ctx.shadowBlur = 15
-      ctx.shadowColor = '#a855f7'
-      ctx.strokeStyle = '#a855f7'
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      
-      curveDataLeft.forEach((point, i) => {
-        if (i === 0) {
-          ctx.moveTo(point.x, point.y)
-        } else {
-          ctx.lineTo(point.x, point.y)
-        }
-      })
-      
-      ctx.stroke()
-      ctx.shadowBlur = 0
-    }
-    
-    // Disegna linea RIGHT (blu con glow)
-    if (curveDataRight.length > 0) {
-      ctx.shadowBlur = 15
-      ctx.shadowColor = '#3b82f6'
-      ctx.strokeStyle = '#3b82f6'
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      
-      curveDataRight.forEach((point, i) => {
-        if (i === 0) {
-          ctx.moveTo(point.x, point.y)
-        } else {
-          ctx.lineTo(point.x, point.y)
-        }
-      })
-      
-      ctx.stroke()
-      ctx.shadowBlur = 0
-    }
-    
-    // Peak line LEFT
-    ctx.strokeStyle = '#fbbf24'
-    ctx.lineWidth = 1.5
-    ctx.globalAlpha = 0.7
-    ctx.beginPath()
-    
-    for (let i = 0; i < points; i++) {
-      if (peakValues[i] > 0.02) {
-        const peakY = height - (peakValues[i] * height)
-        const x = labelWidthLeft + (i / (points - 1)) * width
-        
-        if (i === 0 || peakValues[i - 1] <= 0.02) {
-          ctx.moveTo(x, peakY)
-        } else {
-          ctx.lineTo(x, peakY)
-        }
-      }
-    }
-    
-    ctx.stroke()
-    
-    // Peak line RIGHT
-    ctx.beginPath()
-    
-    for (let i = 0; i < points; i++) {
-      if (peakValuesRight[i] > 0.02) {
-        const peakY = height - (peakValuesRight[i] * height)
-        const x = labelWidthLeft + (i / (points - 1)) * width
-        
-        if (i === 0 || peakValuesRight[i - 1] <= 0.02) {
-          ctx.moveTo(x, peakY)
-        } else {
-          ctx.lineTo(x, peakY)
-        }
-      }
-    }
-    
-    ctx.stroke()
-    ctx.globalAlpha = 1
   }
 }
 
-onMounted(async () => {
-  await connectAnalyser()
-  renderSpectrum()
+// Lifecycle
+onMounted(() => {
+  connectAnalyser().then(() => render())
 })
 
 onUnmounted(() => {
-  if (animationFrame) {
-    cancelAnimationFrame(animationFrame)
+  if (animationId !== null) {
+    cancelAnimationFrame(animationId)
+    animationId = null
   }
+
   if (currentMasterNode && splitNode) {
     try {
       currentMasterNode.disconnect(splitNode)
-    } catch (error) {
-      console.warn('Spectrum meter: unable to disconnect analyser', error)
+    } catch {
+      // noop
     }
   }
+
   if (analyserLeft) {
     analyserLeft.dispose()
+    analyserLeft = null
   }
+  
   if (analyserRight) {
     analyserRight.dispose()
+    analyserRight = null
   }
+  
   if (splitNode) {
     splitNode.dispose()
+    splitNode = null
   }
 })
 </script>
