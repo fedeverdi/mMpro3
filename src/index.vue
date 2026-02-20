@@ -229,22 +229,29 @@
             @rename="handleRenameScene" @toggle-pin="handleTogglePin" />
 
         <!-- Scene Loading Overlay -->
-        <div v-if="isLoadingScene" 
-            class="fixed inset-0 bg-black/10 flex items-start justify-center pt-20 z-[9999] animate-fade-in">
-            <div class="bg-gradient-to-br from-gray-600 to-gray-700 border-2 border-blue-500/70 rounded-lg shadow-2xl px-6 py-3 flex items-center gap-3 animate-slide-down whitespace-nowrap">
-                <div class="relative w-5 h-5">
-                    <div class="absolute inset-0 border-2 border-blue-500/30 rounded-full"></div>
-                    <div class="absolute inset-0 border-2 border-transparent border-t-blue-500 rounded-full animate-spin"></div>
+        <Transition
+            enter-from-class="opacity-0 scale-90 -translate-y-12"
+            enter-active-class="transition-all duration-500 ease-out"
+            enter-to-class="opacity-100 scale-100 translate-y-0"
+            leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition-all duration-300 ease-in"
+            leave-to-class="opacity-0 scale-90 -translate-y-8">
+            <div v-if="isLoadingScene" 
+                class="fixed inset-0 flex items-start justify-center pt-20 z-[9999]">
+                <div class="bg-gradient-to-br from-gray-600 to-gray-700 border-2 border-blue-500/70 rounded-lg shadow-2xl px-6 py-3 flex items-center gap-3 whitespace-nowrap">
+                    <div class="relative w-5 h-5">
+                        <div class="absolute inset-0 border-2 border-blue-500/30 rounded-full"></div>
+                        <div class="absolute inset-0 border-2 border-transparent border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                    <span class="text-sm font-semibold text-white">Loading Scene</span>
+                    <div class="flex gap-1 pt-2">
+                        <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                        <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                        <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                    </div>
                 </div>
-                <span class="text-sm font-semibold text-white">Loading Scene</span>
-                <div class="flex gap-1">
-                    <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
-                    <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
-                    <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
-                </div>
-                <span class="text-xs text-gray-400">Please wait...</span>
             </div>
-        </div>
+        </Transition>
     </div>
 </template>
 
