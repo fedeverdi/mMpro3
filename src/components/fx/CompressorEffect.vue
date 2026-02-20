@@ -57,7 +57,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onUnmounted, inject } from 'vue'
-import Knob from './Knob.vue'
+import Knob from '../core/Knob.vue'
 
 const props = defineProps<{
   enabled?: boolean

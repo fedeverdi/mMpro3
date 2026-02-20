@@ -132,10 +132,10 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, inject, toRaw } from 'vue'
-import CompressorEffect from './CompressorEffect.vue'
-import ReverbEffect from './ReverbEffect.vue'
-import DelayEffect from './DelayEffect.vue'
-import LimiterEffect from './LimiterEffect.vue'
+import CompressorEffect from './fx/CompressorEffect.vue'
+import ReverbEffect from './fx/ReverbEffect.vue'
+import DelayEffect from './fx/DelayEffect.vue'
+import LimiterEffect from './fx/LimiterEffect.vue'
 
 interface Props {
   masterEqDisplay?: any  // To get inputNode from MasterEQDisplay

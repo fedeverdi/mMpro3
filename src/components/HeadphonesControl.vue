@@ -53,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import Knob from './Knob.vue'
+import Knob from './core/Knob.vue'
 import OutputSelector from './OutputSelector.vue'
 
 interface Props {

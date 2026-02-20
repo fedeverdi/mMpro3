@@ -45,7 +45,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
-import Knob from '../Knob.vue'
+import Knob from '../core/Knob.vue'
 
 interface Props {
   trackNumber: number
