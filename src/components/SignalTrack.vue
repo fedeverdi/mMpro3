@@ -5,22 +5,45 @@
     <!-- Track Header -->
     <div class="text-xs font-bold text-center text-gray-300">Track {{ trackNumber }}</div>
 
-    <!-- Signal Selector -->
-    <select v-model="selectedSignal" @change="handleSignalChange"
-      class="w-full text-xs bg-gray-700 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-blue-500 focus:outline-none">
-      <option value="sine">🎵 Sine Wave</option>
-      <option value="square">⬛ Square Wave</option>
-      <option value="sawtooth">🔺 Sawtooth Wave</option>
-      <option value="triangle">🔻 Triangle Wave</option>
-      <option value="whiteNoise">⚪ White Noise</option>
-      <option value="pinkNoise">🌸 Pink Noise</option>
-    </select>
+    <!-- Signal Selector Buttons -->
+    <div class="w-full flex flex-col gap-0.5">
+      <button @click="selectSignal('sine')"
+        :class="selectedSignal === 'sine' ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
+        class="w-full py-1 text-[0.65rem] rounded transition-colors">
+        Sine
+      </button>
+      <button @click="selectSignal('square')"
+        :class="selectedSignal === 'square' ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
+        class="w-full py-1 text-[0.65rem] rounded transition-colors">
+        Square
+      </button>
+      <button @click="selectSignal('sawtooth')"
+        :class="selectedSignal === 'sawtooth' ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
+        class="w-full py-1 text-[0.65rem] rounded transition-colors">
+        Sawtooth
+      </button>
+      <button @click="selectSignal('triangle')"
+        :class="selectedSignal === 'triangle' ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
+        class="w-full py-1 text-[0.65rem] rounded transition-colors">
+        Triangle
+      </button>
+      <button @click="selectSignal('whiteNoise')"
+        :class="selectedSignal === 'whiteNoise' ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
+        class="w-full py-1 text-[0.65rem] rounded transition-colors">
+        White
+      </button>
+      <button @click="selectSignal('pinkNoise')"
+        :class="selectedSignal === 'pinkNoise' ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
+        class="w-full py-1 text-[0.65rem] rounded transition-colors">
+        Pink
+      </button>
+    </div>
 
     <!-- Transport Controls -->
-    <div class="flex gap-1 justify-center">
+    <div class="flex gap-1 justify-center w-full">
       <button @click="toggleSignal"
-        class="px-2 py-1 w-full text-xs rounded transition-colors flex items-center justify-center"
-        :class="isPlaying ? 'bg-blue-600 hover:bg-blue-500 animate-pulse' : 'bg-gray-700 hover:bg-gray-600'">
+        class="px-2 py-1 w-full text-xs rounded transition-colors flex items-center justify-center bg-blue-600 hover:bg-blue-500"
+        :class="isPlaying ? 'animate-pulse' : ''">
         <svg v-if="!isPlaying" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
           <path d="M8 5v14l11-7z" />
         </svg>
@@ -37,25 +60,18 @@
     </div>
 
     <!-- Display - Signal Controls -->
-    <div class="w-full bg-gray-900 rounded p-2 border border-gray-700">
+    <div v-if="isOscillator" class="w-full bg-gray-900 rounded p-2 border border-gray-700">
       <div class="text-xs text-center text-gray-400 mb-2">{{ signalTypeLabel }}</div>
       
       <!-- Frequency knob for oscillators -->
-      <div v-if="isOscillator" class="scale-[0.7] flex justify-center">
+      <div class="scale-[0.7] flex justify-center">
         <Knob v-model="frequency" :min="20" :max="20000" :step="1" label="Frequency" unit="Hz" color="#3b82f6" />
-      </div>
-      
-      <!-- Volume knob for noise -->
-      <div v-else class="scale-[0.7] flex justify-center">
-        <Knob v-model="signalVolume" :min="-60" :max="0" :step="1" label="Volume" unit="dB" color="#3b82f6" />
       </div>
     </div>
 
-    <!-- Gain Control (Volume for oscillators) -->
-    <div v-if="isOscillator" class="w-full flex items-center justify-center h-[4rem]">
-      <div class="scale-[0.65]">
-        <Knob v-model="signalVolume" :min="-60" :max="0" :step="1" label="Volume" unit="dB" color="#3b82f6" />
-      </div>
+    <!-- Display for noise (no controls needed) -->
+    <div v-else class="w-full bg-gray-900 rounded p-2 border border-gray-700">
+      <div class="text-xs text-center text-gray-400">{{ signalTypeLabel }}</div>
     </div>
 
     <!-- Mute & Solo Buttons -->
@@ -279,6 +295,11 @@ function createSignalSource() {
       signalNode.start()
     }
   }
+}
+
+function selectSignal(type: SignalType) {
+  selectedSignal.value = type
+  handleSignalChange()
 }
 
 function handleSignalChange() {
