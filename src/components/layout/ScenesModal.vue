@@ -102,6 +102,16 @@
                       Load
                     </button>
 
+                    <!-- Pin Button -->
+                    <button
+                      @click="emit('togglePin', scene.id)"
+                      class="px-3 py-1 text-xs font-semibold rounded transition-colors"
+                      :class="scene.pinned ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-gray-700 hover:bg-gray-600'"
+                      :title="scene.pinned ? 'Unpin from quick access' : 'Pin to quick access'"
+                    >
+                      {{ scene.pinned ? '📌' : '📍' }}
+                    </button>
+
                     <!-- Rename Button -->
                     <button
                       v-if="editingSceneId !== scene.id"
@@ -192,6 +202,7 @@ const emit = defineEmits<{
   (e: 'update', sceneId: string): void
   (e: 'delete', sceneId: string): void
   (e: 'rename', sceneId: string, newName: string): void
+  (e: 'togglePin', sceneId: string): void
 }>()
 
 const newSceneName = ref('')

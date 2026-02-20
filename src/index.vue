@@ -3,11 +3,31 @@
         <!-- Header -->
         <header class="bg-black/50 backdrop-blur-sm border-b border-gray-700 px-4 py-2">
             <div class="flex items-center justify-between gap-4 flex-wrap">
-                <div>
+                <div class="flex items-center gap-2">
                     <h1
                         class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
                         Audio Mixer Pro
                     </h1>
+                    
+                    <!-- Quick Scene Access -->
+                    <template v-if="pinnedScenes.length > 0">
+                        <div class="w-px h-6 bg-gray-600"></div>
+                        <div class="flex gap-1 items-center">
+                            <span class="text-[10px] text-gray-400 font-semibold uppercase">Quick scenes:</span>
+                            <button
+                                v-for="scene in pinnedScenes"
+                                :key="scene.id"
+                                @click="handleLoadScene(scene.id)"
+                                class="px-2 py-1 text-[0.5rem] rounded transition-colors uppercase"
+                                :class="scene.id === currentSceneId 
+                                    ? 'bg-green-600 hover:bg-green-500 text-white' 
+                                    : 'bg-yellow-600 hover:bg-yellow-500 text-white'"
+                                :title="`Load scene: ${scene.name}`"
+                            >
+                            {{ scene.name }}
+                            </button>
+                        </div>
+                    </template>
                 </div>
 
                 <div class="flex gap-2 items-center flex-wrap">
@@ -200,7 +220,7 @@
         <!-- Scenes Modal -->
         <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId"
             @save="handleSaveScene" @load="handleLoadScene" @update="handleUpdateScene" @delete="handleDeleteScene"
-            @rename="handleRenameScene" />
+            @rename="handleRenameScene" @toggle-pin="handleTogglePin" />
 
         <!-- Scene Loading Overlay -->
         <div v-if="isLoadingScene" 
@@ -379,7 +399,8 @@ const {
     updateScene,
     deleteScene,
     renameScene,
-    setCurrentScene
+    setCurrentScene,
+    togglePinScene
 } = useScenes()
 
 const { deleteAudioFile } = useAudioFileStorage()
@@ -582,6 +603,15 @@ async function handleDeleteScene(sceneId: string) {
 async function handleRenameScene(sceneId: string, newName: string) {
     await renameScene(sceneId, newName)
 }
+
+async function handleTogglePin(sceneId: string) {
+    await togglePinScene(sceneId)
+}
+
+// Computed for pinned scenes
+const pinnedScenes = computed(() => {
+    return scenes.value.filter(scene => scene.pinned)
+})
 
 // Initialize audio
 onMounted(async () => {

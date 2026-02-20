@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, toRaw } from 'vue'
 
 export interface TrackSnapshot {
   trackNumber: number
@@ -53,6 +53,7 @@ export interface Scene {
   master: MasterSnapshot
   createdAt: number
   updatedAt: number
+  pinned?: boolean
 }
 
 const DB_NAME = 'MMpro3_Scenes'
@@ -142,10 +143,13 @@ export function useScenes() {
     try {
       const database = await initDB()
       
+      // Remove Vue reactivity before saving to IndexedDB
+      const rawScene = JSON.parse(JSON.stringify(toRaw(scene)))
+      
       return new Promise<void>((resolve, reject) => {
         const transaction = database.transaction([SCENES_STORE], 'readwrite')
         const store = transaction.objectStore(SCENES_STORE)
-        const request = store.put(scene)
+        const request = store.put(rawScene)
 
         request.onsuccess = () => resolve()
         request.onerror = () => reject(request.error)
@@ -242,6 +246,24 @@ export function useScenes() {
     currentSceneId.value = sceneId
   }
 
+  async function togglePinScene(sceneId: string) {
+    const index = scenes.value.findIndex(s => s.id === sceneId)
+    if (index !== -1) {
+      const scene = scenes.value[index]
+      const updatedScene: Scene = {
+        ...scene,
+        pinned: !scene.pinned,
+        updatedAt: Date.now()
+      }
+      
+      // Update in IndexedDB
+      await saveSceneToStorage(updatedScene)
+      
+      // Update reactive array
+      scenes.value[index] = updatedScene
+    }
+  }
+
   return {
     scenes,
     currentSceneId,
@@ -251,6 +273,7 @@ export function useScenes() {
     deleteScene,
     renameScene,
     getSceneById,
-    setCurrentScene
+    setCurrentScene,
+    togglePinScene
   }
 }
