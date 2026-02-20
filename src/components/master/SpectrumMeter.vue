@@ -510,7 +510,7 @@ const renderSpectrum = () => {
     }
   } else if (displayMode.value === 'curve') {
     // Modalità curve stereo - L e R sovrapposte
-    const points = 64
+    const points = 256
     const bands = getLogFrequencyBands(points, 2048)
     
     // Inizializza peak arrays se necessario
