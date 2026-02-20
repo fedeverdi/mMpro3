@@ -184,19 +184,8 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
-                <!-- Parametric EQ with Spectrum tap -->
-                <div class="flex flex-col items-center gap-2">
-                  <!-- Spectrum analyzer tap branching UP -->
-                  <div class="flex flex-col items-center gap-1">
-                    <div class="px-2 py-1 bg-purple-600 text-white rounded text-[10px] font-bold shadow-lg">
-                      Spectrum
-                    </div>
-                    <svg class="w-4 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
-                    </svg>
-                    <div class="text-[9px] text-purple-500 font-bold">↓ TAP</div>
-                  </div>
-                  <!-- Parametric EQ main node -->
+                <!-- Parametric EQ -->
+                <div class="flex flex-col items-center">
                   <div class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow-lg">
                     Parametric EQ
                   </div>
@@ -229,6 +218,30 @@
                     </div>
                   </div>
                   <div class="text-[9px] text-orange-400 mt-1">Green = if enabled</div>
+                  <div class="text-[9px] text-gray-400 mt-1">inputNode → outputNode</div>
+                </div>
+                
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                
+                <!-- Output Node with Spectrum tap -->
+                <div class="flex flex-col items-center gap-2">
+                  <!-- Spectrum analyzer tap branching UP -->
+                  <div class="flex flex-col items-center gap-1">
+                    <div class="px-2 py-1 bg-purple-600 text-white rounded text-[10px] font-bold shadow-lg">
+                      Spectrum
+                    </div>
+                    <svg class="w-4 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
+                    </svg>
+                    <div class="text-[9px] text-purple-500 font-bold">↓ TAP (POST-FX)</div>
+                  </div>
+                  <!-- MasterFX Output Node -->
+                  <div class="px-4 py-2 bg-orange-600 text-white rounded-lg font-semibold shadow-lg">
+                    FX Output
+                  </div>
+                  <div class="text-xs text-gray-500">Tone.Gain</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -345,7 +358,8 @@
               </div>
               <div class="mt-3 pt-3 border-t border-gray-700 text-xs text-gray-400">
                 <p class="mb-1"><strong>Note:</strong> Analysis taps (VU, Waveform, Spectrum) are non-blocking connections that monitor the signal without affecting the main audio flow.</p>
-                <p><strong>FX Chain Order:</strong> Compressor → Reverb → Delay → Limiter (only if enabled via MasterFX controls).</p>
+                <p class="mb-1"><strong>Master Architecture:</strong> MasterEQDisplay creates an outputNode that feeds into MasterFX. MasterFX processes effects and outputs to both SpectrumMeter (for visualization) and MasterSection (for audio output).</p>
+                <p><strong>FX Chain Order:</strong> Compressor → Reverb → Delay → Limiter (only if enabled via MasterFX controls). Spectrum analyzes the signal POST-FX processing.</p>
               </div>
             </div>
           </div>

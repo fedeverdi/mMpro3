@@ -191,19 +191,27 @@ const connectAnalyser = async () => {
 }
 
 watch(
-  () => {
-    // Get output node from MasterEQDisplay
-    if (!props.masterEqDisplay || !props.masterEqDisplay.getOutputNode) return null
-    return props.masterEqDisplay.getOutputNode()
-  },
-  (newNode) => {
-    if (newNode) {
-      connectAnalyser()
-    } else {
-      // Wait a bit for outputNode to be created
-      setTimeout(() => {
+  () => props.masterFx,
+  (newVal) => {
+    if (newVal) {
+      // Try to connect immediately
+      const node = getMasterNode()
+      if (node) {
         connectAnalyser()
-      }, 100)
+      } else {
+        // OutputNode might not be created yet, retry with increasing delays
+        setTimeout(() => {
+          const retryNode = getMasterNode()
+          if (retryNode) {
+            connectAnalyser()
+          } else {
+            // One more retry
+            setTimeout(() => {
+              connectAnalyser()
+            }, 150)
+          }
+        }, 100)
+      }
     }
   },
   { immediate: true }
