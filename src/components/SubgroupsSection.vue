@@ -21,7 +21,7 @@
     </div>
 
     <!-- VU Meters and Faders -->
-    <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-1 min-h-0 mt-5">
+    <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-1 min-h-0 mt-11">
       <!-- VU Meters Row -->
       <div v-if="vuMetersHeight > 0"
         class="flex flex-col items-center gap-1 w-full justify-center bg-gray-900 rounded p-1 border border-gray-700">
@@ -54,7 +54,7 @@
       </div>
 
       <!-- Faders Row -->
-      <div v-if="fadersHeight > 0" class="flex gap-3 items-end mb-6">
+      <div v-if="fadersHeight > 0" class="flex gap-3 items-end mb-16">
         <SubgroupFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" />
         <SubgroupFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" />
       </div>
