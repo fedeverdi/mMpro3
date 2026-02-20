@@ -1,6 +1,6 @@
 <template>
   <div
-    class="master-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-blue-600 p-2 flex flex-col items-center gap-1 h-full w-full max-w-[12rem]">
+    class="master-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-blue-600 p-2 flex flex-col items-center gap-1 h-full w-full w-[12rem] max-w-[12rem]">
     <!-- Master Header -->
     <div class="w-full text-center">
       <div class="text-xs font-bold text-blue-400">MASTER</div>

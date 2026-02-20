@@ -139,38 +139,41 @@
 
             <!-- Right Section (fixed width) -->
             <div class="flex gap-2 flex-shrink-0">
-                <!-- Loading Skeleton for Right Section -->
+                <!-- Loading Skeletons for Right Section -->
                 <template v-if="!isReady">
-                    <div class="w-[32rem] flex flex-col h-full gap-2">
-                        <div class="flex-[2] bg-gray-800 rounded-lg border border-gray-700 animate-pulse"></div>
-                        <div class="flex-[1.5] bg-gray-800 rounded-lg border border-gray-700 animate-pulse"></div>
-                        <div class="flex-1 bg-gray-800 rounded-lg border border-gray-700 animate-pulse"></div>
+                    <!-- Master EQ/Spectrum/FX Skeleton -->
+                    <div class="flex flex-col h-full gap-2">
+                        <div class="w-[36rem] flex flex-col flex-1 min-h-0 gap-2">
+                            <div class="flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700 animate-pulse"></div>
+                            <div class="flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700 animate-pulse"></div>
+                        </div>
+                        <div class="w-[36rem] bg-gray-800 rounded-lg border border-gray-700 p-4 animate-pulse" style="height: 200px;"></div>
                     </div>
-                    <div class="w-44 h-full">
+
+                    <!-- Subgroups Skeleton -->
+                    <div class="w-32 h-full">
                         <div class="bg-gray-800 rounded-lg border border-gray-700 h-full p-2 flex flex-col gap-2">
-                            <!-- Header -->
                             <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
-                            <!-- Buttons -->
-                            <div class="flex gap-1">
-                                <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
-                                <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
-                            </div>
-                            <div class="flex gap-1">
-                                <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
-                                <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
-                            </div>
-                            <!-- VU Meter area -->
                             <div class="flex-1 flex items-center justify-center py-4">
                                 <div class="flex gap-2">
-                                    <div class="w-8 h-48 bg-gray-700 rounded animate-pulse"></div>
-                                    <div class="w-8 h-48 bg-gray-700 rounded animate-pulse"></div>
+                                    <div class="w-5 flex-1 bg-gray-700 rounded animate-pulse"></div>
+                                    <div class="w-5 flex-1 bg-gray-700 rounded animate-pulse"></div>
                                 </div>
                             </div>
-                            <!-- Fader area -->
-                            <div class="flex items-center justify-center py-4">
-                                <div class="w-12 h-32 bg-gray-700 rounded animate-pulse"></div>
+                            <div class="h-8 bg-gray-700 rounded animate-pulse"></div>
+                        </div>
+                    </div>
+
+                    <!-- Master Skeleton -->
+                    <div class="w-44 h-full">
+                        <div class="bg-gray-800 rounded-lg border border-gray-700 h-full p-2 flex flex-col gap-2">
+                            <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
+                            <div class="flex-1 flex items-center justify-center py-4">
+                                <div class="flex gap-2">
+                                    <div class="w-8 flex-1 bg-gray-700 rounded animate-pulse"></div>
+                                    <div class="w-8 flex-1 bg-gray-700 rounded animate-pulse"></div>
+                                </div>
                             </div>
-                            <!-- Bottom controls -->
                             <div class="h-8 bg-gray-700 rounded animate-pulse"></div>
                         </div>
                     </div>
@@ -184,7 +187,6 @@
                                 <MasterEQDisplay ref="masterEQDisplayRef" :filters-data="masterEqFiltersData"
                                     :master-channel="masterChannel"
                                     @update:filters-data="handleMasterEQFiltersUpdate" />
-
                             </div>
                             <div class="flex-1 min-h-0">
                                 <SpectrumMeter :master-fx="masterFxRef" />
@@ -198,52 +200,14 @@
                     </div>
 
                     <!-- Subgroups Section -->
-                    <div class="flex-shrink-0">
-                        <template v-if="!isReady">
-                            <div class="w-44 h-full">
-                                <div
-                                    class="bg-gray-800 rounded-lg border border-gray-700 h-full p-2 flex flex-col gap-2">
-                                    <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
-                                    <div class="flex-1 flex items-center justify-center py-4">
-                                        <div class="flex gap-2">
-                                            <div class="w-8 h-48 bg-gray-700 rounded animate-pulse"></div>
-                                            <div class="w-8 h-48 bg-gray-700 rounded animate-pulse"></div>
-                                        </div>
-                                    </div>
-                                    <div class="h-8 bg-gray-700 rounded animate-pulse"></div>
-                                </div>
-                            </div>
-                        </template>
-                        <template v-else>
-                            <div class="w-full h-full mixer-fade-in">
-                                <SubgroupsSection ref="subgroupsSectionRef" />
-                            </div>
-                        </template>
+                    <div class="flex-shrink-0 h-full mixer-fade-in">
+                        <SubgroupsSection ref="subgroupsSectionRef" />
                     </div>
 
                     <!-- Master Section -->
-                    <div class="flex-shrink-0">
-                        <template v-if="!isReady">
-                            <div class="w-44 h-full">
-                                <div
-                                    class="bg-gray-800 rounded-lg border border-gray-700 h-full p-2 flex flex-col gap-2">
-                                    <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
-                                    <div class="flex-1 flex items-center justify-center py-4">
-                                        <div class="flex gap-2">
-                                            <div class="w-8 h-48 bg-gray-700 rounded animate-pulse"></div>
-                                            <div class="w-8 h-48 bg-gray-700 rounded animate-pulse"></div>
-                                        </div>
-                                    </div>
-                                    <div class="h-8 bg-gray-700 rounded animate-pulse"></div>
-                                </div>
-                            </div>
-                        </template>
-                        <template v-else>
-                            <div class="w-full h-full mixer-fade-in">
-                                <MasterSection ref="masterSectionRef" :master-eq-display="masterEQDisplayRef"
-                                    :master-fx="masterFxRef" :loaded-tracks="loadedTracks" />
-                            </div>
-                        </template>
+                    <div class="flex-shrink-0 h-full mixer-fade-in">
+                        <MasterSection ref="masterSectionRef" :master-eq-display="masterEQDisplayRef"
+                            :master-fx="masterFxRef" :loaded-tracks="loadedTracks" />
                     </div>
                 </template>
             </div>
