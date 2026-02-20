@@ -58,6 +58,9 @@
       </button>
     </div>
 
+    <!-- Waveform Display -->
+    <WaveformDisplay ref="waveformDisplayRef" :showModeButtons="false" :waveform-node="waveform" :is-playing="isPlaying" />
+
     <!-- Display - Signal Controls -->
     <div v-if="isOscillator" class="w-full bg-gray-900 rounded p-2 border border-gray-700">
       <div class="text-xs text-center text-gray-400 mb-2">{{ signalTypeLabel }}</div>
@@ -109,6 +112,7 @@ import FrequencyKnob from './core/FrequencyKnob.vue'
 import TrackFader from './audioTrack/TrackFader.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
 import PanKnob from './audioTrack/PanKnob.vue'
+import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
 
 const ToneRef = inject<any>('Tone')
 let Tone: any = null
@@ -156,6 +160,7 @@ const signalTypeLabel = computed(() => {
 
 // Track state (from Track.vue)
 const faderContainer = ref<HTMLElement | null>(null)
+const waveformDisplayRef = ref<any>(null)
 const faderHeight = ref(0)
 const isMuted = ref(false)
 const isSolo = ref(false)
@@ -174,6 +179,7 @@ let signalToStereo: any = null
 
 // Tone.js nodes - Track routing
 let gainNode: any = null
+let waveform: any = null // Waveform analyzer
 let balanceSplit: any = null
 let balanceLeft: any = null
 let balanceRight: any = null
@@ -202,6 +208,9 @@ function initAudioNodes() {
 
   // Create main gain node
   gainNode = new Tone.Gain(1)
+
+  // Waveform analyzer (for visualization)
+  waveform = new Tone.Waveform(512) // 512 samples for waveform display
 
   // Stereo-preserving balance control
   balanceSplit = new Tone.Split()
@@ -232,6 +241,9 @@ function initAudioNodes() {
   volumeSplit.connect(volumeNodeR, 1)
   volumeNodeL.connect(volumeMerge, 0, 0)
   volumeNodeR.connect(volumeMerge, 0, 1)
+
+  // Connect waveform analyzer
+  gainNode.connect(waveform)
 
   // Connect metering to gainNode (pre-volume)
   gainNode.connect(channelSplit)
@@ -521,6 +533,7 @@ onUnmounted(() => {
 
   // Dispose track nodes
   if (gainNode) gainNode.dispose()
+  if (waveform) waveform.dispose()
   if (balanceSplit) balanceSplit.dispose()
   if (balanceLeft) balanceLeft.dispose()
   if (balanceRight) balanceRight.dispose()

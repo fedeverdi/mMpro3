@@ -2,19 +2,20 @@
   <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
     <div class="flex items-center gap-1">
       <div 
-        class="flex-1 px-0.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity"
-        @click="handleClick"
-        :title="mode === 'signal' ? 'Click to show full waveform' : 'Click to show real-time signal'"
+        class="flex-1 px-0.5 py-0.5"
+        :class="showModeButtons ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''"
+        @click="showModeButtons ? handleClick() : null"
+        :title="showModeButtons ? (internalMode === 'signal' ? 'Click to show full waveform' : 'Click to show real-time signal') : ''"
       >
         <canvas ref="canvasRef" class="w-full h-[30px] rounded border border-gray-700 bg-black"
           style="image-rendering: crisp-edges;"></canvas>
       </div>
       
       <!-- Mode selector buttons -->
-      <div class="flex flex-col gap-0.5">
+      <div v-if="showModeButtons" class="flex flex-col gap-0.5">
         <button
-          @click="mode = 'signal'"
-          :class="mode === 'signal' ? 'bg-cyan-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'"
+          @click="internalMode = 'signal'"
+          :class="internalMode === 'signal' ? 'bg-cyan-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'"
           class="px-1 py-0.5 rounded text-[10px] font-medium transition-colors"
           title="Real-time signal"
         >
@@ -23,8 +24,8 @@
           </svg>
         </button>
         <button
-          @click="mode = 'waveform'"
-          :class="mode === 'waveform' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'"
+          @click="internalMode = 'waveform'"
+          :class="internalMode === 'waveform' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'"
           class="px-1 py-0.5 rounded text-[10px] font-medium transition-colors"
           title="Full waveform"
         >
@@ -38,31 +39,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 
 interface Props {
   waveformNode?: any
   audioBuffer?: AudioBuffer | null
   isPlaying?: boolean
   currentTime?: number // Current playback time in seconds
+  mode?: 'signal' | 'waveform' // External mode control
+  showModeButtons?: boolean // Show mode toggle buttons
 }
 
 const props = withDefaults(defineProps<Props>(), {
   audioBuffer: null,
   isPlaying: false,
-  currentTime: 0
+  currentTime: 0,
+  mode: 'signal',
+  showModeButtons: true
 })
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-const mode = ref<'signal' | 'waveform'>('signal')
+const internalMode = ref<'signal' | 'waveform'>(props.mode)
 let animationId: number | null = null
 
+// Sync internal mode with prop
+watch(() => props.mode, (newMode) => {
+  internalMode.value = newMode
+})
+
 function handleClick() {
-  mode.value = mode.value === 'signal' ? 'waveform' : 'signal'
+  internalMode.value = internalMode.value === 'signal' ? 'waveform' : 'signal'
 }
 
 onMounted(() => {
-  if (mode.value === 'signal') {
+  if (internalMode.value === 'signal') {
     startSignalDrawing()
   } else {
     drawFullWaveform()
@@ -74,7 +84,7 @@ onUnmounted(() => {
 })
 
 // Watch for mode or waveformNode changes
-watch(() => mode.value, (newMode) => {
+watch(() => internalMode.value, (newMode) => {
   stopDrawing()
   if (newMode === 'signal') {
     startSignalDrawing()
@@ -84,19 +94,19 @@ watch(() => mode.value, (newMode) => {
 })
 
 watch(() => props.audioBuffer, () => {
-  if (mode.value === 'waveform') {
+  if (internalMode.value === 'waveform') {
     drawFullWaveform()
   }
 })
 
 watch(() => props.currentTime, () => {
-  if (mode.value === 'waveform') {
+  if (internalMode.value === 'waveform') {
     drawFullWaveform()
   }
 })
 
 watch(() => props.waveformNode, () => {
-  if (mode.value === 'signal') {
+  if (internalMode.value === 'signal') {
     stopDrawing()
     startSignalDrawing()
   }
@@ -285,7 +295,7 @@ function drawCenterLine(ctx: CanvasRenderingContext2D, width: number, height: nu
 
 // Start real-time signal animation loop
 function startSignalDrawing() {
-  if (animationId !== null || mode.value !== 'signal') return
+  if (animationId !== null || internalMode.value !== 'signal') return
 
   function animate() {
     drawSignal()
@@ -322,7 +332,7 @@ defineExpose({
   start: startSignalDrawing,
   stop: stopDrawing,
   redraw: () => {
-    if (mode.value === 'waveform') {
+    if (internalMode.value === 'waveform') {
       drawFullWaveform()
     }
   }
