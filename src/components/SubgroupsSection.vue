@@ -21,7 +21,7 @@
     </div>
 
     <!-- VU Meters and Faders -->
-    <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-4 min-h-0 mt-2">
+    <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-1 min-h-0 mt-5">
       <!-- VU Meters Row -->
       <div v-if="vuMetersHeight > 0"
         class="flex flex-col items-center gap-1 w-full justify-center bg-gray-900 rounded p-1 border border-gray-700">
@@ -29,6 +29,27 @@
           <VuMeter :level="leftLevel" label="L" :height="vuMetersHeight" :width="20" />
           <VuMeter :level="rightLevel" label="R" :height="vuMetersHeight" :width="20" />
           <div class="text-[6px] text-gray-500 uppercase tracking-wider absolute bottom-6 left-1/2 transform -translate-x-1/2">RMS</div>
+        </div>
+      </div>
+
+      <!-- FX Section -->
+      <div class="w-full bg-gray-900 rounded p-1 border border-gray-700 mb-2">
+        <div class="flex gap-1">
+          <TrackCompressor 
+            ref="trackCompressorRef" 
+            :enabled="compressorEnabled" 
+            :compressor-node="compressor" 
+            :meter="leftMeter" 
+            :track-number="0"
+            @toggle="toggleCompressor" 
+          />
+          <TrackReverb 
+            ref="trackReverbRef" 
+            :enabled="reverbEnabled" 
+            :reverb-node="reverb" 
+            :track-number="0"
+            @toggle="toggleReverb" 
+          />
         </div>
       </div>
 
@@ -40,7 +61,7 @@
     </div>
 
     <!-- Link Button -->
-    <div class="w-full mt-2">
+    <div class="w-full mt-0">
       <button @click="toggleLink" class="w-full py-1 text-xs font-bold rounded transition-all"
         :class="isLinked ? 'bg-gray-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
         <div class="flex items-center justify-center">
@@ -61,6 +82,8 @@
 <script setup lang="ts">
 import VuMeter from './core/VuMeter.vue'
 import OutputSelector from './master/OutputSelector.vue'
+import TrackCompressor from './audioTrack/TrackCompressor.vue'
+import TrackReverb from './audioTrack/TrackReverb.vue'
 import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 import SubgroupFader from './subgroups/SubgroupFader.vue'
 
@@ -72,6 +95,12 @@ let Tone: any = null
 const leftVolume = ref(0)
 const rightVolume = ref(0)
 const isLinked = ref(true)
+
+// FX refs and state
+const trackCompressorRef = ref<any>(null)
+const trackReverbRef = ref<any>(null)
+const compressorEnabled = ref(false)
+const reverbEnabled = ref(false)
 
 // VU meter levels
 const leftLevel = ref(-60)
@@ -89,6 +118,8 @@ let resizeObserver: ResizeObserver | null = null
 
 // Tone.js nodes
 let inputGainNode: any = null // Input buffer node
+let compressor: any = null
+let reverb: any = null
 let leftMeter: any = null
 let rightMeter: any = null
 let splitNode: any = null
@@ -169,6 +200,21 @@ function initSubgroupChannel() {
   // Create INPUT gain node (buffer for subgroupChannel to connect to)
   inputGainNode = new Tone.Gain(1)
   
+  // Create FX nodes
+  compressor = new Tone.Compressor({
+    threshold: -24,
+    ratio: 4,
+    attack: 0.003,
+    release: 0.25,
+    knee: 10
+  })
+  
+  reverb = new Tone.Reverb({
+    decay: 1.5,
+    preDelay: 0.01,
+    wet: 0
+  })
+  
   // Create stereo split/process/merge chain
   splitNode = new Tone.Split()
   leftGain = new Tone.Gain(1)
@@ -186,6 +232,8 @@ function initSubgroupChannel() {
   // Build audio chain:
   // INPUT: inputGainNode (subgroupChannel connects here)
   //   ↓
+  // compressor → reverb (based on enable state)
+  //   ↓
   // splitNode (split L/R)
   //   ↓           ↓
   // leftGain    rightGain
@@ -194,8 +242,8 @@ function initSubgroupChannel() {
   //   ↓           ↓
   // outputMerge → outputStreamDest → audio element
   
-  // Connect input to split
-  inputGainNode.connect(splitNode)
+  // Connect input through FX chain to split (will be rebuilt by reconnectAudioChain based on FX state)
+  reconnectAudioChain()
   
   // Left channel chain
   splitNode.connect(leftGain, 0)
@@ -273,6 +321,53 @@ function toggleLink() {
   }
 }
 
+// FX toggles
+function toggleCompressor() {
+  compressorEnabled.value = !compressorEnabled.value
+}
+
+function toggleReverb() {
+  reverbEnabled.value = !reverbEnabled.value
+}
+
+// Reconnect audio chain based on FX enable state
+function reconnectAudioChain() {
+  if (!inputGainNode || !splitNode || !compressor || !reverb) return
+  
+  // Disconnect all FX nodes
+  try {
+    inputGainNode.disconnect()
+    compressor.disconnect()
+    reverb.disconnect()
+  } catch (e) {
+    // Already disconnected
+  }
+  
+  // Build chain based on enabled FX
+  let currentNode = inputGainNode
+  
+  if (compressorEnabled.value && reverbEnabled.value) {
+    // Both enabled: input → compressor → reverb → split
+    currentNode.connect(compressor)
+    compressor.connect(reverb)
+    reverb.connect(splitNode)
+  } else if (compressorEnabled.value) {
+    // Only compressor: input → compressor → split
+    currentNode.connect(compressor)
+    compressor.connect(splitNode)
+  } else if (reverbEnabled.value) {
+    // Only reverb: input → reverb → split
+    currentNode.connect(reverb)
+    reverb.connect(splitNode)
+  } else {
+    // None enabled: input → split
+    currentNode.connect(splitNode)
+  }
+}
+
+// Watch for FX enable/disable
+watch([compressorEnabled, reverbEnabled], reconnectAudioChain)
+
 // Initialize
 onMounted(async () => {
   // Get Tone.js from inject
@@ -322,7 +417,11 @@ function getSnapshot() {
     leftVolume: leftVolume.value,
     rightVolume: rightVolume.value,
     isLinked: isLinked.value,
-    selectedOutput: selectedOutput.value
+    selectedOutput: selectedOutput.value,
+    compressorEnabled: compressorEnabled.value,
+    reverbEnabled: reverbEnabled.value,
+    compressorParams: trackCompressorRef.value?.getSnapshot() || null,
+    reverbParams: trackReverbRef.value?.getSnapshot() || null
   }
 }
 
@@ -336,6 +435,20 @@ function restoreSnapshot(snapshot: any) {
     selectedOutput.value = snapshot.selectedOutput
     nextTick(() => onOutputSelect())
   }
+  
+  // Restore FX state
+  if (snapshot.compressorEnabled !== undefined) compressorEnabled.value = snapshot.compressorEnabled
+  if (snapshot.reverbEnabled !== undefined) reverbEnabled.value = snapshot.reverbEnabled
+  
+  // Restore FX parameters
+  nextTick(() => {
+    if (snapshot.compressorParams && trackCompressorRef.value?.restoreSnapshot) {
+      trackCompressorRef.value.restoreSnapshot(snapshot.compressorParams)
+    }
+    if (snapshot.reverbParams && trackReverbRef.value?.restoreSnapshot) {
+      trackReverbRef.value.restoreSnapshot(snapshot.reverbParams)
+    }
+  })
 }
 
 // Expose interface
@@ -350,12 +463,24 @@ defineExpose({
     leftLevel.value = -60
     rightLevel.value = -60
     selectedOutput.value = null
+    compressorEnabled.value = false
+    reverbEnabled.value = false
+    
+    // Reset FX components
+    if (trackCompressorRef.value?.resetToDefaults) {
+      trackCompressorRef.value.resetToDefaults()
+    }
+    if (trackReverbRef.value?.resetToDefaults) {
+      trackReverbRef.value.resetToDefaults()
+    }
   }
 })
 
 // Cleanup
 onUnmounted(() => {
   if (inputGainNode) inputGainNode.dispose()
+  if (compressor) compressor.dispose()
+  if (reverb) reverb.dispose()
   if (leftMeter) leftMeter.dispose()
   if (rightMeter) rightMeter.dispose()
   if (splitNode) splitNode.dispose()
