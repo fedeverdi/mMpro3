@@ -1,10 +1,10 @@
 <template>
-  <!-- Compressor Toggle -->
+  <!-- Limiter Toggle -->
   <div @click="handleToggle" :class="[
     'w-full cursor-pointer py-1 px-2 text-[10px] font-bold rounded transition-all flex items-center justify-between',
     enabled ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
   ]">
-    <span>CO</span>
+    <span>LI</span>
     <button :disabled="!enabled" @click.stop="showModal = true"
       class="p-0.5 rounded hover:bg-green-700">
       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -16,27 +16,25 @@
     </button>
   </div>
 
-  <!-- Compressor Modal -->
+  <!-- Limiter Modal -->
   <Teleport to="body">
     <div v-if="showModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
       @click="showModal = false">
       <div class="bg-gray-900 rounded-lg border-2 border-green-600 p-6 max-w-2xl w-full mx-4" @click.stop>
         <div class="flex justify-between items-center mb-4">
-          <h3 class="text-xl font-bold text-green-300">Track {{ trackNumber }} - Compressor</h3>
+          <h3 class="text-xl font-bold text-green-300">Track {{ trackNumber }} - Limiter</h3>
           <button @click="showModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
         </div>
-        <!-- Compression Curve Display -->
+        <!-- Limiting Curve Display -->
         <div class="mb-6 bg-black/50 rounded-lg p-4 border border-green-600/30">
-          <p class="text-xs text-green-300 font-bold mb-2 text-center">COMPRESSION CURVE</p>
+          <p class="text-xs text-green-300 font-bold mb-2 text-center">LIMITING CURVE</p>
           <canvas ref="curveCanvas" class="w-full rounded" style="height: 300px;"></canvas>
         </div>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Knob v-model="threshold" :min="-60" :max="0" :step="0.5" label="Threshold" unit="dB"
-            color="#10b981" />
-          <Knob v-model="ratio" :min="1" :max="20" :step="0.1" label="Ratio" unit=":1" color="#10b981" />
-          <Knob v-model="attack" :min="0" :max="1" :step="0.01" label="Attack" unit="s" color="#10b981" />
-          <Knob v-model="release" :min="0" :max="4" :step="0.01" label="Release" unit="s" color="#10b981" />
+        <div class="flex flex-wrap gap-4 justify-center">
+          <Knob v-model="threshold" :min="-30" :max="0" :step="0.5" label="Threshold" unit="dB" color="#10b981" />
+          <Knob v-model="attack" :min="0" :max="0.05" :step="0.001" label="Attack" unit="s" color="#f59e0b" />
+          <Knob v-model="release" :min="0" :max="1" :step="0.01" label="Release" unit="s" color="#06b6d4" />
         </div>
       </div>
     </div>
@@ -50,7 +48,7 @@ import Knob from '../core/Knob.vue'
 interface Props {
   trackNumber: number
   enabled: boolean
-  compressorNode?: any
+  limiterNode?: any
   meter?: any
 }
 
@@ -63,109 +61,103 @@ const emit = defineEmits<{
 const showModal = ref(false)
 const curveCanvas = ref<HTMLCanvasElement | null>(null)
 
-// Internal state for controls
-const threshold = ref(-20)
-const ratio = ref(4)
-const attack = ref(0.1)
-const release = ref(0.25)
+// Internal state for controls (limiter has very high ratio, typically 20:1 or higher)
+const threshold = ref(-3)
+const attack = ref(0.003)
+const release = ref(0.1)
 
 function handleToggle() {
   emit('toggle')
 }
 
-function updateCompressorNode() {
-  if (!props.compressorNode) return
+function updateLimiterNode() {
+  if (!props.limiterNode) return
   
-  // Direct assignment instead of rampTo to avoid scheduling events
-  props.compressorNode.threshold.value = threshold.value
-  props.compressorNode.ratio.value = ratio.value
-  props.compressorNode.attack.value = attack.value
-  props.compressorNode.release.value = release.value
+  // Limiter is essentially a compressor with very high ratio
+  props.limiterNode.threshold.value = threshold.value
+  props.limiterNode.ratio.value = 20 // Fixed high ratio for limiting
+  props.limiterNode.attack.value = attack.value
+  props.limiterNode.release.value = release.value
   
   // Redraw curve if modal is open
   if (showModal.value) {
-    nextTick(() => drawCompressionCurve())
+    nextTick(() => drawLimitingCurve())
   }
 }
 
 // Watch for parameter changes
-watch([threshold, ratio, attack, release], () => {
-  updateCompressorNode()
+watch([threshold, attack, release], () => {
+  updateLimiterNode()
 })
 
 // Expose methods for snapshot save/restore
 defineExpose({
   getParams: () => ({
     threshold: threshold.value,
-    ratio: ratio.value,
     attack: attack.value,
     release: release.value
   }),
-  setParams: (params: { threshold: number, ratio: number, attack: number, release: number }) => {
+  setParams: (params: { threshold: number, attack: number, release: number }) => {
     threshold.value = params.threshold
-    ratio.value = params.ratio
     attack.value = params.attack
     release.value = params.release
-    updateCompressorNode()
+    updateLimiterNode()
   },
   resetToDefaults: () => {
-    threshold.value = -20
-    ratio.value = 4
-    attack.value = 0.1
-    release.value = 0.25
-    updateCompressorNode()
+    threshold.value = -3
+    attack.value = 0.003
+    release.value = 0.1
+    updateLimiterNode()
   },
   getSnapshot: () => ({
     threshold: threshold.value,
-    ratio: ratio.value,
     attack: attack.value,
     release: release.value
   }),
   restoreSnapshot: (snapshot: any) => {
     if (snapshot.threshold !== undefined) threshold.value = snapshot.threshold
-    if (snapshot.ratio !== undefined) ratio.value = snapshot.ratio
     if (snapshot.attack !== undefined) attack.value = snapshot.attack
     if (snapshot.release !== undefined) release.value = snapshot.release
-    updateCompressorNode()
+    updateLimiterNode()
   }
 })
 
-// Track compressor visualization
+// Track limiter visualization
 watch(showModal, (isOpen) => {
   if (isOpen) {
-    startCompressorMonitoring()
-    nextTick(() => drawCompressionCurve())
+    startLimiterMonitoring()
+    nextTick(() => drawLimitingCurve())
   } else {
-    stopCompressorMonitoring()
+    stopLimiterMonitoring()
   }
 })
 
-let compressorAnimationId: number | null = null
+let limiterAnimationId: number | null = null
 
-function startCompressorMonitoring() {
-  if (compressorAnimationId) return
+function startLimiterMonitoring() {
+  if (limiterAnimationId) return
 
   function updateTrackLevels() {
     if (!showModal.value || !props.meter) {
-      compressorAnimationId = null
+      limiterAnimationId = null
       return
     }
 
-    drawCompressionCurve()
-    compressorAnimationId = requestAnimationFrame(updateTrackLevels)
+    drawLimitingCurve()
+    limiterAnimationId = requestAnimationFrame(updateTrackLevels)
   }
 
   updateTrackLevels()
 }
 
-function stopCompressorMonitoring() {
-  if (compressorAnimationId) {
-    cancelAnimationFrame(compressorAnimationId)
-    compressorAnimationId = null
+function stopLimiterMonitoring() {
+  if (limiterAnimationId) {
+    cancelAnimationFrame(limiterAnimationId)
+    limiterAnimationId = null
   }
 }
 
-function drawCompressionCurve() {
+function drawLimitingCurve() {
   if (!curveCanvas.value) return
 
   const canvas = curveCanvas.value
@@ -216,7 +208,8 @@ function drawCompressionCurve() {
   ctx.stroke()
   ctx.setLineDash([])
 
-  // Draw compression curve
+  // Draw limiting curve (ratio = 20:1)
+  const ratio = 20
   ctx.strokeStyle = '#10b981'
   ctx.lineWidth = 3
   ctx.beginPath()
@@ -226,7 +219,7 @@ function drawCompressionCurve() {
     
     if (inputDb > threshold.value) {
       const excess = inputDb - threshold.value
-      const reducedExcess = excess / ratio.value
+      const reducedExcess = excess / ratio
       outputDb = threshold.value + reducedExcess
     }
     
@@ -241,8 +234,8 @@ function drawCompressionCurve() {
   }
   ctx.stroke()
 
-  // Draw threshold line
-  ctx.strokeStyle = '#f59e0b'
+  // Draw threshold line (hard limit)
+  ctx.strokeStyle = '#ef4444'
   ctx.lineWidth = 2
   ctx.setLineDash([3, 3])
   ctx.beginPath()
@@ -266,15 +259,15 @@ function drawCompressionCurve() {
       currentInputLevel = Math.max(-60, Math.min(0, currentInputLevel))
     } catch {}
 
-    // Calculate output level based on compression curve
+    // Calculate output level based on limiting curve
     let currentOutputLevel = currentInputLevel
     if (currentInputLevel > threshold.value) {
       const excess = currentInputLevel - threshold.value
-      const reducedExcess = excess / ratio.value
+      const reducedExcess = excess / ratio
       currentOutputLevel = threshold.value + reducedExcess
     }
 
-    // Draw the point on the compression curve
+    // Draw the point on the limiting curve
     ctx.fillStyle = '#ef4444'
     ctx.beginPath()
     ctx.arc(dbToX(currentInputLevel), dbToY(currentOutputLevel), 5, 0, Math.PI * 2)

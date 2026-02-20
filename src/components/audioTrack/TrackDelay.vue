@@ -1,10 +1,10 @@
 <template>
-  <!-- Reverb Toggle -->
+  <!-- Delay Toggle -->
   <div @click="handleToggle" :class="[
     'w-full cursor-pointer py-1 px-2 text-[10px] font-bold rounded transition-all flex items-center justify-between',
     enabled ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
   ]">
-    <span>RE</span>
+    <span>DE</span>
     <button :disabled="!enabled" @click.stop="showModal = true"
       class="p-0.5 rounded hover:bg-green-700">
       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -16,18 +16,18 @@
     </button>
   </div>
 
-  <!-- Reverb Modal -->
+  <!-- Delay Modal -->
   <Teleport to="body">
     <div v-if="showModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
       @click="showModal = false">
       <div class="bg-gray-900 rounded-lg border-2 border-green-600 p-6 max-w-2xl w-full mx-4" @click.stop>
         <div class="flex justify-between items-center mb-4">
-          <h3 class="text-xl font-bold text-green-300">Track {{ trackNumber }} - Reverb</h3>
+          <h3 class="text-xl font-bold text-green-300">Track {{ trackNumber }} - Delay</h3>
           <button @click="showModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
         </div>
         <div class="flex flex-wrap gap-4 justify-center">
-          <Knob v-model="decay" :min="0.1" :max="10" :step="0.1" label="Decay" unit="s" color="#10b981" />
-          <Knob v-model="preDelay" :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#f59e0b" />
+          <Knob v-model="delayTime" :min="0" :max="2" :step="0.01" label="Time" unit="s" color="#10b981" />
+          <Knob v-model="feedback" :min="0" :max="0.9" :step="0.01" label="Feedback" unit="%" color="#f59e0b" />
           <Knob v-model="wet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
         </div>
       </div>
@@ -42,7 +42,7 @@ import Knob from '../core/Knob.vue'
 interface Props {
   trackNumber: number
   enabled: boolean
-  reverbNode?: any
+  delayNode?: any
 }
 
 const props = defineProps<Props>()
@@ -54,57 +54,57 @@ const emit = defineEmits<{
 const showModal = ref(false)
 
 // Internal state for controls
-const decay = ref(1.5)
-const preDelay = ref(0.01)
+const delayTime = ref(0.25)
+const feedback = ref(0.3)
 const wet = ref(0.3)
 
 function handleToggle() {
   emit('toggle')
 }
 
-function updateReverbNode() {
-  if (!props.reverbNode) return
+function updateDelayNode() {
+  if (!props.delayNode) return
   
-  // Direct assignment instead of rampTo to avoid scheduling events
-  props.reverbNode.decay = decay.value // Decay can't be ramped, it's a constructor property
-  props.reverbNode.preDelay = preDelay.value // PreDelay can't be ramped either
-  props.reverbNode.wet.value = wet.value
+  // Update delay parameters
+  props.delayNode.delayTime.value = delayTime.value
+  props.delayNode.feedback.value = feedback.value
+  props.delayNode.wet.value = wet.value
 }
 
 // Watch for parameter changes
-watch([decay, preDelay, wet], () => {
-  updateReverbNode()
+watch([delayTime, feedback, wet], () => {
+  updateDelayNode()
 })
 
 // Expose methods for snapshot save/restore
 defineExpose({
   getParams: () => ({
-    decay: decay.value,
-    preDelay: preDelay.value,
+    delayTime: delayTime.value,
+    feedback: feedback.value,
     wet: wet.value
   }),
-  setParams: (params: { decay: number, preDelay: number, wet: number }) => {
-    decay.value = params.decay
-    preDelay.value = params.preDelay
+  setParams: (params: { delayTime: number, feedback: number, wet: number }) => {
+    delayTime.value = params.delayTime
+    feedback.value = params.feedback
     wet.value = params.wet
-    updateReverbNode()
+    updateDelayNode()
   },
   resetToDefaults: () => {
-    decay.value = 1.5
-    preDelay.value = 0.01
+    delayTime.value = 0.25
+    feedback.value = 0.3
     wet.value = 0.3
-    updateReverbNode()
+    updateDelayNode()
   },
   getSnapshot: () => ({
-    decay: decay.value,
-    preDelay: preDelay.value,
+    delayTime: delayTime.value,
+    feedback: feedback.value,
     wet: wet.value
   }),
   restoreSnapshot: (snapshot: any) => {
-    if (snapshot.decay !== undefined) decay.value = snapshot.decay
-    if (snapshot.preDelay !== undefined) preDelay.value = snapshot.preDelay
+    if (snapshot.delayTime !== undefined) delayTime.value = snapshot.delayTime
+    if (snapshot.feedback !== undefined) feedback.value = snapshot.feedback
     if (snapshot.wet !== undefined) wet.value = snapshot.wet
-    updateReverbNode()
+    updateDelayNode()
   }
 })
 </script>
