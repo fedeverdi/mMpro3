@@ -54,11 +54,11 @@
       </button>
 
       <!-- Recording Button -->
-      <RecorderButton @open="showRecorder = true" />
+      <RecorderButton :is-recording="isRecording" @open="showRecorder = true" />
     </div>
 
     <!-- Recorder Modal -->
-    <Recorder v-model="showRecorder" :audio-node="mergeNodeRef" :tone="ToneRef" />
+    <Recorder v-model="showRecorder" v-model:is-recording="isRecording" :audio-node="mergeNodeRef" :tone="ToneRef" />
   </div>
 </template>
 
@@ -95,6 +95,7 @@ const headphonesLevel = ref(-60)
 
 // Recorder modal
 const showRecorder = ref(false)
+const isRecording = ref(false)
 
 // Audio outputs
 const audioOutputs = ref<MediaDeviceInfo[]>([])
