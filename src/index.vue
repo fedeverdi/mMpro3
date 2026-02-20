@@ -28,10 +28,25 @@
 
                     <div class="w-px h-6 bg-gray-600"></div>
 
-                    <button @click="addTrack" :disabled="tracks.length >= 24"
-                        class="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded text-xs font-semibold transition-colors">
-                        + Add
-                    </button>
+                    <div class="relative">
+                        <button @click="showAddTrackMenu = !showAddTrackMenu" :disabled="tracks.length >= 24"
+                            class="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded text-xs font-semibold transition-colors">
+                            + Add
+                        </button>
+                        
+                        <!-- Dropdown Menu -->
+                        <div v-if="showAddTrackMenu" 
+                            class="absolute top-full left-0 mt-1 w-32 bg-gray-800 border border-gray-600 rounded shadow-lg z-50">
+                            <button @click="addTrackOfType('audio')"
+                                class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2">
+                                🎵 Audio Track
+                            </button>
+                            <button @click="addTrackOfType('signal')"
+                                class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2">
+                                📡 Signal Track
+                            </button>
+                        </div>
+                    </div>
 
                     <button @click="removeTrack" :disabled="tracks.length <= 1"
                         class="px-3 py-1 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded text-xs font-semibold transition-colors">
@@ -88,7 +103,10 @@
                         <!-- Audio Tracks -->
                         <template v-else>
                             <div v-for="track in tracks" :key="track.id" class="w-[8rem] h-full mixer-fade-in">
-                                <AudioTrack :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
+                                <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
+                                    :master-channel="masterChannel" @soloChange="handleSoloChange"
+                                    @levelUpdate="handleLevelUpdate" />
+                                <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
                                     :master-channel="masterChannel" @soloChange="handleSoloChange"
                                     @levelUpdate="handleLevelUpdate" />
                             </div>
@@ -189,6 +207,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, toRaw, nextTick, inject } from 'vue'
 import AudioTrack from './components/AudioTrack.vue'
+import SignalTrack from './components/SignalTrack.vue'
 import AudioFlowModal from './components/layout/AudioFlowModal.vue'
 import MasterEQDisplay from './components/master/MasterEQDisplay.vue'
 import MasterFX from './components/master/MasterFX.vue'
@@ -207,6 +226,7 @@ const masterChannel = ref<any>(null)
 
 interface Track {
     id: number
+    type: 'audio' | 'signal'
 }
 
 // App ready state
@@ -218,15 +238,17 @@ const showScenesModal = ref(false)
 
 // Tracks management
 const tracks = ref<Track[]>([
-    { id: 1 },
-    { id: 2 },
-    { id: 3 },
-    { id: 4 },
-    { id: 5 },
-    { id: 6 },
-    { id: 7 },
-    { id: 8 }
+    { id: 1, type: 'audio' },
+    { id: 2, type: 'audio' },
+    { id: 3, type: 'audio' },
+    { id: 4, type: 'audio' },
+    { id: 5, type: 'audio' },
+    { id: 6, type: 'audio' },
+    { id: 7, type: 'signal' },
+    { id: 8, type: 'signal' }
 ])
+
+const showAddTrackMenu = ref(false)
 
 function getNextAvailableId(): number {
     // Find the smallest available ID from 1 to 24
@@ -239,9 +261,10 @@ function getNextAvailableId(): number {
     return Math.max(...tracks.value.map(t => t.id)) + 1
 }
 
-function addTrack() {
+function addTrackOfType(type: 'audio' | 'signal') {
     if (tracks.value.length >= 24) return
-    tracks.value.push({ id: getNextAvailableId() })
+    tracks.value.push({ id: getNextAvailableId(), type })
+    showAddTrackMenu.value = false
 }
 
 function removeTrack() {
@@ -548,6 +571,14 @@ onMounted(async () => {
     setTimeout(() => {
         isReady.value = true
     }, 100)
+
+    // Close add track menu when clicking outside
+    document.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement
+        if (!target.closest('.relative')) {
+            showAddTrackMenu.value = false
+        }
+    })
 })
 </script>
 
