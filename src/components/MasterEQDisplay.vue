@@ -84,6 +84,16 @@ watch(() => props.filtersData, (newVal) => {
   syncFiltersData(newVal)
 }, { immediate: true })
 
+// Watch for masterChannel to become available
+watch(() => props.masterChannel, (newVal) => {
+  if (newVal && Tone && !outputNode) {
+    outputNode = new Tone.Gain(1)
+    // Connect master to output
+    const masterChan = toRaw(newVal)
+    masterChan.connect(outputNode)
+  }
+}, { immediate: true })
+
 onMounted(async () => {
   // Get Tone.js
   if (ToneRef?.value) {
@@ -95,7 +105,7 @@ onMounted(async () => {
   window.addEventListener('resize', requestRedraw)
   
   // Create output node for chaining
-  if (Tone && props.masterChannel) {
+  if (Tone && props.masterChannel && !outputNode) {
     outputNode = new Tone.Gain(1)
     // Initially connect master directly to output
     const masterChan = toRaw(props.masterChannel)

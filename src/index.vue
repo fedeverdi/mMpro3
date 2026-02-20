@@ -143,16 +143,16 @@
                             <MasterEQDisplay ref="masterEQDisplayRef" :filters-data="masterEqFiltersData" :master-channel="masterChannel" />
                         </div>
                         <div class="flex-[1.5] min-h-0">
-                            <SpectrumMeter :master-eq-display="masterEQDisplayRef" />
+                            <SpectrumMeter :master-fx="masterFxRef" />
                         </div>
                         <div class="flex-1 min-h-0">
-                            <MasterFX :master-section="masterSectionRef" />
+                            <MasterFX ref="masterFxRef" :master-eq-display="masterEQDisplayRef" :master-section="masterSectionRef" />
                         </div>
                     </div>
 
                     <!-- Master Section -->
                     <div class="w-44 h-full mixer-fade-in">
-                        <MasterSection ref="masterSectionRef" :master-eq-display="masterEQDisplayRef" />
+                        <MasterSection ref="masterSectionRef" :master-eq-display="masterEQDisplayRef" :master-fx="masterFxRef" />
                     </div>
                 </template>
             </div>
@@ -253,6 +253,7 @@ function removeTrack() {
 // Track refs management
 const trackRefs = ref<Map<number, any>>(new Map())
 const masterEQDisplayRef = ref<any>(null)
+const masterFxRef = ref<any>(null)
 const masterSectionRef = ref<any>(null)
 
 function setTrackRef(trackId: number, el: any | null) {
@@ -525,6 +526,11 @@ onMounted(async () => {
         channelCountMode: 'explicit',
         channelInterpretation: 'speakers'
     })
+    
+    // Ensure audio context is running
+    if (Tone.context.state !== 'running') {
+        await Tone.context.resume()
+    }
 
     // Enumerate audio devices ONCE for all tracks
     await enumerateAudioInputs()

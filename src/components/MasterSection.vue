@@ -71,6 +71,7 @@ import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 // Props
 interface Props {
   masterEqDisplay?: any
+  masterFx?: any
 }
 
 const props = defineProps<Props>()
@@ -110,7 +111,6 @@ const fadersHeight = ref(0)
 let resizeObserver: ResizeObserver | null = null
 
 // Tone.js nodes
-let masterChannel: any = null
 let leftMeter: any = null
 let rightMeter: any = null
 let headphonesMeter: any = null
@@ -118,36 +118,6 @@ let splitNode: any = null
 let leftGain: any = null
 let rightGain: any = null
 let mergeNode: any = null
-
-// FX nodes
-let compressorNode: any = null
-let reverbNode: any = null
-let delayNode: any = null
-let limiterNode: any = null
-const fxChainEnabled = new Set<string>()
-let isRegeneratingReverb = false
-let isUpdatingLimiter = false
-
-// FX parameters (for scene snapshots)
-const compressorParams = ref({
-  threshold: -40,
-  ratio: 2,
-  attack: 0.01,
-  release: 0.25
-})
-const reverbParams = ref({
-  decay: 1.5,
-  preDelay: 0.01,
-  wet: 0.3
-})
-const delayParams = ref({
-  delayTime: 0.25,
-  feedback: 0.15,
-  wet: 0.15
-})
-const limiterParams = ref({
-  threshold: -1
-})
 
 // Calculate meters height based on container
 function updateMetersHeight() {
@@ -207,20 +177,12 @@ async function onHeadphonesOutputSelect(deviceId: string | null) {
 
 // Initialize master channel
 function initMasterChannel() {
-  if (masterChannel || !Tone) {
+  if (splitNode || !Tone) {
     return
   }
-
-  // Get output node from MasterEQDisplay
-  if (props.masterEqDisplay && props.masterEqDisplay.getOutputNode) {
-    masterChannel = props.masterEqDisplay.getOutputNode()
-  } else {
-    return
-  }
-
-  if (!masterChannel) return
 
   // Create stereo routing: Split → [LeftGain, RightGain] → Merge
+  // Input will come from MasterFX.outputNode via rebuildFXChain()
   splitNode = new Tone.Split()
   leftGain = new Tone.Gain(1)
   rightGain = new Tone.Gain(1)
@@ -327,11 +289,11 @@ watch(leftVolume, (newVal) => {
   }
 })
 
-// Watch for masterEQDisplay to become available and init
-watch(() => props.masterEqDisplay, (newVal) => {
-  if (newVal && newVal.getOutputNode && !masterChannel) {
+// Watch for masterFx to become available and rebuild chain
+watch(() => props.masterFx, (newVal) => {
+  if (newVal && newVal.getOutputNode && splitNode) {
     setTimeout(() => {
-      initMasterChannel()
+      rebuildFXChain()
     }, 100)
   }
 }, { immediate: true })
@@ -371,10 +333,12 @@ onMounted(async () => {
   // Get Tone.js from inject
   if (ToneRef?.value) {
     Tone = ToneRef.value
+    initMasterChannel()
   } else {
     const checkTone = setInterval(() => {
       if (ToneRef?.value) {
         Tone = ToneRef.value
+        initMasterChannel()
         clearInterval(checkTone)
       }
     }, 100)
@@ -407,297 +371,16 @@ onMounted(async () => {
   }, 200)
 })
 
-// Rebuild FX chain
+// Rebuild FX chain (now handled by MasterFX internally)
 function rebuildFXChain() {
-  if (!props.masterEqDisplay?.getOutputNode || !Tone) return
+  if (!props.masterFx?.getOutputNode || !Tone || !splitNode) return
 
-  const eqOutput = props.masterEqDisplay.getOutputNode()
-  if (!eqOutput) return
+  const fxOutput = props.masterFx.getOutputNode()
+  if (!fxOutput) return
 
-  // Disconnect FX chain nodes (but preserve other connections like spectrum analyzer)
-  try {
-    // Disconnect eqOutput only from compressor if it exists
-    if (compressorNode) {
-      try { eqOutput.disconnect(compressorNode) } catch (e) {}
-      compressorNode.disconnect()
-    }
-    if (reverbNode) {
-      try { eqOutput.disconnect(reverbNode) } catch (e) {}
-      reverbNode.disconnect()
-    }
-    if (delayNode) {
-      try { eqOutput.disconnect(delayNode) } catch (e) {}
-      delayNode.disconnect()
-    }
-    if (limiterNode) {
-      try { eqOutput.disconnect(limiterNode) } catch (e) {}
-      limiterNode.disconnect()
-    }
-    // Disconnect eqOutput from splitNode if no FX active
-    if (splitNode && fxChainEnabled.size === 0) {
-      try { eqOutput.disconnect(splitNode) } catch (e) {}
-    }
-  } catch (e) {
-    // Ignore disconnect errors
-  }
-
-  // Build chain based on enabled effects
-  let currentNode = eqOutput
-  
-  if (fxChainEnabled.has('compressor') && compressorNode) {
-    currentNode.connect(compressorNode)
-    currentNode = compressorNode
-  }
-  
-  if (fxChainEnabled.has('reverb') && reverbNode) {
-    currentNode.connect(reverbNode)
-    currentNode = reverbNode
-  }
-  
-  if (fxChainEnabled.has('delay') && delayNode) {
-    currentNode.connect(delayNode)
-    currentNode = delayNode
-  }
-  
-  if (fxChainEnabled.has('limiter') && limiterNode) {
-    currentNode.connect(limiterNode)
-    currentNode = limiterNode
-  }
-
-  // Connect final node to splitNode if it exists, otherwise to destination
-  if (splitNode) {
-    currentNode.connect(splitNode)
-  } else {
-    currentNode.toDestination()
-  }
-}
-
-// FX Control Methods
-async function toggleCompressor(enabled: boolean, params?: any) {
-  if (!Tone) return
-
-  if (enabled) {
-    if (!compressorNode) {
-      // Create with very conservative settings to avoid level changes
-      compressorNode = new Tone.Compressor({
-        threshold: params?.threshold ?? -40,  // Very high threshold
-        ratio: params?.ratio ?? 2,             // Gentle ratio
-        attack: params?.attack ?? 0.01,        // Slower attack for transparency
-        release: params?.release ?? 0.25,
-        knee: 30  // Very soft knee for maximum transparency
-      })
-    }
-    fxChainEnabled.add('compressor')
-  } else {
-    fxChainEnabled.delete('compressor')
-  }
-
-  rebuildFXChain()
-}
-
-function updateCompressor(params: any) {
-  if (!compressorNode) return
-  
-  // Save parameters to ref for snapshots
-  if (params.threshold !== undefined) compressorParams.value.threshold = params.threshold
-  if (params.ratio !== undefined) compressorParams.value.ratio = params.ratio
-  if (params.attack !== undefined) compressorParams.value.attack = params.attack
-  if (params.release !== undefined) compressorParams.value.release = params.release
-  
-  // Use longer ramp times to avoid metallic artifacts
-  if (params.threshold !== undefined) compressorNode.threshold.rampTo(params.threshold, 0.05)
-  if (params.ratio !== undefined) compressorNode.ratio.rampTo(params.ratio, 0.05)
-  if (params.attack !== undefined) compressorNode.attack.rampTo(params.attack, 0.05)
-  if (params.release !== undefined) compressorNode.release.rampTo(params.release, 0.05)
-  if (params.knee !== undefined && compressorNode.knee) compressorNode.knee.rampTo(params.knee, 0.05)
-}
-
-async function toggleReverb(enabled: boolean, params?: any) {
-  if (!Tone) return
-
-  if (enabled) {
-    if (!reverbNode) {
-      reverbNode = new Tone.Reverb({
-        decay: params?.decay ?? 1.5,
-        preDelay: params?.preDelay ?? 0.01
-      })
-      reverbNode.wet.value = 0  // Start at 0
-      await reverbNode.generate()
-      reverbNode.wet.rampTo(params?.wet ?? 0.3, 0.05)  // Smooth fade in
-    }
-    fxChainEnabled.add('reverb')
-  } else {
-    fxChainEnabled.delete('reverb')
-  }
-
-  rebuildFXChain()
-}
-
-function updateReverb(params: any) {
-  if (!reverbNode) return
-  
-  // Save parameters to ref for snapshots
-  if (params.decay !== undefined) reverbParams.value.decay = params.decay
-  if (params.preDelay !== undefined) reverbParams.value.preDelay = params.preDelay
-  if (params.wet !== undefined) reverbParams.value.wet = params.wet
-  
-  if (params.wet !== undefined && !isRegeneratingReverb) {
-    // Smooth transition for wet parameter (100ms)
-    reverbNode.wet.rampTo(params.wet, 0.1)
-  }
-  
-  // Decay and preDelay require regeneration
-  if (params.decay !== undefined || params.preDelay !== undefined) {
-    // Prevent multiple simultaneous regenerations
-    if (isRegeneratingReverb) return
-    
-    isRegeneratingReverb = true
-    const currentWet = reverbNode.wet.value
-    const oldReverb = reverbNode
-    
-    // Create new reverb with updated parameters
-    const newReverb = new Tone.Reverb({
-      decay: params.decay ?? oldReverb.decay,
-      preDelay: params.preDelay ?? oldReverb.preDelay
-    })
-    newReverb.wet.value = 0
-    
-    // Step 1: Fade out old reverb to avoid click
-    if (oldReverb.wet.value > 0) {
-      oldReverb.wet.rampTo(0, 0.05)
-    }
-    
-    // Generate impulse response
-    newReverb.generate().then(() => {
-      // Step 2: Wait for fade out to complete (60ms), then swap
-      setTimeout(() => {
-        reverbNode = newReverb
-        rebuildFXChain()
-        
-        // Dispose old reverb (already disconnected by rebuildFXChain)
-        if (oldReverb) {
-          try {
-            oldReverb.disconnect()
-            oldReverb.dispose()
-          } catch (e) {}
-        }
-        
-        // Step 3: Fade in new reverb smoothly
-        newReverb.wet.rampTo(params.wet ?? currentWet, 0.05)
-        
-        // Reset regeneration flag
-        setTimeout(() => {
-          isRegeneratingReverb = false
-        }, 100)
-      }, 60)
-    })
-  }
-}
-
-async function toggleDelay(enabled: boolean, params?: any) {
-  if (!Tone) return
-
-  if (enabled) {
-    if (!delayNode) {
-      delayNode = new Tone.FeedbackDelay({
-        delayTime: params?.delayTime ?? 0.25,
-        feedback: params?.feedback ?? 0.5
-      })
-      delayNode.wet.rampTo(params?.wet ?? 0.3, 0.01)
-    }
-    fxChainEnabled.add('delay')
-  } else {
-    fxChainEnabled.delete('delay')
-  }
-
-  rebuildFXChain()
-}
-
-function updateDelay(params: any) {
-  if (!delayNode) return
-  
-  // Save parameters to ref for snapshots
-  if (params.delayTime !== undefined) delayParams.value.delayTime = params.delayTime
-  if (params.feedback !== undefined) delayParams.value.feedback = params.feedback
-  if (params.wet !== undefined) delayParams.value.wet = params.wet
-  
-  if (params.delayTime !== undefined) delayNode.delayTime.rampTo(params.delayTime, 0.01)
-  if (params.feedback !== undefined) delayNode.feedback.rampTo(params.feedback, 0.01)
-  if (params.wet !== undefined) delayNode.wet.rampTo(params.wet, 0.01)
-}
-
-async function toggleLimiter(enabled: boolean, params?: any) {
-  if (!Tone) return
-
-  if (enabled) {
-    if (!limiterNode) {
-      const threshold = Math.max(-20, Math.min(3, params?.threshold ?? -1))
-      limiterNode = new Tone.Limiter(threshold)
-    }
-    fxChainEnabled.add('limiter')
-  } else {
-    fxChainEnabled.delete('limiter')
-  }
-
-  rebuildFXChain()
-}
-
-function updateLimiter(params: any) {
-  if (!limiterNode || !Tone) return
-  
-  if (params.threshold !== undefined) {
-    // Save parameter to ref for snapshots
-    limiterParams.value.threshold = params.threshold
-    
-    // Prevent multiple simultaneous updates
-    if (isUpdatingLimiter) return
-    
-    isUpdatingLimiter = true
-    const threshold = Math.max(-20, Math.min(3, params.threshold))
-    
-    // Create temporary gain for smooth transition
-    const fadeGain = new Tone.Gain(1)
-    const oldLimiter = limiterNode
-    const newLimiter = new Tone.Limiter(threshold)
-    
-    // Insert fadeGain before the limiter in the chain
-    const eqOutput = props.masterEqDisplay?.getOutputNode()
-    if (!eqOutput) {
-      isUpdatingLimiter = false
-      return
-    }
-    
-    // Quick fade out (30ms)
-    fadeGain.gain.rampTo(0, 0.03)
-    
-    setTimeout(() => {
-      // Swap limiter while volume is at 0
-      limiterNode = newLimiter
-      rebuildFXChain()
-      
-      // Dispose old limiter
-      if (oldLimiter) {
-        try {
-          oldLimiter.disconnect()
-          oldLimiter.dispose()
-        } catch (e) {}
-      }
-      
-      // Quick fade in (30ms)
-      setTimeout(() => {
-        fadeGain.gain.rampTo(1, 0.03)
-        
-        // Cleanup and reset flag
-        setTimeout(() => {
-          isUpdatingLimiter = false
-          try {
-            fadeGain.disconnect()
-            fadeGain.dispose()
-          } catch (e) {}
-        }, 50)
-      }, 10)
-    }, 40)
-  }
+  // NO disconnect! MasterFX output can have multiple destinations (SpectrumMeter + MasterSection)
+  // Just connect (Tone.js allows multiple connections from same source)
+  fxOutput.connect(splitNode)
 }
 
 // Expose meter values for FX visualization
@@ -718,26 +401,15 @@ function getPreLimiterValues() {
 
 // Scene Snapshot Support
 function getSnapshot() {
+  // Get FX snapshot from MasterFX
+  const fxSnapshot = props.masterFx?.getSnapshot?.() || {}
+  
   return {
     leftVolume: leftVolume.value,
     rightVolume: rightVolume.value,
     headphonesVolume: headphonesVolume.value,
     isLinked: isLinked.value,
-    compressorEnabled: fxChainEnabled.has('compressor'),
-    compressorThreshold: compressorParams.value.threshold,
-    compressorRatio: compressorParams.value.ratio,
-    compressorAttack: compressorParams.value.attack,
-    compressorRelease: compressorParams.value.release,
-    reverbEnabled: fxChainEnabled.has('reverb'),
-    reverbDecay: reverbParams.value.decay,
-    reverbPreDelay: reverbParams.value.preDelay,
-    reverbWet: reverbParams.value.wet,
-    delayEnabled: fxChainEnabled.has('delay'),
-    delayTime: delayParams.value.delayTime,
-    delayFeedback: delayParams.value.feedback,
-    delayWet: delayParams.value.wet,
-    limiterEnabled: fxChainEnabled.has('limiter'),
-    limiterThreshold: limiterParams.value.threshold
+    ...fxSnapshot  // Merge FX snapshot
   }
 }
 
@@ -750,72 +422,18 @@ function restoreSnapshot(snapshot: any) {
   if (snapshot.headphonesVolume !== undefined) headphonesVolume.value = snapshot.headphonesVolume
   if (snapshot.isLinked !== undefined) isLinked.value = snapshot.isLinked
 
-  // Restore Compressor
-  if (snapshot.compressorEnabled !== undefined) {
-    const params = {
-      threshold: snapshot.compressorThreshold ?? compressorParams.value.threshold,
-      ratio: snapshot.compressorRatio ?? compressorParams.value.ratio,
-      attack: snapshot.compressorAttack ?? compressorParams.value.attack,
-      release: snapshot.compressorRelease ?? compressorParams.value.release
-    }
-    // Update params ref before toggling
-    compressorParams.value = params
-    toggleCompressor(snapshot.compressorEnabled, params)
-  }
-
-  // Restore Reverb
-  if (snapshot.reverbEnabled !== undefined) {
-    const params = {
-      decay: snapshot.reverbDecay ?? reverbParams.value.decay,
-      preDelay: snapshot.reverbPreDelay ?? reverbParams.value.preDelay,
-      wet: snapshot.reverbWet ?? reverbParams.value.wet
-    }
-    // Update params ref before toggling
-    reverbParams.value = params
-    toggleReverb(snapshot.reverbEnabled, params)
-  }
-
-  // Restore Delay
-  if (snapshot.delayEnabled !== undefined) {
-    const params = {
-      delayTime: snapshot.delayTime ?? delayParams.value.delayTime,
-      feedback: snapshot.delayFeedback ?? delayParams.value.feedback,
-      wet: snapshot.delayWet ?? delayParams.value.wet
-    }
-    // Update params ref before toggling
-    delayParams.value = params
-    toggleDelay(snapshot.delayEnabled, params)
-  }
-
-  // Restore Limiter
-  if (snapshot.limiterEnabled !== undefined) {
-    const params = {
-      threshold: snapshot.limiterThreshold ?? limiterParams.value.threshold
-    }
-    // Update params ref before toggling
-    limiterParams.value = params
-    toggleLimiter(snapshot.limiterEnabled, params)
+  // Restore FX via MasterFX
+  if (props.masterFx?.restoreSnapshot) {
+    props.masterFx.restoreSnapshot(snapshot)
   }
 }
 
 // Expose minimal interface
 defineExpose({
-  toggleCompressor,
-  updateCompressor,
-  toggleReverb,
-  updateReverb,
-  toggleDelay,
-  updateDelay,
-  toggleLimiter,
-  updateLimiter,
   getMeterValues,
   getPreLimiterValues,
   getSnapshot,
-  restoreSnapshot,
-  compressorNode: () => compressorNode,
-  reverbNode: () => reverbNode,
-  delayNode: () => delayNode,
-  limiterNode: () => limiterNode
+  restoreSnapshot
 })
 
 // Cleanup
@@ -828,12 +446,6 @@ onUnmounted(() => {
   if (rightGain) rightGain.dispose()
   if (mergeNode) mergeNode.dispose()
   if (headphonesGain) headphonesGain.dispose()
-
-  // Cleanup FX nodes
-  if (compressorNode) compressorNode.dispose()
-  if (reverbNode) reverbNode.dispose()
-  if (delayNode) delayNode.dispose()
-  if (limiterNode) limiterNode.dispose()
 
   // Cleanup headphones audio element
   if (headphonesAudioElement) {

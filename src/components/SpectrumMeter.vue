@@ -93,7 +93,7 @@
 import { ref, watch, onMounted, onUnmounted, toRaw, inject } from 'vue'
 
 interface Props {
-  masterEqDisplay?: any
+  masterFx?: any
 }
 
 const props = defineProps<Props>()
@@ -157,9 +157,9 @@ const ensureAnalyser = async () => {
 }
 
 const getMasterNode = () => {
-  // Get output node from MasterEQDisplay
-  if (!props.masterEqDisplay || !props.masterEqDisplay.getOutputNode) return null
-  const node = props.masterEqDisplay.getOutputNode()
+  // Get output node from MasterFX
+  if (!props.masterFx || !props.masterFx.getOutputNode) return null
+  const node = props.masterFx.getOutputNode()
   return node ? toRaw(node) : null
 }
 
