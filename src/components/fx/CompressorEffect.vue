@@ -57,13 +57,13 @@
                 color="#3b82f6" />
 
               <Knob class="scale-[0.8]" v-model="ratio" :min="1" :max="20" :step="0.1" label="Ratio" unit=":1"
-                color="#3b82f6" />
+                color="#6366f1" />
 
               <Knob class="scale-[0.8]" v-model="attack" :min="0.001" :max="0.1" :step="0.001" label="Attack" unit="s"
-                color="#3b82f6" />
+                color="#8b5cf6" />
 
               <Knob class="scale-[0.8]" v-model="release" :min="0.01" :max="1" :step="0.01" label="Release" unit="s"
-                color="#3b82f6" />
+                color="#a855f7" />
             </div>
           </div>
         </div>

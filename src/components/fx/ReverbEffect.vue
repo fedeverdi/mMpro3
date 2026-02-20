@@ -48,9 +48,9 @@
           <div class="grid grid-cols-3 gap-4">
             <Knob class="scale-[0.8]" v-model="decay" :min="0.1" :max="10" :step="0.1" label="Decay" unit="s" color="#10b981" />
 
-            <Knob class="scale-[0.8]" v-model="preDelay" :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#10b981" />
+            <Knob class="scale-[0.8]" v-model="preDelay" :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#14b8a6" />
 
-            <Knob class="scale-[0.8]" v-model="wet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#10b981" />
+            <Knob class="scale-[0.8]" v-model="wet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
           </div>
         </div>
       </div>
