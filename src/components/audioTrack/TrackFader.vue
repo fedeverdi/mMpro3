@@ -58,7 +58,7 @@
             bottom: thumbPosition + 'px',
             width: '26px',
             height: '52px',
-            transition: isDragging ? 'none' : 'transform 0.1s ease'
+            transition: isDragging ? 'none' : 'bottom 0.4s ease-out, transform 0.1s ease'
           }"
         >
           <!-- Cap body with clean Tailwind design -->

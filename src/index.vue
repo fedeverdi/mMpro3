@@ -384,7 +384,13 @@ async function handleSaveScene(sceneName: string) {
 
     const masterSnapshot = {
         ...masterSectionSnapshot,
-        masterEQFilters: masterEqFiltersData.value
+        masterEQFilters: masterEqFiltersData.value.map((filter: any) => ({
+            type: filter.type,
+            frequency: filter.frequency,
+            gain: filter.gain,
+            Q: filter.Q,
+            color: filter.color
+        }))
     }
 
     // Create and save scene
@@ -396,34 +402,53 @@ function handleLoadScene(sceneId: string) {
     const scene = scenes.value.find((s: Scene) => s.id === sceneId)
     if (!scene) return
 
-    // Restore each track's state
-    scene.tracks.forEach((trackSnapshot: TrackSnapshot) => {
-        const trackRef = trackRefs.value.get(trackSnapshot.trackNumber)
-        if (trackRef && trackRef.restoreFromSnapshot) {
-            trackRef.restoreFromSnapshot(trackSnapshot)
-        }
-    })
+    // Close the modal first
+    showScenesModal.value = false
 
-    // Restore master EQ filters
-    if (scene.master.masterEQFilters && scene.master.masterEQFilters.length > 0) {
-        masterEqFiltersData.value = scene.master.masterEQFilters.map((filter: any) => ({
-            type: filter.type,
-            frequency: filter.frequency,
-            gain: filter.gain,
-            Q: filter.Q,
-            color: filter.color || '#3b82f6'
-        }))
-    } else {
-        masterEqFiltersData.value = []
-    }
+    // Small delay before starting the animation
+    setTimeout(() => {
+        // Animate faders to -∞ (mute) first (digital mixer effect)
+        trackRefs.value.forEach((trackRef) => {
+            if (trackRef && trackRef.getSnapshot) {
+                const snapshot = trackRef.getSnapshot()
+                // Create a temporary snapshot with volume at -90 (-∞ / muted)
+                const muteSnapshot = { ...snapshot, volume: -90 }
+                trackRef.restoreFromSnapshot(muteSnapshot)
+            }
+        })
 
-    // Restore master section state (volumes, FX)
-    if (masterSectionRef.value?.restoreSnapshot) {
-        masterSectionRef.value.restoreSnapshot(scene.master)
-    }
+        // Wait before restoring actual values (give time to see the animation)
+        setTimeout(() => {
+            // Restore each track's state
+            scene.tracks.forEach((trackSnapshot: TrackSnapshot) => {
+                const trackRef = trackRefs.value.get(trackSnapshot.trackNumber)
+                if (trackRef && trackRef.restoreFromSnapshot) {
+                    trackRef.restoreFromSnapshot(trackSnapshot)
+                }
+            })
 
-    // Set as current scene
-    setCurrentScene(scene.id)
+            // Restore master EQ filters
+            if (scene.master.masterEQFilters && scene.master.masterEQFilters.length > 0) {
+                masterEqFiltersData.value = scene.master.masterEQFilters.map((filter: any) => ({
+                    type: filter.type,
+                    frequency: filter.frequency,
+                    gain: filter.gain,
+                    Q: filter.Q,
+                    color: filter.color || '#3b82f6'
+                }))
+            } else {
+                masterEqFiltersData.value = []
+            }
+
+            // Restore master section state (volumes, FX)
+            if (masterSectionRef.value?.restoreSnapshot) {
+                masterSectionRef.value.restoreSnapshot(scene.master)
+            }
+
+            // Set as current scene
+            setCurrentScene(scene.id)
+        }, 600) // Wait 0.6 seconds at -∞ before restoring values
+    }, 200) // Initial delay after closing modal
 }
 
 async function handleUpdateScene(sceneId: string) {
@@ -453,7 +478,13 @@ async function handleUpdateScene(sceneId: string) {
 
     const masterSnapshot = {
         ...masterSectionSnapshot,
-        masterEQFilters: masterEqFiltersData.value
+        masterEQFilters: masterEqFiltersData.value.map((filter: any) => ({
+            type: filter.type,
+            frequency: filter.frequency,
+            gain: filter.gain,
+            Q: filter.Q,
+            color: filter.color
+        }))
     }
 
     // Update scene
