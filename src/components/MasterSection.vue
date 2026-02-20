@@ -63,9 +63,9 @@
 </template>
 
 <script setup lang="ts">
-import MasterFader from './MasterFader.vue'
-import VuMeter from './VuMeter.vue'
-import HeadphonesControl from './HeadphonesControl.vue'
+import MasterFader from './master/MasterFader.vue'
+import VuMeter from './core/VuMeter.vue'
+import HeadphonesControl from './master/HeadphonesControl.vue'
 import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 
 // Props

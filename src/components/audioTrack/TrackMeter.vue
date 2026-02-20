@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import VuMeter from './VuMeter.vue'
+import VuMeter from '../core/VuMeter.vue'
 
 interface Props {
   levelL: number    // Left or mono level in dB
