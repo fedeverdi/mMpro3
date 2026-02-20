@@ -58,12 +58,29 @@
         />
       </svg>
     </div>
-    <div class="text-xs text-white font-mono">{{ displayValue }}</div>
+    <div 
+      v-if="!isEditing" 
+      class="text-xs text-white font-mono cursor-pointer hover:bg-gray-700 px-2 py-0.5 rounded"
+      @click="startEditing"
+      title="Click to edit value"
+    >
+      {{ displayValue }}
+    </div>
+    <input
+      v-else
+      ref="editInput"
+      type="text"
+      v-model="editValue"
+      class="text-xs text-white font-mono bg-gray-700 border border-blue-500 rounded px-2 py-0.5 text-center w-20"
+      @keydown.enter="finishEditing"
+      @keydown.escape="cancelEditing"
+      @blur="finishEditing"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 
 interface Props {
   modelValue: number
@@ -93,6 +110,9 @@ const emit = defineEmits<{
 const isDragging = ref(false)
 const startY = ref(0)
 const startValue = ref(0)
+const isEditing = ref(false)
+const editValue = ref('')
+const editInput = ref<HTMLInputElement | null>(null)
 
 // Calculate angle for the knob (270 degrees range)
 const angle = computed(() => {
@@ -240,6 +260,36 @@ function onWheel(e: WheelEvent) {
   // Don't apply step rounding on wheel - allow smooth continuous control
   
   emit('update:modelValue', newValue)
+}
+
+function startEditing() {
+  isEditing.value = true
+  // Remove unit from display value for editing
+  editValue.value = props.modelValue.toFixed(props.step < 1 ? 3 : 0)
+  nextTick(() => {
+    editInput.value?.select()
+  })
+}
+
+function finishEditing() {
+  // Parse the input value
+  const parsed = parseFloat(editValue.value)
+  
+  if (!isNaN(parsed)) {
+    // Clamp to min/max
+    let newValue = Math.max(props.min, Math.min(props.max, parsed))
+    
+    // Apply step
+    newValue = Math.round(newValue / props.step) * props.step
+    
+    emit('update:modelValue', newValue)
+  }
+  
+  isEditing.value = false
+}
+
+function cancelEditing() {
+  isEditing.value = false
 }
 
 onUnmounted(() => {
