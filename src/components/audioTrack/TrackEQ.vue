@@ -1,22 +1,31 @@
 <template>
-  <div v-show="show" class="grid grid-cols-2 gap-2 items-center max-h-[10.5rem] -mt-4">
-    <!-- Left column: Mid -->
-    <div class="flex justify-center">
-      <div class="scale-[0.75]">
-        <Knob v-model="eqMid" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Mid" unit="dB" color="#f59e0b" />
+  <Transition
+    enter-active-class="transition-all duration-300 ease-out"
+    leave-active-class="transition-all duration-200 ease-in"
+    enter-from-class="opacity-0 -translate-y-2 scale-95"
+    enter-to-class="opacity-100 translate-y-0 scale-100"
+    leave-from-class="opacity-100 translate-y-0 scale-100"
+    leave-to-class="opacity-0 -translate-y-2 scale-95"
+  >
+    <div v-show="show" class="grid grid-cols-2 gap-2 items-center max-h-[10.5rem] -mt-4">
+      <!-- Left column: Mid -->
+      <div class="flex justify-center">
+        <div class="scale-[0.75]">
+          <Knob v-model="eqMid" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Mid" unit="dB" color="#f59e0b" />
+        </div>
+      </div>
+      
+      <!-- Right column: High and Low stacked -->
+      <div class="flex flex-col -space-y-6">
+        <div class="scale-[0.75]">
+          <Knob v-model="eqHigh" :min="-12" :max="12" :step="0.5" :centerValue="0" label="High" unit="dB" color="#ef4444" />
+        </div>
+        <div class="scale-[0.75]">
+          <Knob v-model="eqLow" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Low" unit="dB" color="#10b981" />
+        </div>
       </div>
     </div>
-    
-    <!-- Right column: High and Low stacked -->
-    <div class="flex flex-col -space-y-6">
-      <div class="scale-[0.75]">
-        <Knob v-model="eqHigh" :min="-12" :max="12" :step="0.5" :centerValue="0" label="High" unit="dB" color="#ef4444" />
-      </div>
-      <div class="scale-[0.75]">
-        <Knob v-model="eqLow" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Low" unit="dB" color="#10b981" />
-      </div>
-    </div>
-  </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
