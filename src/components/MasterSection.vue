@@ -128,6 +128,27 @@ const fxChainEnabled = new Set<string>()
 let isRegeneratingReverb = false
 let isUpdatingLimiter = false
 
+// FX parameters (for scene snapshots)
+const compressorParams = ref({
+  threshold: -40,
+  ratio: 2,
+  attack: 0.01,
+  release: 0.25
+})
+const reverbParams = ref({
+  decay: 1.5,
+  preDelay: 0.01,
+  wet: 0.3
+})
+const delayParams = ref({
+  delayTime: 0.25,
+  feedback: 0.15,
+  wet: 0.15
+})
+const limiterParams = ref({
+  threshold: -1
+})
+
 // Calculate meters height based on container
 function updateMetersHeight() {
   if (metersContainer.value) {
@@ -477,6 +498,12 @@ async function toggleCompressor(enabled: boolean, params?: any) {
 function updateCompressor(params: any) {
   if (!compressorNode) return
   
+  // Save parameters to ref for snapshots
+  if (params.threshold !== undefined) compressorParams.value.threshold = params.threshold
+  if (params.ratio !== undefined) compressorParams.value.ratio = params.ratio
+  if (params.attack !== undefined) compressorParams.value.attack = params.attack
+  if (params.release !== undefined) compressorParams.value.release = params.release
+  
   // Use longer ramp times to avoid metallic artifacts
   if (params.threshold !== undefined) compressorNode.threshold.rampTo(params.threshold, 0.05)
   if (params.ratio !== undefined) compressorNode.ratio.rampTo(params.ratio, 0.05)
@@ -508,6 +535,11 @@ async function toggleReverb(enabled: boolean, params?: any) {
 
 function updateReverb(params: any) {
   if (!reverbNode) return
+  
+  // Save parameters to ref for snapshots
+  if (params.decay !== undefined) reverbParams.value.decay = params.decay
+  if (params.preDelay !== undefined) reverbParams.value.preDelay = params.preDelay
+  if (params.wet !== undefined) reverbParams.value.wet = params.wet
   
   if (params.wet !== undefined && !isRegeneratingReverb) {
     // Smooth transition for wet parameter (100ms)
@@ -584,6 +616,11 @@ async function toggleDelay(enabled: boolean, params?: any) {
 function updateDelay(params: any) {
   if (!delayNode) return
   
+  // Save parameters to ref for snapshots
+  if (params.delayTime !== undefined) delayParams.value.delayTime = params.delayTime
+  if (params.feedback !== undefined) delayParams.value.feedback = params.feedback
+  if (params.wet !== undefined) delayParams.value.wet = params.wet
+  
   if (params.delayTime !== undefined) delayNode.delayTime.rampTo(params.delayTime, 0.01)
   if (params.feedback !== undefined) delayNode.feedback.rampTo(params.feedback, 0.01)
   if (params.wet !== undefined) delayNode.wet.rampTo(params.wet, 0.01)
@@ -609,6 +646,9 @@ function updateLimiter(params: any) {
   if (!limiterNode || !Tone) return
   
   if (params.threshold !== undefined) {
+    // Save parameter to ref for snapshots
+    limiterParams.value.threshold = params.threshold
+    
     // Prevent multiple simultaneous updates
     if (isUpdatingLimiter) return
     
@@ -676,6 +716,88 @@ function getPreLimiterValues() {
   return getMeterValues()
 }
 
+// Scene Snapshot Support
+function getSnapshot() {
+  return {
+    leftVolume: leftVolume.value,
+    rightVolume: rightVolume.value,
+    headphonesVolume: headphonesVolume.value,
+    isLinked: isLinked.value,
+    compressorEnabled: fxChainEnabled.has('compressor'),
+    compressorThreshold: compressorParams.value.threshold,
+    compressorRatio: compressorParams.value.ratio,
+    compressorAttack: compressorParams.value.attack,
+    compressorRelease: compressorParams.value.release,
+    reverbEnabled: fxChainEnabled.has('reverb'),
+    reverbDecay: reverbParams.value.decay,
+    reverbPreDelay: reverbParams.value.preDelay,
+    reverbWet: reverbParams.value.wet,
+    delayEnabled: fxChainEnabled.has('delay'),
+    delayTime: delayParams.value.delayTime,
+    delayFeedback: delayParams.value.feedback,
+    delayWet: delayParams.value.wet,
+    limiterEnabled: fxChainEnabled.has('limiter'),
+    limiterThreshold: limiterParams.value.threshold
+  }
+}
+
+function restoreSnapshot(snapshot: any) {
+  if (!snapshot) return
+
+  // Restore volumes
+  if (snapshot.leftVolume !== undefined) leftVolume.value = snapshot.leftVolume
+  if (snapshot.rightVolume !== undefined) rightVolume.value = snapshot.rightVolume
+  if (snapshot.headphonesVolume !== undefined) headphonesVolume.value = snapshot.headphonesVolume
+  if (snapshot.isLinked !== undefined) isLinked.value = snapshot.isLinked
+
+  // Restore Compressor
+  if (snapshot.compressorEnabled !== undefined) {
+    const params = {
+      threshold: snapshot.compressorThreshold ?? compressorParams.value.threshold,
+      ratio: snapshot.compressorRatio ?? compressorParams.value.ratio,
+      attack: snapshot.compressorAttack ?? compressorParams.value.attack,
+      release: snapshot.compressorRelease ?? compressorParams.value.release
+    }
+    // Update params ref before toggling
+    compressorParams.value = params
+    toggleCompressor(snapshot.compressorEnabled, params)
+  }
+
+  // Restore Reverb
+  if (snapshot.reverbEnabled !== undefined) {
+    const params = {
+      decay: snapshot.reverbDecay ?? reverbParams.value.decay,
+      preDelay: snapshot.reverbPreDelay ?? reverbParams.value.preDelay,
+      wet: snapshot.reverbWet ?? reverbParams.value.wet
+    }
+    // Update params ref before toggling
+    reverbParams.value = params
+    toggleReverb(snapshot.reverbEnabled, params)
+  }
+
+  // Restore Delay
+  if (snapshot.delayEnabled !== undefined) {
+    const params = {
+      delayTime: snapshot.delayTime ?? delayParams.value.delayTime,
+      feedback: snapshot.delayFeedback ?? delayParams.value.feedback,
+      wet: snapshot.delayWet ?? delayParams.value.wet
+    }
+    // Update params ref before toggling
+    delayParams.value = params
+    toggleDelay(snapshot.delayEnabled, params)
+  }
+
+  // Restore Limiter
+  if (snapshot.limiterEnabled !== undefined) {
+    const params = {
+      threshold: snapshot.limiterThreshold ?? limiterParams.value.threshold
+    }
+    // Update params ref before toggling
+    limiterParams.value = params
+    toggleLimiter(snapshot.limiterEnabled, params)
+  }
+}
+
 // Expose minimal interface
 defineExpose({
   toggleCompressor,
@@ -688,6 +810,8 @@ defineExpose({
   updateLimiter,
   getMeterValues,
   getPreLimiterValues,
+  getSnapshot,
+  restoreSnapshot,
   compressorNode: () => compressorNode,
   reverbNode: () => reverbNode,
   delayNode: () => delayNode,

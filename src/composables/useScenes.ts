@@ -30,9 +30,20 @@ export interface MasterSnapshot {
   isLinked: boolean
   masterEQFilters: any[]
   compressorEnabled: boolean
+  compressorThreshold?: number
+  compressorRatio?: number
+  compressorAttack?: number
+  compressorRelease?: number
   reverbEnabled: boolean
+  reverbDecay?: number
+  reverbPreDelay?: number
+  reverbWet?: number
   delayEnabled: boolean
+  delayTime?: number
+  delayFeedback?: number
+  delayWet?: number
   limiterEnabled: boolean
+  limiterThreshold?: number
 }
 
 export interface Scene {

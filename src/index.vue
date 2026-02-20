@@ -323,7 +323,7 @@ const {
     loadScenesFromStorage,
     createScene,
     updateScene,
-    deleteScene: deleteSceneFromStorage,
+    deleteScene,
     renameScene,
     setCurrentScene
 } = useScenes()
@@ -340,17 +340,21 @@ async function handleSaveScene(sceneName: string) {
         }
     })
 
-    // Collect master snapshot (simplified)
-    const masterSnapshot = {
+    // Collect master snapshot from MasterSection
+    const masterSectionSnapshot = masterSectionRef.value?.getSnapshot?.() || {
         leftVolume: 0,
         rightVolume: 0,
         headphonesVolume: 0,
         isLinked: true,
-        masterEQFilters: masterEqFiltersData.value,
         compressorEnabled: false,
         reverbEnabled: false,
         delayEnabled: false,
         limiterEnabled: false
+    }
+
+    const masterSnapshot = {
+        ...masterSectionSnapshot,
+        masterEQFilters: masterEqFiltersData.value
     }
 
     // Create and save scene
@@ -370,7 +374,7 @@ function handleLoadScene(sceneId: string) {
         }
     })
 
-    // Restore master section state (simplified)
+    // Restore master EQ filters
     if (scene.master.masterEQFilters && scene.master.masterEQFilters.length > 0) {
         masterEqFiltersData.value = scene.master.masterEQFilters.map((filter: any) => ({
             type: filter.type,
@@ -383,6 +387,11 @@ function handleLoadScene(sceneId: string) {
         masterEqFiltersData.value = []
     }
 
+    // Restore master section state (volumes, FX)
+    if (masterSectionRef.value?.restoreSnapshot) {
+        masterSectionRef.value.restoreSnapshot(scene.master)
+    }
+
     // Set as current scene
     setCurrentScene(scene.id)
 }
@@ -391,7 +400,7 @@ async function handleUpdateScene(sceneId: string) {
     // Get old scene to clean up orphaned files
     const oldScene = scenes.value.find((s: Scene) => s.id === sceneId)
 
-    // Collect current state
+    // Collect current state from tracks
     const trackSnapshots: TrackSnapshot[] = []
     tracks.value.forEach(track => {
         const trackRef = trackRefs.value.get(track.id)
@@ -400,16 +409,21 @@ async function handleUpdateScene(sceneId: string) {
         }
     })
 
-    const masterSnapshot = {
+    // Collect master snapshot from MasterSection
+    const masterSectionSnapshot = masterSectionRef.value?.getSnapshot?.() || {
         leftVolume: 0,
         rightVolume: 0,
         headphonesVolume: 0,
         isLinked: true,
-        masterEQFilters: masterEqFiltersData.value,
         compressorEnabled: false,
         reverbEnabled: false,
         delayEnabled: false,
         limiterEnabled: false
+    }
+
+    const masterSnapshot = {
+        ...masterSectionSnapshot,
+        masterEQFilters: masterEqFiltersData.value
     }
 
     // Update scene
@@ -463,8 +477,8 @@ async function handleDeleteScene(sceneId: string) {
         await Promise.all(fileDeletePromises)
     }
 
-    // Delete scene from storage
-    await deleteSceneFromStorage(sceneId)
+    // Delete scene from storage (this removes from both scenes array and IndexedDB)
+    await deleteScene(sceneId)
 
     // If deleted scene was current, clear current
     if (currentSceneId.value === sceneId) {
