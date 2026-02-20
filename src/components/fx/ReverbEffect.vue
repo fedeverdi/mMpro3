@@ -30,9 +30,17 @@
         @mousedown.self="showModal = false">
         <div class="bg-gray-900 relative rounded-lg border-2 border-green-600 px-4 pt-4 pb-2 max-w-md w-full mx-4" @click.stop>
             <button @click="showModal = false"
-            class="absolute right-4 top-[0.3rem] text-gray-400 hover:text-white text-2xl">&times;</button>
+            class="absolute right-4 top-[0.55rem] text-gray-400 hover:text-white text-2xl">&times;</button>
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-xs font-bold text-green-300">REVERB SETTINGS</h3>
+            <button @click="toggleEffect" :class="[
+              'px-3 py-1 text-[0.6rem] font-bold rounded transition-colors mr-8',
+              isEnabled
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-700 text-gray-400'
+            ]">
+              {{ isEnabled ? 'ON' : 'OFF' }}
+            </button>
           </div>
 
           <p class="text-xs text-yellow-500 mb-2 text-center">* Decay requires toggle OFF/ON to apply</p>
