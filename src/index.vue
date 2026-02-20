@@ -138,21 +138,27 @@
 
                 <!-- Master EQ Display, Spectrum & FX -->
                 <template v-else>
-                    <div class="w-[32rem] flex flex-col h-full gap-2 mixer-fade-in">
-                        <div class="flex-[2] min-h-0">
-                            <MasterEQDisplay ref="masterEQDisplayRef" :filters-data="masterEqFiltersData" :master-channel="masterChannel" />
+                    <div class="flex flex-col h-full gap-2">
+                        <div class="w-[36rem] flex flex-col flex-1 min-h-0 gap-2 mixer-fade-in">
+                            <div class="flex-1 min-h-0">
+                                <MasterEQDisplay ref="masterEQDisplayRef" :filters-data="masterEqFiltersData"
+                                    :master-channel="masterChannel" />
+
+                            </div>
+                            <div class="flex-1 min-h-0">
+                                <SpectrumMeter :master-fx="masterFxRef" />
+                            </div>
                         </div>
-                        <div class="flex-[1.5] min-h-0">
-                            <SpectrumMeter :master-fx="masterFxRef" />
-                        </div>
-                        <div class="flex-1 min-h-0">
-                            <MasterFX ref="masterFxRef" :master-eq-display="masterEQDisplayRef" :master-section="masterSectionRef" />
+
+                        <div class="w-[36rem] mixer-fade-in">
+                            <MasterFX ref="masterFxRef" :master-eq-display="masterEQDisplayRef"
+                                :master-section="masterSectionRef" />
                         </div>
                     </div>
-
                     <!-- Master Section -->
-                    <div class="w-44 h-full mixer-fade-in">
-                        <MasterSection ref="masterSectionRef" :master-eq-display="masterEQDisplayRef" :master-fx="masterFxRef" />
+                    <div class="w-full h-full mixer-fade-in">
+                        <MasterSection ref="masterSectionRef" :master-eq-display="masterEQDisplayRef"
+                            :master-fx="masterFxRef" />
                     </div>
                 </template>
             </div>
@@ -526,7 +532,7 @@ onMounted(async () => {
         channelCountMode: 'explicit',
         channelInterpretation: 'speakers'
     })
-    
+
     // Ensure audio context is running
     if (Tone.context.state !== 'running') {
         await Tone.context.resume()

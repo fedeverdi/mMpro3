@@ -1,5 +1,5 @@
 <template>
-  <div class="master-fx bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-green-600/60 p-3 flex flex-col gap-2 h-full overflow-visible">
+  <div class="master-fx bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-green-600/60 p-3 flex flex-col gap-2 ">
     <div class="text-left flex-shrink-0">
       <p class="text-sm font-bold text-green-200 tracking-wide uppercase">Master FX Chain</p>
       <p class="text-[10px] text-gray-400">Click + to add effects</p>
@@ -7,7 +7,7 @@
 
     <div class="flex-1 h-full  grid grid-cols-4 gap-3 min-h-0 pr-1 custom-scrollbar overflow-y-none">
       <!-- Existing effects -->
-      <div v-for="(effect, index) in effects" :key="effect.id" class="relative h-full" style="overflow: visible;">
+      <div v-for="(effect, index) in effects" :key="effect.id" class="relative h-full aspect-square" style="overflow: visible;">
         <!-- Remove button -->
         <button 
           @click="removeEffect(index)"
@@ -74,7 +74,7 @@
       <!-- Add effect button -->
       <div 
       v-if="effects.length < 4"
-        class="relative h-full border-2 border-dashed border-gray-600 rounded-lg p-4 hover:border-green-500 transition-colors cursor-pointer bg-gray-800/50 hover:bg-gray-800 flex items-center justify-center h-full"
+        class="relative h-full border-2 border-dashed border-gray-600 aspect-square rounded-lg p-4 hover:border-green-500 transition-colors cursor-pointer bg-gray-800/50 hover:bg-gray-800 flex items-center justify-center h-full"
         @click="showAddEffectMenu = !showAddEffectMenu"
       >
         <div class="text-center">

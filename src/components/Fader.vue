@@ -4,13 +4,16 @@
     
     <div class="flex items-start gap-1" :style="{ height: trackHeight + 'px' }">
       <!-- Scale labels (left side) -->
-      <div class="relative flex-shrink-0 w-6 text-right" :style="{ height: trackHeight + 'px' }">
+      <div class="relative flex-shrink-0 w-6 text-right pb-3" :style="{ height: trackHeight + 'px' }">
         <div v-for="mark in scaleMarks" :key="mark.label" 
-          class="absolute text-[9px] font-mono text-gray-400 leading-none right-0"
-          :class="{
-            'text-green-400 font-semibold': mark.value === 0,
-            'text-red-400': mark.value > 0
-          }"
+          class="absolute leading-none right-0"
+          :class="[
+            mark.label === '-∞' ? 'text-[10px] font-bold text-gray-400' : 'text-[9px] font-mono text-gray-400',
+            {
+              'text-green-400 font-semibold': mark.value === 0,
+              'text-red-400': mark.value > 0
+            }
+          ]"
           :style="{ bottom: mark.position + '%', transform: 'translateY(50%)' }">
           {{ mark.label }}
         </div>
@@ -67,7 +70,7 @@
 import { ref, computed, onUnmounted } from 'vue'
 
 interface Props {
-  modelValue: number // Value in dB (-60 to 6)
+  modelValue: number // Value in dB (-90 to 12, where -90 = -∞ mute)
   label?: string
   trackHeight?: number
   color?: 'blue' | 'green' | 'red'
@@ -89,7 +92,7 @@ let trackRect: DOMRect | null = null
 let rafId: number | null = null
 let pendingValue: number | null = null
 
-const min = -60
+const min = -90 // -90 represents -∞ (mute)
 const max = 12
 
 function onWheel(e: WheelEvent) {
@@ -122,24 +125,30 @@ function onWheel(e: WheelEvent) {
   emit('update:modelValue', newValue)
 }
 
-// Logarithmic fader mapping for professional audio feel
-// 0% = -60dB, 75% = 0dB, 100% = +12dB
+// Logarithmic fader mapping with compressed low end
+// Bottom 5% = -90 to -60dB (compressed), 5-75% = -60dB to 0dB, 75-100% = 0dB to +12dB
 function dbToPosition(db: number): number {
-  if (db <= 0) {
-    // Map -60dB to 0dB across 0% to 75% of fader
-    return ((db + 60) / 60) * 0.75
+  if (db <= -60) {
+    // -90 to -60dB: Compressed into bottom 5% of fader
+    return 0.01 + ((db + 90) / 30) * 0.04
+  } else if (db <= 0) {
+    // -60dB to 0dB: Map across 5% to 75% of fader (normal distribution)
+    return 0.05 + ((db + 60) / 60) * 0.70
   } else {
-    // Map 0dB to +12dB across 75% to 100% of fader
+    // 0dB to +12dB: Map across 75% to 100% of fader
     return 0.75 + (db / 12) * 0.25
   }
 }
 
 function positionToDb(position: number): number {
-  if (position <= 0.75) {
-    // Map 0% to 75% of fader to -60dB to 0dB
-    return -60 + (position / 0.75) * 60
+  if (position <= 0.05) {
+    // Bottom 5% of fader: -90dB to -60dB (compressed zone)
+    return -90 + ((position - 0.01) / 0.04) * 30
+  } else if (position <= 0.75) {
+    // 5% to 75% of fader: -60dB to 0dB
+    return -60 + ((position - 0.05) / 0.70) * 60
   } else {
-    // Map 75% to 100% of fader to 0dB to +12dB
+    // 75% to 100% of fader: 0dB to +12dB
     return ((position - 0.75) / 0.25) * 12
   }
 }
@@ -158,6 +167,7 @@ const fillHeight = computed(() => {
 
 // Display value
 const displayValue = computed(() => {
+  if (props.modelValue <= -85) return '-∞'
   return props.modelValue >= 0 
     ? `+${props.modelValue.toFixed(1)}dB` 
     : `${props.modelValue.toFixed(1)}dB`
@@ -165,13 +175,13 @@ const displayValue = computed(() => {
 
 // Scale marks with labels at key dB values - using logarithmic positions
 const scaleMarks = computed(() => {
-  const marks = [12, 6, 0, -6, -12, -18, -24, -30, -40, -50, -60]
+  const marks = [12, 6, 0, -6, -12, -18, -24, -30, -40, -50, -60, -90]
   return marks.map(mark => {
     const position = dbToPosition(mark)
     return {
       value: mark,
       position: position * 100,
-      label: mark >= 0 ? `+${mark}` : `${mark}`
+      label: mark === -90 ? '-∞' : (mark >= 0 ? `+${mark}` : `${mark}`)
     }
   })
 })

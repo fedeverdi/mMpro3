@@ -3,14 +3,15 @@
     <!-- Fader wrapper -->
     <div class="flex items-start gap-1" :style="{ height: trackHeight + 'px' }">
       <!-- Scale marks (left) -->
-      <div class="relative flex-shrink-0 w-5 text-right pr-0.5" :style="{ height: trackHeight + 'px' }">
+      <div class="relative flex-shrink-0 w-5 text-right pr-0.5 pb-3" :style="{ height: trackHeight + 'px' }">
         <div v-for="mark in scaleMarks" :key="mark.label" 
-          class="absolute text-[8px] font-mono leading-none right-0"
+          class="absolute font-mono leading-none right-0"
           :class="{
-            'text-green-500 font-bold': mark.value === 0,
-            'text-orange-400': mark.value > 0 && mark.value < 6,
-            'text-red-500 font-bold': mark.value >= 6,
-            'text-gray-500': mark.value < 0
+            'text-[10px] font-bold text-gray-500': mark.label === '-∞',
+            'text-[8px] text-green-500 font-bold': mark.value === 0,
+            'text-[8px] text-orange-400': mark.value > 0 && mark.value < 6,
+            'text-[8px] text-red-500 font-bold': mark.value >= 6,
+            'text-[8px] text-gray-500': mark.value < 0 && mark.label !== '-∞'
           }"
           :style="{ bottom: mark.position + '%', transform: 'translateY(50%)' }">
           {{ mark.label }}
@@ -76,14 +77,15 @@
       </div>
       
       <!-- Scale marks (right) - mirrored -->
-      <div class="relative flex-shrink-0 w-5 text-left pl-0.5" :style="{ height: trackHeight + 'px' }">
+      <div class="relative flex-shrink-0 w-5 text-left pl-0.5 pb-3" :style="{ height: trackHeight + 'px' }">
         <div v-for="mark in scaleMarks" :key="mark.label" 
-          class="absolute text-[8px] font-mono leading-none left-0"
+          class="absolute font-mono leading-none left-0"
           :class="{
-            'text-green-500 font-bold': mark.value === 0,
-            'text-orange-400': mark.value > 0 && mark.value < 6,
-            'text-red-500 font-bold': mark.value >= 6,
-            'text-gray-500': mark.value < 0
+            'text-[10px] font-bold text-gray-500': mark.label === '-∞',
+            'text-[8px] text-green-500 font-bold': mark.value === 0,
+            'text-[8px] text-orange-400': mark.value > 0 && mark.value < 6,
+            'text-[8px] text-red-500 font-bold': mark.value >= 6,
+            'text-[8px] text-gray-500': mark.value < 0 && mark.label !== '-∞'
           }"
           :style="{ bottom: mark.position + '%', transform: 'translateY(50%)' }">
           {{ mark.label }}
@@ -111,7 +113,7 @@
 import { ref, computed, onUnmounted } from 'vue'
 
 interface Props {
-  modelValue: number // Value in dB (-60 to 12)
+  modelValue: number // Value in dB (-90 to 12)
   label?: string     // Label (e.g., "Left", "Right")
   trackHeight?: number
 }
@@ -131,7 +133,7 @@ let trackRect: DOMRect | null = null
 let rafId: number | null = null
 let pendingValue: number | null = null
 
-const min = -60
+const min = -90
 const max = 12
 
 function onWheel(e: WheelEvent) {
@@ -154,19 +156,29 @@ function onWheel(e: WheelEvent) {
   emit('update:modelValue', newValue)
 }
 
-// Logarithmic mapping: 0% = -60dB, 75% = 0dB, 100% = +12dB
+// Logarithmic mapping with compressed low end: 1-5% = -90 to -60dB, 5-75% = -60 to 0dB, 75-100% = 0 to +12dB
 function dbToPosition(db: number): number {
-  if (db <= 0) {
-    return ((db + 60) / 60) * 0.75
+  if (db <= -60) {
+    // Compress -90 to -60 range into bottom 5% (with 1% safety margin at bottom)
+    return 0.01 + ((db + 90) / 30) * 0.04
+  } else if (db <= 0) {
+    // -60 to 0 uses 5% to 75% (normal logarithmic)
+    return 0.05 + ((db + 60) / 60) * 0.70
   } else {
+    // 0 to +12 uses top 25%
     return 0.75 + (db / 12) * 0.25
   }
 }
 
 function positionToDb(position: number): number {
-  if (position <= 0.75) {
-    return -60 + (position / 0.75) * 60
+  if (position <= 0.05) {
+    // Bottom 5%: -90 to -60dB (compressed)
+    return -90 + ((position - 0.01) / 0.04) * 30
+  } else if (position <= 0.75) {
+    // 5% to 75%: -60 to 0dB
+    return -60 + ((position - 0.05) / 0.70) * 60
   } else {
+    // Top 25%: 0 to +12dB
     return ((position - 0.75) / 0.25) * 12
   }
 }
@@ -177,6 +189,7 @@ const thumbPosition = computed(() => {
 })
 
 const displayValue = computed(() => {
+  if (props.modelValue <= -85) return '-∞'
   if (props.modelValue === 0) return '0.0'
   return props.modelValue >= 0 
     ? `+${props.modelValue.toFixed(1)}` 
@@ -184,13 +197,13 @@ const displayValue = computed(() => {
 })
 
 const scaleMarks = computed(() => {
-  const marks = [12, 6, 0, -6, -12, -18, -24, -30, -40, -60]
+  const marks = [12, 6, 0, -6, -12, -18, -24, -30, -40, -60, -90]
   return marks.map(mark => {
     const position = dbToPosition(mark)
     return {
       value: mark,
       position: position * 100,
-      label: mark >= 0 ? `+${mark}` : `${mark}`
+      label: mark === -90 ? '-∞' : (mark >= 0 ? `+${mark}` : `${mark}`)
     }
   })
 })
