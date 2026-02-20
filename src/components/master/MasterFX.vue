@@ -74,8 +74,9 @@
       <!-- Add effect button -->
       <div 
       v-if="effects.length < 4"
+        ref="addEffectButton"
         class="relative h-full border-2 border-dashed border-gray-600 aspect-square rounded-lg p-4 hover:border-green-500 transition-colors cursor-pointer bg-gray-800/50 hover:bg-gray-800 flex items-center justify-center h-full"
-        @click="showAddEffectMenu = !showAddEffectMenu"
+        @click="toggleAddEffectMenu"
       >
         <div class="text-center">
           <div class="text-3xl text-gray-400 hover:text-green-400 transition-colors">+</div>
@@ -92,8 +93,12 @@
         @click="showAddEffectMenu = false"
       >
         <div 
-          class="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 border border-gray-600 rounded-lg shadow-xl overflow-hidden min-w-[200px]"
-          style="z-index: 9999;"
+          class="absolute bg-gray-800 border border-gray-600 rounded-lg shadow-xl overflow-hidden min-w-[200px]"
+          :style="{
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`,
+            zIndex: 9999
+          }"
           @click.stop
         >
           <button
@@ -162,6 +167,8 @@ interface Effect {
 // State
 const effects = ref<Effect[]>([])
 const showAddEffectMenu = ref(false)
+const addEffectButton = ref<HTMLElement | null>(null)
+const menuPosition = ref({ top: 0, left: 0 })
 let nextEffectId = 1
 
 // Audio nodes
@@ -197,6 +204,20 @@ const delayParams = ref({
 const limiterParams = ref({
   threshold: -1
 })
+
+// Toggle add effect menu with position calculation
+const toggleAddEffectMenu = () => {
+  if (!showAddEffectMenu.value && addEffectButton.value) {
+    const rect = addEffectButton.value.getBoundingClientRect()
+    // Position menu above and aligned to the right of the button
+    const menuHeight = 192 // 4 buttons × ~48px each
+    menuPosition.value = {
+      top: rect.top - menuHeight - 8,
+      left: rect.right - 170 // 200px is min-w-[200px] of the menu
+    }
+  }
+  showAddEffectMenu.value = !showAddEffectMenu.value
+}
 
 // Default parameters for each effect type
 const defaultParams = {

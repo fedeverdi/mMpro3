@@ -81,7 +81,6 @@ const currentGainReduction = ref(0)
 
 function toggleEffect() {
   isEnabled.value = !isEnabled.value
-  console.log('[LimiterEffect] Toggle to:', isEnabled.value)
   emit('toggle', isEnabled.value)
 }
 
