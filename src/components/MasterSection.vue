@@ -88,7 +88,7 @@ let Tone: any = null
 // Master volumes
 const leftVolume = ref(0)
 const rightVolume = ref(0)
-const headphonesVolume = ref(0)
+const headphonesVolume = ref(-60)
 const isLinked = ref(true)
 
 // VU meter levels
@@ -104,10 +104,11 @@ const isRecording = ref(false)
 const audioOutputs = ref<MediaDeviceInfo[]>([])
 const selectedHeadphonesOutput = ref<string | null>(null)
 
-// Headphones output routing
-let headphonesGain: any = null
+// Headphones output routing (uses separate AudioContext to avoid timing conflicts)
+let headphonesGain: GainNode | null = null
+let headphonesContext: AudioContext | null = null
 let headphonesStreamDest: MediaStreamAudioDestinationNode | null = null
-let headphonesAudioElement: HTMLAudioElement | null = null
+let headphonesMediaStreamSource: MediaStreamAudioSourceNode | null = null
 
 // Container and dynamic height
 const metersContainer = ref<HTMLElement | null>(null)
@@ -159,24 +160,51 @@ async function enumerateAudioOutputs() {
 async function onHeadphonesOutputSelect(deviceId: string | null) {
   selectedHeadphonesOutput.value = deviceId
   
-  if (!headphonesAudioElement) return
+  if (!headphonesStreamDest || !Tone) return
   
   try {
+    // Close existing headphones context if any
+    if (headphonesContext) {
+      if (headphonesMediaStreamSource) {
+        headphonesMediaStreamSource.disconnect()
+        headphonesMediaStreamSource = null
+      }
+      if (headphonesGain) {
+        headphonesGain.disconnect()
+        headphonesGain = null
+      }
+      await headphonesContext.close()
+      headphonesContext = null
+    }
+    
+    // If a device is selected, create new AudioContext with that sinkId
     if (deviceId) {
-      // Set device and unmute
-      await (headphonesAudioElement as any).setSinkId(deviceId)
-      headphonesAudioElement.muted = false
+      const mainAudioContext = Tone.context.rawContext as AudioContext
       
-      // Ensure playback
-      if (headphonesAudioElement.paused) {
-        await headphonesAudioElement.play()
+      // Create AudioContext with specific output device
+      headphonesContext = new AudioContext({ 
+        latencyHint: 'playback', 
+        sampleRate: mainAudioContext.sampleRate,
+        sinkId: deviceId
+      } as any)
+      
+      // Recreate audio chain in new context
+      headphonesMediaStreamSource = headphonesContext.createMediaStreamSource(headphonesStreamDest.stream)
+      headphonesGain = headphonesContext.createGain()
+      headphonesGain.gain.value = Tone.dbToGain(headphonesVolume.value)
+      
+      // Connect: MediaStreamSource → Gain → Destination
+      headphonesMediaStreamSource.connect(headphonesGain)
+      headphonesGain.connect(headphonesContext.destination)
+      
+      // Resume context if suspended (autoplay policy)
+      if (headphonesContext.state === 'suspended') {
+        await headphonesContext.resume()
       }
       
       console.log('[Headphones Output] Changed to:', deviceId)
     } else {
-      // Mute when "Off"
-      headphonesAudioElement.muted = true
-      console.log('[Headphones Output] Muted (Off)')
+      console.log('[Headphones Output] Off')
     }
   } catch (error) {
     console.error('[Headphones Output] Error changing device:', error)
@@ -204,10 +232,19 @@ function initMasterChannel() {
   rightMeter = new Tone.Meter()
   headphonesMeter = new Tone.Meter()
 
-  // Create headphones routing
-  headphonesGain = new Tone.Gain(1)
-  const audioContext = Tone.context.rawContext as AudioContext
-  headphonesStreamDest = audioContext.createMediaStreamDestination()
+  // Create headphones routing with separate AudioContext to avoid timing issues
+  const mainAudioContext = Tone.context.rawContext as AudioContext
+  headphonesStreamDest = mainAudioContext.createMediaStreamDestination()
+  
+  // Create separate AudioContext for headphones output (prevents slowdown when tracks connect/disconnect)
+  headphonesContext = new AudioContext({ latencyHint: 'playback', sampleRate: mainAudioContext.sampleRate })
+  headphonesMediaStreamSource = headphonesContext.createMediaStreamSource(headphonesStreamDest.stream)
+  headphonesGain = headphonesContext.createGain()
+  headphonesGain.gain.value = 1
+  
+  // Route: MediaStreamSource → Gain → Destination (in headphones context)
+  headphonesMediaStreamSource.connect(headphonesGain)
+  headphonesGain.connect(headphonesContext.destination)
 
   // Build main chain - connection will be done by rebuildFXChain()
   // masterChannel will be connected to splitNode through FX chain or directly
@@ -225,23 +262,13 @@ function initMasterChannel() {
   // Main output to default destination (uses main output selector)
   mergeNode.toDestination()
   
-  // Headphones output: separate routing via MediaStream
-  mergeNode.connect(headphonesGain)
-  headphonesGain.connect(headphonesMeter)
-  headphonesGain.connect(headphonesStreamDest as any)
-
-  // Create headphones audio element
-  if (!headphonesAudioElement && headphonesStreamDest) {
-    headphonesAudioElement = new Audio()
-    headphonesAudioElement.srcObject = headphonesStreamDest.stream
-    headphonesAudioElement.muted = true // Start muted (Off)
-    document.body.appendChild(headphonesAudioElement)
-    
-    // Start playback immediately (muted)
-    headphonesAudioElement.play().catch(err => {
-      console.warn('[Headphones] Autoplay blocked, will start on first interaction:', err)
-    })
-  }
+  // Headphones output: route to separate AudioContext via MediaStream
+  // mergeNode → meter → streamDest (main context) → MediaStream → 
+  // → MediaStreamSource (hp context) → gain → destination (hp context)
+  const hpMeterNode = new Tone.Meter()
+  headphonesMeter = hpMeterNode
+  mergeNode.connect(hpMeterNode)
+  mergeNode.connect(headphonesStreamDest as any)
 
   // Update initial volumes
   updateMasterVolume()
@@ -286,6 +313,7 @@ function updateMasterVolume() {
 function updateHeadphonesVolume() {
   if (!headphonesGain || !Tone) return
 
+  // headphonesGain is now a native GainNode in separate AudioContext
   headphonesGain.gain.value = Tone.dbToGain(headphonesVolume.value)
 }
 
@@ -427,7 +455,7 @@ defineExpose({
     // Reset volumes
     leftVolume.value = 0
     rightVolume.value = 0
-    headphonesVolume.value = 0
+    headphonesVolume.value = -60
     isLinked.value = true
 
     // Reset levels
@@ -454,14 +482,22 @@ onUnmounted(() => {
     mergeNode.dispose()
     mergeNodeRef.value = null
   }
-  if (headphonesGain) headphonesGain.dispose()
-
-  // Cleanup headphones audio element
-  if (headphonesAudioElement) {
-    headphonesAudioElement.pause()
-    headphonesAudioElement.srcObject = null
-    headphonesAudioElement.remove()
-    headphonesAudioElement = null
+  
+  // Cleanup headphones context and nodes
+  if (headphonesMediaStreamSource) {
+    headphonesMediaStreamSource.disconnect()
+    headphonesMediaStreamSource = null
+  }
+  if (headphonesGain) {
+    headphonesGain.disconnect()
+    headphonesGain = null
+  }
+  if (headphonesContext) {
+    headphonesContext.close()
+    headphonesContext = null
+  }
+  if (headphonesStreamDest) {
+    headphonesStreamDest = null
   }
 
   // Remove device change listener

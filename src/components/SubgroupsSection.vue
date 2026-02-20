@@ -126,9 +126,11 @@ let leftGain: any = null
 let rightGain: any = null
 let outputMerge: any = null // Output merge node
 
-// Output routing
+// Output routing (uses separate AudioContext to avoid timing conflicts)
+let outputGain: GainNode | null = null
+let outputContext: AudioContext | null = null
 let outputStreamDest: MediaStreamAudioDestinationNode | null = null
-let outputAudioElement: HTMLAudioElement | null = null
+let outputMediaStreamSource: MediaStreamAudioSourceNode | null = null
 
 // Calculate meters height based on container
 function updateMetersHeight() {
@@ -165,26 +167,52 @@ function handleOutputSelect(deviceId: string | null) {
 }
 
 async function onOutputSelect() {
-    if (!outputAudioElement) return
+    if (!outputStreamDest || !Tone) return
 
     try {
-        if (selectedOutput.value) {
-            // Set device
-            await (outputAudioElement as any).setSinkId(selectedOutput.value)
-
-            // Ensure playback
-            if (outputAudioElement.paused) {
-                await outputAudioElement.play()
+        // Close existing output context if any
+        if (outputContext) {
+            if (outputMediaStreamSource) {
+                outputMediaStreamSource.disconnect()
+                outputMediaStreamSource = null
             }
-        } else {
-            // Default output
-            await (outputAudioElement as any).setSinkId('')
-
-            // Ensure playback
-            if (outputAudioElement.paused) {
-                await outputAudioElement.play()
+            if (outputGain) {
+                outputGain.disconnect()
+                outputGain = null
             }
+            await outputContext.close()
+            outputContext = null
         }
+
+        // Create new AudioContext with selected output device
+        const mainAudioContext = Tone.context.rawContext as AudioContext
+        const contextOptions: any = {
+            latencyHint: 'playback',
+            sampleRate: mainAudioContext.sampleRate
+        }
+
+        // Add sinkId if device is selected
+        if (selectedOutput.value) {
+            contextOptions.sinkId = selectedOutput.value
+        }
+
+        outputContext = new AudioContext(contextOptions)
+
+        // Recreate audio chain in new context
+        outputMediaStreamSource = outputContext.createMediaStreamSource(outputStreamDest.stream)
+        outputGain = outputContext.createGain()
+        outputGain.gain.value = 1
+
+        // Connect: MediaStreamSource → Gain → Destination
+        outputMediaStreamSource.connect(outputGain)
+        outputGain.connect(outputContext.destination)
+
+        // Resume context if suspended (autoplay policy)
+        if (outputContext.state === 'suspended') {
+            await outputContext.resume()
+        }
+
+        console.log('[Subgroup Output] Changed to:', selectedOutput.value || 'default')
     } catch (error) {
         console.error('[Subgroup Output] Error changing device:', error)
     }
@@ -238,9 +266,19 @@ function initSubgroupChannel() {
     leftMeter = new Tone.Meter()
     rightMeter = new Tone.Meter()
 
-    // Create output routing
-    const audioContext = Tone.context.rawContext as AudioContext
-    outputStreamDest = audioContext.createMediaStreamDestination()
+    // Create output routing with separate AudioContext to avoid timing issues
+    const mainAudioContext = Tone.context.rawContext as AudioContext
+    outputStreamDest = mainAudioContext.createMediaStreamDestination()
+
+    // Create separate AudioContext for subgroup output (prevents slowdown when tracks connect/disconnect)
+    outputContext = new AudioContext({ latencyHint: 'playback', sampleRate: mainAudioContext.sampleRate })
+    outputMediaStreamSource = outputContext.createMediaStreamSource(outputStreamDest.stream)
+    outputGain = outputContext.createGain()
+    outputGain.gain.value = 1
+
+    // Route: MediaStreamSource → Gain → Destination (in output context)
+    outputMediaStreamSource.connect(outputGain)
+    outputGain.connect(outputContext.destination)
 
     // Build audio chain:
     // INPUT: inputGainNode (subgroupChannel connects here)
@@ -270,18 +308,6 @@ function initSubgroupChannel() {
 
     // Output to MediaStream for device routing
     outputMerge.connect(outputStreamDest as any)
-
-    // Create output audio element
-    if (!outputAudioElement && outputStreamDest) {
-        outputAudioElement = new Audio()
-        outputAudioElement.srcObject = outputStreamDest.stream
-        document.body.appendChild(outputAudioElement)
-
-        // Start playback immediately
-        outputAudioElement.play().catch(err => {
-            console.warn('[Subgroup Output] Autoplay blocked, will start on first interaction:', err)
-        })
-    }
 
     // Update initial volumes
     updateSubgroupVolume()
@@ -538,12 +564,21 @@ onUnmounted(() => {
     if (rightGain) rightGain.dispose()
     if (outputMerge) outputMerge.dispose()
 
-    // Cleanup output audio element
-    if (outputAudioElement) {
-        outputAudioElement.pause()
-        outputAudioElement.srcObject = null
-        outputAudioElement.remove()
-        outputAudioElement = null
+    // Cleanup output context and nodes
+    if (outputMediaStreamSource) {
+        outputMediaStreamSource.disconnect()
+        outputMediaStreamSource = null
+    }
+    if (outputGain) {
+        outputGain.disconnect()
+        outputGain = null
+    }
+    if (outputContext) {
+        outputContext.close()
+        outputContext = null
+    }
+    if (outputStreamDest) {
+        outputStreamDest = null
     }
 
     // Remove device change listener

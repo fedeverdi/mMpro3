@@ -1,6 +1,6 @@
 <template>
   <div class="vu-meter flex flex-col items-center gap-1">
-    <div class="text-xs text-gray-500 uppercase">{{ label }}</div>
+    <div class="text-[0.5rem] text-gray-500 uppercase">{{ label }}</div>
     
     <div 
       class="meter-bar relative bg-gray-900 border border-gray-700 rounded-sm overflow-hidden"

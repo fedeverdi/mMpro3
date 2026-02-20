@@ -149,20 +149,20 @@
       <div class="text-[0.455rem] uppercase text-center">Volume</div>
       <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
         <!-- Routing Buttons -->
-        <div class="flex flex-col gap-3 absolute -left-6 top-1/2 transform -translate-y-1/2 z-50">
+        <div class="flex flex-col gap-3 absolute -left-[1.7rem] top-1/2 transform -translate-y-1/2 z-50">
           <button @click="toggleRouteToMaster" :title="'Route to Master'"
-            class="w-6 h-6 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+            class="w-5 h-6 text-[8px] font-bold rounded transition-all flex items-center justify-center"
             :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
             M
           </button>
           <button @click="toggleRouteToSubgroup" :title="'Route to Subgroup'"
-            class="w-6 h-6 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+            class="w-5 h-6 text-[8px] font-bold rounded transition-all flex items-center justify-center"
             :class="routeToSubgroup ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
             S
           </button>
         </div>
         <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
-        <TrackMeter v-if="faderHeight > 0" :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
+        <TrackMeter class="absolute -right-[1.6rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3" v-if="faderHeight > 0" :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
           :height="faderHeight + 20" />
       </div>
     </div>

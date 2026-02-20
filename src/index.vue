@@ -6,7 +6,7 @@
                 <div class="flex items-center gap-2">
                     <h1
                         class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                        Audio Mixer Pro
+                        mMpro3
                     </h1>
 
                     <!-- Quick Scene Access -->
@@ -123,7 +123,7 @@
 
                         <!-- Audio Tracks -->
                         <template v-else>
-                            <div v-for="track in tracks" :key="track.id" class="w-[8rem] h-full mixer-fade-in">
+                            <div v-for="track in tracks" :key="track.id" class="w-[8.5rem] h-full mixer-fade-in">
                                 <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)"
                                     :trackNumber="track.id" :master-channel="masterChannel"
                                     :subgroup-channel="subgroupChannel" @soloChange="handleSoloChange"

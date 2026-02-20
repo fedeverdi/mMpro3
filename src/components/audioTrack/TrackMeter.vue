@@ -1,12 +1,12 @@
 <template>
   <div class="track-meter">
     <!-- Stereo: 2 VU meters affiancati -->
-    <div v-if="isStereo" class="flex gap-0.5">
+    <div v-if="isStereo" class="flex gap-[0.03rem]">
       <VuMeter 
         :level="levelL" 
         :label="'L'" 
         :height="height" 
-        :width="8" 
+        :width="7" 
         :segments="30"
         :showValue="false" 
       />
@@ -14,7 +14,7 @@
         :level="levelR" 
         :label="'R'" 
         :height="height" 
-        :width="8" 
+        :width="7" 
         :segments="30"
         :showValue="false" 
       />
@@ -26,7 +26,7 @@
       :level="levelL" 
       :label="''" 
       :height="height" 
-      :width="18" 
+      :width="14" 
       :segments="30"
       :showValue="false" 
     />
