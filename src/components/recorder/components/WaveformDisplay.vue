@@ -9,24 +9,33 @@
 import { ref, watch } from 'vue'
 
 interface Props {
-  analyser: AnalyserNode | null
+  analyserLeft: AnalyserNode | null
+  analyserRight: AnalyserNode | null
   isRecording: boolean
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
-  levelUpdate: [level: number]
+  levelUpdate: [leftDb: number, rightDb: number]
 }>()
 
 const waveformCanvas = ref<HTMLCanvasElement | null>(null)
 let animationFrameId: number | null = null
-let dataArray: Uint8Array | null = null
+let dataArrayLeft: Uint8Array | null = null
+let dataArrayRight: Uint8Array | null = null
 let waveformHistory: number[] = []
 let frameCounter = 0
 const SAMPLE_RATE = 6 // Add a sample every N frames (higher = more compressed)
 
+// Convert linear amplitude (0-1) to dB
+function amplitudeToDb(amplitude: number): number {
+  if (amplitude <= 0) return -60
+  const db = 20 * Math.log10(amplitude)
+  return Math.max(-60, Math.min(0, db))
+}
+
 function drawWaveform() {
-  if (!waveformCanvas.value || !props.analyser) {
+  if (!waveformCanvas.value || !props.analyserLeft || !props.analyserRight) {
     return
   }
 
@@ -34,9 +43,12 @@ function drawWaveform() {
   const canvasCtx = canvas.getContext('2d')
   if (!canvasCtx) return
 
-  // Initialize data array if needed
-  if (!dataArray && props.analyser) {
-    dataArray = new Uint8Array(props.analyser.frequencyBinCount)
+  // Initialize data arrays if needed
+  if (!dataArrayLeft && props.analyserLeft) {
+    dataArrayLeft = new Uint8Array(props.analyserLeft.frequencyBinCount)
+  }
+  if (!dataArrayRight && props.analyserRight) {
+    dataArrayRight = new Uint8Array(props.analyserRight.frequencyBinCount)
   }
 
   // Initialize waveform history buffer only if empty (first time)
@@ -46,38 +58,44 @@ function drawWaveform() {
   }
 
   const draw = () => {
-    if (!props.analyser || !dataArray || !props.isRecording) return
+    if (!props.analyserLeft || !props.analyserRight || !dataArrayLeft || !dataArrayRight || !props.isRecording) return
 
     animationFrameId = requestAnimationFrame(draw)
 
     const width = canvas.width
     const height = canvas.height
 
-    // Get waveform data
-    props.analyser.getByteTimeDomainData(dataArray as any)
+    // Get waveform data for both channels
+    props.analyserLeft.getByteTimeDomainData(dataArrayLeft as any)
+    props.analyserRight.getByteTimeDomainData(dataArrayRight as any)
 
-    // Calculate level meter from waveform data
-    let sum = 0
-    let max = 0
-    for (let i = 0; i < dataArray.length; i++) {
-      const value = Math.abs(dataArray[i] - 128)
-      sum += value
-      max = Math.max(max, value)
+    // Calculate levels for both channels
+    let maxLeft = 0
+    let maxRight = 0
+    
+    for (let i = 0; i < dataArrayLeft.length; i++) {
+      const valueLeft = Math.abs(dataArrayLeft[i] - 128) / 128.0
+      const valueRight = Math.abs(dataArrayRight[i] - 128) / 128.0
+      maxLeft = Math.max(maxLeft, valueLeft)
+      maxRight = Math.max(maxRight, valueRight)
     }
     
-    // Emit level update
-    const levelPercent = Math.min(100, (max / 128) * 100)
-    emit('levelUpdate', levelPercent)
+    // Convert to dB and emit
+    const leftDb = amplitudeToDb(maxLeft)
+    const rightDb = amplitudeToDb(maxRight)
+    emit('levelUpdate', leftDb, rightDb)
 
     // Increment frame counter and only add sample every SAMPLE_RATE frames
     frameCounter++
     if (frameCounter >= SAMPLE_RATE) {
       frameCounter = 0
       
-      // Get current waveform sample (center value for stability)
-      const centerSample = dataArray[Math.floor(dataArray.length / 2)]
+      // Get current waveform sample (average of L/R center values for master display)
+      const centerSampleLeft = dataArrayLeft[Math.floor(dataArrayLeft.length / 2)]
+      const centerSampleRight = dataArrayRight[Math.floor(dataArrayRight.length / 2)]
+      const avgSample = (centerSampleLeft + centerSampleRight) / 2
       // Amplify the waveform (multiply by 2 for more visible peaks)
-      const normalizedSample = ((centerSample / 128.0 - 1) * 2) * (height / 2) + (height / 2)
+      const normalizedSample = ((avgSample / 128.0 - 1) * 2) * (height / 2) + (height / 2)
 
       // Add new sample to history and scroll
       waveformHistory.push(normalizedSample)
@@ -136,7 +154,7 @@ function drawWaveform() {
 
 // Watch for recording state changes
 watch(() => props.isRecording, (isRecording) => {
-  if (isRecording && props.analyser) {
+  if (isRecording && props.analyserLeft && props.analyserRight) {
     drawWaveform()
   } else {
     // Stop animation when recording stops
@@ -150,9 +168,10 @@ watch(() => props.isRecording, (isRecording) => {
 })
 
 // Watch for analyser changes (when recording starts)
-watch(() => props.analyser, (newAnalyser) => {
-  if (newAnalyser && props.isRecording) {
-    dataArray = new Uint8Array(newAnalyser.frequencyBinCount)
+watch(() => [props.analyserLeft, props.analyserRight], ([newLeft, newRight]) => {
+  if (newLeft && newRight && props.isRecording) {
+    dataArrayLeft = new Uint8Array(newLeft.frequencyBinCount)
+    dataArrayRight = new Uint8Array(newRight.frequencyBinCount)
     drawWaveform()
   }
 })
@@ -198,7 +217,7 @@ onUnmounted(() => {
 // Expose method to restart waveform (for modal reopen)
 defineExpose({
   restart: () => {
-    if (props.isRecording && props.analyser) {
+    if (props.isRecording && props.analyserLeft && props.analyserRight) {
       drawWaveform()
     }
   }

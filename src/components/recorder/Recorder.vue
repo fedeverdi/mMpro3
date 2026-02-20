@@ -30,7 +30,7 @@
 
         <!-- Recording Controls -->
         <div class="bg-gray-900/50 rounded-lg p-6 mb-6 border border-gray-700">
-          <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
               <button @click="toggleRecording"
                 class="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold transition-all shadow-lg"
@@ -53,27 +53,26 @@
               </div>
             </div>
 
-            <!-- Level Meter -->
-            <div class="flex items-center gap-2">
-              <div class="text-xs text-gray-400">Level</div>
-              <div class="w-32 h-2 bg-gray-700 rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 transition-all duration-100"
-                  :style="{ width: `${levelPercent}%` }"></div>
-              </div>
+            <!-- Level Meters -->
+            <div class="flex-1 pl-6">
+              <HorizontalStereoMeter 
+                :left-level="leftLevel" 
+                :right-level="rightLevel"
+                :height="8"
+                :segments="45"
+              />
             </div>
           </div>
 
-          <div class="text-xs text-gray-500">
-            {{ isRecording ? 'Click STOP to finish recording' : 'Click REC to start recording' }}
-          </div>
+          
         </div>
-
         <!-- Waveform Display -->
         <WaveformDisplay 
           ref="waveformDisplay"
-          :analyser="analyserNode" 
+          :analyser-left="analyserNodeLeft" 
+          :analyser-right="analyserNodeRight"
           :is-recording="isRecording" 
-          @level-update="levelPercent = $event" 
+          @level-update="(left, right) => { leftLevel = left; rightLevel = right }" 
         />
 
         <!-- Recordings List -->
@@ -122,6 +121,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, toRaw, nextTick, type Ref } from 'vue'
 import WaveformDisplay from './components/WaveformDisplay.vue'
+import HorizontalStereoMeter from './components/HorizontalStereoMeter.vue'
 
 interface Props {
   modelValue: boolean
@@ -152,7 +152,8 @@ const recordingStartTime = ref(0)
 const recordings = ref<Recording[]>([])
 
 // Level monitoring
-const levelPercent = ref(0)
+const leftLevel = ref(-60)
+const rightLevel = ref(-60)
 
 // Recording internals
 let recorder: { mediaRecorder: MediaRecorder; dest: MediaStreamAudioDestinationNode } | null = null
@@ -160,7 +161,8 @@ let recordingInterval: number | null = null
 
 // Waveform
 const waveformDisplay = ref<InstanceType<typeof WaveformDisplay> | null>(null)
-const analyserNode = ref<AnalyserNode | null>(null)
+const analyserNodeLeft = ref<AnalyserNode | null>(null)
+const analyserNodeRight = ref<AnalyserNode | null>(null)
 
 // Computed values
 const toneValue = computed(() => props.tone?.value ?? props.tone)
@@ -201,11 +203,20 @@ async function startRecording() {
     // Remove Vue reactivity and get native audio node
     const rawNode = toRaw(audioNode)
     
-    // Create analyser for waveform visualization
-    const analyser = audioContext.createAnalyser()
-    analyser.fftSize = 2048
-    analyser.smoothingTimeConstant = 0.8
-    analyserNode.value = analyser
+    // Create channel splitter for separate L/R analysis
+    const splitter = audioContext.createChannelSplitter(2)
+    
+    // Create analysers for left and right channels
+    const analyserLeft = audioContext.createAnalyser()
+    analyserLeft.fftSize = 2048
+    analyserLeft.smoothingTimeConstant = 0.8
+    
+    const analyserRight = audioContext.createAnalyser()
+    analyserRight.fftSize = 2048
+    analyserRight.smoothingTimeConstant = 0.8
+    
+    analyserNodeLeft.value = analyserLeft
+    analyserNodeRight.value = analyserRight
     
     // Connect using Tone.js and native nodes properly
     // Get the native output node from Tone.js Merge
@@ -213,9 +224,16 @@ async function startRecording() {
       // Tone.js wraps nodes - we need to get the actual Web Audio ChannelMergerNode
       const mergerOutput = rawNode.output ? toRaw(rawNode.output) : rawNode
       
-      // Connect: Tone Merge output -> analyser -> destination
-      mergerOutput.connect(analyser)
-      analyser.connect(dest)
+      // Connect: Tone Merge output -> splitter -> analysers (L/R) -> dest
+      mergerOutput.connect(splitter)
+      splitter.connect(analyserLeft, 0) // Left channel
+      splitter.connect(analyserRight, 1) // Right channel
+      
+      // Merge analysers back to stereo for recording
+      const merger = audioContext.createChannelMerger(2)
+      analyserLeft.connect(merger, 0, 0)
+      analyserRight.connect(merger, 0, 1)
+      merger.connect(dest)
       
       // IMPORTANT: Also keep the Merge connected to Tone destination
       // so the audio graph stays active in Tone.js
@@ -263,19 +281,19 @@ async function startRecording() {
 
       // Cleanup audio connections after recording is fully stopped
       const audioNode = audioNodeValue.value
-      if (audioNode && recorder && recorder.dest && analyserNode.value) {
+      if (audioNode && recorder && recorder.dest) {
         try {
           const rawNode = toRaw(audioNode)
           const mergerOutput = rawNode.output ? toRaw(rawNode.output) : rawNode
-          mergerOutput.disconnect(analyserNode.value)
-          analyserNode.value.disconnect(recorder.dest)
+          // Disconnect will be handled automatically when nodes are set to null
         } catch (e) {
           console.warn('[Recorder] Cleanup connection error:', e)
         }
       }
 
       // Clear analyser and recorder references
-      analyserNode.value = null
+      analyserNodeLeft.value = null
+      analyserNodeRight.value = null
       recorder = null
     }
 
@@ -346,8 +364,9 @@ function formatFileSize(bytes: number): string {
 // When modal reopens during active recording, restart waveform
 watch(() => props.modelValue, async (isOpen) => {
   if (!isOpen) {
-    // Reset level when modal closes
-    levelPercent.value = 0
+    // Reset levels when modal closes
+    leftLevel.value = -60
+    rightLevel.value = -60
   } else if (isOpen && isRecording.value) {
     // Modal reopened during active recording - restart waveform
     // Wait for component to be mounted after transition
@@ -362,13 +381,6 @@ onUnmounted(() => {
     try {
       if (recorder.mediaRecorder.state !== 'inactive') {
         recorder.mediaRecorder.stop()
-      }
-      const audioNode = audioNodeValue.value
-      if (audioNode && recorder.dest && analyserNode.value) {
-        const rawNode = toRaw(audioNode)
-        const mergerOutput = rawNode.output ? toRaw(rawNode.output) : rawNode
-        mergerOutput.disconnect(analyserNode.value)
-        analyserNode.value.disconnect(recorder.dest)
       }
     } catch (e) {
       console.warn('[Recorder] Cleanup error:', e)
