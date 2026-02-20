@@ -201,6 +201,24 @@
         <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId"
             @save="handleSaveScene" @load="handleLoadScene" @update="handleUpdateScene" @delete="handleDeleteScene"
             @rename="handleRenameScene" />
+
+        <!-- Scene Loading Overlay -->
+        <div v-if="isLoadingScene" 
+            class="fixed inset-0 bg-black/10 flex items-start justify-center pt-20 z-[9999] animate-fade-in">
+            <div class="bg-gradient-to-br from-gray-600 to-gray-700 border-2 border-blue-500/70 rounded-lg shadow-2xl px-6 py-3 flex items-center gap-3 animate-slide-down whitespace-nowrap">
+                <div class="relative w-5 h-5">
+                    <div class="absolute inset-0 border-2 border-blue-500/30 rounded-full"></div>
+                    <div class="absolute inset-0 border-2 border-transparent border-t-blue-500 rounded-full animate-spin"></div>
+                </div>
+                <span class="text-sm font-semibold text-white">Loading Scene</span>
+                <div class="flex gap-1">
+                    <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                    <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                    <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                </div>
+                <span class="text-xs text-gray-400">Please wait...</span>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -235,6 +253,7 @@ const isReady = ref(false)
 // Audio Flow Modal
 const showAudioFlowModal = ref(false)
 const showScenesModal = ref(false)
+const isLoadingScene = ref(false)
 
 // Tracks management
 const tracks = ref<Track[]>([
@@ -409,6 +428,9 @@ function handleLoadScene(sceneId: string) {
 
     // Close the modal first
     showScenesModal.value = false
+    
+    // Show loading overlay
+    isLoadingScene.value = true
 
     // Small delay before starting the animation
     setTimeout(() => {
@@ -452,6 +474,11 @@ function handleLoadScene(sceneId: string) {
 
             // Set as current scene
             setCurrentScene(scene.id)
+            
+            // Hide loading overlay after scene is restored and audio files have time to load
+            setTimeout(() => {
+                isLoadingScene.value = false
+            }, 1200) // Extra time for audio files to load silently
         }, 600) // Wait 0.6 seconds at -∞ before restoring values
     }, 200) // Initial delay after closing modal
 }

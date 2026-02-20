@@ -638,7 +638,7 @@ async function handleFileUpload(event: Event) {
 }
 
 // Load audio file from IndexedDB (for restoring from scene)
-async function loadFileFromIndexedDB(savedFileId: string) {
+async function loadFileFromIndexedDB(savedFileId: string, silent: boolean = false) {
   if (!Tone) {
     console.error('Tone.js not loaded')
     return
@@ -647,7 +647,10 @@ async function loadFileFromIndexedDB(savedFileId: string) {
   // Initialize audio nodes on first use
   initAudioNodes()
 
-  isLoading.value = true
+  // Don't show spinner when restoring from scene (silent mode)
+  if (!silent) {
+    isLoading.value = true
+  }
 
   try {
     // Retrieve file from IndexedDB
@@ -656,7 +659,9 @@ async function loadFileFromIndexedDB(savedFileId: string) {
     if (!storedFile) {
       console.error('File not found in IndexedDB')
       alert('Could not restore audio file from scene. File may have been deleted.')
-      isLoading.value = false
+      if (!silent) {
+        isLoading.value = false
+      }
       return
     }
 
@@ -730,19 +735,25 @@ async function loadFileFromIndexedDB(savedFileId: string) {
     // Verify audio chain is connected
     if (!gainNode || !eq3 || !volumeMerge) {
       alert('Audio system not ready. Please refresh the page.')
-      isLoading.value = false
+      if (!silent) {
+        isLoading.value = false
+      }
       return
     }
 
     audioLoaded.value = true
-    isLoading.value = false
+    if (!silent) {
+      isLoading.value = false
+    }
 
     // Force DOM update
     await nextTick()
   } catch (error) {
     console.error('❌ Error loading audio file from IndexedDB:', error)
     alert('Error loading audio file from scene: ' + error)
-    isLoading.value = false
+    if (!silent) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -1106,7 +1117,8 @@ defineExpose({
       fileName.value = snapshot.fileName
       fileId.value = snapshot.fileId
       nextTick(async () => {
-        await loadFileFromIndexedDB(snapshot.fileId!)
+        // silent=true to avoid showing spinner during scene animation
+        await loadFileFromIndexedDB(snapshot.fileId!, true)
       })
     }
 
