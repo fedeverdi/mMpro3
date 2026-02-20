@@ -171,12 +171,12 @@
         </footer>
 
         <!-- Audio Flow Modal -->
-        <!-- <AudioFlowModal v-model="showAudioFlowModal" /> -->
+        <AudioFlowModal v-model="showAudioFlowModal" />
 
         <!-- Scenes Modal -->
-        <!-- <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId"
+        <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId"
             @save="handleSaveScene" @load="handleLoadScene" @update="handleUpdateScene" @delete="handleDeleteScene"
-            @rename="handleRenameScene" /> -->
+            @rename="handleRenameScene" />
     </div>
 </template>
 

@@ -21,7 +21,7 @@
           </div>
           
           <!-- Content -->
-          <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+          <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)] custom-scrollbar">
             <!-- Audio Track Chain -->
             <div class="mb-8">
               <h3 class="text-lg font-bold text-purple-400 mb-4 flex items-center gap-2">
@@ -56,25 +56,34 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
-                <!-- EQ3 -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold">
+                <!-- EQ3 with analysis taps -->
+                <div class="flex flex-col items-center gap-2">
+                  <!-- Analysis taps branching UP -->
+                  <div class="flex gap-3 items-end">
+                    <div class="flex flex-col items-center gap-1">
+                      <div class="px-2 py-1 bg-yellow-600 text-white rounded text-[10px] font-bold shadow-lg">
+                        VU L/R
+                      </div>
+                      <svg class="w-4 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
+                      </svg>
+                      <div class="text-[9px] text-yellow-500 font-bold">↓ TAP</div>
+                    </div>
+                    <div class="flex flex-col items-center gap-1">
+                      <div class="px-2 py-1 bg-cyan-600 text-white rounded text-[10px] font-bold shadow-lg">
+                        Waveform
+                      </div>
+                      <svg class="w-4 h-6 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
+                      </svg>
+                      <div class="text-[9px] text-cyan-500 font-bold">↓ TAP</div>
+                    </div>
+                  </div>
+                  <!-- EQ3 main node -->
+                  <div class="px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold shadow-lg">
                     EQ3
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">3-band EQ</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Meter/Waveform -->
-                <div class="flex flex-col items-center border-2 border-yellow-500/50 rounded-lg p-3 bg-yellow-900/10">
-                  <div class="text-xs text-yellow-400 font-bold mb-2">ANALYSIS</div>
-                  <div class="flex flex-col gap-1">
-                    <div class="px-3 py-1 bg-yellow-700/50 text-white rounded text-xs font-semibold">VU Meter</div>
-                    <div class="px-3 py-1 bg-yellow-700/50 text-white rounded text-xs font-semibold">Waveform</div>
-                  </div>
+                  <div class="text-xs text-gray-500">3-band EQ</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,10 +92,10 @@
                 
                 <!-- Compressor -->
                 <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold border-2 border-purple-500">
+                  <div class="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold border-2 border-dashed border-purple-400">
                     Compressor
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">Optional FX</div>
+                  <div class="text-xs text-orange-400 mt-1">If Enabled</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -95,22 +104,22 @@
                 
                 <!-- Reverb -->
                 <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold border-2 border-purple-500">
+                  <div class="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold">
                     Reverb
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">Optional FX</div>
+                  <div class="text-xs text-gray-500 mt-1">Wet=0 when off</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
-                <!-- Panner -->
+                <!-- Balance -->
                 <div class="flex flex-col items-center">
                   <div class="px-4 py-2 bg-cyan-700 text-white rounded-lg font-semibold">
-                    Panner
+                    Balance
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">Stereo Balance/Pan</div>
+                  <div class="text-xs text-gray-500 mt-1">Split→L/R→Merge</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -122,7 +131,7 @@
                   <div class="px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold">
                     Volume
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">Track Fader</div>
+                  <div class="text-xs text-gray-500 mt-1">Split→L/R→Merge</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -156,7 +165,7 @@
                   <div class="px-4 py-2 bg-gradient-to-br from-gray-600 to-gray-700 text-white rounded-lg font-bold shadow-lg">
                     Tracks
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">Stereo Mix</div>
+                  <div class="text-xs text-gray-500 mt-1">All tracks mixed</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,73 +177,136 @@
                   <div class="px-4 py-2 bg-orange-700 text-white rounded-lg font-semibold">
                     Master Channel
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">Stereo In/Out</div>
+                  <div class="text-xs text-gray-500 mt-1">Tone.Channel</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
-                <!-- Master FX Box -->
-                <div class="flex flex-col items-center border-2 border-dashed border-orange-500/50 rounded-lg p-3 bg-orange-900/10">
-                  <div class="text-xs text-orange-400 font-bold mb-2">MASTER FX</div>
-                  <div class="flex flex-col gap-2">
-                    <div class="px-3 py-1 bg-orange-700/50 text-white rounded text-xs font-semibold">Parametric EQ</div>
-                    <div class="px-3 py-1 bg-orange-700/50 text-white rounded text-xs font-semibold">Compressor</div>
-                    <div class="px-3 py-1 bg-orange-700/50 text-white rounded text-xs font-semibold">Reverb</div>
-                    <div class="px-3 py-1 bg-orange-700/50 text-white rounded text-xs font-semibold">Limiter</div>
+                <!-- Parametric EQ with Spectrum tap -->
+                <div class="flex flex-col items-center gap-2">
+                  <!-- Spectrum analyzer tap branching UP -->
+                  <div class="flex flex-col items-center gap-1">
+                    <div class="px-2 py-1 bg-purple-600 text-white rounded text-[10px] font-bold shadow-lg">
+                      Spectrum
+                    </div>
+                    <svg class="w-4 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
+                    </svg>
+                    <div class="text-[9px] text-purple-500 font-bold">↓ TAP</div>
                   </div>
+                  <!-- Parametric EQ main node -->
+                  <div class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow-lg">
+                    Parametric EQ
+                  </div>
+                  <div class="text-xs text-gray-500">5-band + outputNode</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
-                <!-- FX Chain Output -->
+                <!-- Master FX Chain -->
+                <div class="flex flex-col items-center border-2 border-dashed border-orange-400 rounded-lg p-3 bg-orange-900/10">
+                  <div class="text-xs text-orange-300 font-bold mb-2">MASTER FX CHAIN</div>
+                  <div class="flex flex-col gap-1.5">
+                    <div class="flex items-center gap-1">
+                      <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                      <div class="px-2 py-1 bg-orange-700/60 text-white rounded text-xs font-semibold">Compressor</div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                      <div class="px-2 py-1 bg-orange-700/60 text-white rounded text-xs font-semibold">Reverb</div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                      <div class="px-2 py-1 bg-orange-700/60 text-white rounded text-xs font-semibold">Delay</div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                      <div class="px-2 py-1 bg-orange-700/60 text-white rounded text-xs font-semibold">Limiter</div>
+                    </div>
+                  </div>
+                  <div class="text-[9px] text-orange-400 mt-1">Green = if enabled</div>
+                </div>
+                
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                
+                <!-- Split Node -->
                 <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold">
-                    FX Output
+                  <div class="px-4 py-2 bg-cyan-600 text-white rounded-lg font-semibold">
+                    Split L/R
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">Post-FX</div>
+                  <div class="text-xs text-gray-500 mt-1">Tone.Split</div>
                 </div>
                 
-                <!-- Split to 3 destinations -->
-                <div class="flex flex-col items-center gap-3">
-                  <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                  </svg>
-                  
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                
+                <!-- L/R Faders and Meters -->
+                <div class="flex flex-col items-center border-2 border-blue-500 rounded-lg p-2 bg-blue-900/10">
+                  <div class="text-xs text-blue-300 font-bold mb-1">MASTER FADERS</div>
+                  <div class="flex gap-2">
+                    <div class="flex flex-col gap-1">
+                      <div class="px-2 py-1 bg-purple-600 text-white rounded text-xs font-semibold">L Gain</div>
+                      <div class="px-2 py-1 bg-yellow-600/80 text-white rounded text-xs">L Meter</div>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <div class="px-2 py-1 bg-blue-600 text-white rounded text-xs font-semibold">R Gain</div>
+                      <div class="px-2 py-1 bg-yellow-600/80 text-white rounded text-xs">R Meter</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                
+                <!-- Merge -->
+                <div class="flex flex-col items-center">
+                  <div class="px-4 py-2 bg-cyan-600 text-white rounded-lg font-semibold">
+                    Merge
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">Tone.Merge</div>
+                </div>
+                
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                
+                <!-- Output Split -->
+                <div class="flex flex-col gap-3">                  
                   <div class="flex gap-4">
-                    <!-- Branch 1: Main Faders -->
+                    <!-- Main Output -->
                     <div class="flex flex-col items-center gap-2">
-                      <div class="text-xs text-blue-400 font-bold">MAIN OUTPUT</div>
+                      <div class="text-xs text-blue-400 font-bold">MAIN OUT</div>
                       <div class="flex flex-col gap-2 border-2 border-blue-500 rounded-lg p-2 bg-blue-900/10">
-                        <div class="px-3 py-1 bg-gray-700 text-white rounded text-xs font-semibold">Fader Split</div>
-                        <div class="flex gap-1">
-                          <div class="px-2 py-1 bg-purple-600 text-white rounded text-xs">L Gain</div>
-                          <div class="px-2 py-1 bg-blue-600 text-white rounded text-xs">R Gain</div>
+                        <div class="px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded text-xs font-bold">
+                          Speakers
                         </div>
-                        <div class="px-3 py-1 bg-cyan-700 text-white rounded text-xs font-semibold">Merger</div>
-                        <div class="px-3 py-1 bg-yellow-600 text-white rounded text-xs font-semibold">VU Meters</div>
-                        <div class="px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded text-xs font-bold">Speakers</div>
+                        <div class="text-[9px] text-gray-400">toDestination()</div>
                       </div>
                     </div>
                     
-                    <!-- Branch 2: Headphones -->
+                    <!-- Headphones -->
                     <div class="flex flex-col items-center gap-2">
                       <div class="text-xs text-green-400 font-bold">HEADPHONES</div>
-                      <div class="flex flex-col gap-2 border-2 border-green-500 rounded-lg p-2 bg-green-900/10">
-                        <div class="px-3 py-1 bg-gray-700 text-white rounded text-xs font-semibold">HP Volume</div>
-                        <div class="px-3 py-1 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded text-xs font-bold">Headphones</div>
-                      </div>
-                    </div>
-                    
-                    <!-- Branch 3: Analysis -->
-                    <div class="flex flex-col items-center gap-2">
-                      <div class="text-xs text-purple-400 font-bold">ANALYSIS</div>
-                      <div class="flex flex-col gap-2 border-2 border-purple-500 rounded-lg p-2 bg-purple-900/10">
-                        <div class="px-3 py-1 bg-gray-700 text-white rounded text-xs font-semibold">Analysis Tap</div>
-                        <div class="px-3 py-1 bg-purple-600 text-white rounded text-xs font-semibold">Spectrum</div>
+                      <div class="flex flex-col gap-1 border-2 border-green-500 rounded-lg p-2 bg-green-900/10">
+                        <div class="px-2 py-1 bg-gray-700 text-white rounded text-xs font-semibold">HP Gain</div>
+                        <div class="px-2 py-1 bg-yellow-600/80 text-white rounded text-xs">HP Meter</div>
+                        <div class="px-2 py-1 bg-gray-700 text-white rounded text-xs">MediaStream</div>
+                        <div class="px-2 py-1 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded text-xs font-bold">
+                          <div class="flex items-center gap-1 justify-center">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z"/>
+                            </svg>
+                            <span>HP Out</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -244,8 +316,8 @@
             
             <!-- Legend -->
             <div class="mt-8 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-              <h4 class="text-sm font-bold text-gray-400 mb-2">Legend</h4>
-              <div class="grid grid-cols-2 gap-2 text-xs text-gray-500">
+              <h4 class="text-sm font-bold text-gray-400 mb-3">Legend</h4>
+              <div class="grid grid-cols-2 gap-3 text-xs text-gray-500">
                 <div class="flex items-center gap-2">
                   <div class="w-3 h-3 bg-gray-700 rounded"></div>
                   <span>Processing Node</span>
@@ -259,9 +331,21 @@
                   <span>Right Channel</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 border-2 border-dashed border-purple-500/50 rounded"></div>
-                  <span>Optional/Conditional</span>
+                  <div class="w-3 h-3 border-2 border-dashed border-orange-400 rounded"></div>
+                  <span>Conditional Chain</span>
                 </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                  <span>Active when enabled</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="text-xs font-bold text-yellow-500">↓ TAP</div>
+                  <span>Analysis tap (non-blocking)</span>
+                </div>
+              </div>
+              <div class="mt-3 pt-3 border-t border-gray-700 text-xs text-gray-400">
+                <p class="mb-1"><strong>Note:</strong> Analysis taps (VU, Waveform, Spectrum) are non-blocking connections that monitor the signal without affecting the main audio flow.</p>
+                <p><strong>FX Chain Order:</strong> Compressor → Reverb → Delay → Limiter (only if enabled via MasterFX controls).</p>
               </div>
             </div>
           </div>
@@ -326,5 +410,36 @@ onUnmounted(() => {
 
 .modal-leave-to > div:last-child {
   transform: scale(0.9);
+}
+
+/* Custom scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 12px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(31, 41, 55, 0.5); /* gray-800 with opacity */
+  border-radius: 6px;
+  margin: 4px 0;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #9333ea 0%, #3b82f6 100%); /* purple-600 to blue-600 */
+  border-radius: 6px;
+  border: 2px solid rgba(31, 41, 55, 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #a855f7 0%, #60a5fa 100%); /* purple-500 to blue-400 */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, #c084fc 0%, #93c5fd 100%); /* purple-400 to blue-300 */
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #9333ea rgba(31, 41, 55, 0.5);
 }
 </style>
