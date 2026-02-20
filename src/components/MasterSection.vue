@@ -66,8 +66,8 @@
 import MasterFader from './master/MasterFader.vue'
 import VuMeter from './core/VuMeter.vue'
 import HeadphonesControl from './master/HeadphonesControl.vue'
-import RecorderButton from './master/RecorderButton.vue'
-import Recorder from './master/Recorder.vue'
+import RecorderButton from './recorder/RecorderButton.vue'
+import Recorder from './recorder/Recorder.vue'
 import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 
 // Props

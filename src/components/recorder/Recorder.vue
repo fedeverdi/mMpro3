@@ -69,10 +69,12 @@
         </div>
 
         <!-- Waveform Display -->
-        <div class="bg-gray-900/50 rounded-lg p-4 mb-6 border border-gray-700">
-          <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">Waveform</div>
-          <canvas ref="waveformCanvas" width="800" height="96" class="w-full bg-black/50 rounded" style="height: 96px;" />
-        </div>
+        <WaveformDisplay 
+          ref="waveformDisplay"
+          :analyser="analyserNode" 
+          :is-recording="isRecording" 
+          @level-update="levelPercent = $event" 
+        />
 
         <!-- Recordings List -->
         <div class="flex-1 overflow-y-auto">
@@ -119,6 +121,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, toRaw, nextTick, type Ref } from 'vue'
+import WaveformDisplay from './components/WaveformDisplay.vue'
 
 interface Props {
   modelValue: boolean
@@ -156,11 +159,8 @@ let recorder: { mediaRecorder: MediaRecorder; dest: MediaStreamAudioDestinationN
 let recordingInterval: number | null = null
 
 // Waveform
-const waveformCanvas = ref<HTMLCanvasElement | null>(null)
-let analyser: AnalyserNode | null = null
-let animationFrameId: number | null = null
-let dataArray: Uint8Array | null = null
-let waveformHistory: number[] = []  // Buffer for scrolling waveform
+const waveformDisplay = ref<InstanceType<typeof WaveformDisplay> | null>(null)
+const analyserNode = ref<AnalyserNode | null>(null)
 
 // Computed values
 const toneValue = computed(() => props.tone?.value ?? props.tone)
@@ -202,11 +202,10 @@ async function startRecording() {
     const rawNode = toRaw(audioNode)
     
     // Create analyser for waveform visualization
-    analyser = audioContext.createAnalyser()
+    const analyser = audioContext.createAnalyser()
     analyser.fftSize = 2048
     analyser.smoothingTimeConstant = 0.8
-    const bufferLength = analyser.frequencyBinCount
-    dataArray = new Uint8Array(bufferLength)
+    analyserNode.value = analyser
     
     // Connect using Tone.js and native nodes properly
     // Get the native output node from Tone.js Merge
@@ -261,6 +260,23 @@ async function startRecording() {
         size,
         timestamp: Date.now()
       })
+
+      // Cleanup audio connections after recording is fully stopped
+      const audioNode = audioNodeValue.value
+      if (audioNode && recorder && recorder.dest && analyserNode.value) {
+        try {
+          const rawNode = toRaw(audioNode)
+          const mergerOutput = rawNode.output ? toRaw(rawNode.output) : rawNode
+          mergerOutput.disconnect(analyserNode.value)
+          analyserNode.value.disconnect(recorder.dest)
+        } catch (e) {
+          console.warn('[Recorder] Cleanup connection error:', e)
+        }
+      }
+
+      // Clear analyser and recorder references
+      analyserNode.value = null
+      recorder = null
     }
 
     mediaRecorder.start()
@@ -270,9 +286,6 @@ async function startRecording() {
     emit('update:isRecording', true)
     recordingStartTime.value = Date.now()
     recordingTime.value = '00:00'
-
-    // Start waveform drawing AFTER isRecording is set to true
-    drawWaveform()
 
     // Start timer
     recordingInterval = window.setInterval(() => {
@@ -296,30 +309,7 @@ function stopRecording() {
       recorder.mediaRecorder.stop()
     }
 
-    // Disconnect
-    const audioNode = audioNodeValue.value
-    if (audioNode && recorder.dest) {
-      const rawNode = toRaw(audioNode)
-      const nativeNode = rawNode._nativeAudioNode || rawNode
-      nativeNode.disconnect(analyser)
-      if (analyser) {
-        analyser.disconnect(recorder.dest)
-      }
-    }
-
-    // Stop waveform drawing
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId)
-      animationFrameId = null
-    }
-
-    // Clean up analyser
-    analyser = null
-    dataArray = null
-    waveformHistory = []
-
-    recorder = null
-
+    // Clear timer
     if (recordingInterval) {
       clearInterval(recordingInterval)
       recordingInterval = null
@@ -332,97 +322,6 @@ function stopRecording() {
     isRecording.value = false
     emit('update:isRecording', false)
   }
-}
-
-function drawWaveform() {
-  if (!waveformCanvas.value || !analyser || !dataArray) {
-    console.warn('[Recorder] Missing waveform elements:', { canvas: !!waveformCanvas.value, analyser: !!analyser, dataArray: !!dataArray })
-    return
-  }
-
-  const canvas = waveformCanvas.value
-  const canvasCtx = canvas.getContext('2d')
-  if (!canvasCtx) return
-
-  // Initialize waveform history buffer only if empty (first time)
-  if (waveformHistory.length === 0) {
-    waveformHistory = []
-  }
-
-  const draw = () => {
-    if (!analyser || !dataArray || !isRecording.value) return
-
-    // Local reference for TypeScript
-    const waveData = dataArray
-
-    animationFrameId = requestAnimationFrame(draw)
-
-    // Update canvas size to match display size
-    const rect = canvas.getBoundingClientRect()
-    const width = canvas.width
-    const height = canvas.height
-
-    // Get waveform data
-    analyser.getByteTimeDomainData(waveData as any)
-
-    // Calculate level meter from waveform data
-    let sum = 0
-    let max = 0
-    for (let i = 0; i < waveData.length; i++) {
-      const value = Math.abs(waveData[i] - 128)
-      sum += value
-      max = Math.max(max, value)
-    }
-    const average = sum / waveData.length
-    // Convert to percentage (0-100)
-    levelPercent.value = Math.min(100, (max / 128) * 100)
-
-    // Get current waveform sample (center value for stability)
-    const centerSample = waveData[Math.floor(waveData.length / 2)]
-    const normalizedSample = (centerSample / 128.0 - 1) * (height / 2) + (height / 2)
-
-    // Add new sample to history and scroll
-    waveformHistory.push(normalizedSample)
-    // Keep history size equal to canvas width
-    if (waveformHistory.length > width) {
-      waveformHistory.shift()
-    }
-
-    // Clear canvas with solid background
-    canvasCtx.fillStyle = '#000000'
-    canvasCtx.fillRect(0, 0, width, height)
-
-    // Draw waveform history (scrolling timeline)
-    canvasCtx.lineWidth = 2
-    canvasCtx.strokeStyle = '#3b82f6' // blue-500
-    canvasCtx.beginPath()
-
-    for (let i = 0; i < waveformHistory.length; i++) {
-      const x = i
-      const y = waveformHistory[i]
-
-      if (i === 0) {
-        canvasCtx.moveTo(x, y)
-      } else {
-        canvasCtx.lineTo(x, y)
-      }
-    }
-
-    canvasCtx.stroke()
-
-    // Draw playhead line (current time indicator)
-    if (waveformHistory.length > 0) {
-      const playheadX = waveformHistory.length - 1
-      canvasCtx.strokeStyle = '#ef4444' // red-500
-      canvasCtx.lineWidth = 2
-      canvasCtx.beginPath()
-      canvasCtx.moveTo(playheadX, 0)
-      canvasCtx.lineTo(playheadX, height)
-      canvasCtx.stroke()
-    }
-  }
-
-  draw()
 }
 
 function downloadRecording(recording: Recording) {
@@ -444,22 +343,16 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-// Level meter now driven by analyser data in drawWaveform()
 // When modal reopens during active recording, restart waveform
 watch(() => props.modelValue, async (isOpen) => {
   if (!isOpen) {
     // Reset level when modal closes
     levelPercent.value = 0
-    // Stop animation frame when modal closes
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId)
-      animationFrameId = null
-    }
   } else if (isOpen && isRecording.value) {
     // Modal reopened during active recording - restart waveform
-    // Wait for canvas to be mounted after transition
+    // Wait for component to be mounted after transition
     await nextTick()
-    drawWaveform()
+    waveformDisplay.value?.restart()
   }
 })
 
@@ -471,13 +364,11 @@ onUnmounted(() => {
         recorder.mediaRecorder.stop()
       }
       const audioNode = audioNodeValue.value
-      if (audioNode && recorder.dest) {
+      if (audioNode && recorder.dest && analyserNode.value) {
         const rawNode = toRaw(audioNode)
-        const nativeNode = rawNode._nativeAudioNode || rawNode
-        nativeNode.disconnect(analyser)
-        if (analyser) {
-          analyser.disconnect(recorder.dest)
-        }
+        const mergerOutput = rawNode.output ? toRaw(rawNode.output) : rawNode
+        mergerOutput.disconnect(analyserNode.value)
+        analyserNode.value.disconnect(recorder.dest)
       }
     } catch (e) {
       console.warn('[Recorder] Cleanup error:', e)
@@ -486,10 +377,6 @@ onUnmounted(() => {
 
   if (recordingInterval) {
     clearInterval(recordingInterval)
-  }
-
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId)
   }
 })
 </script>
