@@ -7,7 +7,7 @@
     leave-active-class="transition-opacity duration-300"
     leave-to-class="opacity-0">
     <div v-if="modelValue" @click="closeModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
-      <div @click.stop class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border-2 border-red-600 shadow-2xl p-6 w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
+      <div @click.stop class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border-2 border-red-600 shadow-2xl p-6 w-[900px] max-h-[80vh] overflow-hidden flex flex-col">
         <!-- Header -->
         <div class="flex items-center justify-between mb-6">
           <div class="flex items-center gap-3">
