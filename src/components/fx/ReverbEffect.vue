@@ -28,20 +28,21 @@
     <Teleport to="body">
       <div v-if="showModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
         @mousedown.self="showModal = false">
-        <div class="bg-gray-900 rounded-lg border-2 border-green-600 p-6 max-w-md w-full mx-4" @click.stop>
+        <div class="bg-gray-900 relative rounded-lg border-2 border-green-600 px-4 pt-4 pb-2 max-w-md w-full mx-4" @click.stop>
+            <button @click="showModal = false"
+            class="absolute right-4 top-[0.3rem] text-gray-400 hover:text-white text-2xl">&times;</button>
           <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-bold text-green-300">Reverb Settings</h3>
-            <button @click="showModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            <h3 class="text-xs font-bold text-green-300">REVERB SETTINGS</h3>
           </div>
 
           <p class="text-xs text-yellow-500 mb-2 text-center">* Decay requires toggle OFF/ON to apply</p>
 
           <div class="grid grid-cols-3 gap-4">
-            <Knob v-model="decay" :min="0.1" :max="10" :step="0.1" label="Decay" unit="s" color="#10b981" />
+            <Knob class="scale-[0.8]" v-model="decay" :min="0.1" :max="10" :step="0.1" label="Decay" unit="s" color="#10b981" />
 
-            <Knob v-model="preDelay" :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#10b981" />
+            <Knob class="scale-[0.8]" v-model="preDelay" :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#10b981" />
 
-            <Knob v-model="wet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#10b981" />
+            <Knob class="scale-[0.8]" v-model="wet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#10b981" />
           </div>
         </div>
       </div>

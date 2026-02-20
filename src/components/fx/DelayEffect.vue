@@ -28,18 +28,19 @@
     <Teleport to="body">
       <div v-if="showModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
         @mousedown.self="showModal = false">
-        <div class="bg-gray-900 rounded-lg border-2 border-purple-600 p-6 max-w-md w-full mx-4" @click.stop>
+        <div class="bg-gray-900 relative rounded-lg border-2 border-purple-600 p-4 max-w-md w-full mx-4" @click.stop>
+                  <button @click="showModal = false"
+            class="absolute right-4 top-[0.3rem] text-gray-400 hover:text-white text-2xl">&times;</button>
           <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-bold text-purple-300">Delay Settings</h3>
-            <button @click="showModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            <h3 class="text-xs font-bold text-purple-300">DELAY SETTINGS</h3>
           </div>
 
           <div class="grid grid-cols-3 gap-4">
-            <Knob v-model="delayTime" :min="0" :max="2" :step="0.01" label="Time" unit="s" color="#a855f7" />
+            <Knob class="scale-[0.8]" v-model="delayTime" :min="0" :max="2" :step="0.01" label="Time" unit="s" color="#a855f7" />
 
-            <Knob v-model="feedback" :min="0" :max="0.95" :step="0.01" label="Feedback" unit="%" color="#ec4899" />
+            <Knob class="scale-[0.8]" v-model="feedback" :min="0" :max="0.95" :step="0.01" label="Feedback" unit="%" color="#ec4899" />
 
-            <Knob v-model="wet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
+            <Knob class="scale-[0.8]" v-model="wet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
           </div>
         </div>
       </div>
