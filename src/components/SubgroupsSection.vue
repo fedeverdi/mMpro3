@@ -126,11 +126,10 @@ let leftGain: any = null
 let rightGain: any = null
 let outputMerge: any = null // Output merge node
 
-// Output routing (uses separate AudioContext to avoid timing conflicts)
-let outputGain: GainNode | null = null
-let outputContext: AudioContext | null = null
+// Output routing (direct connection in main context for perfect sync)
+let outputGain: any = null
 let outputStreamDest: MediaStreamAudioDestinationNode | null = null
-let outputMediaStreamSource: MediaStreamAudioSourceNode | null = null
+let outputAudioContext: AudioContext | null = null
 
 // Calculate meters height based on container
 function updateMetersHeight() {
@@ -171,45 +170,31 @@ async function onOutputSelect() {
 
     try {
         // Close existing output context if any
-        if (outputContext) {
-            if (outputMediaStreamSource) {
-                outputMediaStreamSource.disconnect()
-                outputMediaStreamSource = null
-            }
-            if (outputGain) {
-                outputGain.disconnect()
-                outputGain = null
-            }
-            await outputContext.close()
-            outputContext = null
+        if (outputAudioContext) {
+            await outputAudioContext.close()
+            outputAudioContext = null
         }
 
-        // Create new AudioContext with selected output device
+        // Create new AudioContext targeting selected device
         const mainAudioContext = Tone.context.rawContext as AudioContext
         const contextOptions: any = {
-            latencyHint: 'playback',
+            latencyHint: 'interactive', // Lower latency for better sync
             sampleRate: mainAudioContext.sampleRate
         }
 
-        // Add sinkId if device is selected
         if (selectedOutput.value) {
             contextOptions.sinkId = selectedOutput.value
         }
 
-        outputContext = new AudioContext(contextOptions)
+        outputAudioContext = new AudioContext(contextOptions)
 
-        // Recreate audio chain in new context
-        outputMediaStreamSource = outputContext.createMediaStreamSource(outputStreamDest.stream)
-        outputGain = outputContext.createGain()
-        outputGain.gain.value = 1
+        // Create simple playback chain
+        const source = outputAudioContext.createMediaStreamSource(outputStreamDest.stream)
+        source.connect(outputAudioContext.destination)
 
-        // Connect: MediaStreamSource → Gain → Destination
-        outputMediaStreamSource.connect(outputGain)
-        outputGain.connect(outputContext.destination)
-
-        // Resume context if suspended (autoplay policy)
-        if (outputContext.state === 'suspended') {
-            await outputContext.resume()
+        // Resume if suspended
+        if (outputAudioContext.state === 'suspended') {
+            await outputAudioContext.resume()
         }
 
         console.log('[Subgroup Output] Changed to:', selectedOutput.value || 'default')
@@ -266,19 +251,10 @@ function initSubgroupChannel() {
     leftMeter = new Tone.Meter()
     rightMeter = new Tone.Meter()
 
-    // Create output routing with separate AudioContext to avoid timing issues
+    // Create output routing in main context (perfect sync)
     const mainAudioContext = Tone.context.rawContext as AudioContext
+    outputGain = new Tone.Gain(1)
     outputStreamDest = mainAudioContext.createMediaStreamDestination()
-
-    // Create separate AudioContext for subgroup output (prevents slowdown when tracks connect/disconnect)
-    outputContext = new AudioContext({ latencyHint: 'playback', sampleRate: mainAudioContext.sampleRate })
-    outputMediaStreamSource = outputContext.createMediaStreamSource(outputStreamDest.stream)
-    outputGain = outputContext.createGain()
-    outputGain.gain.value = 1
-
-    // Route: MediaStreamSource → Gain → Destination (in output context)
-    outputMediaStreamSource.connect(outputGain)
-    outputGain.connect(outputContext.destination)
 
     // Build audio chain:
     // INPUT: inputGainNode (subgroupChannel connects here)
@@ -307,7 +283,9 @@ function initSubgroupChannel() {
     rightGain.connect(outputMerge, 0, 1)
 
     // Output to MediaStream for device routing
-    outputMerge.connect(outputStreamDest as any)
+    // Chain: inputGainNode → FX → split → faders → outputMerge → outputGain → streamDest
+    outputMerge.connect(outputGain)
+    outputGain.connect(outputStreamDest as any)
 
     // Update initial volumes
     updateSubgroupVolume()
@@ -563,19 +541,12 @@ onUnmounted(() => {
     if (leftGain) leftGain.dispose()
     if (rightGain) rightGain.dispose()
     if (outputMerge) outputMerge.dispose()
+    if (outputGain) outputGain.dispose()
 
-    // Cleanup output context and nodes
-    if (outputMediaStreamSource) {
-        outputMediaStreamSource.disconnect()
-        outputMediaStreamSource = null
-    }
-    if (outputGain) {
-        outputGain.disconnect()
-        outputGain = null
-    }
-    if (outputContext) {
-        outputContext.close()
-        outputContext = null
+    // Cleanup output context
+    if (outputAudioContext) {
+        outputAudioContext.close()
+        outputAudioContext = null
     }
     if (outputStreamDest) {
         outputStreamDest = null
