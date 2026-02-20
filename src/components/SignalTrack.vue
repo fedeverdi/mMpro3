@@ -322,6 +322,32 @@ async function toggleSignal() {
   if (!signalNode || !Tone) return
 
   if (!isPlaying.value) {
+    // Warning per segnali diversi da rumore
+    const isNoise = selectedSignal.value === 'whiteNoise' || selectedSignal.value === 'pinkNoise'
+    
+    if (!isNoise) {
+      const signalWarnings = {
+        'square': '⚠️ ATTENZIONE: Le onde quadre contengono armoniche molto intense che possono DANNEGGIARE gli altoparlanti e l\'udito!',
+        'sawtooth': '⚠️ ATTENZIONE: Le onde a dente di sega contengono molte armoniche che possono essere pericolose!',
+        'triangle': '⚠️ ATTENZIONE: Le onde triangolari possono raggiungere livelli elevati!',
+        'sine': '⚠️ ATTENZIONE: Controlla sempre i livelli prima di riprodurre!'
+      }
+      
+      const warning = signalWarnings[selectedSignal.value as keyof typeof signalWarnings] || '⚠️ ATTENZIONE!'
+      
+      const confirmed = confirm(
+        `${warning}\n\n` +
+        `VERIFICA CHE:\n` +
+        `• Il fader della traccia sia al minimo\n` +
+        `• Il volume master sia al minimo\n` +
+        `• Le cuffie siano scollegate o a volume basso\n\n` +
+        `Alza gradualmente il volume SOLO dopo aver verificato i livelli.\n\n` +
+        `Vuoi continuare?`
+      )
+      
+      if (!confirmed) return
+    }
+    
     await Tone.start()
     signalNode.start()
     isPlaying.value = true
