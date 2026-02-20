@@ -99,7 +99,7 @@ interface Props {
 const props = defineProps<Props>()
 
 const spectrumCanvas = ref<HTMLCanvasElement | null>(null)
-const barCount = ref(24) // Default: 24 barre
+const barCount = ref(128) // Default: 24 barre
 const displayMode = ref<'bars' | 'curve' | 'mirror' | 'dots' | 'line'>('bars') // Default: barre
 
 const barOptions = [
