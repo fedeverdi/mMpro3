@@ -7,7 +7,7 @@
     leave-active-class="transition-opacity duration-300"
     leave-to-class="opacity-0">
     <div v-if="modelValue" @click="closeModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
-      <div @click.stop class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border-2 border-red-600 shadow-2xl p-6 w-[900px] max-h-[80vh] overflow-hidden flex flex-col">
+      <div @click.stop class="recorder-modal bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border-2 border-red-600 shadow-2xl p-6 w-[1100px] max-h-[85vh] overflow-hidden flex flex-col">
         <!-- Header -->
         <div class="flex items-center justify-between mb-6">
           <div class="flex items-center gap-3">
@@ -82,15 +82,38 @@
           @level-update="(left, right) => { leftLevel = left; rightLevel = right }" 
         />
 
+        <!-- Loaded Tracks Waveforms -->
+        <div class="mt-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Playing Tracks</h3>
+            <div class="text-xs text-gray-500">{{ props.loadedTracks?.length || 0 }} track{{ (props.loadedTracks?.length || 0) !== 1 ? 's' : '' }}</div>
+          </div>
+          <div v-if="props.loadedTracks && props.loadedTracks.length > 0" class="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar">
+            <StaticWaveform 
+              v-for="track in props.loadedTracks" 
+              :key="track.trackNumber"
+              :track-number="track.trackNumber"
+              :file-name="track.fileName"
+              :file-id="track.fileId"
+              :is-playing="track.isPlaying"
+              :current-time="track.currentTime"
+              :duration="track.duration"
+            />
+          </div>
+          <div v-else class="text-center py-6 text-gray-500">
+            <p class="text-xs">No tracks currently playing</p>
+          </div>
+        </div>
+
         <!-- Recordings List -->
-        <div class="flex-1 overflow-y-auto mt-4">
+        <div class="flex-1 overflow-y-auto mt-4 custom-scrollbar">
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-bold text-white uppercase tracking-wider">Recordings</h3>
             <div class="text-xs text-gray-500">{{ recordings.length }} track{{ recordings.length !== 1 ? 's' : '' }}</div>
           </div>
 
-          <div v-if="recordings.length === 0" class="text-center py-12 text-gray-500">
-            <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div v-if="recordings.length === 0" class="text-center py-6 text-gray-500">
+            <svg class="w-6 h-6 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
             </svg>
             <p class="text-sm">No recordings yet</p>
@@ -130,12 +153,21 @@ import { ref, computed, watch, onUnmounted, toRaw, nextTick, type Ref } from 'vu
 import WaveformDisplay from './components/WaveformDisplay.vue'
 import HorizontalStereoMeter from './components/HorizontalStereoMeter.vue'
 import QualitySelector from './components/QualitySelector.vue'
+import StaticWaveform from './components/StaticWaveform.vue'
 
 interface Props {
   modelValue: boolean
   isRecording?: boolean
   audioNode?: Ref<any> | any
   tone?: Ref<any> | any
+  loadedTracks?: Array<{ 
+    trackNumber: number, 
+    fileName: string, 
+    fileId: string,
+    isPlaying: boolean,
+    currentTime: number,
+    duration: number
+  }>
 }
 
 interface Recording {
@@ -147,7 +179,9 @@ interface Recording {
   timestamp: number
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  loadedTracks: () => []
+})
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'update:isRecording': [value: boolean]
@@ -402,3 +436,31 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<style scoped>
+/* Custom scrollbar styles */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #1f2937;
+}
+</style>

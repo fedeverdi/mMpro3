@@ -58,7 +58,7 @@
     </div>
 
     <!-- Recorder Modal -->
-    <Recorder v-model="showRecorder" v-model:is-recording="isRecording" :audio-node="mergeNodeRef" :tone="ToneRef" />
+    <Recorder v-model="showRecorder" v-model:is-recording="isRecording" :audio-node="mergeNodeRef" :tone="ToneRef" :loaded-tracks="props.loadedTracks" />
   </div>
 </template>
 
@@ -74,9 +74,12 @@ import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 interface Props {
   masterEqDisplay?: any
   masterFx?: any
+  loadedTracks?: Array<{ trackNumber: number, fileName: string, fileId: string }>
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  loadedTracks: () => []
+})
 
 // Inject Tone.js from App.vue
 const ToneRef = inject<any>('Tone')

@@ -1081,6 +1081,9 @@ defineExpose({
       selectedInputDevice: audioSourceType.value === 'input' ? selectedAudioInput.value : undefined,
       fileName: audioSourceType.value === 'file' ? fileName.value : undefined,
       fileId: audioSourceType.value === 'file' ? fileId.value : undefined,
+      isPlaying: isPlaying.value,
+      currentTime: currentPlaybackTime.value,
+      duration: currentAudioBuffer?.duration || 0,
       eq3: trackEQRef.value?.getParams(),
       parametricEQFilters: eqFiltersData.value.map(f => ({
         id: f.id,

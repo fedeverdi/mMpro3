@@ -202,7 +202,7 @@
                     <!-- Master Section -->
                     <div class="w-full h-full mixer-fade-in">
                         <MasterSection ref="masterSectionRef" :master-eq-display="masterEQDisplayRef"
-                            :master-fx="masterFxRef" />
+                            :master-fx="masterFxRef" :loaded-tracks="loadedTracks" />
                     </div>
                 </template>
             </div>
@@ -353,6 +353,35 @@ const masterEqFiltersData = ref<any[]>([])
 function handleMasterEQFiltersUpdate(filters: any[]) {
     masterEqFiltersData.value = filters
 }
+
+// Loaded tracks for recorder waveform display
+const loadedTracks = computed(() => {
+    const tracks: Array<{ 
+        trackNumber: number, 
+        fileName: string, 
+        fileId: string,
+        isPlaying: boolean,
+        currentTime: number,
+        duration: number
+    }> = []
+    trackRefs.value.forEach((trackRef, trackId) => {
+        if (trackRef && typeof trackRef.getSnapshot === 'function') {
+            const snapshot = trackRef.getSnapshot()
+            // Only show tracks that are playing AND are file-based
+            if (snapshot.sourceType === 'file' && snapshot.fileName && snapshot.fileId && snapshot.isPlaying) {
+                tracks.push({
+                    trackNumber: snapshot.trackNumber,
+                    fileName: snapshot.fileName,
+                    fileId: snapshot.fileId,
+                    isPlaying: snapshot.isPlaying,
+                    currentTime: snapshot.currentTime || 0,
+                    duration: snapshot.duration || 0
+                })
+            }
+        }
+    })
+    return tracks.sort((a, b) => a.trackNumber - b.trackNumber)
+})
 
 // Solo handling
 const soloTracks = ref<Set<number>>(new Set())
