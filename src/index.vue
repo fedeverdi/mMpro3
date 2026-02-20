@@ -2,7 +2,7 @@
     <div class="mixer-app min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex flex-col">
         <!-- Header -->
         <header class="bg-black/50 backdrop-blur-sm border-b border-gray-700 px-4 py-2">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-4 flex-wrap">
                 <div>
                     <h1
                         class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
@@ -10,7 +10,7 @@
                     </h1>
                 </div>
 
-                <div class="flex gap-2 items-center">
+                <div class="flex gap-2 items-center flex-wrap">
                     <button @click="showAudioFlowModal = true"
                         class="px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded text-xs font-semibold transition-colors flex items-center gap-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

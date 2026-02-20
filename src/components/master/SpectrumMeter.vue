@@ -26,6 +26,32 @@
 
     <div class="relative flex-1 rounded-lg border border-gray-800 bg-gray-950/80 overflow-hidden shadow-inner">
       <canvas ref="spectrumCanvas" class="absolute inset-0 w-full h-full" style="image-rendering: pixelated;"></canvas>
+      
+      <!-- Metodo di calcolo - in alto a destra -->
+      <div class="absolute top-2 right-2 flex gap-1 z-10">
+        <button
+          @click="calculationMode = 'max'"
+          :class="[
+            'px-2 py-1 text-[10px] font-bold rounded transition-colors shadow-lg',
+            calculationMode === 'max' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-gray-800/90 hover:bg-gray-700 text-gray-300'
+          ]"
+        >
+          Max
+        </button>
+        <button
+          @click="calculationMode = 'avg'"
+          :class="[
+            'px-2 py-1 text-[10px] font-bold rounded transition-colors shadow-lg',
+            calculationMode === 'avg' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-gray-800/90 hover:bg-gray-700 text-gray-300'
+          ]"
+        >
+          Media
+        </button>
+      </div>
     </div>
 
     <!-- Modalità visualizzazione -->
@@ -101,6 +127,7 @@ const props = defineProps<Props>()
 const spectrumCanvas = ref<HTMLCanvasElement | null>(null)
 const barCount = ref(128) // Default: 24 barre
 const displayMode = ref<'bars' | 'curve' | 'mirror' | 'dots' | 'line'>('bars') // Default: barre
+const calculationMode = ref<'max' | 'avg'>('max') // Default: massimo
 
 const barOptions = [
   { label: '16', bars: 16 },
@@ -361,6 +388,31 @@ const renderSpectrum = () => {
     return bands
   }
 
+  // Helper function per calcolare il valore da una banda (max o media)
+  const calculateBandValue = (values: Float32Array, binStart: number, binEnd: number) => {
+    if (calculationMode.value === 'max') {
+      // Modalità massimo
+      let maxValue = -100
+      for (let binIdx = binStart; binIdx <= binEnd; binIdx++) {
+        if (binIdx < values.length) {
+          maxValue = Math.max(maxValue, values[binIdx] || -100)
+        }
+      }
+      return maxValue
+    } else {
+      // Modalità media
+      let sum = 0
+      let count = 0
+      for (let binIdx = binStart; binIdx <= binEnd; binIdx++) {
+        if (binIdx < values.length) {
+          sum += values[binIdx] || -100
+          count++
+        }
+      }
+      return count > 0 ? sum / count : -100
+    }
+  }
+
   if (displayMode.value === 'bars') {
     // Modalità barre stereo - L e R affiancate
     const bars = barCount.value
@@ -379,17 +431,8 @@ const renderSpectrum = () => {
       if (!band || band.binStart >= band.binEnd) continue
       
       // LEFT CHANNEL
-      let sumLeft = 0
-      let countLeft = 0
-      for (let binIdx = band.binStart; binIdx <= band.binEnd; binIdx++) {
-        if (binIdx < valuesLeft.length) {
-          sumLeft += valuesLeft[binIdx] || -100
-          countLeft++
-        }
-      }
-      
-      const avgLeft = countLeft > 0 ? sumLeft / countLeft : -100
-      const normalizedLeft = Math.max(0, Math.min(1, (avgLeft + 100) / 100))
+      const valueLeft = calculateBandValue(valuesLeft, band.binStart, band.binEnd)
+      const normalizedLeft = Math.max(0, Math.min(1, (valueLeft + 100) / 100))
       const barHeightLeft = Math.max(0.02, normalizedLeft) * height
 
       // Aggiorna peak LEFT
@@ -404,17 +447,8 @@ const renderSpectrum = () => {
       }
 
       // RIGHT CHANNEL
-      let sumRight = 0
-      let countRight = 0
-      for (let binIdx = band.binStart; binIdx <= band.binEnd; binIdx++) {
-        if (binIdx < valuesRight.length) {
-          sumRight += valuesRight[binIdx] || -100
-          countRight++
-        }
-      }
-      
-      const avgRight = countRight > 0 ? sumRight / countRight : -100
-      const normalizedRight = Math.max(0, Math.min(1, (avgRight + 100) / 100))
+      const valueRight = calculateBandValue(valuesRight, band.binStart, band.binEnd)
+      const normalizedRight = Math.max(0, Math.min(1, (valueRight + 100) / 100))
       const barHeightRight = Math.max(0.02, normalizedRight) * height
 
       // Aggiorna peak RIGHT
@@ -495,19 +529,10 @@ const renderSpectrum = () => {
       const band = bands[i]
       
       // LEFT CHANNEL
-      let avgLeft = -100
       let normalizedLeft = 0
       if (band && band.binStart < band.binEnd) {
-        let sumLeft = 0
-        let countLeft = 0
-        for (let binIdx = band.binStart; binIdx <= band.binEnd; binIdx++) {
-          if (binIdx < valuesLeft.length) {
-            sumLeft += valuesLeft[binIdx] || -100
-            countLeft++
-          }
-        }
-        avgLeft = countLeft > 0 ? sumLeft / countLeft : -100
-        normalizedLeft = Math.max(0, Math.min(1, (avgLeft + 100) / 100))
+        const valueLeft = calculateBandValue(valuesLeft, band.binStart, band.binEnd)
+        normalizedLeft = Math.max(0, Math.min(1, (valueLeft + 100) / 100))
       }
       
       const yLeft = height - Math.max(0.02, normalizedLeft) * height
@@ -526,19 +551,10 @@ const renderSpectrum = () => {
       }
       
       // RIGHT CHANNEL
-      let avgRight = -100
       let normalizedRight = 0
       if (band && band.binStart < band.binEnd) {
-        let sumRight = 0
-        let countRight = 0
-        for (let binIdx = band.binStart; binIdx <= band.binEnd; binIdx++) {
-          if (binIdx < valuesRight.length) {
-            sumRight += valuesRight[binIdx] || -100
-            countRight++
-          }
-        }
-        avgRight = countRight > 0 ? sumRight / countRight : -100
-        normalizedRight = Math.max(0, Math.min(1, (avgRight + 100) / 100))
+        const valueRight = calculateBandValue(valuesRight, band.binStart, band.binEnd)
+        normalizedRight = Math.max(0, Math.min(1, (valueRight + 100) / 100))
       }
       
       const yRight = height - Math.max(0.02, normalizedRight) * height
@@ -719,17 +735,8 @@ const renderSpectrum = () => {
       if (!band || band.binStart >= band.binEnd) continue
       
       // LEFT CHANNEL (parte superiore - barre verso l'alto)
-      let sumLeft = 0
-      let countLeft = 0
-      for (let binIdx = band.binStart; binIdx <= band.binEnd; binIdx++) {
-        if (binIdx < valuesLeft.length) {
-          sumLeft += valuesLeft[binIdx] || -100
-          countLeft++
-        }
-      }
-      
-      const avgLeft = countLeft > 0 ? sumLeft / countLeft : -100
-      const normalizedLeft = Math.max(0, Math.min(1, (avgLeft + 100) / 100))
+      const valueLeft = calculateBandValue(valuesLeft, band.binStart, band.binEnd)
+      const normalizedLeft = Math.max(0, Math.min(1, (valueLeft + 100) / 100))
       const barHeightLeft = Math.max(0.02, normalizedLeft) * halfHeight
 
       // Aggiorna peak LEFT
@@ -744,17 +751,8 @@ const renderSpectrum = () => {
       }
 
       // RIGHT CHANNEL (parte inferiore - barre verso il basso)
-      let sumRight = 0
-      let countRight = 0
-      for (let binIdx = band.binStart; binIdx <= band.binEnd; binIdx++) {
-        if (binIdx < valuesRight.length) {
-          sumRight += valuesRight[binIdx] || -100
-          countRight++
-        }
-      }
-      
-      const avgRight = countRight > 0 ? sumRight / countRight : -100
-      const normalizedRight = Math.max(0, Math.min(1, (avgRight + 100) / 100))
+      const valueRight = calculateBandValue(valuesRight, band.binStart, band.binEnd)
+      const normalizedRight = Math.max(0, Math.min(1, (valueRight + 100) / 100))
       const barHeightRight = Math.max(0.02, normalizedRight) * halfHeight
 
       // Aggiorna peak RIGHT
@@ -828,17 +826,8 @@ const renderSpectrum = () => {
       if (!band || band.binStart >= band.binEnd) continue
       
       // LEFT CHANNEL
-      let sumLeft = 0
-      let countLeft = 0
-      for (let binIdx = band.binStart; binIdx <= band.binEnd; binIdx++) {
-        if (binIdx < valuesLeft.length) {
-          sumLeft += valuesLeft[binIdx] || -100
-          countLeft++
-        }
-      }
-      
-      const avgLeft = countLeft > 0 ? sumLeft / countLeft : -100
-      const normalizedLeft = Math.max(0, Math.min(1, (avgLeft + 100) / 100))
+      const valueLeft = calculateBandValue(valuesLeft, band.binStart, band.binEnd)
+      const normalizedLeft = Math.max(0, Math.min(1, (valueLeft + 100) / 100))
 
       // Aggiorna peak LEFT
       if (normalizedLeft > peakValues[i]) {
@@ -852,17 +841,8 @@ const renderSpectrum = () => {
       }
 
       // RIGHT CHANNEL
-      let sumRight = 0
-      let countRight = 0
-      for (let binIdx = band.binStart; binIdx <= band.binEnd; binIdx++) {
-        if (binIdx < valuesRight.length) {
-          sumRight += valuesRight[binIdx] || -100
-          countRight++
-        }
-      }
-      
-      const avgRight = countRight > 0 ? sumRight / countRight : -100
-      const normalizedRight = Math.max(0, Math.min(1, (avgRight + 100) / 100))
+      const valueRight = calculateBandValue(valuesRight, band.binStart, band.binEnd)
+      const normalizedRight = Math.max(0, Math.min(1, (valueRight + 100) / 100))
 
       // Aggiorna peak RIGHT
       if (normalizedRight > peakValuesRight[i]) {
@@ -940,17 +920,8 @@ const renderSpectrum = () => {
       if (!band || band.binStart >= band.binEnd) continue
       
       // LEFT CHANNEL
-      let sumLeft = 0
-      let countLeft = 0
-      for (let binIdx = band.binStart; binIdx <= band.binEnd; binIdx++) {
-        if (binIdx < valuesLeft.length) {
-          sumLeft += valuesLeft[binIdx] || -100
-          countLeft++
-        }
-      }
-      
-      const avgLeft = countLeft > 0 ? sumLeft / countLeft : -100
-      const normalizedLeft = Math.max(0, Math.min(1, (avgLeft + 100) / 100))
+      const valueLeft = calculateBandValue(valuesLeft, band.binStart, band.binEnd)
+      const normalizedLeft = Math.max(0, Math.min(1, (valueLeft + 100) / 100))
       const yLeft = height - Math.max(0.02, normalizedLeft) * height
       const x = labelWidthLeft + (i / (points - 1)) * width
       
@@ -968,17 +939,8 @@ const renderSpectrum = () => {
       }
       
       // RIGHT CHANNEL
-      let sumRight = 0
-      let countRight = 0
-      for (let binIdx = band.binStart; binIdx <= band.binEnd; binIdx++) {
-        if (binIdx < valuesRight.length) {
-          sumRight += valuesRight[binIdx] || -100
-          countRight++
-        }
-      }
-      
-      const avgRight = countRight > 0 ? sumRight / countRight : -100
-      const normalizedRight = Math.max(0, Math.min(1, (avgRight + 100) / 100))
+      const valueRight = calculateBandValue(valuesRight, band.binStart, band.binEnd)
+      const normalizedRight = Math.max(0, Math.min(1, (valueRight + 100) / 100))
       const yRight = height - Math.max(0.02, normalizedRight) * height
       
       curveDataRight.push({ x, y: yRight, normalized: normalizedRight })

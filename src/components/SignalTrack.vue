@@ -65,8 +65,15 @@
       
       <!-- Frequency knob for oscillators -->
       <div class="scale-[0.7] flex justify-center">
-        <Knob v-model="frequency" :min="20" :max="20000" :step="1" label="Frequency" unit="Hz" color="#3b82f6" />
+        <FrequencyKnob v-model="frequency" :min="20" :max="20000" label="Frequency" color="#3b82f6" />
       </div>
+      
+      <!-- Frequency Sweep Button -->
+      <button @click="toggleFrequencySweep"
+        class="w-full mt-2 py-1 text-xs rounded transition-colors"
+        :class="isSweeping ? 'bg-orange-600 hover:bg-orange-500 animate-pulse' : 'bg-gray-700 hover:bg-gray-600'">
+        {{ isSweeping ? '⏸ Stop Sweep' : '🔄 Sweep' }}
+      </button>
     </div>
 
     <!-- Display for noise (no controls needed) -->
@@ -106,7 +113,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, inject, nextTick, computed, toRaw } from 'vue'
-import Knob from './core/Knob.vue'
+import FrequencyKnob from './core/FrequencyKnob.vue'
 import TrackFader from './audioTrack/TrackFader.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
 import PanKnob from './audioTrack/PanKnob.vue'
@@ -133,6 +140,11 @@ const selectedSignal = ref<SignalType>('sine')
 const isPlaying = ref(false)
 const signalVolume = ref(-12)
 const frequency = ref(1000)
+
+// Frequency sweep state
+const isSweeping = ref(false)
+let sweepInterval: number | null = null
+let sweepDirection = 1 // 1 = up, -1 = down
 
 const isOscillator = computed(() => 
   ['sine', 'square', 'sawtooth', 'triangle'].includes(selectedSignal.value)
@@ -166,6 +178,7 @@ const trackLevelR = ref(-60)
 // Tone.js nodes - Signal
 let signalNode: any = null
 let signalVolumeNode: any = null
+let signalMerge: any = null // Convert mono signal to stereo
 
 // Tone.js nodes - Track routing
 let gainNode: any = null
@@ -244,9 +257,14 @@ function initSignalNodes() {
   // Create volume node
   signalVolumeNode = new Tone.Volume(signalVolume.value)
   
-  // Connect to Track's gain node
+  // Create mono-to-stereo converter (signal sources are mono)
+  signalMerge = new Tone.Merge()
+  
+  // Connect: signalVolume -> merge (mono to stereo) -> gain
   if (gainNode) {
-    signalVolumeNode.connect(gainNode)
+    signalVolumeNode.connect(signalMerge, 0, 0) // Connect to both L and R inputs
+    signalVolumeNode.connect(signalMerge, 0, 1)
+    signalMerge.connect(gainNode)
   }
 }
 
@@ -325,6 +343,37 @@ function stopSignal() {
   if (isPlaying.value) {
     signalNode.stop()
     isPlaying.value = false
+  }
+}
+
+function toggleFrequencySweep() {
+  if (isSweeping.value) {
+    // Stop sweep
+    if (sweepInterval) clearInterval(sweepInterval)
+    sweepInterval = null
+    isSweeping.value = false
+  } else {
+    // Start sweep
+    isSweeping.value = true
+    const logMin = Math.log(20)
+    const logMax = Math.log(20000)
+    const step = (logMax - logMin) / 200 // 200 steps for smooth sweep
+    
+    sweepInterval = window.setInterval(() => {
+      const currentLog = Math.log(frequency.value)
+      const newLog = currentLog + (step * sweepDirection)
+      
+      // Reverse direction at boundaries
+      if (newLog >= logMax) {
+        sweepDirection = -1
+        frequency.value = 20000
+      } else if (newLog <= logMin) {
+        sweepDirection = 1
+        frequency.value = 20
+      } else {
+        frequency.value = Math.round(Math.exp(newLog))
+      }
+    }, 50) // 50ms = 20fps, total sweep ~10 seconds per direction
   }
 }
 
@@ -425,6 +474,12 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  // Clean up sweep interval
+  if (sweepInterval) {
+    clearInterval(sweepInterval)
+    sweepInterval = null
+  }
+  
   // Dispose signal nodes
   if (signalNode) {
     if (isPlaying.value && signalNode.stop) {
@@ -440,6 +495,10 @@ onUnmounted(() => {
   
   if (signalVolumeNode) {
     signalVolumeNode.dispose()
+  }
+  
+  if (signalMerge) {
+    signalMerge.dispose()
   }
 
   // Dispose track nodes
@@ -521,6 +580,20 @@ defineExpose({
   getPan: () => pan.value,
   setPan: (val: number) => pan.value = val,
   getMute: () => isMuted.value,
-  getSolo: () => isSolo.value
+  getSolo: () => isSolo.value,
+  
+  // Frequency control methods
+  getFrequency: () => frequency.value,
+  setFrequency: (val: number) => {
+    frequency.value = val
+  },
+  isOscillator: () => isOscillator.value,
+  randomizeFrequency: () => {
+    // Random frequency between 20Hz and 20kHz on logarithmic scale
+    const logMin = Math.log(20)
+    const logMax = Math.log(20000)
+    const randomLog = logMin + Math.random() * (logMax - logMin)
+    frequency.value = Math.round(Math.exp(randomLog))
+  }
 })
 </script>
