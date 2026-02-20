@@ -769,21 +769,13 @@ onMounted(async () => {
     let retryCount = 0
     const maxRetries = 10
     const connectSubgroup = () => {
-        console.log('[Subgroup] Connection attempt', retryCount + 1, {
-            hasRef: !!subgroupsSectionRef.value,
-            hasGetInputNode: !!subgroupsSectionRef.value?.getInputNode,
-            subgroupChannel: subgroupChannel.value
-        })
-
         if (subgroupsSectionRef.value?.getInputNode) {
             const subgroupInput = subgroupsSectionRef.value.getInputNode()
-            console.log('[Subgroup] Got input node:', subgroupInput)
 
             if (subgroupInput) {
                 const rawSubgroupChannel = toRaw(subgroupChannel.value)
                 const rawInputNode = toRaw(subgroupInput)
                 rawSubgroupChannel.connect(rawInputNode)
-                console.log('[Subgroup] ✓ Connected subgroupChannel to SubgroupsSection inputGainNode')
                 return true
             } else {
                 console.error('[Subgroup] ✗ Input node is null')

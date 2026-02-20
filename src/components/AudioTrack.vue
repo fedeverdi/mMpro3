@@ -499,7 +499,6 @@ function connectToOutput() {
   
   if (destination) {
     volumeMerge.connect(toRaw(destination))
-    console.log(`[Track ${props.trackNumber}] Connected to ${destinationType}`, { destination })
   } else {
     console.warn(`[Track ${props.trackNumber}] No destination available for ${destinationType}`)
   }
@@ -507,7 +506,6 @@ function connectToOutput() {
 
 // Handle output routing change
 function handleOutputChange() {
-  console.log(`[Track ${props.trackNumber}] Output routing changed to:`, outputDestination.value)
   connectToOutput()
 }
 

@@ -1,9 +1,9 @@
 <template>
   <div
-    class="subgroups-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-orange-600 p-2 flex flex-col items-center gap-1 h-full w-full max-w-[10rem]">
+    class="subgroups-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-gray-600 p-2 flex flex-col items-center gap-1 h-full w-full max-w-[10rem]">
     <!-- Subgroup Header -->
     <div class="w-full text-center">
-      <div class="text-xs font-bold text-orange-400">SUBGROUP</div>
+      <div class="text-xs font-bold text-gray-400">SUBGROUP</div>
     </div>
 
     <!-- Output Device Selector -->
@@ -12,7 +12,7 @@
       <select 
         v-model="selectedOutput" 
         @change="onOutputSelect"
-        class="w-full text-xs bg-gray-900 text-gray-200 border border-orange-600 rounded px-2 py-1 focus:border-orange-400 focus:outline-none">
+        class="w-full text-xs bg-gray-900 text-gray-200 border border-gray-600 rounded px-2 py-1 focus:border-gray-500 focus:outline-none">
         <option :value="null">Default Output</option>
         <option v-for="device in audioOutputs" :key="device.deviceId" :value="device.deviceId">
           {{ device.label || `Output ${device.deviceId.slice(0, 8)}...` }}
@@ -34,15 +34,15 @@
 
       <!-- Faders Row -->
       <div v-if="fadersHeight > 0" class="flex gap-2 items-end mb-6">
-        <MasterFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" />
-        <MasterFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" />
+        <SubgroupFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" />
+        <SubgroupFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" />
       </div>
     </div>
 
     <!-- Link Button -->
     <div class="w-full mt-2">
       <button @click="toggleLink" class="w-full py-1 text-xs font-bold rounded transition-all"
-        :class="isLinked ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+        :class="isLinked ? 'bg-gray-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
         <div class="flex items-center justify-center">
           <svg v-if="isLinked" xmlns="http://www.w3.org/2000/svg" fill="white" class="h-3 w-3" viewBox="0 0 512 512">
             <path
@@ -59,9 +59,9 @@
 </template>
 
 <script setup lang="ts">
-import MasterFader from './master/MasterFader.vue'
 import VuMeter from './core/VuMeter.vue'
 import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
+import SubgroupFader from './subgroups/SubgroupFader.vue'
 
 // Inject Tone.js from App.vue
 const ToneRef = inject<any>('Tone')
@@ -95,6 +95,10 @@ let leftGain: any = null
 let rightGain: any = null
 let outputMerge: any = null // Output merge node
 
+// Output routing
+let outputStreamDest: MediaStreamAudioDestinationNode | null = null
+let outputAudioElement: HTMLAudioElement | null = null
+
 // Calculate meters height based on container
 function updateMetersHeight() {
   if (metersContainer.value) {
@@ -125,18 +129,25 @@ async function enumerateAudioOutputs() {
 
 // Handle output selection
 async function onOutputSelect() {
-  if (!Tone) return
+  if (!outputAudioElement) return
   
   try {
-    const audioContext = Tone.context.rawContext as AudioContext
-    const destination = audioContext.destination as any
-    
-    if (selectedOutput.value && destination.setSinkId) {
-      await destination.setSinkId(selectedOutput.value)
-      console.log('[Subgroup Output] Changed to:', selectedOutput.value)
-    } else if (!selectedOutput.value && destination.setSinkId) {
-      await destination.setSinkId('')
-      console.log('[Subgroup Output] Changed to default output')
+    if (selectedOutput.value) {
+      // Set device
+      await (outputAudioElement as any).setSinkId(selectedOutput.value)
+      
+      // Ensure playback
+      if (outputAudioElement.paused) {
+        await outputAudioElement.play()
+      }
+    } else {
+      // Default output
+      await (outputAudioElement as any).setSinkId('')
+      
+      // Ensure playback
+      if (outputAudioElement.paused) {
+        await outputAudioElement.play()
+      }
     }
   } catch (error) {
     console.error('[Subgroup Output] Error changing device:', error)
@@ -148,8 +159,6 @@ function initSubgroupChannel() {
   if (splitNode || !Tone) {
     return
   }
-
-  console.log('[Subgroup] Initializing audio chain...')
 
   // Create INPUT gain node (buffer for subgroupChannel to connect to)
   inputGainNode = new Tone.Gain(1)
@@ -164,6 +173,10 @@ function initSubgroupChannel() {
   leftMeter = new Tone.Meter()
   rightMeter = new Tone.Meter()
 
+  // Create output routing
+  const audioContext = Tone.context.rawContext as AudioContext
+  outputStreamDest = audioContext.createMediaStreamDestination()
+
   // Build audio chain:
   // INPUT: inputGainNode (subgroupChannel connects here)
   //   ↓
@@ -173,7 +186,7 @@ function initSubgroupChannel() {
   //   ↓           ↓
   // leftMeter   rightMeter
   //   ↓           ↓
-  // outputMerge → toDestination()
+  // outputMerge → outputStreamDest → audio element
   
   // Connect input to split
   inputGainNode.connect(splitNode)
@@ -188,10 +201,20 @@ function initSubgroupChannel() {
   rightGain.connect(rightMeter)
   rightGain.connect(outputMerge, 0, 1)
   
-  // Output to destination (use setSinkId to change device)
-  outputMerge.toDestination()
+  // Output to MediaStream for device routing
+  outputMerge.connect(outputStreamDest as any)
 
-  console.log('[Subgroup] Audio chain initialized')
+  // Create output audio element
+  if (!outputAudioElement && outputStreamDest) {
+    outputAudioElement = new Audio()
+    outputAudioElement.srcObject = outputStreamDest.stream
+    document.body.appendChild(outputAudioElement)
+    
+    // Start playback immediately
+    outputAudioElement.play().catch(err => {
+      console.warn('[Subgroup Output] Autoplay blocked, will start on first interaction:', err)
+    })
+  }
 
   // Update initial volumes
   updateSubgroupVolume()
@@ -199,7 +222,6 @@ function initSubgroupChannel() {
 
 // Level monitoring
 let levelMonitorInterval: number | null = null
-let debugLogCounter = 0
 
 function startLevelMonitoring() {
   levelMonitorInterval = window.setInterval(() => {
@@ -209,16 +231,8 @@ function startLevelMonitoring() {
 
       leftLevel.value = Math.max(-60, leftValue)
       rightLevel.value = Math.max(-60, rightValue)
-      
-      // Debug log ogni 2 secondi (ogni 40 iterazioni a 50ms)
-      debugLogCounter++
-      if (debugLogCounter % 40 === 0) {
-        console.log('[Subgroup Meters] L:', leftValue.toFixed(2), 'R:', rightValue.toFixed(2))
-      }
     }
   }, 50)
-  
-  console.log('[Subgroup] Level monitoring started')
 }
 
 // Update subgroup volume
@@ -233,13 +247,6 @@ function updateSubgroupVolume() {
   
   leftGain.gain.value = leftGainValue
   rightGain.gain.value = rightGainValue
-  
-  console.log('[Subgroup] Volume updated:', { 
-    leftVolume: leftVolume.value, 
-    rightVolume: rightVolume.value,
-    leftGainValue,
-    rightGainValue
-  })
 }
 
 // Watch for volume changes
@@ -300,7 +307,6 @@ onMounted(async () => {
 
 // Get subgroup input node for tracks to connect to
 function getInputNode() {
-  console.log('[Subgroup] getInputNode() called, inputGainNode:', inputGainNode)
   return inputGainNode
 }
 
@@ -350,6 +356,14 @@ onUnmounted(() => {
   if (leftGain) leftGain.dispose()
   if (rightGain) rightGain.dispose()
   if (outputMerge) outputMerge.dispose()
+
+  // Cleanup output audio element
+  if (outputAudioElement) {
+    outputAudioElement.pause()
+    outputAudioElement.srcObject = null
+    outputAudioElement.remove()
+    outputAudioElement = null
+  }
 
   // Remove device change listener
   navigator.mediaDevices.removeEventListener('devicechange', enumerateAudioOutputs)
