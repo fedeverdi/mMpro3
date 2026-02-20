@@ -5,15 +5,6 @@
     <!-- Track Header -->
     <div class="text-xs font-bold text-center text-gray-300">Track {{ trackNumber }}</div>
 
-    <!-- Output Routing Selector -->
-    <div class="w-full">
-      <select v-model="outputDestination" @change="handleOutputChange"
-        class="w-full text-xs bg-gray-800 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-orange-500 focus:outline-none">
-        <option value="master">🔊 Master</option>
-        <option value="subgroup">🎛️ Subgroup</option>
-      </select>
-    </div>
-
     <!-- Signal Selector Buttons -->
     <div class="w-full flex flex-col gap-0.5">
       <button @click="selectSignal('sine')"
@@ -105,7 +96,20 @@
     <!-- Volume Fader and VU Meter -->
     <div class="flex flex-col h-full">
       <div class="text-[0.455rem] uppercase text-center">Volume</div>
-      <div ref="faderContainer" class="flex-1 flex items-center justify-center gap-2 min-h-0">
+      <div ref="faderContainer" class="flex-1 flex items-center justify-center gap-1 min-h-0">
+        <!-- Routing Buttons -->
+        <div class="flex flex-col gap-1">
+          <button @click="toggleRouteToMaster" :title="'Route to Master'"
+            class="w-6 h-6 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+            :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
+            M
+          </button>
+          <button @click="toggleRouteToSubgroup" :title="'Route to Subgroup'"
+            class="w-6 h-6 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+            :class="routeToSubgroup ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
+            S
+          </button>
+        </div>
         <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
         <TrackMeter v-if="faderHeight > 0" :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
           :height="faderHeight + 20" />
@@ -141,8 +145,9 @@ const emit = defineEmits<{
 
 type SignalType = 'sine' | 'square' | 'sawtooth' | 'triangle' | 'whiteNoise' | 'pinkNoise'
 
-// Output routing
-const outputDestination = ref<'master' | 'subgroup'>('master')
+// Output routing (can route to both simultaneously)
+const routeToMaster = ref(true)
+const routeToSubgroup = ref(false)
 
 // Signal-specific state
 const selectedSignal = ref<SignalType>('sine')
@@ -415,7 +420,7 @@ function toggleFrequencySweep() {
   }
 }
 
-// Connect to master or subgroup output based on outputDestination
+// Connect to output (can connect to master and/or subgroup)
 function connectToOutput() {
   if (!volumeMerge || !Tone) return
   
@@ -426,18 +431,30 @@ function connectToOutput() {
     // Ignore if not connected
   }
   
-  // Connect to selected destination
-  const destination = outputDestination.value === 'subgroup' && props.subgroupChannel
-    ? props.subgroupChannel
-    : props.masterChannel
+  // Connect to master if enabled
+  if (routeToMaster.value && props.masterChannel) {
+    volumeMerge.connect(toRaw(props.masterChannel))
+  }
   
-  if (destination) {
-    volumeMerge.connect(toRaw(destination))
+  // Connect to subgroup if enabled
+  if (routeToSubgroup.value && props.subgroupChannel) {
+    volumeMerge.connect(toRaw(props.subgroupChannel))
+  }
+  
+  // Warn if neither is selected
+  if (!routeToMaster.value && !routeToSubgroup.value) {
+    console.warn(`[SignalTrack ${props.trackNumber}] No output destination selected`)
   }
 }
 
-// Handle output routing change
-function handleOutputChange() {
+// Toggle routing buttons
+function toggleRouteToMaster() {
+  routeToMaster.value = !routeToMaster.value
+  connectToOutput()
+}
+
+function toggleRouteToSubgroup() {
+  routeToSubgroup.value = !routeToSubgroup.value
   connectToOutput()
 }
 
@@ -601,17 +618,26 @@ defineExpose({
       pan: pan.value,
       isMuted: isMuted.value,
       isSolo: isSolo.value,
-      outputDestination: outputDestination.value
+      routeToMaster: routeToMaster.value,
+      routeToSubgroup: routeToSubgroup.value
     }
   },
 
   restoreFromSnapshot: (snapshot: any) => {
-    if (snapshot.outputDestination) {
-      outputDestination.value = snapshot.outputDestination
-      nextTick(() => {
-        connectToOutput()
-      })
+    // Restore output routing (support both old and new format)
+    if (snapshot.routeToMaster !== undefined && snapshot.routeToSubgroup !== undefined) {
+      // New format with dual routing
+      routeToMaster.value = snapshot.routeToMaster
+      routeToSubgroup.value = snapshot.routeToSubgroup
+    } else if (snapshot.outputDestination) {
+      // Legacy format - convert to new system
+      routeToMaster.value = snapshot.outputDestination === 'master'
+      routeToSubgroup.value = snapshot.outputDestination === 'subgroup'
     }
+    
+    nextTick(() => {
+      connectToOutput()
+    })
     if (snapshot.selectedSignal) {
       selectedSignal.value = snapshot.selectedSignal
       handleSignalChange()

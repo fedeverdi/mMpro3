@@ -27,15 +27,6 @@
         </select>
       </div>
 
-      <!-- Output Routing Selector -->
-      <div class="w-full">
-        <select v-model="outputDestination" @change="handleOutputChange"
-          class="w-full text-xs bg-gray-800 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-orange-500 focus:outline-none">
-          <option value="master">🔊 Master</option>
-          <option value="subgroup">🎛️ Subgroup</option>
-        </select>
-      </div>
-
       <!-- File Upload (shown when source is 'file') -->
       <div v-if="audioSourceType === 'file'" class="w-full">
         <input type="file" accept="audio/*" @change="handleFileUpload" ref="fileInput" class="hidden" />
@@ -156,7 +147,20 @@
     <!-- Volume Fader and VU Meter -->
     <div class="flex flex-col h-full">
       <div class="text-[0.455rem] uppercase text-center">Volume</div>
-      <div ref="faderContainer" class="flex-1 flex items-center justify-center gap-2  min-h-0">
+      <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
+        <!-- Routing Buttons -->
+        <div class="flex flex-col gap-3 absolute -left-6 top-1/2 transform -translate-y-1/2 z-50">
+          <button @click="toggleRouteToMaster" :title="'Route to Master'"
+            class="w-6 h-6 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+            :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
+            M
+          </button>
+          <button @click="toggleRouteToSubgroup" :title="'Route to Subgroup'"
+            class="w-6 h-6 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+            :class="routeToSubgroup ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
+            S
+          </button>
+        </div>
         <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
         <TrackMeter v-if="faderHeight > 0" :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
           :height="faderHeight + 20" />
@@ -226,8 +230,9 @@ const waveformDisplayRef = ref<any>(null)
 // Audio source selection
 const audioSourceType = ref<'file' | 'input'>('file')
 
-// Output routing selection
-const outputDestination = ref<'master' | 'subgroup'>('master')
+// Output routing selection (can route to both simultaneously)
+const routeToMaster = ref(true)
+const routeToSubgroup = ref(false)
 
 // Audio inputs from shared composable
 const { audioInputDevices, refreshAudioInputs } = useAudioDevices()
@@ -480,7 +485,7 @@ function applyParametricEQ() {
   }
 }
 
-// Connect to output (master or subgroup based on outputDestination)
+// Connect to output (can connect to master and/or subgroup)
 function connectToOutput() {
   if (!volumeMerge || !Tone) return false
   
@@ -491,21 +496,30 @@ function connectToOutput() {
     // Ignore if not connected
   }
   
-  // Connect to selected destination
-  const destinationType = outputDestination.value
-  const destination = destinationType === 'subgroup' && props.subgroupChannel
-    ? props.subgroupChannel
-    : props.masterChannel
+  // Connect to master if enabled
+  if (routeToMaster.value && props.masterChannel) {
+    volumeMerge.connect(toRaw(props.masterChannel))
+  }
   
-  if (destination) {
-    volumeMerge.connect(toRaw(destination))
-  } else {
-    console.warn(`[Track ${props.trackNumber}] No destination available for ${destinationType}`)
+  // Connect to subgroup if enabled
+  if (routeToSubgroup.value && props.subgroupChannel) {
+    volumeMerge.connect(toRaw(props.subgroupChannel))
+  }
+  
+  // Warn if neither is selected
+  if (!routeToMaster.value && !routeToSubgroup.value) {
+    console.warn(`[Track ${props.trackNumber}] No output destination selected`)
   }
 }
 
-// Handle output routing change
-function handleOutputChange() {
+// Toggle routing buttons
+function toggleRouteToMaster() {
+  routeToMaster.value = !routeToMaster.value
+  connectToOutput()
+}
+
+function toggleRouteToSubgroup() {
+  routeToSubgroup.value = !routeToSubgroup.value
   connectToOutput()
 }
 
@@ -1113,7 +1127,8 @@ defineExpose({
       pan: pan.value,
       muted: isMuted.value,
       soloed: isSolo.value,
-      outputDestination: outputDestination.value,
+      routeToMaster: routeToMaster.value,
+      routeToSubgroup: routeToSubgroup.value,
       sourceType: audioSourceType.value,
       selectedInputDevice: audioSourceType.value === 'input' ? selectedAudioInput.value : undefined,
       fileName: audioSourceType.value === 'file' ? fileName.value : undefined,
@@ -1144,14 +1159,21 @@ defineExpose({
     isMuted.value = snapshot.muted
     isSolo.value = snapshot.soloed
     
-    // Restore output routing
-    if (snapshot.outputDestination) {
-      outputDestination.value = snapshot.outputDestination
-      // Reconnect to correct destination
-      nextTick(() => {
-        connectToOutput()
-      })
+    // Restore output routing (support both old and new format)
+    if (snapshot.routeToMaster !== undefined && snapshot.routeToSubgroup !== undefined) {
+      // New format with dual routing
+      routeToMaster.value = snapshot.routeToMaster
+      routeToSubgroup.value = snapshot.routeToSubgroup
+    } else if (snapshot.outputDestination) {
+      // Legacy format - convert to new system
+      routeToMaster.value = snapshot.outputDestination === 'master'
+      routeToSubgroup.value = snapshot.outputDestination === 'subgroup'
     }
+    
+    // Reconnect to correct destination(s)
+    nextTick(() => {
+      connectToOutput()
+    })
 
     // Restore source type and related data
     audioSourceType.value = snapshot.sourceType || 'file'
