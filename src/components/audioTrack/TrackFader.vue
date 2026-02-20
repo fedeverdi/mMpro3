@@ -7,7 +7,7 @@
         <div v-for="mark in scaleMarks" :key="mark.label" 
           class="absolute leading-none right-0"
           :class="[
-            mark.label === '-∞' ? 'text-[10px] font-bold text-gray-500' : 'text-[8px] font-mono',
+            mark.label === '-∞' ? 'text-[10px] font-bold text-gray-500' : 'text-[7px] font-mono',
             {
               'text-green-500 font-bold': mark.value === 0,
               'text-orange-400': mark.value > 0 && mark.value < 6,
@@ -58,7 +58,7 @@
             bottom: thumbPosition + 'px',
             width: '26px',
             height: '52px',
-            transition: isDragging ? 'none' : 'bottom 0.4s ease-out, transform 0.1s ease'
+            transition: isDragging ? 'none' : 'transform 0.1s ease'
           }"
         >
           <!-- Cap body with clean Tailwind design -->
@@ -83,7 +83,7 @@
         <div v-for="mark in scaleMarks" :key="mark.label" 
           class="absolute leading-none left-0"
           :class="[
-            mark.label === '-∞' ? 'text-[10px] font-bold text-gray-500' : 'text-[8px] font-mono',
+            mark.label === '-∞' ? 'text-[10px] font-bold text-gray-500' : 'text-[7px] font-mono',
             {
               'text-green-500 font-bold': mark.value === 0,
               'text-orange-400': mark.value > 0 && mark.value < 6,

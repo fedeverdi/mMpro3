@@ -129,13 +129,13 @@
 
     <!-- Mute & Solo Buttons -->
     <div class="flex flex-row gap-1 w-full">
-      <button @click="toggleMute" class="flex-1 py-1 text-xs font-bold rounded transition-all"
+      <button @click="toggleMute" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
         :class="isMuted ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-        M
+        MUTE
       </button>
-      <button @click="toggleSolo" class="flex-1 py-1 text-xs font-bold rounded transition-all"
+      <button @click="toggleSolo" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
         :class="isSolo ? 'bg-yellow-500 text-gray-900 animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-        S
+        SOLO
       </button>
     </div>
 
@@ -151,12 +151,12 @@
         <!-- Routing Buttons -->
         <div class="flex flex-col gap-3 absolute -left-[1.7rem] top-1/2 transform -translate-y-1/2 z-50">
           <button @click="toggleRouteToMaster" :title="'Route to Master'"
-            class="w-5 h-6 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+            class="w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
             :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
             M
           </button>
           <button @click="toggleRouteToSubgroup" :title="'Route to Subgroup'"
-            class="w-5 h-6 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+            class="w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
             :class="routeToSubgroup ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
             S
           </button>
