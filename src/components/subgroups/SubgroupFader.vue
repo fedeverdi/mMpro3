@@ -1,9 +1,9 @@
 <template>
-  <div class="master-fader-container flex flex-col items-center gap-1 w-16">
+  <div class="master-fader-container flex flex-col items-center gap-1 w-10">
     <!-- Fader wrapper -->
-    <div class="flex items-start gap-1" :style="{ height: trackHeight + 'px' }">
+    <div class="flex items-start gap-px" :style="{ height: trackHeight + 'px' }">
       <!-- Scale marks (left) -->
-      <div class="relative flex-shrink-0 w-5 text-right pr-0.5 pb-3" :style="{ height: trackHeight + 'px' }">
+      <div class="relative flex-shrink-0 w-3 text-right pr-0.5 pb-3" :style="{ height: trackHeight + 'px' }">
         <div v-for="mark in scaleMarks" :key="mark.label" 
           class="absolute font-mono leading-none right-0"
           :class="{
@@ -21,7 +21,7 @@
       <!-- Fader track -->
       <div 
         class="fader-track-wrapper relative cursor-ns-resize"
-        :style="{ width: '28px', height: trackHeight + 'px' }"
+        :style="{ width: '20px', height: trackHeight + 'px' }"
         @mousedown="startDrag"
         @touchstart="startDrag"
         @wheel.prevent="onWheel"
@@ -54,8 +54,8 @@
           :class="{ 'scale-105': isDragging }"
           :style="{ 
             bottom: thumbPosition + 'px',
-            width: '28px',
-            height: '60px',
+            width: '24px',
+            height: '50px',
             transition: isDragging ? 'none' : 'transform 0.1s ease'
           }"
         >
@@ -72,12 +72,12 @@
           </div>
           
           <!-- Cap shadow (projected on track) -->
-          <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-7 h-3 bg-black/50 blur-md rounded-full"></div>
+          <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-3 bg-black/50 blur-md rounded-full"></div>
         </div>
       </div>
       
       <!-- Scale marks (right) - mirrored -->
-      <div class="relative flex-shrink-0 w-5 text-left pl-0.5 pb-3" :style="{ height: trackHeight + 'px' }">
+      <div class="relative flex-shrink-0 w-3 text-left pl-0.5 pb-3" :style="{ height: trackHeight + 'px' }">
         <div v-for="mark in scaleMarks" :key="mark.label" 
           class="absolute font-mono leading-none left-0"
           :class="{

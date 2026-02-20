@@ -1,23 +1,23 @@
 <template>
   <div
-    class="subgroups-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-gray-600 p-2 flex flex-col items-center gap-1 h-full w-full max-w-[10rem]">
+    class="subgroups-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-gray-600 p-2 flex flex-col items-center gap-1 h-full w-full max-w-[8rem]">
     <!-- Subgroup Header -->
     <div class="w-full text-center">
       <div class="text-xs font-bold text-gray-400">SUBGROUP</div>
     </div>
 
     <!-- Output Device Selector -->
-    <div class="w-full mb-4">
-      <label class="text-[10px] text-gray-400 uppercase tracking-wide">Output Device</label>
-      <select 
-        v-model="selectedOutput" 
-        @change="onOutputSelect"
-        class="w-full text-xs bg-gray-900 text-gray-200 border border-gray-600 rounded px-2 py-1 focus:border-gray-500 focus:outline-none">
-        <option :value="null">Default Output</option>
-        <option v-for="device in audioOutputs" :key="device.deviceId" :value="device.deviceId">
-          {{ device.label || `Output ${device.deviceId.slice(0, 8)}...` }}
-        </option>
-      </select>
+    <div class="w-full mb-4 bg-gray-900 rounded p-1.5 border border-gray-700">
+      <OutputSelector
+        icon="🔊"
+        title="Select Subgroup Output"
+        :devices="audioOutputs"
+        :selected-device-id="selectedOutput"
+        default-label="Default"
+        default-description="Default audio output"
+        default-icon="🔊"
+        @select="handleOutputSelect"
+      />
     </div>
 
     <!-- VU Meters and Faders -->
@@ -25,15 +25,15 @@
       <!-- VU Meters Row -->
       <div v-if="vuMetersHeight > 0"
         class="flex flex-col items-center gap-1 w-full justify-center bg-gray-900 rounded p-1 border border-gray-700">
-        <div class="flex gap-4 relative">
-          <VuMeter :level="leftLevel" label="L" :height="vuMetersHeight" :width="25" />
-          <VuMeter :level="rightLevel" label="R" :height="vuMetersHeight" :width="25" />
-          <div class="text-[8px] text-gray-500 uppercase tracking-wider absolute bottom-6 left-1/2 transform -translate-x-1/2">RMS</div>
+        <div class="flex gap-1.5 relative">
+          <VuMeter :level="leftLevel" label="L" :height="vuMetersHeight" :width="20" />
+          <VuMeter :level="rightLevel" label="R" :height="vuMetersHeight" :width="20" />
+          <div class="text-[6px] text-gray-500 uppercase tracking-wider absolute bottom-6 left-1/2 transform -translate-x-1/2">RMS</div>
         </div>
       </div>
 
       <!-- Faders Row -->
-      <div v-if="fadersHeight > 0" class="flex gap-2 items-end mb-6">
+      <div v-if="fadersHeight > 0" class="flex gap-3 items-end mb-6">
         <SubgroupFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" />
         <SubgroupFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" />
       </div>
@@ -60,6 +60,7 @@
 
 <script setup lang="ts">
 import VuMeter from './core/VuMeter.vue'
+import OutputSelector from './master/OutputSelector.vue'
 import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 import SubgroupFader from './subgroups/SubgroupFader.vue'
 
@@ -128,6 +129,11 @@ async function enumerateAudioOutputs() {
 }
 
 // Handle output selection
+function handleOutputSelect(deviceId: string | null) {
+  selectedOutput.value = deviceId
+  onOutputSelect()
+}
+
 async function onOutputSelect() {
   if (!outputAudioElement) return
   
