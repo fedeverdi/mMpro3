@@ -296,8 +296,7 @@ const tracks = ref<Track[]>([
     { id: 4, type: 'audio' },
     { id: 5, type: 'audio' },
     { id: 6, type: 'audio' },
-    { id: 7, type: 'audio' },
-    { id: 8, type: 'signal' }
+    { id: 7, type: 'signal' }
 ])
 
 const showAddTrackMenu = ref(false)
