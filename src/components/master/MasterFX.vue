@@ -11,7 +11,7 @@
         <!-- Remove button -->
         <button 
           @click="removeEffect(index)"
-          class="absolute -top-3 pt-0.5 -right-3 w-7 h-7 bg-red-600 hover:bg-red-500 rounded-full text-white font-bold flex items-center justify-center transition-colors shadow-xl border-2 border-gray-900"
+          class="absolute -top-3 pt-0.5 -right-3 w-7 h-7 bg-gray-600/70 hover:bg-gray-500/80 rounded-full text-gray-300 hover:text-gray-100 font-bold flex items-center justify-center transition-colors shadow-lg border-2 border-gray-700"
           style="z-index: 50;"
           title="Remove effect"
         >
