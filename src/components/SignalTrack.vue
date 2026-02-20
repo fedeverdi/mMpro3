@@ -1,6 +1,6 @@
 <template>
   <div
-    class="track-channel relative bg-gray-800 rounded-lg border border-gray-700 p-1 flex flex-col items-center gap-1 h-full">
+    class="track-channel relative bg-gray-700 rounded-lg border border-gray-900 p-1 flex flex-col items-center gap-1 h-full">
     
     <!-- Track Header -->
     <div class="text-xs font-bold text-center text-gray-300">Track {{ trackNumber }}</div>
@@ -48,14 +48,13 @@
           <path d="M8 5v14l11-7z" />
         </svg>
         <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
-          <path d="M6 4h4v16H6zM14 4h4v16h-4z" />
-        </svg>
-      </button>
-      <button @click="stopSignal"
-        class="px-2 py-1 w-full text-xs rounded transition-colors bg-gray-600 hover:bg-gray-500 flex items-center justify-center">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
           <path d="M6 6h12v12H6z" />
         </svg>
+      </button>
+      <button v-if="isOscillator" @click="toggleFrequencySweep"
+        class="px-2 py-1 w-full text-xs rounded transition-colors flex items-center justify-center"
+        :class="isSweeping ? 'bg-orange-600 hover:bg-orange-500 animate-pulse' : 'bg-gray-500 hover:bg-gray-600'">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="w-3 h-3" fill="currentColor"><path d="M216 288h-48c-8.84 0-16 7.16-16 16v192c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V304c0-8.84-7.16-16-16-16zM88 384H40c-8.84 0-16 7.16-16 16v96c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16v-96c0-8.84-7.16-16-16-16zm256-192h-48c-8.84 0-16 7.16-16 16v288c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V208c0-8.84-7.16-16-16-16zm128-96h-48c-8.84 0-16 7.16-16 16v384c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V112c0-8.84-7.16-16-16-16zM600 0h-48c-8.84 0-16 7.16-16 16v480c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V16c0-8.84-7.16-16-16-16z"/></svg>
       </button>
     </div>
 
@@ -67,13 +66,6 @@
       <div class="scale-[0.7] flex justify-center">
         <FrequencyKnob v-model="frequency" :min="20" :max="20000" label="Frequency" color="#3b82f6" />
       </div>
-      
-      <!-- Frequency Sweep Button -->
-      <button @click="toggleFrequencySweep"
-        class="w-full mt-2 py-1 text-xs rounded transition-colors"
-        :class="isSweeping ? 'bg-orange-600 hover:bg-orange-500 animate-pulse' : 'bg-gray-700 hover:bg-gray-600'">
-        {{ isSweeping ? '⏸ Stop Sweep' : '🔄 Sweep' }}
-      </button>
     </div>
 
     <!-- Display for noise (no controls needed) -->
@@ -84,11 +76,11 @@
     <!-- Mute & Solo Buttons -->
     <div class="flex flex-row gap-1 w-full">
       <button @click="toggleMute" class="flex-1 py-1 text-xs font-bold rounded transition-all"
-        :class="isMuted ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+        :class="isMuted ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-500 hover:bg-gray-600 text-gray-300'">
         M
       </button>
       <button @click="toggleSolo" class="flex-1 py-1 text-xs font-bold rounded transition-all"
-        :class="isSolo ? 'bg-yellow-500 text-gray-900 animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+        :class="isSolo ? 'bg-yellow-500 text-gray-900 animate-pulse' : 'bg-gray-500 hover:bg-gray-600 text-gray-300'">
         S
       </button>
     </div>
@@ -334,15 +326,8 @@ async function toggleSignal() {
   } else {
     signalNode.stop()
     isPlaying.value = false
-  }
-}
-
-function stopSignal() {
-  if (!signalNode) return
-  
-  if (isPlaying.value) {
-    signalNode.stop()
-    isPlaying.value = false
+    // Ricrea il nodo per poterlo riavviare
+    createSignalSource()
   }
 }
 
