@@ -51,6 +51,13 @@
                   {{ recordingTime }}
                 </div>
               </div>
+
+              <!-- Quality Selector -->
+              <QualitySelector 
+                v-model="recordingQuality"
+                :disabled="isRecording"
+                class="ml-4"
+              />
             </div>
 
             <!-- Level Meters -->
@@ -76,7 +83,7 @@
         />
 
         <!-- Recordings List -->
-        <div class="flex-1 overflow-y-auto">
+        <div class="flex-1 overflow-y-auto mt-4">
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-bold text-white uppercase tracking-wider">Recordings</h3>
             <div class="text-xs text-gray-500">{{ recordings.length }} track{{ recordings.length !== 1 ? 's' : '' }}</div>
@@ -122,6 +129,7 @@
 import { ref, computed, watch, onUnmounted, toRaw, nextTick, type Ref } from 'vue'
 import WaveformDisplay from './components/WaveformDisplay.vue'
 import HorizontalStereoMeter from './components/HorizontalStereoMeter.vue'
+import QualitySelector from './components/QualitySelector.vue'
 
 interface Props {
   modelValue: boolean
@@ -150,6 +158,7 @@ const isRecording = ref(false)
 const recordingTime = ref('00:00')
 const recordingStartTime = ref(0)
 const recordings = ref<Recording[]>([])
+const recordingQuality = ref<string>('192') // Default: High quality
 
 // Level monitoring
 const leftLevel = ref(-60)
@@ -246,7 +255,8 @@ async function startRecording() {
 
     // Create MediaRecorder
     const mediaRecorder = new MediaRecorder(dest.stream, {
-      mimeType: 'audio/webm;codecs=opus'
+      mimeType: 'audio/webm;codecs=opus',
+      audioBitsPerSecond: parseInt(recordingQuality.value) * 1000
     })
 
     const chunks: Blob[] = []
