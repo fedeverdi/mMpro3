@@ -298,6 +298,55 @@ onUnmounted(() => {
   disposeFilters()
 })
 
+// Watch for external changes to eqFilters (e.g., when loading a scene)
+watch(() => props.eqFilters, (newFilters) => {
+  // Only sync if we have actual filter data (not undefined and not empty)
+  if (!newFilters || newFilters.length === 0) return
+  
+  // Check if different from current filters
+  const isDifferent = newFilters.length !== filters.value.length || 
+    newFilters.some((nf: any, i: number) => {
+      const cf = filters.value[i]
+      return !cf || 
+        nf.type !== cf.type || 
+        Math.abs(nf.frequency - cf.frequency) > 0.1 || 
+        Math.abs(nf.gain - cf.gain) > 0.01 || 
+        Math.abs(nf.Q - cf.Q) > 0.01
+    })
+  
+  if (!isDifferent) return
+  
+  // Sync filters from external source
+  filters.value = newFilters.map((f: any, index: number) => ({
+    id: index + 1,
+    type: f.type,
+    frequency: f.frequency,
+    gain: f.gain,
+    Q: f.Q,
+    color: f.color || filterColors[index % filterColors.length]
+  }))
+  
+  // Recreate filter chain with new data
+  nextTick(() => {
+    createFilterChain()
+  })
+})
+
+// Also sync when modal opens (for immediate visual update)
+watch(() => props.modelValue, (isOpen) => {
+  if (isOpen) {
+    nextTick(() => {
+      setupCanvas()
+      drawEQCurve()
+      // Create filter chain when modal opens for the first time
+      // This ensures the preview is populated
+      if (filterNodes.length === 0) {
+        createFilterChain()
+      }
+    })
+  }
+})
+
 function setupCanvas() {
   if (!eqCanvas.value) return
   

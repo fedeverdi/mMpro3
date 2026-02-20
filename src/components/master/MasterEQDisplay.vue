@@ -45,6 +45,9 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const emit = defineEmits<{
+  (e: 'update:filtersData', value: any[]): void
+}>()
 
 // Inject Tone.js
 const ToneRef = inject<any>('Tone')
@@ -140,6 +143,9 @@ function handleMasterParametricEQUpdate(filters: any) {
       Q: f.Q,
       color: f.color
     }))
+    
+    // Emit to parent so masterEqFiltersData stays synchronized
+    emit('update:filtersData', internalFiltersData.value)
     
     // Redraw the preview when filters change
     requestRedraw()

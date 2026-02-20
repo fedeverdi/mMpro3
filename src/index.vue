@@ -28,9 +28,9 @@
 
                     <div class="w-px h-6 bg-gray-600"></div>
 
-                    <div class="relative">
+                    <div class="relative -mt-[3px]" >
                         <button @click="showAddTrackMenu = !showAddTrackMenu" :disabled="tracks.length >= 24"
-                            class="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded text-xs font-semibold transition-colors">
+                            class="px-3 h-full py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded text-xs font-semibold transition-colors">
                             + Add
                         </button>
                         
@@ -160,7 +160,7 @@
                         <div class="w-[36rem] flex flex-col flex-1 min-h-0 gap-2 mixer-fade-in">
                             <div class="flex-1 min-h-0">
                                 <MasterEQDisplay ref="masterEQDisplayRef" :filters-data="masterEqFiltersData"
-                                    :master-channel="masterChannel" />
+                                    :master-channel="masterChannel" @update:filters-data="handleMasterEQFiltersUpdate" />
 
                             </div>
                             <div class="flex-1 min-h-0">
@@ -296,6 +296,11 @@ function setTrackRef(trackId: number, el: any | null) {
 
 // Master EQ filters data
 const masterEqFiltersData = ref<any[]>([])
+
+// Handle master EQ filters update from MasterEQDisplay
+function handleMasterEQFiltersUpdate(filters: any[]) {
+    masterEqFiltersData.value = filters
+}
 
 // Solo handling
 const soloTracks = ref<Set<number>>(new Set())
