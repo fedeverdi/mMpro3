@@ -437,7 +437,28 @@ defineExpose({
   getMeterValues,
   getPreLimiterValues,
   getSnapshot,
-  restoreSnapshot
+  restoreSnapshot,
+  resetToDefaults: () => {
+    // Reset volumes
+    leftVolume.value = 0
+    rightVolume.value = 0
+    headphonesVolume.value = 0
+    isLinked.value = true
+
+    // Reset levels
+    leftLevel.value = -60
+    rightLevel.value = -60
+    headphonesLevel.value = -60
+
+    // Reset recording state
+    isRecording.value = false
+    recordingTime.value = '00:00'
+
+    // Reset Master FX if available
+    if (props.masterFx?.resetToDefaults) {
+      props.masterFx.resetToDefaults()
+    }
+  }
 })
 
 // Cleanup

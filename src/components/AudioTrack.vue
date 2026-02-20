@@ -1158,6 +1158,72 @@ defineExpose({
     if (shouldEnableReverb !== reverbEnabled.value) {
       toggleReverb()
     }
+  },
+
+  resetToDefaults: () => {
+    // Reset volume and pan
+    volume.value = 0
+    pan.value = 0
+    isMuted.value = false
+    isSolo.value = false
+
+    // Reset audio source
+    audioSourceType.value = 'file'
+    selectedAudioInput.value = ''
+    fileName.value = ''
+    fileId.value = ''
+    audioLoaded.value = false
+
+    // Stop player if active
+    if (player && typeof player.stop === 'function') {
+      try {
+        player.stop()
+      } catch (e) { }
+    }
+
+    // Reset 3-band EQ to defaults
+    if (trackEQRef.value?.setParams) {
+      trackEQRef.value.setParams({
+        highGain: 0,
+        midGain: 0,
+        lowGain: 0
+      })
+    }
+
+    // Clear parametric EQ
+    eqFiltersData.value = []
+    if (parametricEQFilters) {
+      try {
+        parametricEQFilters.input?.disconnect()
+        parametricEQFilters.output?.disconnect()
+      } catch (e) { }
+      parametricEQFilters = null
+    }
+
+    // Disable and reset compressor
+    if (compressorEnabled.value) {
+      toggleCompressor()
+    }
+    if (trackCompressorRef.value?.setParams) {
+      trackCompressorRef.value.setParams({
+        threshold: -24,
+        ratio: 4,
+        attack: 0.003,
+        release: 0.25
+      })
+    }
+
+    // Disable and reset reverb
+    if (reverbEnabled.value) {
+      toggleReverb()
+    }
+    if (trackReverbRef.value?.setParams) {
+      trackReverbRef.value.setParams({
+        decay: 1.5,
+        preDelay: 0.01,
+        wet: 0.3
+      })
+    }
   }
 })
 

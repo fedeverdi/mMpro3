@@ -49,9 +49,15 @@ const eqHigh = ref(0)
 // Update EQ3 node when values change
 function updateEQ() {
   if (!props.eq3Node) return
-  props.eq3Node.low.value = eqLow.value
-  props.eq3Node.mid.value = eqMid.value
-  props.eq3Node.high.value = eqHigh.value
+  
+  // Ensure values are not undefined before setting
+  const lowVal = eqLow.value ?? 0
+  const midVal = eqMid.value ?? 0
+  const highVal = eqHigh.value ?? 0
+  
+  props.eq3Node.low.value = lowVal
+  props.eq3Node.mid.value = midVal
+  props.eq3Node.high.value = highVal
 }
 
 // Watch for changes
@@ -67,9 +73,9 @@ function getParams() {
 }
 
 function setParams(params: { low: number, mid: number, high: number }) {
-  eqLow.value = params.low
-  eqMid.value = params.mid
-  eqHigh.value = params.high
+  eqLow.value = params.low ?? 0
+  eqMid.value = params.mid ?? 0
+  eqHigh.value = params.high ?? 0
 }
 
 defineExpose({

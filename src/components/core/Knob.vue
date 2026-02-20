@@ -116,16 +116,17 @@ const editInput = ref<HTMLInputElement | null>(null)
 
 // Calculate angle for the knob (270 degrees range)
 const angle = computed(() => {
+  const value = props.modelValue ?? props.min
   const range = props.max - props.min
   
   // If centerValue is specified, center the rotation around that value
   if (props.centerValue !== undefined) {
-    const normalizedFromCenter = (props.modelValue - props.centerValue) / range
+    const normalizedFromCenter = (value - props.centerValue) / range
     return -90 + (normalizedFromCenter * 270)
   }
   
   // Default: start at min value = -90deg (top), rotate 270deg total
-  const normalized = (props.modelValue - props.min) / range
+  const normalized = (value - props.min) / range
   return -90 + (normalized * 270)
 })
 
@@ -183,7 +184,8 @@ const arcPath = computed(() => {
 })
 
 const displayValue = computed(() => {
-  const val = props.modelValue.toFixed(props.step < 1 ? 1 : 0)
+  const value = props.modelValue ?? 0
+  const val = value.toFixed(props.step < 1 ? 1 : 0)
   return props.unit ? `${val}${props.unit}` : val
 })
 

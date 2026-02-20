@@ -789,6 +789,45 @@ defineExpose({
   getOutputNode: () => outputNode,
   getSnapshot,
   restoreSnapshot,
+  resetToDefaults: () => {
+    // Clear all effects
+    effects.value = []
+    
+    // Reset parameter values to defaults
+    compressorParams.value = { ...defaultParams.compressor }
+    reverbParams.value = { ...defaultParams.reverb }
+    delayParams.value = { ...defaultParams.delay }
+    limiterParams.value = { ...defaultParams.limiter }
+    
+    // Disconnect and clear all audio nodes
+    if (compressorNode) {
+      try {
+        compressorNode.disconnect()
+      } catch (e) { }
+      compressorNode = null
+    }
+    if (reverbNode) {
+      try {
+        reverbNode.disconnect()
+      } catch (e) { }
+      reverbNode = null
+    }
+    if (delayNode) {
+      try {
+        delayNode.disconnect()
+      } catch (e) { }
+      delayNode = null
+    }
+    if (limiterNode) {
+      try {
+        limiterNode.disconnect()
+      } catch (e) { }
+      limiterNode = null
+    }
+    
+    // Reconnect audio chain (master -> output)
+    rebuildFXChain()
+  },
   // Keep these for backward compatibility with effect components
   compressorNode: () => compressorNode,
   reverbNode: () => reverbNode,

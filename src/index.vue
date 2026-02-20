@@ -46,6 +46,12 @@
                         Scenes
                     </button>
 
+                    <button @click="handleClearScene"
+                        class="px-3 py-1 bg-orange-600 hover:bg-orange-500 rounded text-xs font-semibold transition-colors"
+                        title="Clear mixer - Reload page">
+                        Clear
+                    </button>
+
                     <div class="w-px h-6 bg-gray-600"></div>
 
                     <div class="relative -mt-[3px]" >
@@ -455,6 +461,21 @@ function handleLoadScene(sceneId: string) {
 
     // Small delay before starting the animation
     setTimeout(() => {
+        // Reset all tracks to defaults before loading scene
+        trackRefs.value.forEach((trackRef) => {
+            if (trackRef && trackRef.resetToDefaults) {
+                trackRef.resetToDefaults()
+            }
+        })
+        
+        // Reset master section to defaults
+        if (masterSectionRef.value?.resetToDefaults) {
+            masterSectionRef.value.resetToDefaults()
+        }
+        
+        // Clear master EQ filters
+        masterEqFiltersData.value = []
+        
         // Animate faders to -∞ (mute) first (digital mixer effect)
         trackRefs.value.forEach((trackRef) => {
             if (trackRef && trackRef.getSnapshot) {
@@ -606,6 +627,11 @@ async function handleRenameScene(sceneId: string, newName: string) {
 
 async function handleTogglePin(sceneId: string) {
     await togglePinScene(sceneId)
+}
+
+function handleClearScene() {
+    // Reload the page to clear all mixer state
+    window.location.reload()
 }
 
 // Computed for pinned scenes
