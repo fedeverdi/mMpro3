@@ -54,15 +54,11 @@
       </button>
 
       <!-- Recording Button -->
-      <button @click="toggleRecording"
-        class="flex-1 py-1 text-xs font-bold rounded transition-all flex items-center justify-center gap-1"
-        :class="isRecording ? 'bg-red-700 text-white animate-pulse' : 'bg-red-600 hover:bg-red-700 text-white'">
-        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="8" />
-        </svg>
-        <span v-if="isRecording" class="font-mono">{{ recordingTime }}</span>
-      </button>
+      <RecorderButton @open="showRecorder = true" />
     </div>
+
+    <!-- Recorder Modal -->
+    <Recorder v-model="showRecorder" :audio-node="mergeNodeRef" :tone="ToneRef" />
   </div>
 </template>
 
@@ -70,6 +66,8 @@
 import MasterFader from './master/MasterFader.vue'
 import VuMeter from './core/VuMeter.vue'
 import HeadphonesControl from './master/HeadphonesControl.vue'
+import RecorderButton from './master/RecorderButton.vue'
+import Recorder from './master/Recorder.vue'
 import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 
 // Props
@@ -95,9 +93,8 @@ const leftLevel = ref(-60)
 const rightLevel = ref(-60)
 const headphonesLevel = ref(-60)
 
-// Recording state
-const isRecording = ref(false)
-const recordingTime = ref('00:00')
+// Recorder modal
+const showRecorder = ref(false)
 
 // Audio outputs
 const audioOutputs = ref<MediaDeviceInfo[]>([])
@@ -122,6 +119,9 @@ let splitNode: any = null
 let leftGain: any = null
 let rightGain: any = null
 let mergeNode: any = null
+
+// Ref for passing to child components
+const mergeNodeRef = ref<any>(null)
 
 // Calculate meters height based on container
 function updateMetersHeight() {
@@ -191,6 +191,9 @@ function initMasterChannel() {
   leftGain = new Tone.Gain(1)
   rightGain = new Tone.Gain(1)
   mergeNode = new Tone.Merge()
+  
+  // Sync to ref for child components
+  mergeNodeRef.value = mergeNode
 
   // Create meters
   leftMeter = new Tone.Meter()
@@ -308,28 +311,6 @@ function toggleLink() {
   if (isLinked.value) {
     rightVolume.value = leftVolume.value
   }
-}
-
-// Recording functions
-function toggleRecording() {
-  if (isRecording.value) {
-    stopRecording()
-  } else {
-    startRecording()
-  }
-}
-
-function startRecording() {
-  // TODO: Implement recording
-  isRecording.value = true
-  console.log('[Recording] Started')
-}
-
-function stopRecording() {
-  // TODO: Implement recording stop
-  isRecording.value = false
-  recordingTime.value = '00:00'
-  console.log('[Recording] Stopped')
 }
 
 // Initialize
@@ -450,10 +431,6 @@ defineExpose({
     rightLevel.value = -60
     headphonesLevel.value = -60
 
-    // Reset recording state
-    isRecording.value = false
-    recordingTime.value = '00:00'
-
     // Reset Master FX if available
     if (props.masterFx?.resetToDefaults) {
       props.masterFx.resetToDefaults()
@@ -469,7 +446,10 @@ onUnmounted(() => {
   if (splitNode) splitNode.dispose()
   if (leftGain) leftGain.dispose()
   if (rightGain) rightGain.dispose()
-  if (mergeNode) mergeNode.dispose()
+  if (mergeNode) {
+    mergeNode.dispose()
+    mergeNodeRef.value = null
+  }
   if (headphonesGain) headphonesGain.dispose()
 
   // Cleanup headphones audio element
