@@ -27,7 +27,7 @@
     <!-- Settings Modal -->
     <Teleport to="body">
       <div v-if="showModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
-        @click="showModal = false">
+        @mousedown.self="showModal = false">
         <div class="bg-gray-900 rounded-lg border-2 border-green-600 p-6 max-w-2xl w-full mx-4" @click.stop>
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-xl font-bold text-green-300">Limiter Settings</h3>
