@@ -198,7 +198,6 @@
 import { ref, watch, onMounted, onUnmounted, nextTick, computed, toRaw, inject } from 'vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
-import type { TrackSnapshot } from '~/composables/useScenes'
 import TrackFader from './audioTrack/TrackFader.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
 import Knob from './core/Knob.vue'
