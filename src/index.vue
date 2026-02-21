@@ -407,6 +407,12 @@ function removeTrack(trackId: number) {
     const trackIndex = tracks.value.findIndex(t => t.id === trackId)
     if (trackIndex === -1) return
     
+    // Ask for confirmation
+    const trackType = tracks.value[trackIndex].type === 'audio' ? 'Audio Track' : 'Signal Track'
+    if (!confirm(`Remove ${trackType} ${trackId}?`)) {
+        return
+    }
+    
     const removedTrack = tracks.value.splice(trackIndex, 1)[0]
 
     // Remove the track ref from the map
@@ -499,6 +505,11 @@ function removeSubgroup(subgroupId: number) {
     const index = subgroups.value.findIndex(s => s.id === subgroupId)
     if (index !== -1) {
         const subgroup = subgroups.value[index]
+        
+        // Ask for confirmation
+        if (!confirm(`Remove ${subgroup.name}?`)) {
+            return
+        }
 
         // Disconnect all tracks from this subgroup
         loadedTracks.value.forEach(track => {
