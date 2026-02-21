@@ -1,10 +1,10 @@
 <template>
   <div
-    class="limiter-effect bg-gray-800/50 justify-center h-full rounded-lg p-3 border border-gray-700 flex flex-col items-center gap-2">
+    class="limiter-effect bg-gray-800/50 justify-center h-full rounded-lg p-2 border border-gray-700 flex flex-col items-center gap-2">
     <span class="text-xs font-bold text-red-300">LIMITER</span>
 
     <button @click="toggleEffect" :class="[
-      'px-4 py-1 text-[0.6rem] font-bold rounded transition-colors w-full',
+      'px-2 py-1 text-[0.6rem] font-bold rounded transition-colors w-full',
       isEnabled
         ? 'bg-red-600 text-white'
         : 'bg-gray-700 text-gray-400'
@@ -13,7 +13,7 @@
     </button>
 
     <button @click="showModal = true"
-      class="px-4 py-1 text-[0.6rem] font-bold rounded bg-blue-600 hover:bg-blue-700 text-white w-full">
+      class="px-2 py-1 text-[0.6rem] font-bold rounded bg-blue-600 hover:bg-blue-700 text-white w-full">
       <div class="flex items-center gap-1 justify-center text-[0.6rem]">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="white" class="h-3.5 w-3.5">
           <path

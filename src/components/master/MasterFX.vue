@@ -5,7 +5,7 @@
       <p class="text-[10px] text-gray-400">Click + to add effects</p>
     </div>
 
-    <div class="flex-1 h-full grid gap-3 min-h-0 pr-1 custom-scrollbar overflow-y-none" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
+    <div class="flex-1 h-full grid gap-2 min-h-0 pr-1 custom-scrollbar overflow-y-none" style="grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));">
       <!-- Existing effects -->
       <div v-for="(effect, index) in effects" :key="effect.id" class="relative h-full" style="overflow: visible;">
         <!-- Remove button -->
@@ -76,7 +76,7 @@
       v-if="effects.length < 4"
         ref="addEffectButton"
         class="relative h-full border-2 border-dashed border-gray-600 rounded-lg p-4 hover:border-green-500 transition-colors cursor-pointer bg-gray-800/50 hover:bg-gray-800 flex items-center justify-center"
-        @click="toggleAddEffectMenu"
+        @click="toggleAddEffectMenu($event)"
       >
         <div class="text-center">
           <div class="text-3xl text-gray-400 hover:text-green-400 transition-colors">+</div>
@@ -211,14 +211,15 @@ const limiterParams = ref({
 })
 
 // Toggle add effect menu with position calculation
-const toggleAddEffectMenu = () => {
-  if (!showAddEffectMenu.value && addEffectButton.value) {
-    const rect = addEffectButton.value.getBoundingClientRect()
-    // Position menu above and aligned to the right of the button
+const toggleAddEffectMenu = (event: MouseEvent) => {
+  if (!showAddEffectMenu.value) {
+    // Position menu above the mouse cursor
     const menuHeight = 192 // 4 buttons × ~48px each
+    const menuWidth = 200
+    
     menuPosition.value = {
-      top: rect.top - menuHeight - 8,
-      left: rect.right - 170 // 200px is min-w-[200px] of the menu
+      top: event.clientY - menuHeight - 8,
+      left: event.clientX - menuWidth / 2 // Center horizontally on cursor
     }
   }
   showAddEffectMenu.value = !showAddEffectMenu.value
