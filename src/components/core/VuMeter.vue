@@ -1,5 +1,5 @@
 <template>
-  <div class="vu-meter flex flex-col items-center gap-1">
+  <div class="vu-meter flex flex-col items-center ">
     <div class="text-[0.5rem] text-gray-500 uppercase">{{ label }}</div>
     
     <div 
@@ -28,7 +28,7 @@
       ></div>
     </div>
     
-    <div v-if="showValue" class="w-12 text-center text-[10px] font-mono truncate" :class="levelClass">
+    <div v-if="showValue" class="w-12 text-center font-mono truncate" :class="levelClass" :style="{ fontSize: valueFontSize + 'px' }">
       {{ displayLevel }}
     </div>
   </div>
@@ -44,6 +44,7 @@ interface Props {
   height?: number
   segments?: number
   showValue?: boolean
+  valueFontSize?: number // Font size for value display in pixels
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -51,7 +52,8 @@ const props = withDefaults(defineProps<Props>(), {
   width: 30,
   height: 200,
   segments: 20,
-  showValue: true
+  showValue: true,
+  valueFontSize: 10
 })
 
 const peakHold = ref(0)

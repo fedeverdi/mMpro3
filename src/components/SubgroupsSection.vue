@@ -1,6 +1,6 @@
 <template>
     <div
-        class="subgroups-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-gray-600 p-2 flex flex-col items-center gap-1 h-full w-full max-w-[8rem]">
+        class="subgroups-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-gray-600 p-2 flex flex-col items-center gap-1 h-full w-full max-w-[6rem]">
         <!-- Subgroup Header -->
         <div class="w-full text-center">
             <div class="text-xs font-bold text-gray-400">SUBGROUP</div>
@@ -15,7 +15,7 @@
 
         <!-- FX Section -->
         <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
-            <div class="grid grid-cols-2 gap-1">
+            <div class="grid grid-cols-1 gap-1">
                 <TrackCompressor ref="trackCompressorRef" :enabled="compressorEnabled" :compressor-node="compressor"
                     :meter="leftMeter" :track-number="0" @toggle="toggleCompressor" />
                 <TrackReverb ref="trackReverbRef" :enabled="reverbEnabled" :reverb-node="reverb" :track-number="0"
@@ -31,41 +31,19 @@
         <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-2 min-h-0">
             <!-- VU Meters Row -->
             <div v-if="vuMetersHeight > 0"
-                class="flex flex-col items-center gap-1 w-full justify-center bg-gray-900 rounded p-1 border border-gray-700">
-                <div class="flex gap-1.5 relative">
-                    <VuMeter :level="leftLevel" label="L" :height="vuMetersHeight" :width="20" />
-                    <VuMeter :level="rightLevel" label="R" :height="vuMetersHeight" :width="20" />
-                    <div
-                        class="text-[6px] text-gray-500 uppercase tracking-wider absolute bottom-6 left-1/2 transform -translate-x-1/2">
-                        RMS</div>
+                class="flex flex-col items-center w-full justify-center bg-gray-900 rounded p-1 border border-gray-700">
+                <div class="flex gap-0 relative">
+                    <VuMeter :level="leftLevel" label="L" :height="vuMetersHeight" :width="15" class="-mr-2" :value-font-size="6" />
+                    <VuMeter :level="rightLevel" label="R" :height="vuMetersHeight" :width="15" class="-ml-2" :value-font-size="6" />
                 </div>
             </div>
 
 
 
-            <!-- Faders Row -->
+            <!-- Fader -->
             <div v-if="fadersHeight > 0" class="flex gap-1 items-end mt-3">
-                <SubgroupFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" />
-                <SubgroupFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" />
+                <SubgroupFader v-model="volume" label="SUB" :trackHeight="fadersHeight" />
             </div>
-        </div>
-
-        <!-- Link Button -->
-        <div class="w-full">
-            <button @click="toggleLink" class="w-full py-1 text-xs font-bold rounded transition-all"
-                :class="isLinked ? 'bg-gray-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-                <div class="flex items-center justify-center">
-                    <svg v-if="isLinked" xmlns="http://www.w3.org/2000/svg" fill="white" class="h-3 w-3"
-                        viewBox="0 0 512 512">
-                        <path
-                            d="M326.612 185.391c59.747 59.809 58.927 155.698.36 214.59-.11.12-.24.25-.36.37l-67.2 67.2c-59.27 59.27-155.699 59.262-214.96 0-59.27-59.26-59.27-155.7 0-214.96l37.106-37.106c9.84-9.84 26.786-3.3 27.294 10.606.648 17.722 3.826 35.527 9.69 52.721 1.986 5.822.567 12.262-3.783 16.612l-13.087 13.087c-28.026 28.026-28.905 73.66-1.155 101.96 28.024 28.579 74.086 28.749 102.325.51l67.2-67.19c28.191-28.191 28.073-73.757 0-101.83-3.701-3.694-7.429-6.564-10.341-8.569a16.037 16.037 0 0 1-6.947-12.606c-.396-10.567 3.348-21.456 11.698-29.806l21.054-21.055c5.521-5.521 14.182-6.199 20.584-1.731a152.482 152.482 0 0 1 20.522 17.197zM467.547 44.449c-59.261-59.262-155.69-59.27-214.96 0l-67.2 67.2c-.12.12-.25.25-.36.37-58.566 58.892-59.387 154.781.36 214.59a152.454 152.454 0 0 0 20.521 17.196c6.402 4.468 15.064 3.789 20.584-1.731l21.054-21.055c8.35-8.35 12.094-19.239 11.698-29.806a16.037 16.037 0 0 0-6.947-12.606c-2.912-2.005-6.64-4.875-10.341-8.569-28.073-28.073-28.191-73.639 0-101.83l67.2-67.19c28.239-28.239 74.3-28.069 102.325.51 27.75 28.3 26.872 73.934-1.155 101.96l-13.087 13.087c-4.35 4.35-5.769 10.79-3.783 16.612 5.864 17.194 9.042 34.999 9.69 52.721.509 13.906 17.454 20.446 27.294 10.606l37.106-37.106c59.271-59.259 59.271-155.699.001-214.959z" />
-                    </svg>
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" fill="white" class="h-3 w-3" viewBox="0 0 448 512">
-                        <path
-                            d="M400 224h-24v-72C376 68.2 307.8 0 224 0S72 68.2 72 152v72H48c-26.5 0-48 21.5-48 48v192c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V272c0-26.5-21.5-48-48-48zm-104 0H152v-72c0-39.7 32.3-72 72-72s72 32.3 72 72v72z" />
-                    </svg>
-                </div>
-            </button>
         </div>
     </div>
 </template>
@@ -84,10 +62,8 @@ import SubgroupFader from './subgroups/SubgroupFader.vue'
 const ToneRef = inject<any>('Tone')
 let Tone: any = null
 
-// Subgroup volumes
-const leftVolume = ref(0)
-const rightVolume = ref(0)
-const isLinked = ref(true)
+// Subgroup volume
+const volume = ref(0)
 
 // FX refs and state
 const trackCompressorRef = ref<any>(null)
@@ -282,10 +258,11 @@ function initSubgroupChannel() {
     rightGain.connect(rightMeter)
     rightGain.connect(outputMerge, 0, 1)
 
-    // Output to MediaStream for device routing
-    // Chain: inputGainNode → FX → split → faders → outputMerge → outputGain → streamDest
+    // Output to MediaStream for device routing AND to main destination
+    // Chain: inputGainNode → FX → split → faders → outputMerge → outputGain → streamDest + Tone.destination
     outputMerge.connect(outputGain)
     outputGain.connect(outputStreamDest as any)
+    outputGain.connect(Tone.getDestination())
 
     // Update initial volumes
     updateSubgroupVolume()
@@ -313,30 +290,14 @@ function updateSubgroupVolume() {
         if (!leftGain || !rightGain) return
     }
 
-    const leftGainValue = Tone.dbToGain(leftVolume.value)
-    const rightGainValue = Tone.dbToGain(rightVolume.value)
+    const gainValue = Tone.dbToGain(volume.value)
 
-    leftGain.gain.value = leftGainValue
-    rightGain.gain.value = rightGainValue
+    leftGain.gain.value = gainValue
+    rightGain.gain.value = gainValue
 }
 
 // Watch for volume changes
-watch([leftVolume, rightVolume], updateSubgroupVolume)
-
-// When linked, sync right to left
-watch(leftVolume, (newVal) => {
-    if (isLinked.value) {
-        rightVolume.value = newVal
-    }
-})
-
-// Link/unlink channels
-function toggleLink() {
-    isLinked.value = !isLinked.value
-    if (isLinked.value) {
-        rightVolume.value = leftVolume.value
-    }
-}
+watch(volume, updateSubgroupVolume)
 
 // FX toggles
 function toggleCompressor() {
@@ -446,9 +407,7 @@ function getInputNode() {
 // Scene Snapshot Support
 function getSnapshot() {
     return {
-        leftVolume: leftVolume.value,
-        rightVolume: rightVolume.value,
-        isLinked: isLinked.value,
+        volume: volume.value,
         selectedOutput: selectedOutput.value,
         compressorEnabled: compressorEnabled.value,
         reverbEnabled: reverbEnabled.value,
@@ -464,9 +423,7 @@ function getSnapshot() {
 function restoreSnapshot(snapshot: any) {
     if (!snapshot) return
 
-    if (snapshot.leftVolume !== undefined) leftVolume.value = snapshot.leftVolume
-    if (snapshot.rightVolume !== undefined) rightVolume.value = snapshot.rightVolume
-    if (snapshot.isLinked !== undefined) isLinked.value = snapshot.isLinked
+    if (snapshot.volume !== undefined) volume.value = snapshot.volume
     if (snapshot.selectedOutput !== undefined) {
         selectedOutput.value = snapshot.selectedOutput
         nextTick(() => onOutputSelect())
@@ -501,9 +458,7 @@ defineExpose({
     getSnapshot,
     restoreSnapshot,
     resetToDefaults: () => {
-        leftVolume.value = 0
-        rightVolume.value = 0
-        isLinked.value = true
+        volume.value = 0
         leftLevel.value = -60
         rightLevel.value = -60
         selectedOutput.value = null
