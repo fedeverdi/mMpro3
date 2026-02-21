@@ -101,6 +101,7 @@ let analyserRight: any = null
 let splitNode: any = null
 let animationId: number | null = null
 let currentMasterNode: any = null
+let resizeObserver: ResizeObserver | null = null
 
 // Peak hold tracking
 let peakValuesLeft: number[] = []
@@ -792,12 +793,27 @@ const render = () => {
 // Lifecycle
 onMounted(() => {
   connectAnalyser().then(() => render())
+  
+  // Add ResizeObserver to detect container size changes
+  if (canvas.value) {
+    resizeObserver = new ResizeObserver(() => {
+      // The render loop already handles size updates each frame
+      // This just ensures immediate response to resize events
+    })
+    resizeObserver.observe(canvas.value)
+  }
 })
 
 onUnmounted(() => {
   if (animationId !== null) {
     cancelAnimationFrame(animationId)
     animationId = null
+  }
+  
+  // Disconnect ResizeObserver
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
   }
 
   if (currentMasterNode && splitNode) {

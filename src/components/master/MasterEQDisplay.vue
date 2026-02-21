@@ -66,6 +66,7 @@ let rafId: number | null = null
 let needsRedraw = false
 let masterParametricEQFilters: any = null
 let outputNode: any = null  // Output node for chaining to MasterSection
+let resizeObserver: ResizeObserver | null = null
 
 function syncFiltersData(newData?: any[]) {
   internalFiltersData.value = (newData || []).map(filter => ({ ...filter }))
@@ -111,6 +112,14 @@ onMounted(async () => {
   requestRedraw()
   window.addEventListener('resize', requestRedraw)
   
+  // Add ResizeObserver to detect container size changes
+  if (masterEqCanvas.value) {
+    resizeObserver = new ResizeObserver(() => {
+      requestRedraw()
+    })
+    resizeObserver.observe(masterEqCanvas.value)
+  }
+  
   // Create output node for chaining
   if (Tone && props.masterChannel && !outputNode) {
     outputNode = new Tone.Gain(1)
@@ -126,6 +135,12 @@ onMounted(async () => {
 onUnmounted(() => {
   if (rafId) cancelAnimationFrame(rafId)
   window.removeEventListener('resize', requestRedraw)
+  
+  // Disconnect ResizeObserver
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
   
   // Cleanup audio nodes
   if (outputNode) {

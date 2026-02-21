@@ -1,9 +1,18 @@
 <template>
-  <div class="flex flex-col h-full gap-2">
+  <div class="flex flex-col h-full gap-2 relative" :style="{ width: sectionWidth + 'px' }">
+    <!-- Resize Handle -->
+    <div 
+      class="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-blue-500 transition-colors z-50 group"
+      @mousedown="startResize"
+      title="Drag to resize"
+    >
+      <div class="absolute left-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-blue-500/50"></div>
+    </div>
+
     <template v-for="component in rightSectionComponents" :key="component.id">
       <!-- Master EQ Display -->
       <div v-if="component.id === 'eq'"
-        :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-[36rem] mixer-fade-in relative group']"
+        :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-full mixer-fade-in relative group']"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
         @drop="handleDrop($event, component.id)">
@@ -28,7 +37,7 @@
 
       <!-- Spectrum Meter -->
       <div v-if="component.id === 'spectrum'"
-        :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-[36rem] mixer-fade-in relative group']"
+        :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-full mixer-fade-in relative group']"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
         @drop="handleDrop($event, component.id)">
@@ -50,7 +59,7 @@
       </div>
 
       <!-- Master FX -->
-      <div v-if="component.id === 'fx'" class="w-[36rem] mixer-fade-in relative group"
+      <div v-if="component.id === 'fx'" class="w-full mixer-fade-in relative group"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
         @drop="handleDrop($event, component.id)">
@@ -77,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import MasterEQDisplay from '../master/MasterEQDisplay.vue'
 import SpectrumMeter from '../master/SpectrumMeter.vue'
 import MasterFX from '../master/MasterFX.vue'
@@ -113,6 +122,12 @@ const rightSectionComponents = ref<RightSectionComponent[]>([
 
 const draggedComponent = ref<string | null>(null)
 const dragOverComponent = ref<string | null>(null)
+
+// Resize functionality
+const sectionWidth = ref(576) // Default: 36rem = 576px
+const isResizing = ref(false)
+let startX = 0
+let startWidth = 0
 
 // Master EQ filters data
 const masterEqFiltersData = ref<any[]>([])
@@ -210,6 +225,66 @@ function getDragStyles(componentId: string) {
   return { transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' }
 }
 
+// Resize functionality
+function startResize(event: MouseEvent) {
+  isResizing.value = true
+  startX = event.clientX
+  startWidth = sectionWidth.value
+  
+  document.addEventListener('mousemove', onResize)
+  document.addEventListener('mouseup', stopResize)
+  
+  // Prevent text selection during resize
+  event.preventDefault()
+  document.body.style.cursor = 'ew-resize'
+  document.body.style.userSelect = 'none'
+}
+
+function onResize(event: MouseEvent) {
+  if (!isResizing.value) return
+  
+  // Calculate new width (drag left = reduce width, drag right = increase width)
+  const deltaX = startX - event.clientX // Inverted because we're dragging from left edge
+  const newWidth = Math.max(300, Math.min(1200, startWidth + deltaX)) // Min 300px, max 1200px
+  
+  sectionWidth.value = newWidth
+}
+
+function stopResize() {
+  if (isResizing.value) {
+    isResizing.value = false
+    document.removeEventListener('mousemove', onResize)
+    document.removeEventListener('mouseup', stopResize)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    
+    // Save to localStorage
+    saveWidth()
+  }
+}
+
+function saveWidth() {
+  try {
+    localStorage.setItem('rightSectionWidth', sectionWidth.value.toString())
+  } catch (err) {
+    console.warn('Failed to save right section width:', err)
+  }
+}
+
+function loadWidth() {
+  try {
+    const saved = localStorage.getItem('rightSectionWidth')
+    if (saved) {
+      const width = parseInt(saved, 10)
+      if (!isNaN(width) && width >= 300 && width <= 1200) {
+        sectionWidth.value = width
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load right section width:', err)
+  }
+}
+
 // Load components order from localStorage
 function loadComponentsOrder() {
   try {
@@ -250,6 +325,17 @@ defineExpose({
 
 onMounted(() => {
   loadComponentsOrder()
+  loadWidth()
+})
+
+onUnmounted(() => {
+  // Clean up resize event listeners if still active
+  if (isResizing.value) {
+    document.removeEventListener('mousemove', onResize)
+    document.removeEventListener('mouseup', stopResize)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }
 })
 </script>
 
