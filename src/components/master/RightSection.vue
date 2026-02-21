@@ -300,7 +300,8 @@ function onResize(event: MouseEvent) {
   
   // Calculate new width (drag left = reduce width, drag right = increase width)
   const deltaX = startX - event.clientX // Inverted because we're dragging from left edge
-  const newWidth = Math.max(300, Math.min(1200, startWidth + deltaX)) // Min 300px, max 1200px
+  const maxWidth = window.innerWidth / 2 // Max: half of window width
+  const newWidth = Math.max(300, Math.min(maxWidth, startWidth + deltaX)) // Min 300px
   
   // Store pending width
   pendingWidth = newWidth
@@ -358,16 +359,18 @@ function loadWidth() {
     const collapsed = localStorage.getItem('rightSectionCollapsed')
     const savedWidthStr = localStorage.getItem('rightSectionSavedWidth')
     
+    const maxWidth = window.innerWidth / 2
+    
     if (saved) {
       const width = parseInt(saved, 10)
-      if (!isNaN(width) && width >= 6 && width <= 1200) {
+      if (!isNaN(width) && width >= 6 && width <= maxWidth) {
         sectionWidth.value = width
       }
     }
     
     if (savedWidthStr) {
       const width = parseInt(savedWidthStr, 10)
-      if (!isNaN(width) && width >= 300 && width <= 1200) {
+      if (!isNaN(width) && width >= 300 && width <= maxWidth) {
         savedWidth.value = width
       }
     }
