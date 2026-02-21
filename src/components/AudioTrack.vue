@@ -148,7 +148,13 @@
       </button>
     </div>
 
-    <!-- Pan Knob -->
+    <!-- Aux Sends -->
+    <TrackAuxSends 
+      :track-number="trackNumber"
+      :aux-buses="auxBuses"
+      @update-sends="handleAuxSendsUpdate"
+    />
+
     <div class="flex justify-center  scale-[0.75]">
       <PanKnob class="" v-model="pan" label="Pan" />
     </div>
@@ -203,6 +209,7 @@ import TrackReverb from './audioTrack/TrackReverb.vue'
 import TrackEQ from './audioTrack/TrackEQ.vue'
 import EQThumbnail from './audioTrack/EQThumbnail.vue'
 import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
+import TrackAuxSends from './audioTrack/TrackAuxSends.vue'
 
 defineOptions({
   inheritAttrs: false
@@ -218,10 +225,12 @@ interface Props {
   trackNumber: number
   masterChannel?: any
   subgroups?: Array<{ id: number, name: string, channel: any, ref: any }>
+  auxBuses?: Array<{ id: string, name: string, volume: number, muted: boolean, soloed: boolean, routeToMaster: boolean, node?: any }>
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  subgroups: () => []
+  subgroups: () => [],
+  auxBuses: () => []
 })
 
 const emit = defineEmits<{
@@ -555,6 +564,14 @@ function disconnectFromSubgroup(subgroupId: number) {
     routedSubgroups.value = new Set(routedSubgroups.value)
     connectToOutput()
   }
+}
+
+// Handle aux sends update
+function handleAuxSendsUpdate(sends: Record<string, any>) {
+  // TODO: Implement actual audio routing for aux sends
+  // This will require creating Tone.Gain nodes for each send and connecting them
+  // to the appropriate aux bus nodes
+  console.log('Aux sends updated for track', props.trackNumber, sends)
 }
 
 // Level monitoring for stereo/mono

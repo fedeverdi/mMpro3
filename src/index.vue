@@ -143,7 +143,7 @@
                                     @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate"
                                     @remove="removeTrack(track.id)" />
                                 <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
-                                    :master-channel="masterChannel" :subgroups="subgroups"
+                                    :master-channel="masterChannel" :subgroups="subgroups" :aux-buses="auxBuses"
                                     @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate"
                                     @remove="removeTrack(track.id)" />
                             </div>
@@ -205,10 +205,14 @@
                         :master-section-ref="masterSectionRef"
                         :master-eq-output-node="masterEqOutputNode"
                         :master-fx-output-node="masterFxOutputNode"
+                        :aux-buses="auxBuses"
                         @master-eq-output-node="handleMasterEqOutputNode"
                         @master-fx-output-node="handleMasterFxOutputNode"
                         @master-fx-component="handleMasterFxComponent"
-                        @update:master-eq-filters="handleMasterEQFiltersUpdate" />
+                        @update:master-eq-filters="handleMasterEQFiltersUpdate"
+                        @add-aux="addAux"
+                        @remove-aux="removeAux"
+                        @update-aux="updateAux" />
 
                     <!-- Subgroups Section -->
                     <template v-for="subgroup in subgroups" :key="subgroup.id">
@@ -306,6 +310,20 @@ interface Subgroup {
 
 const subgroups = ref<Subgroup[]>([])
 let nextSubgroupId = 1
+
+// Aux buses system
+interface AuxBus {
+    id: string
+    name: string
+    volume: number
+    muted: boolean
+    soloed: boolean
+    routeToMaster: boolean
+    node?: any
+}
+
+const auxBuses = ref<AuxBus[]>([])
+let nextAuxId = 1
 
 interface Track {
     id: number
@@ -477,6 +495,85 @@ function removeSubgroup(subgroupId: number) {
 
         // Remove from array - Vue will handle unmounting and cleanup via onUnmounted
         subgroups.value.splice(index, 1)
+    }
+}
+
+// Aux buses management
+function addAux() {
+    if (!Tone) return
+
+    const id = `aux-${nextAuxId++}`
+    const name = `AUX ${nextAuxId - 1}`
+
+    // Create Tone.js channel for this aux
+    const node = new Tone.Channel({
+        volume: 0,
+        pan: 0,
+        mute: false,
+        channelCount: 2,
+        channelCountMode: 'explicit',
+        channelInterpretation: 'speakers'
+    })
+
+    // Connect to master by default
+    const masterChan = toRaw(masterChannel.value)
+    if (masterChan) {
+        node.connect(masterChan)
+    }
+
+    auxBuses.value.push({
+        id,
+        name,
+        volume: 0,
+        muted: false,
+        soloed: false,
+        routeToMaster: true,
+        node
+    })
+}
+
+function removeAux(index: number) {
+    if (index >= 0 && index < auxBuses.value.length) {
+        const aux = auxBuses.value[index]
+        
+        // Ask for confirmation
+        if (!confirm(`Remove ${aux.name}?`)) {
+            return
+        }
+
+        // Dispose Tone.js node
+        if (aux.node) {
+            aux.node.dispose()
+        }
+
+        // Remove from array
+        auxBuses.value.splice(index, 1)
+    }
+}
+
+function updateAux(index: number, updatedAux: AuxBus) {
+    if (index >= 0 && index < auxBuses.value.length) {
+        const aux = auxBuses.value[index]
+        
+        // Update routing if changed
+        if (updatedAux.routeToMaster !== aux.routeToMaster) {
+            const node = toRaw(updatedAux.node)
+            const masterChan = toRaw(masterChannel.value)
+            
+            if (updatedAux.routeToMaster && masterChan) {
+                try {
+                    node.disconnect()
+                } catch (e) {}
+                node.connect(masterChan)
+            } else {
+                try {
+                    node.disconnect()
+                } catch (e) {}
+            }
+        }
+        
+        // Update values
+        auxBuses.value[index] = { ...updatedAux }
     }
 }
 
@@ -933,6 +1030,11 @@ onMounted(async () => {
 
     // Add initial subgroup
     addSubgroup()
+
+    // Add 6 default aux buses
+    for (let i = 0; i < 6; i++) {
+        addAux()
+    }
 
     // Don't start connection here - wait for component to mount
 

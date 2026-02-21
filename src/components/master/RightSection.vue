@@ -99,6 +99,36 @@
         <SpectrumMeter :master-fx-output-node="masterFxOutputNode" />
       </div>
 
+      <!-- Aux Buses -->
+      <div v-if="component.id === 'aux'"
+        v-show="!isCollapsed"
+        class="w-full mixer-fade-in relative group"
+        :style="getDragStyles(component.id)"
+        @dragover="handleDragOver($event, component.id)"
+        @drop="handleDrop($event, component.id)">
+        <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div
+            draggable="true"
+            @dragstart="handleDragStart(component.id, $event)"
+            @dragend="handleDragEnd"
+            class="drag-handle bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1"
+            :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
+            </svg>
+            <span>{{ component.name }}</span>
+          </div>
+        </div>
+        <AuxMaster 
+          :aux-buses="auxBuses" 
+          :master-channel="masterChannel"
+          @add-aux="emit('add-aux')"
+          @remove-aux="(index) => emit('remove-aux', index)"
+          @update-aux="(index, aux) => emit('update-aux', index, aux)"
+        />
+      </div>
+
       <!-- Master FX -->
       <div v-if="component.id === 'fx'"
         v-show="!isCollapsed"
@@ -133,21 +163,36 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import MasterEQDisplay from '../master/MasterEQDisplay.vue'
 import SpectrumMeter from '../master/SpectrumMeter.vue'
 import MasterFX from '../master/MasterFX.vue'
+import AuxMaster from '../master/AuxMaster.vue'
+
+interface AuxBus {
+  id: string
+  name: string
+  volume: number
+  muted: boolean
+  soloed: boolean
+  routeToMaster: boolean
+  node?: any
+}
 
 interface Props {
   masterChannel?: any
   masterSectionRef?: any
   masterEqOutputNode?: any
   masterFxOutputNode?: any
+  auxBuses?: AuxBus[]
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  (e: 'master-eq-output-node', node: any): void
-  (e: 'master-fx-output-node', node: any): void
-  (e: 'master-fx-component', component: any): void
-  (e: 'update:master-eq-filters', filters: any[]): void
+  'master-eq-output-node': [node: any]
+  'master-fx-output-node': [node: any]
+  'master-fx-component': [component: any]
+  'update:master-eq-filters': [filters: any[]]
+  'add-aux': []
+  'remove-aux': [index: number]
+  'update-aux': [index: number, aux: AuxBus]
 }>()
 
 // Right section components order (draggable)
@@ -160,6 +205,7 @@ interface RightSectionComponent {
 const rightSectionComponents = ref<RightSectionComponent[]>([
   { id: 'eq', name: 'Master EQ', size: 'flex' },
   { id: 'spectrum', name: 'Spectrum', size: 'flex' },
+  { id: 'aux', name: 'Aux Buses', size: 'fixed' },
   { id: 'fx', name: 'Master FX', size: 'fixed' }
 ])
 
@@ -399,7 +445,7 @@ function loadComponentsOrder() {
     if (saved) {
       const order = JSON.parse(saved)
       // Validate that all required components are present
-      const requiredIds = ['eq', 'spectrum', 'fx']
+      const requiredIds = ['eq', 'spectrum', 'aux', 'fx']
       const savedIds = order.map((c: RightSectionComponent) => c.id)
 
       if (requiredIds.every(id => savedIds.includes(id))) {
