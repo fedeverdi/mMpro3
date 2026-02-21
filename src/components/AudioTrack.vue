@@ -191,7 +191,7 @@
       <div class="sticky top-0 bg-gray-800 border-b border-teal-600/30 px-2 py-1 flex justify-between items-center">
         <span class="text-[0.65rem] font-bold text-teal-300">AUX SENDS</span>
         <button @click="showAuxPanel = false"
-          class="text-gray-400 hover:text-white text-lg leading-none w-5 h-5 flex items-center justify-center"
+          class="w-4 h-4 pb-[0.08rem] rounded-full bg-white/20 hover:bg-white/30 text-white/60 hover:text-white/80 text-xs flex items-center justify-center transition-all"
           title="Close AUX Panel">
           ×
         </button>
