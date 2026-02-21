@@ -99,6 +99,7 @@ const isRecording = ref(false)
 // Audio outputs
 const audioOutputs = ref<MediaDeviceInfo[]>([])
 const selectedHeadphonesOutput = ref<string | null>(null)
+const selectedMasterOutput = ref<string | null>(null) // For future master output device selection
 
 // Headphones output routing (direct connection in main context for perfect sync)
 let headphonesGain: any = null
@@ -394,6 +395,8 @@ function getSnapshot() {
     rightVolume: rightVolume.value,
     headphonesVolume: headphonesVolume.value,
     isLinked: isLinked.value,
+    selectedMasterOutput: selectedMasterOutput.value,
+    selectedHeadphonesOutput: selectedHeadphonesOutput.value,
     ...fxSnapshot  // Merge FX snapshot
   }
 }
@@ -406,6 +409,20 @@ function restoreSnapshot(snapshot: any) {
   if (snapshot.rightVolume !== undefined) rightVolume.value = snapshot.rightVolume
   if (snapshot.headphonesVolume !== undefined) headphonesVolume.value = snapshot.headphonesVolume
   if (snapshot.isLinked !== undefined) isLinked.value = snapshot.isLinked
+
+  // Restore output devices
+  if (snapshot.selectedMasterOutput !== undefined) {
+    selectedMasterOutput.value = snapshot.selectedMasterOutput
+    // TODO: Apply master output device change when feature is implemented
+  }
+  if (snapshot.selectedHeadphonesOutput !== undefined) {
+    selectedHeadphonesOutput.value = snapshot.selectedHeadphonesOutput
+    nextTick(() => {
+      if (selectedHeadphonesOutput.value) {
+        onHeadphonesOutputSelect(selectedHeadphonesOutput.value)
+      }
+    })
+  }
 
   // Restore FX via MasterFX
   if (props.masterFxComponent?.restoreSnapshot) {

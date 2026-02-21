@@ -500,6 +500,14 @@ function initAudioNodes() {
 
   // Volume to output (master or destination)
   connectToOutput()
+
+  // Restore aux sends if they were configured before nodes were created
+  // (happens when restoring from scene)
+  if (Object.keys(auxSendsData.value).length > 0) {
+    nextTick(() => {
+      handleAuxSendsUpdate(auxSendsData.value)
+    })
+  }
 }
 
 
@@ -743,7 +751,6 @@ function handleAuxSendsUpdate(sends: Record<string, any>) {
         source.connect(sendNode)
         sendNode.connect(toRaw(auxBus.node))
 
-        console.log(`Track ${props.trackNumber} → ${auxId}: ${send.level}dB (${send.preFader ? 'PRE' : 'POST'}-fader, gain: ${gainValue.toFixed(3)})`)
       } catch (e) {
         console.error('Error connecting aux send:', e)
       }
@@ -1377,7 +1384,8 @@ defineExpose({
       compressorEnabled: compressorEnabled.value,
       compressor: trackCompressorRef.value?.getParams(),
       reverbEnabled: reverbEnabled.value,
-      reverb: trackReverbRef.value?.getParams()
+      reverb: trackReverbRef.value?.getParams(),
+      auxSends: { ...auxSendsData.value }
     }
   },
 
@@ -1407,6 +1415,15 @@ defineExpose({
     nextTick(() => {
       connectToOutput()
     })
+
+    // Restore aux sends
+    if (snapshot.auxSends) {
+      auxSendsData.value = { ...snapshot.auxSends }
+      // Trigger aux sends update to reconnect nodes
+      nextTick(() => {
+        handleAuxSendsUpdate(auxSendsData.value)
+      })
+    }
 
     // Restore source type and related data
     audioSourceType.value = snapshot.sourceType || 'file'

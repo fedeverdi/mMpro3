@@ -184,7 +184,6 @@ async function onOutputSelect() {
 
         // If "no-output" is selected, don't create any output context
         if (selectedOutput.value === 'no-output') {
-            console.log('[Subgroup Output] No output selected - audio disabled')
             return
         }
 

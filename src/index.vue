@@ -308,7 +308,7 @@ import MasterSection from './components/MasterSection.vue'
 import SubgroupsSection from './components/SubgroupsSection.vue'
 import ScenesModal from './components/layout/ScenesModal.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
-import { useScenes, type Scene, type TrackSnapshot, type SubgroupSnapshot } from '~/composables/useScenes'
+import { useScenes, type Scene, type TrackSnapshot, type SubgroupSnapshot, type AuxSnapshot } from '~/composables/useScenes'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import { channel } from 'diagnostics_channel'
 
@@ -643,8 +643,6 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
     if (!aux.outputStreamDest || !Tone) return
 
     try {
-        console.log(`[Aux ${aux.name}] Changing output to:`, deviceId || 'default')
-
         // Disconnect and close existing output
         if (aux.outputSource) {
             console.log(`[Aux ${aux.name}] Disconnecting old source`)
@@ -673,7 +671,6 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
 
         // If "no-output" is selected, don't create any output context
         if (deviceId === 'no-output') {
-            console.log(`[Aux ${aux.name}] No output selected - audio disabled`)
             return
         }
 
@@ -688,7 +685,6 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
             contextOptions.sinkId = deviceId
         }
 
-        console.log(`[Aux ${aux.name}] Creating new AudioContext with options:`, contextOptions)
         const outputAudioContext = new AudioContext(contextOptions)
 
         // Create simple playback chain
@@ -703,8 +699,6 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
         // Store the new context and source
         auxBuses.value[index].outputAudioContext = outputAudioContext
         auxBuses.value[index].outputSource = source
-
-        console.log(`[Aux ${aux.name}] Output changed successfully, context state:`, outputAudioContext.state)
     } catch (error) {
         console.error(`[Aux ${aux.name}] Error changing output device:`, error)
     }
@@ -864,8 +858,22 @@ async function handleSaveScene(sceneName: string) {
         }
     })
 
+    // Collect aux snapshots
+    const auxSnapshots: AuxSnapshot[] = []
+    auxBuses.value.forEach(aux => {
+        auxSnapshots.push({
+            id: aux.id,
+            name: aux.name,
+            volume: aux.volume,
+            muted: aux.muted,
+            soloed: aux.soloed,
+            routeToMaster: aux.routeToMaster,
+            selectedOutputDevice: aux.selectedOutputDevice
+        })
+    })
+
     // Create and save scene
-    const scene = await createScene(sceneName, trackSnapshots, masterSnapshot, subgroupSnapshots)
+    const scene = await createScene(sceneName, trackSnapshots, masterSnapshot, subgroupSnapshots, auxSnapshots)
     setCurrentScene(scene.id)
 }
 
@@ -917,12 +925,115 @@ function handleLoadScene(sceneId: string) {
 
         // Wait before restoring actual values (give time to see the animation)
         setTimeout(() => {
-            // Restore each track's state
-            scene.tracks.forEach((trackSnapshot: TrackSnapshot) => {
-                const trackRef = trackRefs.value.get(trackSnapshot.trackNumber)
-                if (trackRef && trackRef.restoreFromSnapshot) {
-                    trackRef.restoreFromSnapshot(trackSnapshot)
+            // Restore aux buses FIRST (before tracks, so aux nodes exist when tracks restore their sends)
+            if (scene.auxBuses) {
+                // Clean up existing aux buses
+                while (auxBuses.value.length > 0) {
+                    const aux = auxBuses.value[0]
+                    
+                    // Disconnect Tone.js node first to avoid InvalidStateError
+                    if (aux.node) {
+                        try {
+                            toRaw(aux.node).disconnect()
+                        } catch (e) { 
+                            console.warn('[Scene Load] Error disconnecting aux node:', e)
+                        }
+                    }
+                    
+                    // Disconnect and close output
+                    if (aux.outputSource) {
+                        try {
+                            aux.outputSource.disconnect()
+                        } catch (e) { }
+                    }
+                    if (aux.outputAudioContext) {
+                        try {
+                            aux.outputAudioContext.close()
+                        } catch (e) { }
+                    }
+                    
+                    // Dispose Tone.js node
+                    if (aux.node) {
+                        try {
+                            aux.node.dispose()
+                        } catch (e) {
+                            console.warn('[Scene Load] Error disposing aux node:', e)
+                        }
+                    }
+                    auxBuses.value.shift()
                 }
+
+                // Create aux buses from scene
+                scene.auxBuses.forEach((auxSnapshot: AuxSnapshot) => {
+                    // Create Tone.js channel for this aux
+                    const node = new Tone.Channel({
+                        volume: auxSnapshot.volume,
+                        pan: 0,
+                        mute: auxSnapshot.muted,
+                        channelCount: 2,
+                        channelCountMode: 'explicit',
+                        channelInterpretation: 'speakers'
+                    })
+
+                    // Create MediaStreamDestination for output routing
+                    const mainAudioContext = Tone.context.rawContext as AudioContext
+                    const outputStreamDest = mainAudioContext.createMediaStreamDestination()
+
+                    // Connect nodes based on routeToMaster setting
+                    if (auxSnapshot.routeToMaster) {
+                        const masterChan = toRaw(masterChannel.value)
+                        if (masterChan) {
+                            node.connect(masterChan)
+                        }
+                        node.connect(outputStreamDest as any)
+                    } else {
+                        node.connect(outputStreamDest as any)
+                    }
+
+                    const newAux: AuxBus = {
+                        id: auxSnapshot.id,
+                        name: auxSnapshot.name,
+                        volume: auxSnapshot.volume,
+                        muted: auxSnapshot.muted,
+                        soloed: auxSnapshot.soloed,
+                        routeToMaster: auxSnapshot.routeToMaster,
+                        selectedOutputDevice: auxSnapshot.selectedOutputDevice ?? 'no-output',
+                        node,
+                        outputStreamDest,
+                        outputAudioContext: null,
+                        outputSource: null
+                    }
+
+                    auxBuses.value.push(newAux)
+
+                    // Restore output device (must be async, but we don't need to await here)
+                    nextTick(() => {
+                        const auxIndex = auxBuses.value.findIndex(a => a.id === auxSnapshot.id)
+                        if (auxIndex !== -1 && auxSnapshot.selectedOutputDevice !== undefined && auxSnapshot.selectedOutputDevice !== 'no-output') {
+                            changeAuxOutputDevice(auxIndex, auxSnapshot.selectedOutputDevice)
+                        }
+                    })
+                })
+
+                // Update nextAuxId counter
+                if (scene.auxBuses.length > 0) {
+                    const maxId = Math.max(...scene.auxBuses.map((a: AuxSnapshot) => {
+                        const match = a.id.match(/aux-(\d+)/)
+                        return match ? parseInt(match[1]) : 0
+                    }))
+                    nextAuxId = maxId + 1
+                }
+            }
+
+            // Wait for Vue to update props before restoring tracks
+            nextTick(() => {
+                // Restore each track's state (NOW aux buses exist and props are updated)
+                scene.tracks.forEach((trackSnapshot: TrackSnapshot) => {
+                    const trackRef = trackRefs.value.get(trackSnapshot.trackNumber)
+                    if (trackRef && trackRef.restoreFromSnapshot) {
+                        trackRef.restoreFromSnapshot(trackSnapshot)
+                    }
+                })
             })
 
             // Restore master EQ filters
@@ -1047,8 +1158,22 @@ async function handleUpdateScene(sceneId: string) {
         }
     })
 
+    // Collect aux snapshots
+    const auxSnapshots: AuxSnapshot[] = []
+    auxBuses.value.forEach(aux => {
+        auxSnapshots.push({
+            id: aux.id,
+            name: aux.name,
+            volume: aux.volume,
+            muted: aux.muted,
+            soloed: aux.soloed,
+            routeToMaster: aux.routeToMaster,
+            selectedOutputDevice: aux.selectedOutputDevice
+        })
+    })
+
     // Update scene
-    await updateScene(sceneId, trackSnapshots, masterSnapshot, subgroupSnapshots)
+    await updateScene(sceneId, trackSnapshots, masterSnapshot, subgroupSnapshots, auxSnapshots)
 
     // Clean up old audio files that are no longer in the scene
     if (oldScene) {

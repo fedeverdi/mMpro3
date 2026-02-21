@@ -21,6 +21,7 @@ export interface TrackSnapshot {
   reverbDecay?: number
   reverbPreDelay?: number
   reverbWet?: number
+  auxSends?: Record<string, { level: number, preFader: boolean, muted: boolean }>
 }
 
 export interface MasterSnapshot {
@@ -28,6 +29,8 @@ export interface MasterSnapshot {
   rightVolume: number
   headphonesVolume: number
   isLinked: boolean
+  selectedMasterOutput?: string | null
+  selectedHeadphonesOutput?: string | null
   masterEQFilters: any[]
   compressorEnabled: boolean
   compressorThreshold?: number
@@ -62,12 +65,23 @@ export interface SubgroupSnapshot {
   delayParams?: any
 }
 
+export interface AuxSnapshot {
+  id: string
+  name: string
+  volume: number
+  muted: boolean
+  soloed: boolean
+  routeToMaster: boolean
+  selectedOutputDevice?: string | null
+}
+
 export interface Scene {
   id: string
   name: string
   tracks: TrackSnapshot[]
   master: MasterSnapshot
   subgroups?: SubgroupSnapshot[]
+  auxBuses?: AuxSnapshot[]
   createdAt: number
   updatedAt: number
   pinned?: boolean
@@ -195,13 +209,14 @@ export function useScenes() {
     }
   }
 
-  async function createScene(name: string, tracks: TrackSnapshot[], master: MasterSnapshot, subgroups?: SubgroupSnapshot[]): Promise<Scene> {
+  async function createScene(name: string, tracks: TrackSnapshot[], master: MasterSnapshot, subgroups?: SubgroupSnapshot[], auxBuses?: AuxSnapshot[]): Promise<Scene> {
     const scene: Scene = {
       id: `scene_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       name,
       tracks,
       master,
       subgroups,
+      auxBuses,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -211,7 +226,7 @@ export function useScenes() {
     return scene
   }
 
-  async function updateScene(sceneId: string, tracks: TrackSnapshot[], master: MasterSnapshot, subgroups?: SubgroupSnapshot[]) {
+  async function updateScene(sceneId: string, tracks: TrackSnapshot[], master: MasterSnapshot, subgroups?: SubgroupSnapshot[], auxBuses?: AuxSnapshot[]) {
     const index = scenes.value.findIndex(s => s.id === sceneId)
     if (index !== -1) {
       const scene = scenes.value[index]
@@ -220,6 +235,7 @@ export function useScenes() {
         tracks,
         master,
         subgroups,
+        auxBuses,
         updatedAt: Date.now()
       }
       

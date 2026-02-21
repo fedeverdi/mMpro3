@@ -128,9 +128,12 @@
                             </button>
 
                             <!-- Default Option -->
-                            <button @click="selectOutputDevice(selectedAuxIndex, null)" :class="[
+                            <button @click="selectOutputDevice(selectedAuxIndex, '')" :class="[
                                 'w-full p-3 rounded border-2 transition-all mb-2 text-left flex items-center gap-3',
-                                !auxBuses[selectedAuxIndex]?.selectedOutputDevice || auxBuses[selectedAuxIndex]?.selectedOutputDevice === ''
+                                (auxBuses[selectedAuxIndex]?.selectedOutputDevice === '' || 
+                                 auxBuses[selectedAuxIndex]?.selectedOutputDevice === null ||
+                                 auxBuses[selectedAuxIndex]?.selectedOutputDevice === undefined) &&
+                                auxBuses[selectedAuxIndex]?.selectedOutputDevice !== 'no-output'
                                     ? 'bg-teal-900/30 border-teal-500'
                                     : 'bg-gray-800 border-gray-700 hover:border-gray-600'
                             ]">
@@ -139,7 +142,10 @@
                                     <div class="text-sm font-bold text-gray-200">Default Output</div>
                                     <div class="text-xs text-gray-400">System default audio output</div>
                                 </div>
-                                <div v-if="!auxBuses[selectedAuxIndex]?.selectedOutputDevice || auxBuses[selectedAuxIndex]?.selectedOutputDevice === ''"
+                                <div v-if="(auxBuses[selectedAuxIndex]?.selectedOutputDevice === '' || 
+                                           auxBuses[selectedAuxIndex]?.selectedOutputDevice === null ||
+                                           auxBuses[selectedAuxIndex]?.selectedOutputDevice === undefined) &&
+                                          auxBuses[selectedAuxIndex]?.selectedOutputDevice !== 'no-output'"
                                     class="text-teal-400">
                                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd"
@@ -249,7 +255,8 @@ function removeAux(index: number) {
 
 // Update aux volume
 function updateAuxVolume(index: number, volume: number) {
-    const aux = { ...auxBuses.value[index], volume }
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = { ...props.auxBuses[index], volume }
     if (aux.node) {
         aux.node.volume.value = volume
     }
@@ -258,7 +265,8 @@ function updateAuxVolume(index: number, volume: number) {
 
 // Toggle mute
 function toggleAuxMute(index: number) {
-    const aux = { ...auxBuses.value[index], muted: !auxBuses.value[index].muted }
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = { ...props.auxBuses[index], muted: !props.auxBuses[index].muted }
     if (aux.node) {
         aux.node.mute = aux.muted
     }
@@ -267,13 +275,15 @@ function toggleAuxMute(index: number) {
 
 // Toggle solo
 function toggleAuxSolo(index: number) {
-    const aux = { ...auxBuses.value[index], soloed: !auxBuses.value[index].soloed }
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = { ...props.auxBuses[index], soloed: !props.auxBuses[index].soloed }
     emit('update-aux', index, aux)
 }
 
 // Update aux name
 function updateAuxName(index: number, name: string) {
-    const aux = { ...auxBuses.value[index], name }
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = { ...props.auxBuses[index], name }
     emit('update-aux', index, aux)
 }
 
@@ -284,13 +294,15 @@ function showOutputModal(index: number) {
 
 // Toggle master routing
 function toggleAuxMasterRouting(index: number) {
-    const aux = { ...auxBuses.value[index], routeToMaster: !auxBuses.value[index].routeToMaster }
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = { ...props.auxBuses[index], routeToMaster: !props.auxBuses[index].routeToMaster }
     emit('update-aux', index, aux)
 }
 
 // Select output device
 function selectOutputDevice(index: number, deviceId: string | null) {
-    const aux = { ...auxBuses.value[index], selectedOutputDevice: deviceId }
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = { ...props.auxBuses[index], selectedOutputDevice: deviceId }
     emit('update-aux', index, aux)
 }
 
