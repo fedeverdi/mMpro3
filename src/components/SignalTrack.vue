@@ -731,6 +731,28 @@ defineExpose({
     const logMax = Math.log(20000)
     const randomLog = logMin + Math.random() * (logMax - logMin)
     frequency.value = Math.round(Math.exp(randomLog))
+  },
+  
+  resetToDefaults: () => {
+    // Reset volume and pan
+    volume.value = 0
+    pan.value = 0
+    isMuted.value = false
+    isSolo.value = false
+
+    // Reset routing
+    routeToMaster.value = true
+    routedSubgroups.value = new Set()
+
+    // Reset signal
+    selectedSignal.value = 'sine'
+    signalVolume.value = -12
+    frequency.value = 1000
+    
+    // Stop playing if active
+    if (isPlaying.value) {
+      toggleSignal()
+    }
   }
 })
 </script>

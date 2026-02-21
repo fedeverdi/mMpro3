@@ -1277,6 +1277,10 @@ defineExpose({
     isMuted.value = false
     isSolo.value = false
 
+    // Reset routing
+    routeToMaster.value = true
+    routedSubgroups.value = new Set()
+
     // Reset audio source
     audioSourceType.value = 'file'
     selectedAudioInput.value = ''
