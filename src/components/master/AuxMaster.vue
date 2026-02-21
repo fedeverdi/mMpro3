@@ -66,9 +66,20 @@
             <div v-if="selectedAuxIndex !== null"
                 class="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]"
                 @mousedown.self="selectedAuxIndex = null">
-                <div class="bg-gray-900 rounded-lg border-2 border-teal-600 p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto"
+                <div class="bg-gray-900 rounded-lg border-2 border-teal-600 p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto relative"
                     @click.stop>
-                    <h3 class="text-lg font-bold text-teal-300 mb-4">
+                    <!-- Close button X in top right -->
+                    <button @click="selectedAuxIndex = null"
+                        class="absolute top-2 right-3 w-12 h-12  text-gray-400 hover:text-white font-bold flex items-center justify-center transition-colors"
+                        title="Close">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                            <path fill-rule="evenodd"
+                                d="M6.225 4.811a.75.75 0 011.06 0L12 9.525l4.715-4.714a.75.75 0 111.06 1.06L13.06 10.586l4.715 4.715a.75.75 0 11-1.06 1.06L12 11.646l-4.715 4.715a.75.75 0 11-1.06-1.06l4.715-4.715-4.715-4.715a.75.75 0 010-1.06z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </button>
+
+                    <h3 class="text-lg font-bold text-teal-300 mb-4 -mt-2">
                         {{ auxBuses[selectedAuxIndex]?.name }} - Output Routing
                     </h3>
 
@@ -169,11 +180,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <button @click="selectedAuxIndex = null"
-                        class="mt-6 w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded font-bold">
-                        Close
-                    </button>
                 </div>
             </div>
         </Teleport>
