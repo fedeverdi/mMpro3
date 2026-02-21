@@ -6,18 +6,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { PeakingFilter } from '~/lib/filters/peaking.class'
 import { LowShelvingFilter } from '~/lib/filters/lowShelving.class'
 import { HighShelvingFilter } from '~/lib/filters/highShelving.class'
 
 interface Props {
   filters: any[]
+  systemFilters?: any[]
 }
 
 const props = defineProps<Props>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
+
+// Combine system filters and user filters for display
+const displayFilters = computed(() => {
+  const system = props.systemFilters || []
+  return [...system, ...props.filters]
+})
 
 // Filter calculators for curve computation
 const peakingCalculator = new PeakingFilter()
@@ -46,6 +53,11 @@ onUnmounted(() => {
 
 // Watch for filter changes
 watch(() => props.filters, () => {
+  drawCurve()
+}, { deep: true })
+
+// Watch for system filter changes
+watch(() => props.systemFilters, () => {
   drawCurve()
 }, { deep: true })
 
@@ -86,7 +98,7 @@ function drawCurve() {
   ctx.globalAlpha = 1
 
   // If no filters, just show flat line
-  if (!props.filters || props.filters.length === 0) {
+  if (!displayFilters.value || displayFilters.value.length === 0) {
     ctx.strokeStyle = '#6B7280' // gray-500
     ctx.lineWidth = 1
     ctx.beginPath()
@@ -113,7 +125,7 @@ function drawCurve() {
     // Calculate total gain at this frequency
     let totalGain = 0
 
-    props.filters.forEach(filter => {
+    displayFilters.value.forEach(filter => {
       let gain = 0
 
       if (filter.type === 'peaking') {
@@ -137,9 +149,23 @@ function drawCurve() {
           filter.gain,
           filter.Q
         )
-      } else if (filter.type === 'lowpass' || filter.type === 'highpass') {
-        // For lowpass/highpass, we don't have calculators so skip for now
-        gain = 0
+      } else if (filter.type === 'highpass') {
+        // Highpass filter: second order biquad
+        const w = freq / filter.frequency // normalized frequency
+        const w2 = w * w
+        const w4 = w2 * w2
+        const numerator = w4
+        const denominator = Math.pow(w2 - 1, 2) + (w2 / (filter.Q * filter.Q))
+        const magnitudeSquared = numerator / denominator
+        gain = 10 * Math.log10(Math.max(magnitudeSquared, 1e-10))
+      } else if (filter.type === 'lowpass') {
+        // Lowpass filter: second order biquad
+        const w = freq / filter.frequency // normalized frequency
+        const w2 = w * w
+        const numerator = 1
+        const denominator = Math.pow(w2 - 1, 2) + (w2 / (filter.Q * filter.Q))
+        const magnitudeSquared = numerator / denominator
+        gain = 10 * Math.log10(Math.max(magnitudeSquared, 1e-10))
       }
 
       totalGain += gain
