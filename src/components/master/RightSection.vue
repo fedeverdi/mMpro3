@@ -164,6 +164,8 @@ const isCollapsed = ref(false)
 const savedWidth = ref(576) // Store width before collapse
 let startX = 0
 let startWidth = 0
+let resizeRafId: number | null = null
+let pendingWidth: number | null = null
 
 // Master EQ filters data
 const masterEqFiltersData = ref<any[]>([])
@@ -300,7 +302,19 @@ function onResize(event: MouseEvent) {
   const deltaX = startX - event.clientX // Inverted because we're dragging from left edge
   const newWidth = Math.max(300, Math.min(1200, startWidth + deltaX)) // Min 300px, max 1200px
   
-  sectionWidth.value = newWidth
+  // Store pending width
+  pendingWidth = newWidth
+  
+  // Use RAF to throttle updates to once per frame
+  if (resizeRafId === null) {
+    resizeRafId = requestAnimationFrame(() => {
+      if (pendingWidth !== null) {
+        sectionWidth.value = pendingWidth
+        pendingWidth = null
+      }
+      resizeRafId = null
+    })
+  }
 }
 
 function stopResize() {
@@ -310,6 +324,16 @@ function stopResize() {
     document.removeEventListener('mouseup', stopResize)
     document.body.style.cursor = ''
     document.body.style.userSelect = ''
+    
+    // Cancel any pending RAF and apply final width
+    if (resizeRafId !== null) {
+      cancelAnimationFrame(resizeRafId)
+      resizeRafId = null
+    }
+    if (pendingWidth !== null) {
+      sectionWidth.value = pendingWidth
+      pendingWidth = null
+    }
     
     // Save to localStorage
     saveWidth()
@@ -406,6 +430,12 @@ onUnmounted(() => {
     document.removeEventListener('mouseup', stopResize)
     document.body.style.cursor = ''
     document.body.style.userSelect = ''
+  }
+  
+  // Cancel any pending RAF
+  if (resizeRafId !== null) {
+    cancelAnimationFrame(resizeRafId)
+    resizeRafId = null
   }
 })
 </script>
