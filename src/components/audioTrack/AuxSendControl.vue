@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col items-center gap-0 bg-gray-800/50 rounded-lg p-2 border border-teal-700/30">
     <!-- Aux name -->
-    <div class="text-[0.6rem] font-bold text-teal-300 text-center mb-0.5">
+    <div class="text-[0.6rem] font-bold text-teal-300 text-center mb-0.5 -mt-1">
       {{ aux.name }}
     </div>
 
