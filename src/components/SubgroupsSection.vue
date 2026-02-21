@@ -6,7 +6,7 @@
             <div class="text-xs font-bold text-gray-400 flex-1 text-center">{{ subgroupName }}</div>
             <button 
                 @click="$emit('remove')" 
-                class="w-4 h-4 bg-red-600 hover:bg-red-500 text-white rounded text-xs flex items-center justify-center transition-all"
+                class="w-4 h-4 pb-[0.05rem] rounded-full bg-white/20 hover:bg-white/30 text-white/60 hover:text-white/80 text-xs flex items-center justify-center transition-all"
                 title="Remove Subgroup"
             >
                 ×
@@ -372,7 +372,6 @@ function updateRouting() {
         }
     } else if (selectedOutput.value === 'no-output') {
         // No output - meters work but no audio out
-        console.log('[Subgroup] No audio output - meters only')
     } else {
         try {
             outputGain.connect(Tone.getDestination())

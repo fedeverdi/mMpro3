@@ -487,8 +487,6 @@ function addSubgroup() {
         channel,
         ref: null
     })
-
-    console.log(`[Subgroup] Created ${name}`)
 }
 
 function removeSubgroup(subgroupId: number) {
@@ -506,7 +504,6 @@ function removeSubgroup(subgroupId: number) {
 
         // Remove from array - Vue will handle unmounting and cleanup via onUnmounted
         subgroups.value.splice(index, 1)
-        console.log(`[Subgroup] Removed ${subgroup.name}`)
     }
 }
 
