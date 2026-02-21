@@ -90,7 +90,8 @@
         :is-playing="isPlaying" :current-time="currentPlaybackTime" />
 
       <!-- Gain Control -->
-      <div class="w-full flex items-center justify-center h-[4rem]">
+      <div class="w-full flex items-center justify-center gap-2 h-[4rem]">
+        <PadButton v-model="padEnabled" />
         <div class="scale-[0.65]">
           <Knob v-model="gain" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Gain" unit="dB"
             color="#8b5cf6" />
@@ -239,6 +240,7 @@ import EQThumbnail from './audioTrack/EQThumbnail.vue'
 import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
 import TrackAuxSends from './audioTrack/TrackAuxSends.vue'
 import AuxSendControl from './audioTrack/AuxSendControl.vue'
+import PadButton from './audioTrack/PadButton.vue'
 
 defineOptions({
   inheritAttrs: false
@@ -315,6 +317,7 @@ const showEQ3Bands = ref(false)
 // Audio controls
 const volume = ref(0)
 const gain = ref(0)
+const padEnabled = ref(false) // PAD: -20dB attenuation
 const pan = ref(0) // -1 (left) to +1 (right)
 const isStereo = ref(true) // Track if source is stereo or mono (default stereo)
 const trackLevelL = ref(-60) // Left/Mono level
@@ -1327,7 +1330,9 @@ function updateVolume() {
 
 function updateGain() {
   if (!gainNode || !Tone) return
-  gainNode.gain.value = Tone.dbToGain(gain.value)
+  // Apply gain with PAD attenuation if enabled (-20dB)
+  const totalGain = gain.value + (padEnabled.value ? -20 : 0)
+  gainNode.gain.value = Tone.dbToGain(totalGain)
 }
 
 // Update pan value (constant power panning for stereo preservation)
@@ -1345,6 +1350,7 @@ function updatePan() {
 // Watch for parameter changes
 watch(volume, updateVolume)
 watch(gain, updateGain)
+watch(padEnabled, updateGain)
 watch(pan, updatePan)
 
 // Expose methods for external control
@@ -1360,6 +1366,8 @@ defineExpose({
     return {
       trackNumber: props.trackNumber,
       volume: volume.value,
+      gain: gain.value,
+      padEnabled: padEnabled.value,
       pan: pan.value,
       muted: isMuted.value,
       soloed: isSolo.value,
@@ -1390,8 +1398,14 @@ defineExpose({
   },
 
   restoreFromSnapshot: (snapshot: any) => {
-    // Restore volume and pan
+    // Restore volume, gain, pad, and pan
     volume.value = snapshot.volume
+    if (snapshot.gain !== undefined) {
+      gain.value = snapshot.gain
+    }
+    if (snapshot.padEnabled !== undefined) {
+      padEnabled.value = snapshot.padEnabled
+    }
     pan.value = snapshot.pan
     isMuted.value = snapshot.muted
     isSolo.value = snapshot.soloed
