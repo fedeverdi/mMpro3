@@ -319,7 +319,11 @@ interface AuxBus {
     muted: boolean
     soloed: boolean
     routeToMaster: boolean
+    selectedOutputDevice?: string | null
     node?: any
+    outputStreamDest?: MediaStreamAudioDestinationNode | null
+    outputAudioContext?: AudioContext | null
+    outputSource?: MediaStreamAudioSourceNode | null
 }
 
 const auxBuses = ref<AuxBus[]>([])
@@ -515,21 +519,34 @@ function addAux() {
         channelInterpretation: 'speakers'
     })
 
-    // Connect to master by default
+    // Create MediaStreamDestination for output routing
+    const mainAudioContext = Tone.context.rawContext as AudioContext
+    const outputStreamDest = mainAudioContext.createMediaStreamDestination()
+    
+    // Connect node to both master (if enabled) and stream destination
     const masterChan = toRaw(masterChannel.value)
     if (masterChan) {
         node.connect(masterChan)
     }
+    
+    // Always connect to stream destination for independent output
+    node.connect(outputStreamDest as any)
 
-    auxBuses.value.push({
+    const newAux: AuxBus = {
         id,
         name,
         volume: 0,
         muted: false,
         soloed: false,
         routeToMaster: true,
-        node
-    })
+        selectedOutputDevice: 'no-output',
+        node,
+        outputStreamDest,
+        outputAudioContext: null,
+        outputSource: null
+    }
+    
+    auxBuses.value.push(newAux)
 }
 
 function removeAux(index: number) {
@@ -539,6 +556,17 @@ function removeAux(index: number) {
         // Ask for confirmation
         if (!confirm(`Remove ${aux.name}?`)) {
             return
+        }
+
+        // Disconnect and close output
+        if (aux.outputSource) {
+            try {
+                aux.outputSource.disconnect()
+            } catch (e) {}
+        }
+        
+        if (aux.outputAudioContext) {
+            aux.outputAudioContext.close()
         }
 
         // Dispose Tone.js node
@@ -551,29 +579,123 @@ function removeAux(index: number) {
     }
 }
 
-function updateAux(index: number, updatedAux: AuxBus) {
+async function updateAux(index: number, updatedAux: AuxBus) {
     if (index >= 0 && index < auxBuses.value.length) {
         const aux = auxBuses.value[index]
         
-        // Update routing if changed
+        // Update routing to master if changed
         if (updatedAux.routeToMaster !== aux.routeToMaster) {
-            const node = toRaw(updatedAux.node)
+            const node = toRaw(aux.node)
             const masterChan = toRaw(masterChannel.value)
+            const outputStreamDest = toRaw(aux.outputStreamDest)
             
             if (updatedAux.routeToMaster && masterChan) {
                 try {
                     node.disconnect()
                 } catch (e) {}
+                // Connect to both master and stream destination
                 node.connect(masterChan)
+                if (outputStreamDest) {
+                    node.connect(outputStreamDest as any)
+                }
             } else {
                 try {
                     node.disconnect()
                 } catch (e) {}
+                // Connect only to stream destination
+                if (outputStreamDest) {
+                    node.connect(outputStreamDest as any)
+                }
             }
         }
         
-        // Update values
-        auxBuses.value[index] = { ...updatedAux }
+        // Handle output device change BEFORE updating values
+        if (updatedAux.selectedOutputDevice !== aux.selectedOutputDevice) {
+            await changeAuxOutputDevice(index, updatedAux.selectedOutputDevice)
+        }
+        
+        // Update values (preserve output routing objects that are managed separately)
+        auxBuses.value[index] = { 
+            ...updatedAux,
+            outputStreamDest: auxBuses.value[index].outputStreamDest,
+            outputAudioContext: auxBuses.value[index].outputAudioContext,
+            outputSource: auxBuses.value[index].outputSource
+        }
+    }
+}
+
+// Change aux output device
+async function changeAuxOutputDevice(index: number, deviceId: string | null | undefined) {
+    if (index < 0 || index >= auxBuses.value.length) return
+    
+    const aux = auxBuses.value[index]
+    if (!aux.outputStreamDest || !Tone) return
+
+    try {
+        console.log(`[Aux ${aux.name}] Changing output to:`, deviceId || 'default')
+        
+        // Disconnect and close existing output
+        if (aux.outputSource) {
+            console.log(`[Aux ${aux.name}] Disconnecting old source`)
+            try {
+                aux.outputSource.disconnect()
+            } catch (e) {
+                console.warn(`[Aux ${aux.name}] Error disconnecting source:`, e)
+            }
+            auxBuses.value[index].outputSource = null
+        }
+        
+        if (aux.outputAudioContext) {
+            console.log(`[Aux ${aux.name}] Closing old AudioContext, state:`, aux.outputAudioContext.state)
+            try {
+                if (aux.outputAudioContext.state !== 'closed') {
+                    await aux.outputAudioContext.close()
+                }
+            } catch (e) {
+                console.warn(`[Aux ${aux.name}] Error closing context:`, e)
+            }
+            auxBuses.value[index].outputAudioContext = null
+        }
+
+        // Small delay to ensure cleanup is complete
+        await new Promise(resolve => setTimeout(resolve, 50))
+
+        // If "no-output" is selected, don't create any output context
+        if (deviceId === 'no-output') {
+            console.log(`[Aux ${aux.name}] No output selected - audio disabled`)
+            return
+        }
+
+        // Create new AudioContext targeting selected device
+        const mainAudioContext = Tone.context.rawContext as AudioContext
+        const contextOptions: any = {
+            latencyHint: 'interactive',
+            sampleRate: mainAudioContext.sampleRate
+        }
+
+        if (deviceId && deviceId !== '') {
+            contextOptions.sinkId = deviceId
+        }
+
+        console.log(`[Aux ${aux.name}] Creating new AudioContext with options:`, contextOptions)
+        const outputAudioContext = new AudioContext(contextOptions)
+
+        // Create simple playback chain
+        const source = outputAudioContext.createMediaStreamSource(aux.outputStreamDest.stream)
+        source.connect(outputAudioContext.destination)
+
+        // Resume if suspended
+        if (outputAudioContext.state === 'suspended') {
+            await outputAudioContext.resume()
+        }
+
+        // Store the new context and source
+        auxBuses.value[index].outputAudioContext = outputAudioContext
+        auxBuses.value[index].outputSource = source
+
+        console.log(`[Aux ${aux.name}] Output changed successfully, context state:`, outputAudioContext.state)
+    } catch (error) {
+        console.error(`[Aux ${aux.name}] Error changing output device:`, error)
     }
 }
 

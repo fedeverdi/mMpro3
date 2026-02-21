@@ -172,7 +172,11 @@ interface AuxBus {
   muted: boolean
   soloed: boolean
   routeToMaster: boolean
+  selectedOutputDevice?: string | null
   node?: any
+  outputStreamDest?: MediaStreamAudioDestinationNode | null
+  outputAudioContext?: AudioContext | null
+  outputSource?: MediaStreamAudioSourceNode | null
 }
 
 interface Props {

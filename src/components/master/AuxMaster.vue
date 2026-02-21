@@ -93,12 +93,13 @@
     <Teleport to="body">
       <div v-if="selectedAuxIndex !== null" class="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]"
         @mousedown.self="selectedAuxIndex = null">
-        <div class="bg-gray-900 rounded-lg border-2 border-teal-600 p-6 max-w-md w-full mx-4" @click.stop>
+        <div class="bg-gray-900 rounded-lg border-2 border-teal-600 p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto" @click.stop>
           <h3 class="text-lg font-bold text-teal-300 mb-4">
             {{ auxBuses[selectedAuxIndex]?.name }} - Output Routing
           </h3>
           
           <div class="space-y-3">
+            <!-- Route to Master -->
             <label class="flex items-center gap-3 p-3 bg-gray-800 rounded hover:bg-gray-750 cursor-pointer">
               <input 
                 type="checkbox" 
@@ -108,11 +109,93 @@
               />
               <span class="text-sm text-gray-300">Route to Master</span>
             </label>
+
+            <!-- Divider -->
+            <div class="border-t border-gray-700 my-4"></div>
+
+            <!-- Output Device Selection -->
+            <div>
+              <h4 class="text-sm font-bold text-gray-400 mb-2">Select Output Device</h4>
+              
+              <!-- No Output Option -->
+              <button
+                @click="selectOutputDevice(selectedAuxIndex, 'no-output')"
+                :class="[
+                  'w-full p-3 rounded border-2 transition-all mb-2 text-left flex items-center gap-3',
+                  auxBuses[selectedAuxIndex]?.selectedOutputDevice === 'no-output'
+                    ? 'bg-teal-900/30 border-teal-500'
+                    : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+                ]"
+              >
+                <div class="text-2xl">🔇</div>
+                <div class="flex-1">
+                  <div class="text-sm font-bold text-gray-200">No Output</div>
+                  <div class="text-xs text-gray-400">Disable audio output</div>
+                </div>
+                <div v-if="auxBuses[selectedAuxIndex]?.selectedOutputDevice === 'no-output'" class="text-teal-400">
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                </div>
+              </button>
+
+              <!-- Default Option -->
+              <button
+                @click="selectOutputDevice(selectedAuxIndex, null)"
+                :class="[
+                  'w-full p-3 rounded border-2 transition-all mb-2 text-left flex items-center gap-3',
+                  !auxBuses[selectedAuxIndex]?.selectedOutputDevice || auxBuses[selectedAuxIndex]?.selectedOutputDevice === ''
+                    ? 'bg-teal-900/30 border-teal-500'
+                    : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+                ]"
+              >
+                <div class="text-2xl">🔊</div>
+                <div class="flex-1">
+                  <div class="text-sm font-bold text-gray-200">Default Output</div>
+                  <div class="text-xs text-gray-400">System default audio output</div>
+                </div>
+                <div v-if="!auxBuses[selectedAuxIndex]?.selectedOutputDevice || auxBuses[selectedAuxIndex]?.selectedOutputDevice === ''" class="text-teal-400">
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                </div>
+              </button>
+
+              <!-- Audio Output Devices -->
+              <div v-if="audioOutputDevices.length > 0" class="space-y-2">
+                <button
+                  v-for="device in audioOutputDevices"
+                  :key="device.deviceId"
+                  @click="selectOutputDevice(selectedAuxIndex, device.deviceId)"
+                  :class="[
+                    'w-full p-3 rounded border-2 transition-all text-left flex items-center gap-3',
+                    auxBuses[selectedAuxIndex]?.selectedOutputDevice === device.deviceId
+                      ? 'bg-teal-900/30 border-teal-500'
+                      : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+                  ]"
+                >
+                  <div class="text-2xl">🎧</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-bold text-gray-200 truncate">{{ device.label || 'Unknown Device' }}</div>
+                    <div class="text-xs text-gray-400 truncate">{{ device.deviceId }}</div>
+                  </div>
+                  <div v-if="auxBuses[selectedAuxIndex]?.selectedOutputDevice === device.deviceId" class="text-teal-400 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                  </div>
+                </button>
+              </div>
+
+              <div v-else class="text-center text-gray-500 text-sm py-4">
+                No audio output devices found
+              </div>
+            </div>
           </div>
 
           <button
             @click="selectedAuxIndex = null"
-            class="mt-4 w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded font-bold"
+            class="mt-6 w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded font-bold"
           >
             Close
           </button>
@@ -123,8 +206,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, inject, toRaw } from 'vue'
+import { ref, watch, inject, toRaw, onMounted } from 'vue'
 import Knob from '../core/Knob.vue'
+import { useAudioDevices } from '~/composables/useAudioDevices'
 
 interface AuxBus {
   id: string
@@ -133,7 +217,11 @@ interface AuxBus {
   muted: boolean
   soloed: boolean
   routeToMaster: boolean
+  selectedOutputDevice?: string | null
   node?: any
+  outputStreamDest?: MediaStreamAudioDestinationNode | null
+  outputAudioContext?: AudioContext | null
+  outputSource?: MediaStreamAudioSourceNode | null
 }
 
 interface Props {
@@ -151,8 +239,15 @@ const emit = defineEmits<{
 const ToneRef = inject<any>('Tone')
 let Tone: any = null
 
+const { audioOutputDevices, enumerateAudioOutputs } = useAudioDevices()
+
 const selectedAuxIndex = ref<number | null>(null)
 const auxBuses = ref<AuxBus[]>(props.auxBuses || [])
+
+// Enumerate audio output devices on mount
+onMounted(async () => {
+  await enumerateAudioOutputs()
+})
 
 // Watch for prop changes
 watch(() => props.auxBuses, (newVal) => {
@@ -211,6 +306,20 @@ function toggleAuxMasterRouting(index: number) {
   const aux = { ...auxBuses.value[index], routeToMaster: !auxBuses.value[index].routeToMaster }
   emit('update-aux', index, aux)
 }
+
+// Select output device
+function selectOutputDevice(index: number, deviceId: string | null) {
+  const aux = { ...auxBuses.value[index], selectedOutputDevice: deviceId }
+  emit('update-aux', index, aux)
+}
+
+// Get device label
+function getDeviceLabel(deviceId: string | null | undefined): string {
+  if (!deviceId) return 'Default'
+  if (deviceId === 'no-output') return 'No Output'
+  const device = audioOutputDevices.value.find(d => d.deviceId === deviceId)
+  return device?.label || 'Unknown Device'
+}
 </script>
 
 <style scoped>
@@ -246,5 +355,24 @@ function toggleAuxMasterRouting(index: number) {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:horizontal:hover {
   background: rgba(20, 184, 166, 0.6);
+}
+
+/* Modal scrollbar */
+.max-h-\[80vh\]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.max-h-\[80vh\]::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.max-h-\[80vh\]::-webkit-scrollbar-thumb {
+  background: rgba(20, 184, 166, 0.5);
+  border-radius: 3px;
+}
+
+.max-h-\[80vh\]::-webkit-scrollbar-thumb:hover {
+  background: rgba(20, 184, 166, 0.7);
 }
 </style>
