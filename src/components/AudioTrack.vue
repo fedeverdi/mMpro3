@@ -91,7 +91,7 @@
 
       <!-- Gain Control -->
       <div class="w-full flex items-center justify-center gap-2 h-[4rem]">
-        <div class="flex flex-col gap-1">
+        <div class="flex flex-col gap-1 items-center justify-center pt-1">
           <PadButton v-model="padEnabled" />
           <HPFButton v-model="hpfEnabled" />
         </div>

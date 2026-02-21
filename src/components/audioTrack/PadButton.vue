@@ -3,7 +3,7 @@
     <button
       @click="toggle"
       :class="[
-        'px-1 py-0.5 rounded font-bold text-[8px] transition-all duration-200 border',
+        'px-1.5 py-[0.1rem] rounded font-bold text-[0.5rem] transition-all duration-200 border',
         modelValue
           ? 'bg-yellow-600 border-yellow-500 text-white shadow-md shadow-yellow-600/30'
           : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500'
@@ -12,7 +12,7 @@
     >
       PAD
     </button>
-    <div class="text-[8px] text-gray-400 font-medium">20dB</div>
+    <div class="text-[7px] text-gray-400 font-medium">20dB</div>
   </div>
 </template>
 
