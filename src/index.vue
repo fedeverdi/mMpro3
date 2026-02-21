@@ -186,12 +186,12 @@
                             <!-- Master EQ Display -->
                             <div v-if="component.id === 'eq'"
                                 :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-[36rem] mixer-fade-in relative group']"
+                                :style="{ ...getDragStyles(component.id), cursor: draggedComponent ? 'grabbing' : 'grab' }"
                                 draggable="true"
                                 @dragstart="handleDragStart(component.id)"
-                                @dragover="handleDragOver"
+                                @dragover="handleDragOver($event, component.id)"
                                 @drop="handleDrop($event, component.id)"
-                                @dragend="handleDragEnd"
-                                :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
+                                @dragend="handleDragEnd">
                                 <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
                                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
@@ -209,12 +209,12 @@
                             <!-- Spectrum Meter -->
                             <div v-if="component.id === 'spectrum'"
                                 :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-[36rem] mixer-fade-in relative group']"
+                                :style="{ ...getDragStyles(component.id), cursor: draggedComponent ? 'grabbing' : 'grab' }"
                                 draggable="true"
                                 @dragstart="handleDragStart(component.id)"
-                                @dragover="handleDragOver"
+                                @dragover="handleDragOver($event, component.id)"
                                 @drop="handleDrop($event, component.id)"
-                                @dragend="handleDragEnd"
-                                :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
+                                @dragend="handleDragEnd">
                                 <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
                                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
@@ -229,12 +229,12 @@
                             <!-- Master FX -->
                             <div v-if="component.id === 'fx'"
                                 class="w-[36rem] mixer-fade-in relative group"
+                                :style="{ ...getDragStyles(component.id), cursor: draggedComponent ? 'grabbing' : 'grab' }"
                                 draggable="true"
                                 @dragstart="handleDragStart(component.id)"
-                                @dragover="handleDragOver"
+                                @dragover="handleDragOver($event, component.id)"
                                 @drop="handleDrop($event, component.id)"
-                                @dragend="handleDragEnd"
-                                :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
+                                @dragend="handleDragEnd">
                                 <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
                                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
@@ -445,13 +445,17 @@ const rightSectionComponents = ref<RightSectionComponent[]>([
 ])
 
 const draggedComponent = ref<string | null>(null)
+const dragOverComponent = ref<string | null>(null) // Track which component is being dragged over
 
 function handleDragStart(componentId: string) {
     draggedComponent.value = componentId
 }
 
-function handleDragOver(event: DragEvent) {
+function handleDragOver(event: DragEvent, componentId: string) {
     event.preventDefault()
+    if (draggedComponent.value !== componentId) {
+        dragOverComponent.value = componentId
+    }
 }
 
 function handleDrop(event: DragEvent, targetComponentId: string) {
@@ -476,6 +480,48 @@ function handleDrop(event: DragEvent, targetComponentId: string) {
 
 function handleDragEnd() {
     draggedComponent.value = null
+    dragOverComponent.value = null
+}
+
+// Helper to compute drag effect styles
+function getDragStyles(componentId: string) {
+    if (!draggedComponent.value || !dragOverComponent.value) return {}
+    
+    const draggedIndex = rightSectionComponents.value.findIndex(c => c.id === draggedComponent.value)
+    const currentIndex = rightSectionComponents.value.findIndex(c => c.id === componentId)
+    const dragOverIndex = rightSectionComponents.value.findIndex(c => c.id === dragOverComponent.value)
+    
+    // Skip the dragged element itself
+    if (componentId === draggedComponent.value) {
+        return { 
+            opacity: '0.5',
+            transform: 'scale(0.98)',
+            transition: 'all 0.2s ease'
+        }
+    }
+    
+    // Calculate if we need to shift this element
+    if (draggedIndex < dragOverIndex) {
+        // Dragging down: shift elements between dragged and dragOver down
+        if (currentIndex > draggedIndex && currentIndex <= dragOverIndex) {
+            return { 
+                transform: 'translateY(-2rem) scale(0.95)', 
+                transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                filter: 'brightness(0.85)'
+            }
+        }
+    } else if (draggedIndex > dragOverIndex) {
+        // Dragging up: shift elements between dragOver and dragged up
+        if (currentIndex < draggedIndex && currentIndex >= dragOverIndex) {
+            return { 
+                transform: 'translateY(2rem) scale(0.95)', 
+                transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                filter: 'brightness(0.85)'
+            }
+        }
+    }
+    
+    return { transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' }
 }
 
 // Load components order from localStorage
