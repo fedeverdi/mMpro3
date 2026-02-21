@@ -66,6 +66,11 @@
                                 class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2">
                                 📡 Signal Track
                             </button>
+                            <div class="h-px bg-gray-600 my-1"></div>
+                            <button @click="addSubgroup(); showAddTrackMenu = false"
+                                class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2">
+                                🎛️ Subgroup
+                            </button>
                         </div>
                     </div>
 
@@ -125,11 +130,10 @@
                         <template v-else>
                             <div v-for="track in tracks" :key="track.id" class="w-[8.5rem] h-full mixer-fade-in">
                                 <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)"
-                                    :trackNumber="track.id" :master-channel="masterChannel"
-                                    :subgroup-channel="subgroupChannel" @soloChange="handleSoloChange"
-                                    @levelUpdate="handleLevelUpdate" />
+                                    :trackNumber="track.id" :master-channel="masterChannel" :subgroups="subgroups"
+                                    @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate" />
                                 <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
-                                    :master-channel="masterChannel" :subgroup-channel="subgroupChannel"
+                                    :master-channel="masterChannel" :subgroups="subgroups"
                                     @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate" />
                             </div>
                         </template>
@@ -144,10 +148,13 @@
                     <!-- Master EQ/Spectrum/FX Skeleton -->
                     <div class="flex flex-col h-full gap-2">
                         <div class="w-[36rem] flex flex-col flex-1 min-h-0 gap-2">
-                            <div class="flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700 animate-pulse"></div>
-                            <div class="flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700 animate-pulse"></div>
+                            <div class="flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700 animate-pulse">
+                            </div>
+                            <div class="flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700 animate-pulse">
+                            </div>
                         </div>
-                        <div class="w-[36rem] bg-gray-800 rounded-lg border border-gray-700 p-4 animate-pulse" style="height: 200px;"></div>
+                        <div class="w-[36rem] bg-gray-800 rounded-lg border border-gray-700 p-4 animate-pulse"
+                            style="height: 200px;"></div>
                     </div>
 
                     <!-- Subgroups Skeleton -->
@@ -187,74 +194,77 @@
                             <div v-if="component.id === 'eq'"
                                 :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-[36rem] mixer-fade-in relative group']"
                                 :style="{ ...getDragStyles(component.id), cursor: draggedComponent ? 'grabbing' : 'grab' }"
-                                draggable="true"
-                                @dragstart="handleDragStart(component.id)"
+                                draggable="true" @dragstart="handleDragStart(component.id)"
                                 @dragover="handleDragOver($event, component.id)"
-                                @drop="handleDrop($event, component.id)"
-                                @dragend="handleDragEnd">
-                                <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
+                                @drop="handleDrop($event, component.id)" @dragend="handleDragEnd">
+                                <div
+                                    class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div
+                                        class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
                                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z"/>
+                                            <path
+                                                d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
                                         </svg>
                                         <span>{{ component.name }}</span>
                                     </div>
                                 </div>
-                                <MasterEQDisplay :filters-data="masterEqFiltersData"
-                                    :master-channel="masterChannel"
+                                <MasterEQDisplay :filters-data="masterEqFiltersData" :master-channel="masterChannel"
                                     @update:filters-data="handleMasterEQFiltersUpdate"
                                     @output-node="handleMasterEqOutputNode" />
                             </div>
-                            
+
                             <!-- Spectrum Meter -->
                             <div v-if="component.id === 'spectrum'"
                                 :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-[36rem] mixer-fade-in relative group']"
                                 :style="{ ...getDragStyles(component.id), cursor: draggedComponent ? 'grabbing' : 'grab' }"
-                                draggable="true"
-                                @dragstart="handleDragStart(component.id)"
+                                draggable="true" @dragstart="handleDragStart(component.id)"
                                 @dragover="handleDragOver($event, component.id)"
-                                @drop="handleDrop($event, component.id)"
-                                @dragend="handleDragEnd">
-                                <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
+                                @drop="handleDrop($event, component.id)" @dragend="handleDragEnd">
+                                <div
+                                    class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div
+                                        class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
                                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z"/>
+                                            <path
+                                                d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
                                         </svg>
                                         <span>{{ component.name }}</span>
                                     </div>
                                 </div>
                                 <SpectrumMeter :master-fx-output-node="masterFxOutputNode" />
                             </div>
-                            
+
                             <!-- Master FX -->
-                            <div v-if="component.id === 'fx'"
-                                class="w-[36rem] mixer-fade-in relative group"
+                            <div v-if="component.id === 'fx'" class="w-[36rem] mixer-fade-in relative group"
                                 :style="{ ...getDragStyles(component.id), cursor: draggedComponent ? 'grabbing' : 'grab' }"
-                                draggable="true"
-                                @dragstart="handleDragStart(component.id)"
+                                draggable="true" @dragstart="handleDragStart(component.id)"
                                 @dragover="handleDragOver($event, component.id)"
-                                @drop="handleDrop($event, component.id)"
-                                @dragend="handleDragEnd">
-                                <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
+                                @drop="handleDrop($event, component.id)" @dragend="handleDragEnd">
+                                <div
+                                    class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div
+                                        class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
                                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z"/>
+                                            <path
+                                                d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
                                         </svg>
                                         <span>{{ component.name }}</span>
                                     </div>
                                 </div>
-                                <MasterFX :master-eq-output-node="masterEqOutputNode"
-                                    :master-section="masterSectionRef"
-                                    @output-node="handleMasterFxOutputNode"
-                                    @component="handleMasterFxComponent" />
+                                <MasterFX :master-eq-output-node="masterEqOutputNode" :master-section="masterSectionRef"
+                                    @output-node="handleMasterFxOutputNode" @component="handleMasterFxComponent" />
                             </div>
                         </template>
                     </div>
 
                     <!-- Subgroups Section -->
-                    <div class="flex-shrink-0 h-full mixer-fade-in">
-                        <SubgroupsSection ref="subgroupsSectionRef" :master-channel="masterChannel" />
-                    </div>
+                    <template v-for="subgroup in subgroups" :key="subgroup.id">
+                        <div class="flex-shrink-0 h-full mixer-fade-in">
+                            <SubgroupsSection :ref="el => setSubgroupRef(subgroup.id, el)"
+                                :master-channel="masterChannel" :subgroup-id="subgroup.id"
+                                :subgroup-name="subgroup.name" @remove="removeSubgroup(subgroup.id)" />
+                        </div>
+                    </template>
 
                     <!-- Master Section -->
                     <div class="flex-shrink-0 h-full mixer-fade-in">
@@ -334,7 +344,17 @@ const ToneRef = inject<any>('Tone')
 let Tone: any = null
 const toneReady = ref(false)
 const masterChannel = ref<any>(null)
-const subgroupChannel = ref<any>(null)
+
+// Subgroups system
+interface Subgroup {
+    id: number
+    name: string
+    channel: any
+    ref: any
+}
+
+const subgroups = ref<Subgroup[]>([])
+let nextSubgroupId = 1
 
 interface Track {
     id: number
@@ -394,7 +414,6 @@ function removeTrack() {
 // Track refs management (only for tracks, not for master components)
 const trackRefs = ref<Map<number, any>>(new Map())
 const masterSectionRef = ref<any>(null) // Keep only for getSnapshot/restoreSnapshot
-const subgroupsSectionRef = ref<any>(null)
 
 // Audio nodes received from components via emit
 const masterEqOutputNode = ref<any>(null)
@@ -420,6 +439,74 @@ function setTrackRef(trackId: number, el: any | null) {
     } else {
         // Remove ref when component is unmounted
         trackRefs.value.delete(trackId)
+    }
+}
+
+// Subgroup management
+function setSubgroupRef(subgroupId: number, el: any | null) {
+    const subgroup = subgroups.value.find(s => s.id === subgroupId)
+    if (subgroup && el) {
+        subgroup.ref = el
+
+        // Connect channel to subgroup input when ref is set
+        nextTick(() => {
+            if (subgroup.channel && el.getInputNode) {
+                const inputNode = el.getInputNode()
+                if (inputNode) {
+                    const rawChannel = toRaw(subgroup.channel)
+                    const rawInputNode = toRaw(inputNode)
+                    try {
+                        rawChannel.connect(rawInputNode)
+                    } catch (e) {
+                        console.error(`[Subgroup ${subgroup.name}] Connection error:`, e)
+                    }
+                }
+            }
+        })
+    }
+}
+
+function addSubgroup() {
+    if (!Tone) return
+
+    const id = nextSubgroupId++
+    const name = `SUB ${id}`
+
+    // Create Tone.js channel for this subgroup
+    const channel = new Tone.Channel({
+        volume: 0,
+        pan: 0,
+        channelCount: 2,
+        channelCountMode: 'explicit',
+        channelInterpretation: 'speakers'
+    })
+
+    subgroups.value.push({
+        id,
+        name,
+        channel,
+        ref: null
+    })
+
+    console.log(`[Subgroup] Created ${name}`)
+}
+
+function removeSubgroup(subgroupId: number) {
+    const index = subgroups.value.findIndex(s => s.id === subgroupId)
+    if (index !== -1) {
+        const subgroup = subgroups.value[index]
+
+        // Disconnect all tracks from this subgroup
+        loadedTracks.value.forEach(track => {
+            const trackRef = trackRefs.value.get(track.trackNumber)
+            if (trackRef?.disconnectFromSubgroup) {
+                trackRef.disconnectFromSubgroup(subgroupId)
+            }
+        })
+
+        // Remove from array - Vue will handle unmounting and cleanup via onUnmounted
+        subgroups.value.splice(index, 1)
+        console.log(`[Subgroup] Removed ${subgroup.name}`)
     }
 }
 
@@ -460,21 +547,21 @@ function handleDragOver(event: DragEvent, componentId: string) {
 
 function handleDrop(event: DragEvent, targetComponentId: string) {
     event.preventDefault()
-    
+
     if (!draggedComponent.value || draggedComponent.value === targetComponentId) {
         return
     }
-    
+
     const draggedIndex = rightSectionComponents.value.findIndex(c => c.id === draggedComponent.value)
     const targetIndex = rightSectionComponents.value.findIndex(c => c.id === targetComponentId)
-    
+
     if (draggedIndex !== -1 && targetIndex !== -1) {
         const components = [...rightSectionComponents.value]
         const [removed] = components.splice(draggedIndex, 1)
         components.splice(targetIndex, 0, removed)
         rightSectionComponents.value = components
     }
-    
+
     draggedComponent.value = null
 }
 
@@ -486,26 +573,26 @@ function handleDragEnd() {
 // Helper to compute drag effect styles
 function getDragStyles(componentId: string) {
     if (!draggedComponent.value || !dragOverComponent.value) return {}
-    
+
     const draggedIndex = rightSectionComponents.value.findIndex(c => c.id === draggedComponent.value)
     const currentIndex = rightSectionComponents.value.findIndex(c => c.id === componentId)
     const dragOverIndex = rightSectionComponents.value.findIndex(c => c.id === dragOverComponent.value)
-    
+
     // Skip the dragged element itself
     if (componentId === draggedComponent.value) {
-        return { 
+        return {
             opacity: '0.5',
             transform: 'scale(0.98)',
             transition: 'all 0.2s ease'
         }
     }
-    
+
     // Calculate if we need to shift this element
     if (draggedIndex < dragOverIndex) {
         // Dragging down: shift elements between dragged and dragOver down
         if (currentIndex > draggedIndex && currentIndex <= dragOverIndex) {
-            return { 
-                transform: 'translateY(-2rem) scale(0.95)', 
+            return {
+                transform: 'translateY(-2rem) scale(0.95)',
                 transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 filter: 'brightness(0.85)'
             }
@@ -513,14 +600,14 @@ function getDragStyles(componentId: string) {
     } else if (draggedIndex > dragOverIndex) {
         // Dragging up: shift elements between dragOver and dragged up
         if (currentIndex < draggedIndex && currentIndex >= dragOverIndex) {
-            return { 
-                transform: 'translateY(2rem) scale(0.95)', 
+            return {
+                transform: 'translateY(2rem) scale(0.95)',
                 transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 filter: 'brightness(0.85)'
             }
         }
     }
-    
+
     return { transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' }
 }
 
@@ -533,7 +620,7 @@ function loadComponentsOrder() {
             // Validate that all required components are present
             const requiredIds = ['eq', 'spectrum', 'fx']
             const savedIds = order.map((c: RightSectionComponent) => c.id)
-            
+
             if (requiredIds.every(id => savedIds.includes(id))) {
                 rightSectionComponents.value = order
             }
@@ -920,43 +1007,8 @@ onMounted(async () => {
     // NOTE: masterChannel will be connected by MasterEQDisplay component
     console.log('[Audio] Master channel created (will be connected to EQ)')
 
-    // Create subgroup channel (similar to master)
-    subgroupChannel.value = new Tone.Channel({
-        volume: 0,
-        pan: 0,
-        channelCount: 2,
-        channelCountMode: 'explicit',
-        channelInterpretation: 'speakers'
-    })
-
-    // Connect subgroup to SubgroupsSection input (with retry)
-    let retryCount = 0
-    const maxRetries = 10
-    const connectSubgroup = () => {
-        if (subgroupsSectionRef.value?.getInputNode) {
-            const subgroupInput = subgroupsSectionRef.value.getInputNode()
-
-            if (subgroupInput) {
-                const rawSubgroupChannel = toRaw(subgroupChannel.value)
-                const rawInputNode = toRaw(subgroupInput)
-                rawSubgroupChannel.connect(rawInputNode)
-                return true
-            } else {
-                console.error('[Subgroup] ✗ Input node is null')
-            }
-        } else {
-            console.error('[Subgroup] ✗ SubgroupsSection not ready')
-        }
-
-        // Retry if not successful
-        retryCount++
-        if (retryCount < maxRetries) {
-            setTimeout(connectSubgroup, 200)
-        } else {
-            console.error('[Subgroup] ✗ Failed to connect after', maxRetries, 'attempts')
-        }
-        return false
-    }
+    // Add initial subgroup
+    addSubgroup()
 
     // Don't start connection here - wait for component to mount
 
@@ -974,9 +1026,6 @@ onMounted(async () => {
     // Delay to ensure all components are fully mounted and initialized
     setTimeout(() => {
         isReady.value = true
-
-        // Connect subgroup AFTER components are mounted
-        setTimeout(connectSubgroup, 500)
     }, 100)
 
     // Close add track menu when clicking outside

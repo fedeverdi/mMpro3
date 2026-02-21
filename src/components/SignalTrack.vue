@@ -104,10 +104,15 @@
             :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
             M
           </button>
-          <button @click="toggleRouteToSubgroup" :title="'Route to Subgroup'"
-            class="w-6 h-6 text-[8px] font-bold rounded transition-all flex items-center justify-center"
-            :class="routeToSubgroup ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
-            S
+          <button 
+            v-for="subgroup in props.subgroups" 
+            :key="subgroup.id"
+            @click="toggleRouteToSubgroup(subgroup.id)" 
+            :title="`Route to ${subgroup.name}`"
+            class="w-6 h-6 text-[6px] font-bold rounded transition-all flex items-center justify-center"
+            :class="routedSubgroups.has(subgroup.id) ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'"
+          >
+            S{{ subgroup.id }}
           </button>
         </div>
         <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
@@ -133,10 +138,12 @@ let Tone: any = null
 interface Props {
   trackNumber: number
   masterChannel?: any
-  subgroupChannel?: any
+  subgroups?: Array<{ id: number, name: string, channel: any, ref: any }>
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  subgroups: () => []
+})
 
 const emit = defineEmits<{
   (e: 'soloChange', value: { trackNumber: number, isSolo: boolean }): void
@@ -147,7 +154,7 @@ type SignalType = 'sine' | 'square' | 'sawtooth' | 'triangle' | 'whiteNoise' | '
 
 // Output routing (can route to both simultaneously)
 const routeToMaster = ref(true)
-const routeToSubgroup = ref(false)
+const routedSubgroups = ref<Set<number>>(new Set()) // Set of subgroup IDs
 
 // Signal-specific state
 const selectedSignal = ref<SignalType>('sine')
@@ -420,11 +427,11 @@ function toggleFrequencySweep() {
   }
 }
 
-// Connect to output (can connect to master and/or subgroup)
+// Connect to output (can connect to master and/or multiple subgroups)
 function connectToOutput() {
   if (!volumeMerge || !Tone) return
   
-  // Disconnect from both destinations first
+  // Disconnect from all destinations first
   try {
     volumeMerge.disconnect()
   } catch (e) {
@@ -436,13 +443,16 @@ function connectToOutput() {
     volumeMerge.connect(toRaw(props.masterChannel))
   }
   
-  // Connect to subgroup if enabled
-  if (routeToSubgroup.value && props.subgroupChannel) {
-    volumeMerge.connect(toRaw(props.subgroupChannel))
-  }
+  // Connect to each enabled subgroup
+  routedSubgroups.value.forEach(subgroupId => {
+    const subgroup = props.subgroups?.find(s => s.id === subgroupId)
+    if (subgroup?.channel) {
+      volumeMerge.connect(toRaw(subgroup.channel))
+    }
+  })
   
-  // Warn if neither is selected
-  if (!routeToMaster.value && !routeToSubgroup.value) {
+  // Warn if no output is selected
+  if (!routeToMaster.value && routedSubgroups.value.size === 0) {
     console.warn(`[SignalTrack ${props.trackNumber}] No output destination selected`)
   }
 }
@@ -453,9 +463,23 @@ function toggleRouteToMaster() {
   connectToOutput()
 }
 
-function toggleRouteToSubgroup() {
-  routeToSubgroup.value = !routeToSubgroup.value
+function toggleRouteToSubgroup(subgroupId: number) {
+  if (routedSubgroups.value.has(subgroupId)) {
+    routedSubgroups.value.delete(subgroupId)
+  } else {
+    routedSubgroups.value.add(subgroupId)
+  }
+  routedSubgroups.value = new Set(routedSubgroups.value) // Trigger reactivity
   connectToOutput()
+}
+
+// Disconnect from a specific subgroup (called when subgroup is removed)
+function disconnectFromSubgroup(subgroupId: number) {
+  if (routedSubgroups.value.has(subgroupId)) {
+    routedSubgroups.value.delete(subgroupId)
+    routedSubgroups.value = new Set(routedSubgroups.value)
+    connectToOutput()
+  }
 }
 
 // Level monitoring
@@ -607,6 +631,8 @@ onUnmounted(() => {
 
 // Expose methods for scene management
 defineExpose({
+  disconnectFromSubgroup, // Expose for cleanup when subgroup is removed
+  
   getSnapshot: () => {
     return {
       trackType: 'signal' as const,
@@ -619,20 +645,24 @@ defineExpose({
       isMuted: isMuted.value,
       isSolo: isSolo.value,
       routeToMaster: routeToMaster.value,
-      routeToSubgroup: routeToSubgroup.value
+      routedSubgroups: Array.from(routedSubgroups.value) // Convert Set to Array for serialization
     }
   },
 
   restoreFromSnapshot: (snapshot: any) => {
-    // Restore output routing (support both old and new format)
-    if (snapshot.routeToMaster !== undefined && snapshot.routeToSubgroup !== undefined) {
-      // New format with dual routing
+    // Restore output routing
+    if (snapshot.routeToMaster !== undefined) {
       routeToMaster.value = snapshot.routeToMaster
-      routeToSubgroup.value = snapshot.routeToSubgroup
-    } else if (snapshot.outputDestination) {
-      // Legacy format - convert to new system
-      routeToMaster.value = snapshot.outputDestination === 'master'
-      routeToSubgroup.value = snapshot.outputDestination === 'subgroup'
+    }
+    
+    // Restore routed subgroups (support both old and new format)
+    if (snapshot.routedSubgroups && Array.isArray(snapshot.routedSubgroups)) {
+      routedSubgroups.value = new Set(snapshot.routedSubgroups)
+    } else if (snapshot.routeToSubgroup) {
+      // Legacy format - assume routing to first subgroup if exists
+      if (props.subgroups && props.subgroups.length > 0) {
+        routedSubgroups.value = new Set([props.subgroups[0].id])
+      }
     }
     
     nextTick(() => {

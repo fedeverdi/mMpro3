@@ -2,8 +2,15 @@
     <div
         class="subgroups-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-gray-600 p-2 flex flex-col items-center gap-1 h-full w-full max-w-[6rem]">
         <!-- Subgroup Header -->
-        <div class="w-full text-center">
-            <div class="text-xs font-bold text-gray-400">SUBGROUP</div>
+        <div class="w-full flex items-center justify-between gap-1">
+            <div class="text-xs font-bold text-gray-400 flex-1 text-center">{{ subgroupName }}</div>
+            <button 
+                @click="$emit('remove')" 
+                class="w-4 h-4 bg-red-600 hover:bg-red-500 text-white rounded text-xs flex items-center justify-center transition-all"
+                title="Remove Subgroup"
+            >
+                ×
+            </button>
         </div>
 
         <!-- Output Device Selector -->
@@ -69,9 +76,17 @@ import SubgroupFader from './subgroups/SubgroupFader.vue'
 // Props
 interface Props {
     masterChannel?: any
+    subgroupId?: number
+    subgroupName?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+    subgroupName: 'SUBGROUP'
+})
+
+defineEmits<{
+    remove: []
+}>()
 
 // Inject Tone.js from App.vue
 const ToneRef = inject<any>('Tone')
@@ -568,22 +583,30 @@ defineExpose({
 
 // Cleanup
 onUnmounted(() => {
-    if (inputGainNode) inputGainNode.dispose()
-    if (compressor) compressor.dispose()
-    if (reverb) reverb.dispose()
-    if (limiter) limiter.dispose()
-    if (delay) delay.dispose()
-    if (leftMeter) leftMeter.dispose()
-    if (rightMeter) rightMeter.dispose()
-    if (splitNode) splitNode.dispose()
-    if (leftGain) leftGain.dispose()
-    if (rightGain) rightGain.dispose()
-    if (outputMerge) outputMerge.dispose()
-    if (outputGain) outputGain.dispose()
+    try {
+        if (inputGainNode) inputGainNode.dispose()
+        if (compressor) compressor.dispose()
+        if (reverb) reverb.dispose()
+        if (limiter) limiter.dispose()
+        if (delay) delay.dispose()
+        if (leftMeter) leftMeter.dispose()
+        if (rightMeter) rightMeter.dispose()
+        if (splitNode) splitNode.dispose()
+        if (leftGain) leftGain.dispose()
+        if (rightGain) rightGain.dispose()
+        if (outputMerge) outputMerge.dispose()
+        if (outputGain) outputGain.dispose()
+    } catch (e) {
+        console.warn('[Subgroup] Error disposing audio nodes:', e)
+    }
 
     // Cleanup output context
     if (outputAudioContext) {
-        outputAudioContext.close()
+        try {
+            outputAudioContext.close()
+        } catch (e) {
+            console.warn('[Subgroup] Error closing output context:', e)
+        }
         outputAudioContext = null
     }
     if (outputStreamDest) {
@@ -591,7 +614,11 @@ onUnmounted(() => {
     }
 
     // Remove device change listener
-    navigator.mediaDevices.removeEventListener('devicechange', enumerateAudioOutputs)
+    try {
+        navigator.mediaDevices.removeEventListener('devicechange', enumerateAudioOutputs)
+    } catch (e) {
+        // Ignore
+    }
 
     if (resizeObserver) {
         resizeObserver.disconnect()
