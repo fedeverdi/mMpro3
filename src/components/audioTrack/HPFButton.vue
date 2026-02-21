@@ -5,14 +5,14 @@
       :class="[
         'px-1 py-0.5 rounded font-bold text-[8px] transition-all duration-200 border',
         modelValue
-          ? 'bg-yellow-600 border-yellow-500 text-white shadow-md shadow-yellow-600/30'
+          ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-600/30'
           : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500'
       ]"
-      :title="modelValue ? 'PAD: -20dB attivo' : 'PAD: -20dB disattivo'"
+      :title="modelValue ? 'HPF: 80Hz attivo' : 'HPF: 80Hz disattivo'"
     >
-      PAD
+      HPF
     </button>
-    <div class="text-[8px] text-gray-400 font-medium">20dB</div>
+    <div class="text-[8px] text-gray-400 font-medium">80Hz</div>
   </div>
 </template>
 

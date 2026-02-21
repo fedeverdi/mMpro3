@@ -91,7 +91,10 @@
 
       <!-- Gain Control -->
       <div class="w-full flex items-center justify-center gap-2 h-[4rem]">
-        <PadButton v-model="padEnabled" />
+        <div class="flex flex-col gap-1">
+          <PadButton v-model="padEnabled" />
+          <HPFButton v-model="hpfEnabled" />
+        </div>
         <div class="scale-[0.65]">
           <Knob v-model="gain" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Gain" unit="dB"
             color="#8b5cf6" />
@@ -241,6 +244,7 @@ import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
 import TrackAuxSends from './audioTrack/TrackAuxSends.vue'
 import AuxSendControl from './audioTrack/AuxSendControl.vue'
 import PadButton from './audioTrack/PadButton.vue'
+import HPFButton from './audioTrack/HPFButton.vue'
 
 defineOptions({
   inheritAttrs: false
@@ -318,6 +322,7 @@ const showEQ3Bands = ref(false)
 const volume = ref(0)
 const gain = ref(0)
 const padEnabled = ref(false) // PAD: -20dB attenuation
+const hpfEnabled = ref(false) // HPF: 80Hz highpass filter
 const pan = ref(0) // -1 (left) to +1 (right)
 const isStereo = ref(true) // Track if source is stereo or mono (default stereo)
 const trackLevelL = ref(-60) // Left/Mono level
@@ -333,6 +338,7 @@ const trackReverbRef = ref<InstanceType<typeof TrackReverb> | null>(null)
 let player: any = null // Can be Tone.Player or Tone.UserMedia
 let currentAudioBuffer: AudioBuffer | null = null // Store current audio buffer for player recreation
 let gainNode: any = null
+let hpfNode: any = null // High-pass filter at 80Hz
 let eq3: any = null
 let parametricEQFilters: any = null // Parametric EQ filter chain
 let compressor: any = null
@@ -427,6 +433,13 @@ function initAudioNodes() {
   // Create audio nodes
   gainNode = new Tone.Gain(1) // 1 = 0dB (unity gain), not 0!
 
+  // High-pass filter at 80Hz (bypassed when disabled)
+  hpfNode = new Tone.Filter({
+    type: 'highpass',
+    frequency: 80,
+    rolloff: -24 // 24dB/octave
+  })
+
   eq3 = new Tone.EQ3({
     low: 0,
     mid: 0,
@@ -469,9 +482,11 @@ function initAudioNodes() {
     wet: 0            // Bypassed: 0% wet = no reverb
   })
 
-  // Connect chain: gain -> eq3 -> reverb -> balance -> volume
+  // Connect chain: gain -> hpf -> eq3 -> reverb -> balance -> volume
   // Compressor is bypassed by default (not in chain)
-  gainNode.connect(eq3)
+  // HPF is also bypassed by default (connected but with wet=0)
+  gainNode.connect(hpfNode)
+  hpfNode.connect(eq3)
 
   // Connect stereo metering to eq3 (before effects)
   eq3.connect(channelSplit)
@@ -1335,6 +1350,14 @@ function updateGain() {
   gainNode.gain.value = Tone.dbToGain(totalGain)
 }
 
+// Update HPF state
+function updateHPF() {
+  if (!hpfNode) return
+  // When disabled, set frequency to 20Hz (below audible range, effectively bypassing)
+  // When enabled, set frequency to 80Hz
+  hpfNode.frequency.value = hpfEnabled.value ? 80 : 20
+}
+
 // Update pan value (constant power panning for stereo preservation)
 function updatePan() {
   if (!balanceLeft || !balanceRight || !Tone) return
@@ -1351,6 +1374,7 @@ function updatePan() {
 watch(volume, updateVolume)
 watch(gain, updateGain)
 watch(padEnabled, updateGain)
+watch(hpfEnabled, updateHPF)
 watch(pan, updatePan)
 
 // Expose methods for external control
@@ -1368,6 +1392,7 @@ defineExpose({
       volume: volume.value,
       gain: gain.value,
       padEnabled: padEnabled.value,
+      hpfEnabled: hpfEnabled.value,
       pan: pan.value,
       muted: isMuted.value,
       soloed: isSolo.value,
@@ -1398,13 +1423,16 @@ defineExpose({
   },
 
   restoreFromSnapshot: (snapshot: any) => {
-    // Restore volume, gain, pad, and pan
+    // Restore volume, gain, pad, hpf, and pan
     volume.value = snapshot.volume
     if (snapshot.gain !== undefined) {
       gain.value = snapshot.gain
     }
     if (snapshot.padEnabled !== undefined) {
       padEnabled.value = snapshot.padEnabled
+    }
+    if (snapshot.hpfEnabled !== undefined) {
+      hpfEnabled.value = snapshot.hpfEnabled
     }
     pan.value = snapshot.pan
     isMuted.value = snapshot.muted
