@@ -617,12 +617,25 @@ function applyParametricEQ() {
 function connectToOutput() {
   if (!volumeMerge || !Tone) return false
   
-  // Disconnect from all destinations first
-  try {
-    volumeMerge.disconnect()
-  } catch (e) {
-    // Ignore if not connected
+  // Disconnect only from master and subgroups (preserve aux sends)
+  if (props.masterChannel) {
+    try {
+      volumeMerge.disconnect(toRaw(props.masterChannel))
+    } catch (e) {
+      // Ignore if not connected
+    }
   }
+  
+  // Disconnect from all subgroups
+  props.subgroups?.forEach(subgroup => {
+    if (subgroup?.channel) {
+      try {
+        volumeMerge.disconnect(toRaw(subgroup.channel))
+      } catch (e) {
+        // Ignore if not connected
+      }
+    }
+  })
   
   // Connect to master if enabled
   if (routeToMaster.value && props.masterChannel) {
