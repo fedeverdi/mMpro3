@@ -195,14 +195,17 @@
                             <!-- Master EQ Display -->
                             <div v-if="component.id === 'eq'"
                                 :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-[36rem] mixer-fade-in relative group']"
-                                :style="{ ...getDragStyles(component.id), cursor: draggedComponent ? 'grabbing' : 'grab' }"
-                                draggable="true" @dragstart="handleDragStart(component.id)"
+                                :style="getDragStyles(component.id)"
                                 @dragover="handleDragOver($event, component.id)"
-                                @drop="handleDrop($event, component.id)" @dragend="handleDragEnd">
+                                @drop="handleDrop($event, component.id)">
                                 <div
                                     class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <div
-                                        class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
+                                        draggable="true"
+                                        @dragstart="handleDragStart(component.id, $event)"
+                                        @dragend="handleDragEnd"
+                                        class="drag-handle bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1"
+                                        :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
                                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                                             <path
                                                 d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
@@ -218,14 +221,17 @@
                             <!-- Spectrum Meter -->
                             <div v-if="component.id === 'spectrum'"
                                 :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-[36rem] mixer-fade-in relative group']"
-                                :style="{ ...getDragStyles(component.id), cursor: draggedComponent ? 'grabbing' : 'grab' }"
-                                draggable="true" @dragstart="handleDragStart(component.id)"
+                                :style="getDragStyles(component.id)"
                                 @dragover="handleDragOver($event, component.id)"
-                                @drop="handleDrop($event, component.id)" @dragend="handleDragEnd">
+                                @drop="handleDrop($event, component.id)">
                                 <div
                                     class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <div
-                                        class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
+                                        draggable="true"
+                                        @dragstart="handleDragStart(component.id, $event)"
+                                        @dragend="handleDragEnd"
+                                        class="drag-handle bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1"
+                                        :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
                                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                                             <path
                                                 d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
@@ -238,14 +244,17 @@
 
                             <!-- Master FX -->
                             <div v-if="component.id === 'fx'" class="w-[36rem] mixer-fade-in relative group"
-                                :style="{ ...getDragStyles(component.id), cursor: draggedComponent ? 'grabbing' : 'grab' }"
-                                draggable="true" @dragstart="handleDragStart(component.id)"
+                                :style="getDragStyles(component.id)"
                                 @dragover="handleDragOver($event, component.id)"
-                                @drop="handleDrop($event, component.id)" @dragend="handleDragEnd">
+                                @drop="handleDrop($event, component.id)">
                                 <div
                                     class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <div
-                                        class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
+                                        draggable="true"
+                                        @dragstart="handleDragStart(component.id, $event)"
+                                        @dragend="handleDragEnd"
+                                        class="drag-handle bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1"
+                                        :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
                                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                                             <path
                                                 d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
@@ -548,8 +557,18 @@ const rightSectionComponents = ref<RightSectionComponent[]>([
 const draggedComponent = ref<string | null>(null)
 const dragOverComponent = ref<string | null>(null) // Track which component is being dragged over
 
-function handleDragStart(componentId: string) {
+function handleDragStart(componentId: string, event: DragEvent) {
     draggedComponent.value = componentId
+    
+    // Set custom drag image to show the whole component instead of just the handle
+    const componentElement = (event.target as HTMLElement).closest('.mixer-fade-in')
+    if (componentElement) {
+        const rect = componentElement.getBoundingClientRect()
+        // Calculate the offset from where the user clicked relative to the component
+        const offsetX = event.clientX - rect.left
+        const offsetY = event.clientY - rect.top
+        event.dataTransfer?.setDragImage(componentElement as HTMLElement, offsetX, offsetY)
+    }
 }
 
 function handleDragOver(event: DragEvent, componentId: string) {
