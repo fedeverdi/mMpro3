@@ -308,7 +308,7 @@
         </footer>
 
         <!-- Audio Flow Modal -->
-        <AudioFlowModal v-model="showAudioFlowModal" />
+        <AudioFlowModal v-model="showAudioFlowModal" :subgroups="subgroups.map(s => ({ id: s.id, name: s.name }))" />
 
         <!-- Scenes Modal -->
         <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId"

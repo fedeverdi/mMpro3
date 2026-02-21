@@ -150,6 +150,102 @@
             
             <div class="border-t border-gray-700 my-6"></div>
             
+            <!-- Subgroups Chain -->
+            <div v-if="props.subgroups && props.subgroups.length > 0" class="mb-8">
+              <h3 class="text-lg font-bold text-teal-400 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                </svg>
+                Subgroups Bus Signal Chain
+              </h3>
+              
+              <div class="space-y-4">
+                <div v-for="subgroup in props.subgroups" :key="subgroup.id" class="flex flex-wrap items-center gap-3 text-sm bg-teal-900/10 p-3 rounded-lg border border-teal-700/30">
+                  <!-- Subgroup Label -->
+                  <div class="flex flex-col items-center w-full mb-2">
+                    <div class="px-3 py-1 bg-gradient-to-br from-teal-600 to-teal-700 text-white rounded-lg font-bold shadow-lg">
+                      {{ subgroup.name }}
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">Subgroup Bus</div>
+                  </div>
+                  
+                  <!-- Tracks Input -->
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-gradient-to-br from-gray-600 to-gray-700 text-white rounded-lg font-bold shadow-lg">
+                      Tracks
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">Routed tracks</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <!-- Subgroup Channel -->
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-teal-700 text-white rounded-lg font-semibold">
+                      Channel
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">Tone.Channel</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <!-- Subgroup FX Chain -->
+                  <div class="flex flex-col items-center border-2 border-dashed border-teal-400 rounded-lg p-3 bg-teal-900/10">
+                    <div class="text-xs text-teal-300 font-bold mb-2">SUBGROUP FX</div>
+                    <div class="flex flex-col gap-1.5">
+                      <div class="flex items-center gap-1">
+                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                        <div class="px-2 py-1 bg-teal-700/60 text-white rounded text-xs font-semibold">Compressor</div>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                        <div class="px-2 py-1 bg-teal-700/60 text-white rounded text-xs font-semibold">Reverb</div>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                        <div class="px-2 py-1 bg-teal-700/60 text-white rounded text-xs font-semibold">Delay</div>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                        <div class="px-2 py-1 bg-teal-700/60 text-white rounded text-xs font-semibold">Limiter</div>
+                      </div>
+                    </div>
+                    <div class="text-[9px] text-teal-400 mt-1">Green = if enabled</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <!-- Volume Fader -->
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold">
+                      Volume
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">Fader</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <!-- To Master/Output -->
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-gradient-to-br from-orange-600 to-red-600 text-white rounded-lg font-bold shadow-lg">
+                      Master/Output
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">Routing</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="props.subgroups && props.subgroups.length > 0" class="border-t border-gray-700 my-6"></div>
+            
             <!-- Master Chain -->
             <div>
               <h3 class="text-lg font-bold text-orange-400 mb-4 flex items-center gap-2">
@@ -372,11 +468,19 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 
-interface Props {
-  modelValue: boolean
+interface Subgroup {
+  id: number
+  name: string
 }
 
-const props = defineProps<Props>()
+interface Props {
+  modelValue: boolean
+  subgroups?: Subgroup[]
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  subgroups: () => []
+})
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
