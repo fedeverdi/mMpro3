@@ -779,6 +779,19 @@ const {
 
 const { deleteAudioFile } = useAudioFileStorage()
 
+// Helper function to restore subgroup snapshots
+function restoreSubgroupSnapshots(subgroupSnapshots: SubgroupSnapshot[]) {
+    subgroupSnapshots.forEach((subgroupSnapshot: SubgroupSnapshot) => {
+        const subgroup = subgroups.value.find(s => s.id === subgroupSnapshot.id)
+        if (subgroup && subgroup.ref && subgroup.ref.restoreSnapshot) {
+            subgroup.ref.restoreSnapshot(subgroupSnapshot)
+        } else {
+            console.warn(`[Scene Load] Cannot restore subgroup ${subgroupSnapshot.name} (ID: ${subgroupSnapshot.id})`, 
+                { hasSubgroup: !!subgroup, hasRef: !!subgroup?.ref })
+        }
+    })
+}
+
 async function handleSaveScene(sceneName: string) {
     // Collect snapshots from all tracks
     const trackSnapshots: TrackSnapshot[] = []
@@ -822,6 +835,8 @@ async function handleSaveScene(sceneName: string) {
                 name: subgroup.name,
                 ...snapshot
             })
+        } else {
+            console.warn(`[Scene Save] Subgroup ${subgroup.name} (ID: ${subgroup.id}) has no ref or getSnapshot`)
         }
     })
 
@@ -902,14 +917,42 @@ function handleLoadScene(sceneId: string) {
                 masterSectionRef.value.restoreSnapshot(scene.master)
             }
 
-            // Restore subgroups state
+            // Ensure we have enough subgroups to restore the scene
             if (scene.subgroups && scene.subgroups.length > 0) {
-                scene.subgroups.forEach((subgroupSnapshot: SubgroupSnapshot) => {
-                    const subgroup = subgroups.value.find(s => s.id === subgroupSnapshot.id)
-                    if (subgroup && subgroup.ref && subgroup.ref.restoreSnapshot) {
-                        subgroup.ref.restoreSnapshot(subgroupSnapshot)
-                    }
-                })
+                // Create missing subgroups if needed
+                const existingIds = new Set(subgroups.value.map(s => s.id))
+                const missingSubgroups = scene.subgroups.filter(
+                    (snapshot: SubgroupSnapshot) => !existingIds.has(snapshot.id)
+                )
+                
+                if (missingSubgroups.length > 0) {
+                    missingSubgroups.forEach((snapshot: SubgroupSnapshot) => {
+                        // Create Tone.js channel for this subgroup
+                        const channel = new Tone.Channel({
+                            volume: 0,
+                            pan: 0,
+                            channelCount: 2,
+                            channelCountMode: 'explicit',
+                            channelInterpretation: 'speakers'
+                        })
+
+                        subgroups.value.push({
+                            id: snapshot.id,
+                            name: snapshot.name,
+                            channel,
+                            ref: null
+                        })
+                    })
+
+                    // Wait for components to mount
+                    nextTick(() => {
+                        setTimeout(() => {
+                            restoreSubgroupSnapshots(scene.subgroups!)
+                        }, 100)
+                    })
+                } else {
+                    restoreSubgroupSnapshots(scene.subgroups)
+                }
             }
 
             // Set as current scene
@@ -969,6 +1012,8 @@ async function handleUpdateScene(sceneId: string) {
                 name: subgroup.name,
                 ...snapshot
             })
+        } else {
+            console.warn(`[Scene Update] Subgroup ${subgroup.name} (ID: ${subgroup.id}) has no ref or getSnapshot`)
         }
     })
 
@@ -1088,9 +1133,6 @@ onMounted(async () => {
         channelCountMode: 'explicit',
         channelInterpretation: 'speakers'
     })
-
-    // NOTE: masterChannel will be connected by MasterEQDisplay component
-    console.log('[Audio] Master channel created (will be connected to EQ)')
 
     // Add initial subgroup
     addSubgroup()
