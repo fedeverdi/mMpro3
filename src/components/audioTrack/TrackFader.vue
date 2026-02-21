@@ -185,7 +185,7 @@ function positionToDb(position: number): number {
 
 const thumbPosition = computed(() => {
   const position = dbToPosition(props.modelValue)
-  return position * props.trackHeight - 22.5 // -22.5 to center the 45px cap
+  return position * props.trackHeight - 26 // -26 to center the 52px cap
 })
 
 const displayValue = computed(() => {
