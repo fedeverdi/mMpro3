@@ -1,17 +1,48 @@
 <template>
-  <div class="flex flex-col h-full gap-2 relative" :style="{ width: sectionWidth + 'px' }">
+  <div class="flex flex-col h-full gap-2 relative transition-all duration-300 ease-out" :class="{ 'pl-3': !isCollapsed }" :style="{ width: sectionWidth + 'px' }">
     <!-- Resize Handle -->
     <div 
-      class="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-blue-500 transition-colors z-50 group"
-      @mousedown="startResize"
-      title="Drag to resize"
+      :class="['absolute left-0 top-0 bottom-0 w-3 z-50 group bg-gray-900/20', isCollapsed ? 'cursor-default' : 'cursor-grab']"
+      @mousedown.stop="startResize"
+      :title="isCollapsed ? 'Panel collapsed' : 'Drag to resize'"
     >
-      <div class="absolute left-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-blue-500/50"></div>
+      <!-- Costola verticale -->
+      <div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-700/50 transition-colors"></div>
+      <div class="absolute left-[5px] top-0 bottom-0 w-px bg-gray-800/30"></div>
+      
+      <!-- Collapse/Expand Button -->
+      <button
+        @click.stop="toggleCollapse"
+        class="absolute top-2 left-0 w-6 h-6 -translate-x-1/2 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg"
+        :title="isCollapsed ? 'Expand panel' : 'Collapse panel'"
+      >
+        <svg class="w-3 h-3 text-gray-300 transition-transform" :class="{ 'rotate-180': !isCollapsed }" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+        </svg>
+      </button>
+      
+      <!-- Grip Dots -->
+      <div class="absolute top-1/2 left-1 -translate-y-1/2 flex gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity pointer-events-none">
+        <!-- Column 1 -->
+        <div class="flex flex-col gap-1">
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+        </div>
+        <!-- Column 2 -->
+        <div class="flex flex-col gap-1">
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+        </div>
+      </div>
     </div>
 
+    <!-- Components (hidden when collapsed) -->
     <template v-for="component in rightSectionComponents" :key="component.id">
       <!-- Master EQ Display -->
       <div v-if="component.id === 'eq'"
+        v-show="!isCollapsed"
         :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-full mixer-fade-in relative group']"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
@@ -37,6 +68,7 @@
 
       <!-- Spectrum Meter -->
       <div v-if="component.id === 'spectrum'"
+        v-show="!isCollapsed"
         :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-full mixer-fade-in relative group']"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
@@ -59,7 +91,9 @@
       </div>
 
       <!-- Master FX -->
-      <div v-if="component.id === 'fx'" class="w-full mixer-fade-in relative group"
+      <div v-if="component.id === 'fx'"
+        v-show="!isCollapsed"
+        class="w-full mixer-fade-in relative group"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
         @drop="handleDrop($event, component.id)">
@@ -126,6 +160,8 @@ const dragOverComponent = ref<string | null>(null)
 // Resize functionality
 const sectionWidth = ref(576) // Default: 36rem = 576px
 const isResizing = ref(false)
+const isCollapsed = ref(false)
+const savedWidth = ref(576) // Store width before collapse
 let startX = 0
 let startWidth = 0
 
@@ -225,8 +261,25 @@ function getDragStyles(componentId: string) {
   return { transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' }
 }
 
+// Toggle collapse/expand
+function toggleCollapse() {
+  if (isCollapsed.value) {
+    // Expand
+    sectionWidth.value = savedWidth.value || 576
+    isCollapsed.value = false
+  } else {
+    // Collapse
+    savedWidth.value = sectionWidth.value
+    sectionWidth.value = 6 // Collapsed width (just the handle)
+    isCollapsed.value = true
+  }
+  saveWidth()
+}
+
 // Resize functionality
 function startResize(event: MouseEvent) {
+  if (isCollapsed.value) return // Don't allow resize when collapsed
+  
   isResizing.value = true
   startX = event.clientX
   startWidth = sectionWidth.value
@@ -236,7 +289,7 @@ function startResize(event: MouseEvent) {
   
   // Prevent text selection during resize
   event.preventDefault()
-  document.body.style.cursor = 'ew-resize'
+  document.body.style.cursor = 'grabbing'
   document.body.style.userSelect = 'none'
 }
 
@@ -266,6 +319,10 @@ function stopResize() {
 function saveWidth() {
   try {
     localStorage.setItem('rightSectionWidth', sectionWidth.value.toString())
+    localStorage.setItem('rightSectionCollapsed', isCollapsed.value.toString())
+    if (!isCollapsed.value) {
+      localStorage.setItem('rightSectionSavedWidth', savedWidth.value.toString())
+    }
   } catch (err) {
     console.warn('Failed to save right section width:', err)
   }
@@ -274,11 +331,25 @@ function saveWidth() {
 function loadWidth() {
   try {
     const saved = localStorage.getItem('rightSectionWidth')
+    const collapsed = localStorage.getItem('rightSectionCollapsed')
+    const savedWidthStr = localStorage.getItem('rightSectionSavedWidth')
+    
     if (saved) {
       const width = parseInt(saved, 10)
-      if (!isNaN(width) && width >= 300 && width <= 1200) {
+      if (!isNaN(width) && width >= 6 && width <= 1200) {
         sectionWidth.value = width
       }
+    }
+    
+    if (savedWidthStr) {
+      const width = parseInt(savedWidthStr, 10)
+      if (!isNaN(width) && width >= 300 && width <= 1200) {
+        savedWidth.value = width
+      }
+    }
+    
+    if (collapsed === 'true') {
+      isCollapsed.value = true
     }
   } catch (err) {
     console.warn('Failed to load right section width:', err)
