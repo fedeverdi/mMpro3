@@ -160,7 +160,7 @@
               </h3>
               
               <div class="space-y-4">
-                <div v-for="subgroup in props.subgroups" :key="subgroup.id" class="flex flex-wrap items-center gap-3 text-sm bg-teal-900/10 p-3 rounded-lg border border-teal-700/30">
+                <div v-for="subgroup in props.subgroups.slice(0, 1)" :key="subgroup.id" class="flex flex-wrap items-center justify-between gap-3 text-sm bg-teal-900/10 p-3 rounded-lg border border-teal-700/30">
                   <!-- Subgroup Label -->
                   <div class="flex flex-col items-center w-full mb-2">
                     <div class="px-3 py-1 bg-gradient-to-br from-teal-600 to-teal-700 text-white rounded-lg font-bold shadow-lg">
@@ -245,6 +245,126 @@
             </div>
             
             <div v-if="props.subgroups && props.subgroups.length > 0" class="border-t border-gray-700 my-6"></div>
+            
+            <!-- Aux Buses Chain -->
+            <div v-if="props.auxBuses && props.auxBuses.length > 0" class="mb-8">
+              <h3 class="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"></path>
+                  <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"></path>
+                </svg>
+                Aux Buses Signal Chain
+              </h3>
+              
+              <div class="space-y-6">
+                <!-- Aux Send from Audio Track -->
+                <div class="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
+                  <div class="text-sm text-gray-400 italic mb-4 text-center">From Audio Track:</div>
+                  
+                  <div class="flex gap-8 items-start justify-center">
+                    <!-- Pre-Fader Send -->
+                    <div class="flex flex-col items-center gap-2">
+                      <div class="text-xs text-yellow-400 font-bold">PRE-FADER SEND</div>
+                      <div class="px-3 py-2 bg-yellow-600/80 text-white rounded text-xs font-semibold border-2 border-yellow-500">
+                        Tap @ Balance Merge
+                      </div>
+                      <div class="text-[9px] text-gray-400 text-center">Signal before track volume<br/>Unaffected by track fader</div>
+                    </div>
+                    
+                    <!-- Post-Fader Send -->
+                    <div class="flex flex-col items-center gap-2">
+                      <div class="text-xs text-amber-400 font-bold">POST-FADER SEND</div>
+                      <div class="px-3 py-2 bg-amber-600/80 text-white rounded text-xs font-semibold border-2 border-amber-500">
+                        Tap @ Volume Merge
+                      </div>
+                      <div class="text-[9px] text-gray-400 text-center">Signal after track volume<br/>Follows track fader level</div>
+                    </div>
+                  </div>
+                  
+                  <div class="text-xs text-gray-500 mt-3 text-center">↓</div>
+                  <div class="flex justify-center mt-2">
+                    <div class="px-3 py-1 bg-gray-700 text-white rounded text-xs">Aux Send Gain</div>
+                  </div>
+                </div>
+                
+                <!-- Aux Buses Loop -->
+                <div class="space-y-3">
+                  <div v-for="aux in props.auxBuses.slice(0, 1)" :key="aux.id" class="flex flex-wrap items-center justify-between gap-3 text-sm border-2 border-amber-500/50 rounded-lg p-3 bg-amber-900/10">
+                    <!-- Aux Name -->
+                    <div class="flex flex-col items-center">
+                      <div class="px-3 py-2 bg-gradient-to-br from-yellow-600 to-amber-600 text-white rounded-lg font-bold shadow-lg">
+                        {{ aux.name }}
+                      </div>
+                      <div class="text-xs text-gray-500 mt-1">Aux Bus</div>
+                    </div>
+                    
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                    </svg>
+                    
+                    <!-- Tone Channel -->
+                    <div class="flex flex-col items-center">
+                      <div class="px-3 py-2 bg-gradient-to-r from-yellow-600 to-amber-600 text-white rounded text-xs font-bold">
+                        Tone.Channel
+                      </div>
+                      <div class="text-[9px] text-gray-400 mt-1">Vol, Pan, M, S</div>
+                    </div>
+                    
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                    </svg>
+                    
+                    <!-- Aux Volume -->
+                    <div class="flex flex-col items-center">
+                      <div class="px-3 py-1 bg-gray-700 text-white rounded text-xs">Aux Volume</div>
+                      <div class="text-[9px] text-gray-400 mt-1">Gain control</div>
+                    </div>
+                    
+                    <div class="text-xs text-gray-500">→ SPLIT</div>
+                    
+                    <!-- Route to Master -->
+                    <div class="flex flex-col items-center border-2 border-dashed border-orange-400 rounded-lg p-2 bg-orange-900/10">
+                      <div class="text-[10px] text-orange-400 font-bold mb-1">TO MASTER</div>
+                      <div class="px-2 py-1 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded text-[10px] font-semibold">
+                        Optional
+                      </div>
+                      <div class="text-[8px] text-gray-400 mt-1">If enabled</div>
+                    </div>
+                    
+                    <div class="text-xs text-gray-500">+</div>
+                    
+                    <!-- Independent Output -->
+                    <div class="flex items-center gap-2 border-2 border-green-500 rounded-lg p-2 bg-green-900/10">
+                      <div class="flex flex-col items-center gap-1">
+                        <div class="text-[10px] text-green-400 font-bold">OUTPUT</div>
+                        <div class="px-2 py-0.5 bg-gray-700 text-white rounded text-[9px]">MediaStream</div>
+                      </div>
+                      <div class="text-[10px] text-gray-500">→</div>
+                      <div class="flex flex-col items-center gap-1">
+                        <div class="px-2 py-0.5 bg-blue-600/80 text-white rounded text-[9px]">AudioContext</div>
+                        <div class="text-[8px] text-gray-400">sinkId</div>
+                      </div>
+                      <div class="text-[10px] text-gray-500">→</div>
+                      <div class="flex gap-1">
+                        <div class="px-1.5 py-1 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded text-[9px] font-bold">🔇</div>
+                        <div class="px-1.5 py-1 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded text-[9px] font-bold">🔊</div>
+                        <div class="px-1.5 py-1 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded text-[9px] font-bold">🎧</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Aux Buses Notes -->
+                <div class="mt-4 p-4 bg-gray-800/30 rounded-lg border border-gray-700 text-xs text-gray-400 space-y-2">
+                  <p><strong>Pre-Fader vs Post-Fader:</strong> Pre-fader sends tap the signal after panning but before the track volume control, ensuring consistent aux level regardless of the track fader position. Post-fader sends tap after the volume control, so the aux send level follows the track fader.</p>
+                  <p><strong>Dual Routing:</strong> Each Aux Bus can simultaneously route to the Master Bus (for mixing back into the main output) AND to an independent output device (for separate monitoring or recording).</p>
+                  <p><strong>Output Device Selection:</strong> Choose "No Output" to disable audio, "Default" for the system default output device, or select a specific audio device. Each aux can route to a different physical output.</p>
+                  <p><strong>Audio Architecture:</strong> Uses MediaStreamDestination to create a separate audio stream, then connects it to a dedicated AudioContext with setSinkId() for device-specific routing, independent of the main Tone.js context.</p>
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="props.auxBuses && props.auxBuses.length > 0" class="border-t border-gray-700 my-6"></div>
             
             <!-- Master Chain -->
             <div>
@@ -473,13 +593,20 @@ interface Subgroup {
   name: string
 }
 
+interface AuxBus {
+  id: string
+  name: string
+}
+
 interface Props {
   modelValue: boolean
   subgroups?: Subgroup[]
+  auxBuses?: AuxBus[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  subgroups: () => []
+  subgroups: () => [],
+  auxBuses: () => []
 })
 
 const emit = defineEmits<{

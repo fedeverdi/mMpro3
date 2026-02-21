@@ -262,7 +262,8 @@
         </footer>
 
         <!-- Audio Flow Modal -->
-        <AudioFlowModal v-model="showAudioFlowModal" :subgroups="subgroups.map(s => ({ id: s.id, name: s.name }))" />
+        <AudioFlowModal v-model="showAudioFlowModal" :subgroups="subgroups.map(s => ({ id: s.id, name: s.name }))"
+            :aux-buses="auxBuses.map(a => ({ id: a.id, name: a.name }))" />
 
         <!-- Scenes Modal -->
         <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId"
