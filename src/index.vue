@@ -338,7 +338,7 @@ import SubgroupsSection from './components/SubgroupsSection.vue'
 import ScenesModal from './components/layout/ScenesModal.vue'
 import SpectrumMeter from './components/master/SpectrumMeter.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
-import { useScenes, type Scene, type TrackSnapshot } from '~/composables/useScenes'
+import { useScenes, type Scene, type TrackSnapshot, type SubgroupSnapshot } from '~/composables/useScenes'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import { channel } from 'diagnostics_channel'
 
@@ -784,8 +784,21 @@ async function handleSaveScene(sceneName: string) {
         }))
     }
 
+    // Collect subgroup snapshots
+    const subgroupSnapshots: SubgroupSnapshot[] = []
+    subgroups.value.forEach(subgroup => {
+        if (subgroup.ref && subgroup.ref.getSnapshot) {
+            const snapshot = subgroup.ref.getSnapshot()
+            subgroupSnapshots.push({
+                id: subgroup.id,
+                name: subgroup.name,
+                ...snapshot
+            })
+        }
+    })
+
     // Create and save scene
-    const scene = await createScene(sceneName, trackSnapshots, masterSnapshot)
+    const scene = await createScene(sceneName, trackSnapshots, masterSnapshot, subgroupSnapshots)
     setCurrentScene(scene.id)
 }
 
@@ -812,6 +825,13 @@ function handleLoadScene(sceneId: string) {
         if (masterSectionRef.value?.resetToDefaults) {
             masterSectionRef.value.resetToDefaults()
         }
+
+        // Reset subgroups to defaults
+        subgroups.value.forEach(subgroup => {
+            if (subgroup.ref && subgroup.ref.resetToDefaults) {
+                subgroup.ref.resetToDefaults()
+            }
+        })
 
         // Clear master EQ filters
         masterEqFiltersData.value = []
@@ -852,6 +872,16 @@ function handleLoadScene(sceneId: string) {
             // Restore master section state (volumes, FX)
             if (masterSectionRef.value?.restoreSnapshot) {
                 masterSectionRef.value.restoreSnapshot(scene.master)
+            }
+
+            // Restore subgroups state
+            if (scene.subgroups && scene.subgroups.length > 0) {
+                scene.subgroups.forEach((subgroupSnapshot: SubgroupSnapshot) => {
+                    const subgroup = subgroups.value.find(s => s.id === subgroupSnapshot.id)
+                    if (subgroup && subgroup.ref && subgroup.ref.restoreSnapshot) {
+                        subgroup.ref.restoreSnapshot(subgroupSnapshot)
+                    }
+                })
             }
 
             // Set as current scene
@@ -901,8 +931,21 @@ async function handleUpdateScene(sceneId: string) {
         }))
     }
 
+    // Collect subgroup snapshots
+    const subgroupSnapshots: SubgroupSnapshot[] = []
+    subgroups.value.forEach(subgroup => {
+        if (subgroup.ref && subgroup.ref.getSnapshot) {
+            const snapshot = subgroup.ref.getSnapshot()
+            subgroupSnapshots.push({
+                id: subgroup.id,
+                name: subgroup.name,
+                ...snapshot
+            })
+        }
+    })
+
     // Update scene
-    await updateScene(sceneId, trackSnapshots, masterSnapshot)
+    await updateScene(sceneId, trackSnapshots, masterSnapshot, subgroupSnapshots)
 
     // Clean up old audio files that are no longer in the scene
     if (oldScene) {

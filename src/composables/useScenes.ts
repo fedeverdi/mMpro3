@@ -46,11 +46,28 @@ export interface MasterSnapshot {
   limiterThreshold?: number
 }
 
+export interface SubgroupSnapshot {
+  id: number
+  name: string
+  volume: number
+  routeToMaster: boolean
+  selectedOutput: string | null
+  compressorEnabled: boolean
+  reverbEnabled: boolean
+  limiterEnabled: boolean
+  delayEnabled: boolean
+  compressorParams?: any
+  reverbParams?: any
+  limiterParams?: any
+  delayParams?: any
+}
+
 export interface Scene {
   id: string
   name: string
   tracks: TrackSnapshot[]
   master: MasterSnapshot
+  subgroups?: SubgroupSnapshot[]
   createdAt: number
   updatedAt: number
   pinned?: boolean
@@ -178,12 +195,13 @@ export function useScenes() {
     }
   }
 
-  async function createScene(name: string, tracks: TrackSnapshot[], master: MasterSnapshot): Promise<Scene> {
+  async function createScene(name: string, tracks: TrackSnapshot[], master: MasterSnapshot, subgroups?: SubgroupSnapshot[]): Promise<Scene> {
     const scene: Scene = {
       id: `scene_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       name,
       tracks,
       master,
+      subgroups,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -193,7 +211,7 @@ export function useScenes() {
     return scene
   }
 
-  async function updateScene(sceneId: string, tracks: TrackSnapshot[], master: MasterSnapshot) {
+  async function updateScene(sceneId: string, tracks: TrackSnapshot[], master: MasterSnapshot, subgroups?: SubgroupSnapshot[]) {
     const index = scenes.value.findIndex(s => s.id === sceneId)
     if (index !== -1) {
       const scene = scenes.value[index]
@@ -201,6 +219,7 @@ export function useScenes() {
         ...scene,
         tracks,
         master,
+        subgroups,
         updatedAt: Date.now()
       }
       
