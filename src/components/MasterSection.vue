@@ -68,12 +68,12 @@ import VuMeter from './core/VuMeter.vue'
 import HeadphonesControl from './master/HeadphonesControl.vue'
 import RecorderButton from './recorder/RecorderButton.vue'
 import Recorder from './recorder/Recorder.vue'
-import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, inject, toRaw } from 'vue'
 
 // Props
 interface Props {
-  masterEqDisplay?: any
-  masterFx?: any
+  masterFxOutputNode?: any  // Output node from MasterFX
+  masterFxComponent?: any   // Component interface from MasterFX (for getSnapshot/restoreSnapshot)
   loadedTracks?: Array<{ trackNumber: number, fileName: string, fileId: string }>
 }
 
@@ -300,9 +300,9 @@ watch(leftVolume, (newVal) => {
   }
 })
 
-// Watch for masterFx to become available and rebuild chain
-watch(() => props.masterFx, (newVal) => {
-  if (newVal && newVal.getOutputNode && splitNode) {
+// Watch for masterFx output node to become available and rebuild chain
+watch(() => props.masterFxOutputNode, (newVal) => {
+  if (newVal && splitNode) {
     setTimeout(() => {
       rebuildFXChain()
     }, 100)
@@ -362,9 +362,9 @@ onMounted(async () => {
 
 // Rebuild FX chain (now handled by MasterFX internally)
 function rebuildFXChain() {
-  if (!props.masterFx?.getOutputNode || !Tone || !splitNode) return
+  if (!props.masterFxOutputNode || !Tone || !splitNode) return
 
-  const fxOutput = props.masterFx.getOutputNode()
+  const fxOutput = toRaw(props.masterFxOutputNode)
   if (!fxOutput) return
 
   // NO disconnect! MasterFX output can have multiple destinations (SpectrumMeter + MasterSection)
@@ -391,7 +391,7 @@ function getPreLimiterValues() {
 // Scene Snapshot Support
 function getSnapshot() {
   // Get FX snapshot from MasterFX
-  const fxSnapshot = props.masterFx?.getSnapshot?.() || {}
+  const fxSnapshot = props.masterFxComponent?.getSnapshot?.() || {}
   
   return {
     leftVolume: leftVolume.value,
@@ -412,8 +412,8 @@ function restoreSnapshot(snapshot: any) {
   if (snapshot.isLinked !== undefined) isLinked.value = snapshot.isLinked
 
   // Restore FX via MasterFX
-  if (props.masterFx?.restoreSnapshot) {
-    props.masterFx.restoreSnapshot(snapshot)
+  if (props.masterFxComponent?.restoreSnapshot) {
+    props.masterFxComponent.restoreSnapshot(snapshot)
   }
 }
 
@@ -436,8 +436,8 @@ defineExpose({
     headphonesLevel.value = -60
 
     // Reset Master FX if available
-    if (props.masterFx?.resetToDefaults) {
-      props.masterFx.resetToDefaults()
+    if (props.masterFxComponent?.resetToDefaults) {
+      props.masterFxComponent.resetToDefaults()
     }
   }
 })

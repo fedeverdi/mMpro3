@@ -84,7 +84,7 @@
 import { ref, watch, onMounted, onUnmounted, inject, toRaw } from 'vue'
 
 interface Props {
-  masterFx?: any
+  masterFxOutputNode?: any
 }
 
 const props = defineProps<Props>()
@@ -141,9 +141,8 @@ const initAnalyser = async () => {
 
 // Ottieni il nodo master da MasterFX
 const getMasterNode = () => {
-  if (!props.masterFx?.getOutputNode) return null
-  const node = props.masterFx.getOutputNode()
-  return node ? toRaw(node) : null
+  if (!props.masterFxOutputNode) return null
+  return toRaw(props.masterFxOutputNode)
 }
 
 // Connetti gli analyser al master
@@ -174,9 +173,9 @@ const connectAnalyser = async () => {
   }
 }
 
-// Watch masterFx changes
+// Watch masterFxOutputNode changes
 watch(
-  () => props.masterFx,
+  () => props.masterFxOutputNode,
   () => {
     setTimeout(() => connectAnalyser(), 100)
   },

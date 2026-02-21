@@ -143,11 +143,16 @@ import DelayEffect from '../fx/DelayEffect.vue'
 import LimiterEffect from '../fx/LimiterEffect.vue'
 
 interface Props {
-  masterEqDisplay?: any  // To get inputNode from MasterEQDisplay
-  masterSection?: any    // For meter visualization in CompressorEffect and LimiterEffect
+  masterEqOutputNode?: any  // Output node from MasterEQDisplay
+  masterSection?: any       // For meter visualization in CompressorEffect and LimiterEffect
 }
 
 const props = defineProps<Props>()
+
+const emit = defineEmits<{
+  (e: 'output-node', value: any): void
+  (e: 'component', value: { getSnapshot: () => any, restoreSnapshot: (snapshot: any) => void, resetToDefaults: () => void }): void
+}>()
 
 // Inject Tone.js
 const ToneRef = inject<any>('Tone')
@@ -264,10 +269,58 @@ onMounted(async () => {
 
   // Create output node
   outputNode = new Tone.Gain(1)
+  
+  // Emit output node to parent
+  emit('output-node', outputNode)
+  
+  // Emit component interface to parent
+  emit('component', {
+    getSnapshot,
+    restoreSnapshot,
+    resetToDefaults: () => {
+      // Clear all effects
+      effects.value = []
+      
+      // Reset parameter values to defaults
+      compressorParams.value = { ...defaultParams.compressor }
+      reverbParams.value = { ...defaultParams.reverb }
+      delayParams.value = { ...defaultParams.delay }
+      limiterParams.value = { ...defaultParams.limiter }
+      
+      // Disconnect and clear all audio nodes
+      if (compressorNode) {
+        try {
+          compressorNode.disconnect()
+        } catch (e) { /* ignore */ }
+        compressorNode = null
+      }
+      if (reverbNode) {
+        try {
+          reverbNode.disconnect()
+        } catch (e) { /* ignore */ }
+        reverbNode = null
+      }
+      if (delayNode) {
+        try {
+          delayNode.disconnect()
+        } catch (e) { /* ignore */ }
+        delayNode = null
+      }
+      if (limiterNode) {
+        try {
+          limiterNode.disconnect()
+        } catch (e) { /* ignore */ }
+        limiterNode = null
+      }
+      
+      // Rebuild chain
+      rebuildFXChain()
+    }
+  })
 
-  // Wait for MasterEQDisplay to be ready
-  if (props.masterEqDisplay?.getOutputNode) {
-    inputNode = props.masterEqDisplay.getOutputNode()
+  // Wait for MasterEQDisplay output node to be ready
+  if (props.masterEqOutputNode) {
+    inputNode = toRaw(props.masterEqOutputNode)
     // Initial connection: input -> output (no FX)
     if (inputNode) {
       inputNode.connect(outputNode)
@@ -275,25 +328,15 @@ onMounted(async () => {
   }
 })
 
-// Watch for MasterEQDisplay to become available
-watch(() => props.masterEqDisplay, (newVal) => {
-  if (newVal && newVal.getOutputNode && Tone && outputNode) {
-    // Try to get input node
-    inputNode = newVal.getOutputNode()
+// Watch for MasterEQ output node to become available
+watch(() => props.masterEqOutputNode, (newVal) => {
+  if (newVal && Tone && outputNode) {
+    // Get input node
+    inputNode = toRaw(newVal)
     
     if (inputNode) {
       // Rebuild chain with new input
       rebuildFXChain()
-    } else {
-      // OutputNode might not be created yet, retry after a delay
-      setTimeout(() => {
-        if (newVal && newVal.getOutputNode) {
-          inputNode = newVal.getOutputNode()
-          if (inputNode) {
-            rebuildFXChain()
-          }
-        }
-      }, 150)
     }
   }
 }, { immediate: true })
@@ -783,57 +826,6 @@ function restoreSnapshot(snapshot: any) {
     }
   }
 }
-
-// Expose methods and output node
-defineExpose({
-  getOutputNode: () => outputNode,
-  getSnapshot,
-  restoreSnapshot,
-  resetToDefaults: () => {
-    // Clear all effects
-    effects.value = []
-    
-    // Reset parameter values to defaults
-    compressorParams.value = { ...defaultParams.compressor }
-    reverbParams.value = { ...defaultParams.reverb }
-    delayParams.value = { ...defaultParams.delay }
-    limiterParams.value = { ...defaultParams.limiter }
-    
-    // Disconnect and clear all audio nodes
-    if (compressorNode) {
-      try {
-        compressorNode.disconnect()
-      } catch (e) { }
-      compressorNode = null
-    }
-    if (reverbNode) {
-      try {
-        reverbNode.disconnect()
-      } catch (e) { }
-      reverbNode = null
-    }
-    if (delayNode) {
-      try {
-        delayNode.disconnect()
-      } catch (e) { }
-      delayNode = null
-    }
-    if (limiterNode) {
-      try {
-        limiterNode.disconnect()
-      } catch (e) { }
-      limiterNode = null
-    }
-    
-    // Reconnect audio chain (master -> output)
-    rebuildFXChain()
-  },
-  // Keep these for backward compatibility with effect components
-  compressorNode: () => compressorNode,
-  reverbNode: () => reverbNode,
-  delayNode: () => delayNode,
-  limiterNode: () => limiterNode
-})
 </script>
 
 <style scoped>

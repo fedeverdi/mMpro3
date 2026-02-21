@@ -179,24 +179,76 @@
                     </div>
                 </template>
 
-                <!-- Master EQ Display, Spectrum & FX -->
+                <!-- Master EQ Display, Spectrum & FX (Draggable) -->
                 <template v-else>
                     <div class="flex flex-col h-full gap-2">
-                        <div class="w-[36rem] flex flex-col flex-1 min-h-0 gap-2 mixer-fade-in">
-                            <div class="flex-1 min-h-0">
-                                <MasterEQDisplay ref="masterEQDisplayRef" :filters-data="masterEqFiltersData"
+                        <template v-for="component in rightSectionComponents" :key="component.id">
+                            <!-- Master EQ Display -->
+                            <div v-if="component.id === 'eq'"
+                                :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-[36rem] mixer-fade-in relative group']"
+                                draggable="true"
+                                @dragstart="handleDragStart(component.id)"
+                                @dragover="handleDragOver"
+                                @drop="handleDrop($event, component.id)"
+                                @dragend="handleDragEnd"
+                                :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
+                                <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z"/>
+                                        </svg>
+                                        <span>{{ component.name }}</span>
+                                    </div>
+                                </div>
+                                <MasterEQDisplay :filters-data="masterEqFiltersData"
                                     :master-channel="masterChannel"
-                                    @update:filters-data="handleMasterEQFiltersUpdate" />
+                                    @update:filters-data="handleMasterEQFiltersUpdate"
+                                    @output-node="handleMasterEqOutputNode" />
                             </div>
-                            <div class="flex-1 min-h-0">
-                                <SpectrumMeter :master-fx="masterFxRef" />
+                            
+                            <!-- Spectrum Meter -->
+                            <div v-if="component.id === 'spectrum'"
+                                :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-[36rem] mixer-fade-in relative group']"
+                                draggable="true"
+                                @dragstart="handleDragStart(component.id)"
+                                @dragover="handleDragOver"
+                                @drop="handleDrop($event, component.id)"
+                                @dragend="handleDragEnd"
+                                :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
+                                <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z"/>
+                                        </svg>
+                                        <span>{{ component.name }}</span>
+                                    </div>
+                                </div>
+                                <SpectrumMeter :master-fx-output-node="masterFxOutputNode" />
                             </div>
-                        </div>
-
-                        <div class="w-[36rem] mixer-fade-in">
-                            <MasterFX ref="masterFxRef" :master-eq-display="masterEQDisplayRef"
-                                :master-section="masterSectionRef" />
-                        </div>
+                            
+                            <!-- Master FX -->
+                            <div v-if="component.id === 'fx'"
+                                class="w-[36rem] mixer-fade-in relative group"
+                                draggable="true"
+                                @dragstart="handleDragStart(component.id)"
+                                @dragover="handleDragOver"
+                                @drop="handleDrop($event, component.id)"
+                                @dragend="handleDragEnd"
+                                :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
+                                <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z"/>
+                                        </svg>
+                                        <span>{{ component.name }}</span>
+                                    </div>
+                                </div>
+                                <MasterFX :master-eq-output-node="masterEqOutputNode"
+                                    :master-section="masterSectionRef"
+                                    @output-node="handleMasterFxOutputNode"
+                                    @component="handleMasterFxComponent" />
+                            </div>
+                        </template>
                     </div>
 
                     <!-- Subgroups Section -->
@@ -206,8 +258,8 @@
 
                     <!-- Master Section -->
                     <div class="flex-shrink-0 h-full mixer-fade-in">
-                        <MasterSection ref="masterSectionRef" :master-eq-display="masterEQDisplayRef"
-                            :master-fx="masterFxRef" :loaded-tracks="loadedTracks" />
+                        <MasterSection ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode"
+                            :master-fx-component="masterFxComponent" :loaded-tracks="loadedTracks" />
                     </div>
                 </template>
             </div>
@@ -263,7 +315,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, toRaw, nextTick, inject } from 'vue'
+import { ref, onMounted, computed, toRaw, nextTick, inject, watch } from 'vue'
 import AudioTrack from './components/AudioTrack.vue'
 import SignalTrack from './components/SignalTrack.vue'
 import AudioFlowModal from './components/layout/AudioFlowModal.vue'
@@ -339,12 +391,28 @@ function removeTrack() {
     }
 }
 
-// Track refs management
+// Track refs management (only for tracks, not for master components)
 const trackRefs = ref<Map<number, any>>(new Map())
-const masterEQDisplayRef = ref<any>(null)
-const masterFxRef = ref<any>(null)
-const masterSectionRef = ref<any>(null)
+const masterSectionRef = ref<any>(null) // Keep only for getSnapshot/restoreSnapshot
 const subgroupsSectionRef = ref<any>(null)
+
+// Audio nodes received from components via emit
+const masterEqOutputNode = ref<any>(null)
+const masterFxOutputNode = ref<any>(null)
+const masterFxComponent = ref<any>(null) // For getSnapshot only
+
+// Handlers for output node updates
+function handleMasterEqOutputNode(node: any) {
+    masterEqOutputNode.value = node
+}
+
+function handleMasterFxOutputNode(node: any) {
+    masterFxOutputNode.value = node
+}
+
+function handleMasterFxComponent(component: any) {
+    masterFxComponent.value = component
+}
 
 function setTrackRef(trackId: number, el: any | null) {
     if (el) {
@@ -362,6 +430,86 @@ const masterEqFiltersData = ref<any[]>([])
 function handleMasterEQFiltersUpdate(filters: any[]) {
     masterEqFiltersData.value = filters
 }
+
+// Right section components order (draggable)
+interface RightSectionComponent {
+    id: string
+    name: string
+    size: 'flex' | 'fixed'
+}
+
+const rightSectionComponents = ref<RightSectionComponent[]>([
+    { id: 'eq', name: 'Master EQ', size: 'flex' },
+    { id: 'spectrum', name: 'Spectrum', size: 'flex' },
+    { id: 'fx', name: 'Master FX', size: 'fixed' }
+])
+
+const draggedComponent = ref<string | null>(null)
+
+function handleDragStart(componentId: string) {
+    draggedComponent.value = componentId
+}
+
+function handleDragOver(event: DragEvent) {
+    event.preventDefault()
+}
+
+function handleDrop(event: DragEvent, targetComponentId: string) {
+    event.preventDefault()
+    
+    if (!draggedComponent.value || draggedComponent.value === targetComponentId) {
+        return
+    }
+    
+    const draggedIndex = rightSectionComponents.value.findIndex(c => c.id === draggedComponent.value)
+    const targetIndex = rightSectionComponents.value.findIndex(c => c.id === targetComponentId)
+    
+    if (draggedIndex !== -1 && targetIndex !== -1) {
+        const components = [...rightSectionComponents.value]
+        const [removed] = components.splice(draggedIndex, 1)
+        components.splice(targetIndex, 0, removed)
+        rightSectionComponents.value = components
+    }
+    
+    draggedComponent.value = null
+}
+
+function handleDragEnd() {
+    draggedComponent.value = null
+}
+
+// Load components order from localStorage
+function loadComponentsOrder() {
+    try {
+        const saved = localStorage.getItem('rightSectionComponentsOrder')
+        if (saved) {
+            const order = JSON.parse(saved)
+            // Validate that all required components are present
+            const requiredIds = ['eq', 'spectrum', 'fx']
+            const savedIds = order.map((c: RightSectionComponent) => c.id)
+            
+            if (requiredIds.every(id => savedIds.includes(id))) {
+                rightSectionComponents.value = order
+            }
+        }
+    } catch (err) {
+        console.warn('Failed to load components order:', err)
+    }
+}
+
+// Save components order to localStorage
+function saveComponentsOrder() {
+    try {
+        localStorage.setItem('rightSectionComponentsOrder', JSON.stringify(rightSectionComponents.value))
+    } catch (err) {
+        console.warn('Failed to save components order:', err)
+    }
+}
+
+// Watch for changes and save automatically
+watch(rightSectionComponents, () => {
+    saveComponentsOrder()
+}, { deep: true })
 
 // Loaded tracks for recorder waveform display
 const loadedTracks = computed(() => {
@@ -688,6 +836,9 @@ const pinnedScenes = computed(() => {
 onMounted(async () => {
     document.title = 'Audio Mixer Pro - Multi-Track Mixer'
 
+    // Load right section components order from localStorage
+    loadComponentsOrder()
+
     // Load scenes from IndexedDB
     await loadScenesFromStorage()
 
@@ -719,6 +870,9 @@ onMounted(async () => {
         channelCountMode: 'explicit',
         channelInterpretation: 'speakers'
     })
+
+    // NOTE: masterChannel will be connected by MasterEQDisplay component
+    console.log('[Audio] Master channel created (will be connected to EQ)')
 
     // Create subgroup channel (similar to master)
     subgroupChannel.value = new Tone.Channel({
@@ -861,5 +1015,20 @@ onMounted(async () => {
     pointer-events: none;
     z-index: 5;
     background: linear-gradient(to left, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0));
+}
+
+/* Draggable components */
+[draggable="true"] {
+    transition: all 0.3s ease;
+    border-radius: 0.5rem;
+}
+
+[draggable="true"]:hover {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+[draggable="true"]:active {
+    opacity: 0.7;
+    transform: scale(0.98);
 }
 </style>

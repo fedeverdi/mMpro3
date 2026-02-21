@@ -47,6 +47,7 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'update:filtersData', value: any[]): void
+  (e: 'output-node', value: any): void
 }>()
 
 // Inject Tone.js
@@ -94,6 +95,9 @@ watch(() => props.masterChannel, (newVal) => {
     // Connect master to output
     const masterChan = toRaw(newVal)
     masterChan.connect(outputNode)
+    
+    // Emit the output node to parent
+    emit('output-node', outputNode)
   }
 }, { immediate: true })
 
@@ -113,6 +117,9 @@ onMounted(async () => {
     // Initially connect master directly to output
     const masterChan = toRaw(props.masterChannel)
     masterChan.connect(outputNode)
+    
+    // Emit the output node to parent
+    emit('output-node', outputNode)
   }
 })
 
@@ -340,9 +347,4 @@ function calculateFilterGain(filter: any, freq: number): number {
   }
   return 0
 }
-
-// Expose output node for MasterSection to connect to
-defineExpose({
-  getOutputNode: () => outputNode
-})
 </script>
