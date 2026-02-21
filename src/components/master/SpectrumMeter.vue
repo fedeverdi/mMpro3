@@ -26,7 +26,7 @@
     </div>
 
     <!-- Canvas -->
-    <div class="relative flex-1 rounded-lg border border-gray-800 bg-gray-950/80 overflow-hidden shadow-inner">
+    <div class="relative flex-1 rounded border border-gray-800 bg-gray-950/80 overflow-hidden shadow-inner">
       <canvas ref="canvas" class="absolute inset-0 w-full h-full"></canvas>
       
       <!-- Modalità visualizzazione -->
