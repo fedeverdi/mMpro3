@@ -10,7 +10,7 @@
         <div class="w-full bg-gray-900 rounded p-1.5 border border-gray-700">
             <OutputSelector icon="🔊" title="Select Subgroup Output" :devices="audioOutputs"
                 :selected-device-id="selectedOutput" default-label="Default" default-description="Default audio output"
-                default-icon="🔊" @select="handleOutputSelect" />
+                default-icon="🔊" :show-no-output="true" @select="handleOutputSelect" />
         </div>
 
         <!-- FX Section -->
@@ -45,6 +45,14 @@
                 <SubgroupFader v-model="volume" label="SUB" :trackHeight="fadersHeight" />
             </div>
         </div>
+
+        <!-- Route to Master Button -->
+        <div class="w-full">
+            <button @click="toggleRouteToMaster" class="w-full py-1 text-xs font-bold rounded transition-all"
+                :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+                {{ routeToMaster ? '→ MASTER' : '→ DIRECT' }}
+            </button>
+        </div>
     </div>
 </template>
 
@@ -55,8 +63,15 @@ import TrackCompressor from './audioTrack/TrackCompressor.vue'
 import TrackReverb from './audioTrack/TrackReverb.vue'
 import TrackLimiter from './audioTrack/TrackLimiter.vue'
 import TrackDelay from './audioTrack/TrackDelay.vue'
-import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, inject, toRaw } from 'vue'
 import SubgroupFader from './subgroups/SubgroupFader.vue'
+
+// Props
+interface Props {
+    masterChannel?: any
+}
+
+const props = defineProps<Props>()
 
 // Inject Tone.js from App.vue
 const ToneRef = inject<any>('Tone')
@@ -64,6 +79,7 @@ let Tone: any = null
 
 // Subgroup volume
 const volume = ref(0)
+const routeToMaster = ref(false)
 
 // FX refs and state
 const trackCompressorRef = ref<any>(null)
@@ -81,7 +97,7 @@ const rightLevel = ref(-60)
 
 // Audio outputs
 const audioOutputs = ref<MediaDeviceInfo[]>([])
-const selectedOutput = ref<string | null>(null)
+const selectedOutput = ref<string | null>('no-output')
 
 // Container and dynamic height
 const metersContainer = ref<HTMLElement | null>(null)
@@ -151,6 +167,12 @@ async function onOutputSelect() {
             outputAudioContext = null
         }
 
+        // If "no-output" is selected, don't create any output context
+        if (selectedOutput.value === 'no-output') {
+            console.log('[Subgroup Output] No output selected - audio disabled')
+            return
+        }
+
         // Create new AudioContext targeting selected device
         const mainAudioContext = Tone.context.rawContext as AudioContext
         const contextOptions: any = {
@@ -158,7 +180,7 @@ async function onOutputSelect() {
             sampleRate: mainAudioContext.sampleRate
         }
 
-        if (selectedOutput.value) {
+        if (selectedOutput.value && selectedOutput.value !== '') {
             contextOptions.sinkId = selectedOutput.value
         }
 
@@ -258,11 +280,13 @@ function initSubgroupChannel() {
     rightGain.connect(rightMeter)
     rightGain.connect(outputMerge, 0, 1)
 
-    // Output to MediaStream for device routing AND to main destination
-    // Chain: inputGainNode → FX → split → faders → outputMerge → outputGain → streamDest + Tone.destination
+    // Output to MediaStream for device routing
+    // Chain: inputGainNode → FX → split → faders → outputMerge → outputGain → streamDest + (master or destination)
     outputMerge.connect(outputGain)
     outputGain.connect(outputStreamDest as any)
-    outputGain.connect(Tone.getDestination())
+    
+    // Connect to master or direct output based on routeToMaster
+    updateRouting()
 
     // Update initial volumes
     updateSubgroupVolume()
@@ -298,6 +322,62 @@ function updateSubgroupVolume() {
 
 // Watch for volume changes
 watch(volume, updateSubgroupVolume)
+
+// Update audio routing (master vs direct)
+function updateRouting() {
+    if (!outputGain || !Tone) return
+
+    try {
+        // Disconnect any existing output connections (except stream dest)
+        outputGain.disconnect()
+    } catch (e) {
+        // Already disconnected
+    }
+
+    // Always reconnect to stream dest
+    try {
+        outputGain.connect(outputStreamDest as any)
+    } catch (e) {
+        console.error('[Subgroup] Error connecting to stream dest:', e)
+    }
+
+    // Connect to master or direct destination or no output
+    if (routeToMaster.value && props.masterChannel) {
+        try {
+            // Unwrap masterChannel from Vue reactivity with toRaw
+            const rawMasterChannel = toRaw(props.masterChannel)
+            // Verify masterChannel is a valid audio node
+            if (rawMasterChannel && typeof rawMasterChannel.connect === 'function') {
+                outputGain.connect(rawMasterChannel)
+            } else {
+                console.warn('[Subgroup] Master channel not ready yet')
+            }
+        } catch (e) {
+            console.error('[Subgroup] Error connecting to master channel:', e)
+        }
+    } else if (selectedOutput.value === 'no-output') {
+        // No output - meters work but no audio out
+        console.log('[Subgroup] No audio output - meters only')
+    } else {
+        try {
+            outputGain.connect(Tone.getDestination())
+        } catch (e) {
+            console.error('[Subgroup] Error connecting to destination:', e)
+        }
+    }
+}
+
+// Toggle route to master
+function toggleRouteToMaster() {
+    routeToMaster.value = !routeToMaster.value
+    updateRouting()
+}
+
+// Watch for route changes
+watch(routeToMaster, updateRouting)
+
+// Watch for output device changes to update routing
+watch(selectedOutput, updateRouting)
 
 // FX toggles
 function toggleCompressor() {
@@ -408,6 +488,7 @@ function getInputNode() {
 function getSnapshot() {
     return {
         volume: volume.value,
+        routeToMaster: routeToMaster.value,
         selectedOutput: selectedOutput.value,
         compressorEnabled: compressorEnabled.value,
         reverbEnabled: reverbEnabled.value,
@@ -424,6 +505,7 @@ function restoreSnapshot(snapshot: any) {
     if (!snapshot) return
 
     if (snapshot.volume !== undefined) volume.value = snapshot.volume
+    if (snapshot.routeToMaster !== undefined) routeToMaster.value = snapshot.routeToMaster
     if (snapshot.selectedOutput !== undefined) {
         selectedOutput.value = snapshot.selectedOutput
         nextTick(() => onOutputSelect())
@@ -459,6 +541,7 @@ defineExpose({
     restoreSnapshot,
     resetToDefaults: () => {
         volume.value = 0
+        routeToMaster.value = false
         leftLevel.value = -60
         rightLevel.value = -60
         selectedOutput.value = null

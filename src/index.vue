@@ -253,7 +253,7 @@
 
                     <!-- Subgroups Section -->
                     <div class="flex-shrink-0 h-full mixer-fade-in">
-                        <SubgroupsSection ref="subgroupsSectionRef" />
+                        <SubgroupsSection ref="subgroupsSectionRef" :master-channel="masterChannel" />
                     </div>
 
                     <!-- Master Section -->

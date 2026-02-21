@@ -17,6 +17,7 @@
     :default-label="defaultLabel"
     :default-description="defaultDescription"
     :default-icon="defaultIcon"
+    :show-no-output="showNoOutput"
     @close="showModal = false"
     @select="handleSelect"
   />
@@ -34,9 +35,12 @@ interface Props {
   defaultLabel: string
   defaultDescription: string
   defaultIcon: string
+  showNoOutput?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  showNoOutput: false
+})
 
 const emit = defineEmits<{
   select: [deviceId: string | null]
@@ -46,6 +50,7 @@ const showModal = ref(false)
 
 const deviceLabel = computed(() => {
   if (!props.selectedDeviceId) return props.defaultLabel
+  if (props.selectedDeviceId === 'no-output') return 'No Output'
   const device = props.devices.find(d => d.deviceId === props.selectedDeviceId)
   if (!device) return props.defaultLabel
   const name = device.label || 'Unknown'

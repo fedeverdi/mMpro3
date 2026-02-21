@@ -22,6 +22,31 @@
 
           <!-- Devices List -->
           <div class="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
+            <!-- No Output Option -->
+            <button
+              v-if="showNoOutput"
+              @click="selectDevice('no-output')"
+              class="w-full p-4 rounded-lg border-2 transition-all text-left"
+              :class="selectedDeviceId === 'no-output' 
+                ? 'bg-blue-600 border-blue-500 text-white' 
+                : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500'"
+            >
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="text-2xl">🔇</div>
+                  <div>
+                    <div class="font-semibold">No Output</div>
+                    <div class="text-xs opacity-70">Disable audio output</div>
+                  </div>
+                </div>
+                <div v-if="selectedDeviceId === 'no-output'" class="text-blue-300">
+                  <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                  </svg>
+                </div>
+              </div>
+            </button>
+            
             <!-- Default/Off Option -->
             <button
               @click="selectDevice('')"
@@ -89,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   isOpen: boolean
   title: string
   devices: MediaDeviceInfo[]
@@ -97,7 +122,10 @@ const props = defineProps<{
   defaultLabel?: string
   defaultDescription?: string
   defaultIcon?: string
-}>()
+  showNoOutput?: boolean
+}>(), {
+  showNoOutput: false
+})
 
 const emit = defineEmits<{
   (e: 'close'): void
