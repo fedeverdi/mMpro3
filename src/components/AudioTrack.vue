@@ -337,6 +337,7 @@ const trackReverbRef = ref<InstanceType<typeof TrackReverb> | null>(null)
 // Tone.js nodes
 let player: any = null // Can be Tone.Player or Tone.UserMedia
 let currentAudioBuffer: AudioBuffer | null = null // Store current audio buffer for player recreation
+let padNode: any = null // PAD attenuation (-26dB when enabled) - PRE-GAIN
 let gainNode: any = null
 let hpfNode: any = null // High-pass filter at 80Hz
 let eq3: any = null
@@ -431,6 +432,9 @@ function initAudioNodes() {
   }
 
   // Create audio nodes
+  // PAD node (pre-gain attenuation)
+  padNode = new Tone.Gain(1) // 1 = 0dB (no pad), will be set to lower value when enabled
+
   gainNode = new Tone.Gain(1) // 1 = 0dB (unity gain), not 0!
 
   // High-pass filter at 80Hz (bypassed when disabled)
@@ -482,9 +486,11 @@ function initAudioNodes() {
     wet: 0            // Bypassed: 0% wet = no reverb
   })
 
-  // Connect chain: gain -> hpf -> eq3 -> reverb -> balance -> volume
+  // Connect chain: pad -> gain -> hpf -> eq3 -> reverb -> balance -> volume
+  // PAD is pre-gain (professional mixer architecture)
   // Compressor is bypassed by default (not in chain)
   // HPF is also bypassed by default (connected but with wet=0)
+  padNode.connect(gainNode)
   gainNode.connect(hpfNode)
   hpfNode.connect(eq3)
 
@@ -906,7 +912,7 @@ async function handleFileUpload(event: Event) {
         loop: true,
         playbackRate: 1.0,
       })
-      player.connect(gainNode)
+      player.connect(padNode)
     }
 
     // Update current buffer reference for waveform
@@ -1026,7 +1032,7 @@ async function loadFileFromIndexedDB(savedFileId: string, silent: boolean = fals
         fadeIn: 0.01,   // Prevent resampling artifacts
         fadeOut: 0.01   // Prevent clicks on stop
       })
-      player.connect(gainNode)
+      player.connect(padNode)
     }
 
     // Update current buffer reference for waveform
@@ -1181,7 +1187,7 @@ async function handleAudioInputChange() {
     // Reuse player if it's already a Gain node, otherwise create new
     if (!player || typeof player.stop === 'function') {
       player = new Tone.Gain(1)
-      player.connect(gainNode!)
+      player.connect(padNode!)
     }
 
     // Connect the native media stream source to player input
@@ -1268,7 +1274,7 @@ async function togglePlay() {
       })
 
       // Reconnect to audio chain
-      player.connect(gainNode)
+      player.connect(padNode)
     }
 
     // Start with future time for more stable playback
@@ -1345,9 +1351,14 @@ function updateVolume() {
 
 function updateGain() {
   if (!gainNode || !Tone) return
-  // Apply gain with PAD attenuation if enabled (-26dB)
-  const totalGain = gain.value + (padEnabled.value ? -26 : 0)
-  gainNode.gain.value = Tone.dbToGain(totalGain)
+  gainNode.gain.value = Tone.dbToGain(gain.value)
+}
+
+// Update PAD state (pre-gain attenuation)
+function updatePad() {
+  if (!padNode || !Tone) return
+  // PAD: -26dB attenuation when enabled, 0dB (unity) when disabled
+  padNode.gain.value = padEnabled.value ? Tone.dbToGain(-26) : 1
 }
 
 // Update HPF state
@@ -1373,7 +1384,7 @@ function updatePan() {
 // Watch for parameter changes
 watch(volume, updateVolume)
 watch(gain, updateGain)
-watch(padEnabled, updateGain)
+watch(padEnabled, updatePad)
 watch(hpfEnabled, updateHPF)
 watch(pan, updatePan)
 
