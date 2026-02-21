@@ -1,8 +1,8 @@
 <template>
-  <div class="master-eq-track bg-gradient-to-b from-gray-900 to-gray-950 rounded-lg border-2 border-blue-500/70 p-3 flex flex-col gap-3 h-full">
+  <div class="master-eq-track bg-gradient-to-b from-gray-900 to-gray-950 rounded-lg border-2 border-blue-500/70 p-2 flex flex-col gap-3 h-full">
     <div>
-      <p class="text-sm font-bold text-blue-300 tracking-wide uppercase">Master Parametric EQ</p>
-      <p class="text-[10px] text-gray-400">Global tone shaping</p>
+      <p class="text-[0.7rem] font-bold text-blue-300 tracking-wide uppercase">Master Parametric EQ</p>
+      <p class="text-[0.5rem] text-gray-400">Global tone shaping</p>
     </div>
 
     <div class="relative w-full flex-1 min-h-0 rounded-lg border border-gray-800 bg-black/50 overflow-hidden shadow-inner">

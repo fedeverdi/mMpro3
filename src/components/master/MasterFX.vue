@@ -1,8 +1,8 @@
 <template>
-  <div class="master-fx bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-green-600/60 p-3 flex flex-col gap-2 ">
+  <div class="master-fx bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-green-600/60 p-2 flex flex-col gap-2 ">
     <div class="text-left flex-shrink-0">
-      <p class="text-sm font-bold text-green-200 tracking-wide uppercase">Master FX Chain</p>
-      <p class="text-[10px] text-gray-400">Click + to add effects</p>
+      <p class="text-[0.7rem] font-bold text-green-200 tracking-wide uppercase">Master FX Chain</p>
+      <p class="text-[0.5rem] text-gray-400">Click + to add effects</p>
     </div>
 
     <div class="flex-1 h-full grid gap-2 min-h-0 pr-1 custom-scrollbar overflow-y-none" style="grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));">

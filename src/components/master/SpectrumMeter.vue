@@ -1,10 +1,10 @@
 <template>
-  <div class="spectrum-meter bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-purple-600/60 p-3 flex flex-col gap-3 h-full">
+  <div class="spectrum-meter bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-purple-600/60 p-2 flex flex-col gap-3 h-full">
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <p class="text-sm font-bold text-purple-200 tracking-wide uppercase">Spectrum Analyzer</p>
-        <p class="text-[10px] text-gray-400">20 Hz - 20 kHz</p>
+        <p class="text-[0.7rem] font-bold text-purple-200 tracking-wide uppercase">Spectrum Analyzer</p>
+        <p class="text-[0.5rem] text-gray-400">20 Hz - 20 kHz</p>
       </div>
 
       <!-- Numero di barre -->

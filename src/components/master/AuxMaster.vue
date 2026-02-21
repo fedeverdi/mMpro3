@@ -1,8 +1,8 @@
 <template>
-  <div class="aux-master bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-purple-600/60 p-2 flex flex-col gap-2">
+  <div class="aux-master bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-teal-600/60 p-2 flex flex-col gap-2">
     <div class="text-left flex-shrink-0">
-      <p class="text-xs font-bold text-purple-200 tracking-wide uppercase">Auxiliary Buses</p>
-      <p class="text-[9px] text-gray-400">Click + to add aux send</p>
+      <p class="text-[0.7rem] font-bold text-teal-200 tracking-wide uppercase">Auxiliary Buses</p>
+      <p class="text-[0.5rem] text-gray-400">Click + to add aux send</p>
     </div>
 
     <div v-if="auxBuses.length === 0" class="flex-1 flex items-center justify-center text-gray-500 text-xs">
@@ -11,7 +11,7 @@
 
     <div v-else class="flex-1 grid gap-1.5 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar" 
          style="grid-template-columns: repeat(6, 1fr); grid-auto-rows: max-content;">
-      <div v-for="(aux, index) in auxBuses" :key="aux.id" class="relative flex flex-col gap-0.5 bg-gray-800/50 rounded-lg p-1.5 border border-purple-700/50">
+      <div v-for="(aux, index) in auxBuses" :key="aux.id" class="relative flex flex-col gap-0.5 bg-gray-800/50 rounded-lg p-1.5 border border-teal-700/50">
         <!-- Remove button (hidden for now) -->
         <button 
           v-if="false"
@@ -30,7 +30,7 @@
           <input 
             v-model="aux.name"
             @blur="updateAuxName(index, aux.name)"
-            class="bg-transparent text-[10px] font-bold text-purple-300 text-center border-b border-transparent hover:border-purple-500 focus:border-purple-500 outline-none w-full"
+            class="bg-transparent text-[10px] font-bold text-teal-300 text-center border-b border-transparent hover:border-teal-500 focus:border-teal-500 outline-none w-full"
             maxlength="10"
           />
         </div>
@@ -44,7 +44,7 @@
             :max="10"
             label="Vol"
             unit="dB"
-            color="#a855f7"
+            color="#14b8a6"
           />
         </div>
 
@@ -73,7 +73,7 @@
         <!-- Output routing -->
         <button
           @click="showOutputModal(index)"
-          class="py-0.5 text-[0.45rem] font-bold rounded bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+          class="py-0.5 text-[0.45rem] font-bold rounded bg-teal-600 hover:bg-teal-700 text-white transition-colors"
         >
           OUT
         </button>
@@ -84,7 +84,7 @@
     <button
       v-if="auxBuses.length < 6"
       @click="addAux"
-      class="w-full py-2 border-2 border-dashed border-purple-600/50 rounded-lg hover:border-purple-500 hover:bg-purple-900/20 transition-colors text-purple-400 text-sm font-bold"
+      class="w-full py-2 border-2 border-dashed border-teal-600/50 rounded-lg hover:border-teal-500 hover:bg-teal-900/20 transition-colors text-teal-400 text-sm font-bold"
     >
       + ADD AUX
     </button>
@@ -93,8 +93,8 @@
     <Teleport to="body">
       <div v-if="selectedAuxIndex !== null" class="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]"
         @mousedown.self="selectedAuxIndex = null">
-        <div class="bg-gray-900 rounded-lg border-2 border-purple-600 p-6 max-w-md w-full mx-4" @click.stop>
-          <h3 class="text-lg font-bold text-purple-300 mb-4">
+        <div class="bg-gray-900 rounded-lg border-2 border-teal-600 p-6 max-w-md w-full mx-4" @click.stop>
+          <h3 class="text-lg font-bold text-teal-300 mb-4">
             {{ auxBuses[selectedAuxIndex]?.name }} - Output Routing
           </h3>
           
@@ -112,7 +112,7 @@
 
           <button
             @click="selectedAuxIndex = null"
-            class="mt-4 w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded font-bold"
+            class="mt-4 w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded font-bold"
           >
             Close
           </button>
@@ -224,11 +224,11 @@ function toggleAuxMasterRouting(index: number) {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(168, 85, 247, 0.5);
+  background: rgba(20, 184, 166, 0.5);
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(168, 85, 247, 0.7);
+  background: rgba(20, 184, 166, 0.7);
 }
 </style>

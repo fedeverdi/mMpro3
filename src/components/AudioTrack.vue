@@ -319,6 +319,9 @@ let playbackTimeInterval: number | null = null
 let playbackStartTime: number = 0
 let audioContextStarted: boolean = false // Track if Tone.start() has been called
 
+// Aux sends: Map of aux bus ID to { node, preFader }
+const auxSendNodes = new Map<string, { node: any, preFader: boolean }>()
+
 // Calculate fader height based on container
 function updateFaderHeight() {
   if (faderContainer.value) {
@@ -568,10 +571,87 @@ function disconnectFromSubgroup(subgroupId: number) {
 
 // Handle aux sends update
 function handleAuxSendsUpdate(sends: Record<string, any>) {
-  // TODO: Implement actual audio routing for aux sends
-  // This will require creating Tone.Gain nodes for each send and connecting them
-  // to the appropriate aux bus nodes
+  if (!Tone || !volumeMerge || !balanceMerge) return
+
   console.log('Aux sends updated for track', props.trackNumber, sends)
+
+  // Get all aux IDs from the sends object
+  const sendIds = Object.keys(sends)
+
+  // Remove sends that are no longer in the update or are inactive
+  auxSendNodes.forEach((sendInfo, auxId) => {
+    const send = sends[auxId]
+    const isActive = send && send.level > -60 && !send.muted
+
+    if (!send || !isActive) {
+      // Disconnect and dispose the send node
+      try {
+        sendInfo.node.disconnect()
+        sendInfo.node.dispose()
+      } catch (e) {
+        console.warn('Error disposing aux send node:', e)
+      }
+      auxSendNodes.delete(auxId)
+    }
+  })
+
+  // Update or create active sends
+  sendIds.forEach(auxId => {
+    const send = sends[auxId]
+    const isActive = send && send.level > -60 && !send.muted
+
+    if (!isActive) return
+
+    // Find the corresponding aux bus
+    const auxBus = props.auxBuses?.find(bus => bus.id === auxId)
+    if (!auxBus || !auxBus.node) {
+      console.warn(`Aux bus ${auxId} not found or has no node`)
+      return
+    }
+
+    // Get or create send node
+    let sendInfo = auxSendNodes.get(auxId)
+    let sendNode: any
+
+    // Check if we need to reconnect (new node or preFader changed)
+    const needsReconnect = !sendInfo || sendInfo.preFader !== send.preFader
+
+    if (!sendInfo) {
+      // Create new Tone.Gain for this send
+      sendNode = new Tone.Gain(0) // Start at 0 gain
+      sendInfo = { node: sendNode, preFader: send.preFader }
+      auxSendNodes.set(auxId, sendInfo)
+    } else {
+      sendNode = sendInfo.node
+      // Update preFader state
+      if (sendInfo.preFader !== send.preFader) {
+        sendInfo.preFader = send.preFader
+      }
+    }
+
+    // Update send level (convert dB to gain)
+    const gainValue = Tone.dbToGain(send.level)
+    sendNode.gain.value = gainValue
+
+    // Reconnect if needed
+    if (needsReconnect) {
+      try {
+        // Disconnect first to avoid double connections
+        sendNode.disconnect()
+      } catch (e) { }
+
+      try {
+        // Choose source based on pre/post fader
+        const source = send.preFader ? balanceMerge : volumeMerge
+        source.connect(sendNode)
+        sendNode.connect(toRaw(auxBus.node))
+        
+        console.log(`Track ${props.trackNumber} → ${auxId}: ${send.level}dB (${send.preFader ? 'PRE' : 'POST'}-fader, gain: ${gainValue.toFixed(3)})`)
+      } catch (e) {
+        console.error('Error connecting aux send:', e)
+      }
+    }
+  })
 }
 
 // Level monitoring for stereo/mono
@@ -1408,6 +1488,15 @@ onUnmounted(() => {
   if (meterL) meterL.dispose()
   if (meterR) meterR.dispose()
   if (channelSplit) channelSplit.dispose()
+
+  // Cleanup aux send nodes
+  auxSendNodes.forEach((sendInfo) => {
+    try {
+      sendInfo.node.disconnect()
+      sendInfo.node.dispose()
+    } catch (e) { }
+  })
+  auxSendNodes.clear()
   if (waveform) waveform.dispose()
   if (compressor) compressor.dispose()
   if (reverb) reverb.dispose()
