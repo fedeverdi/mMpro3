@@ -1345,8 +1345,8 @@ function updateVolume() {
 
 function updateGain() {
   if (!gainNode || !Tone) return
-  // Apply gain with PAD attenuation if enabled (-20dB)
-  const totalGain = gain.value + (padEnabled.value ? -20 : 0)
+  // Apply gain with PAD attenuation if enabled (-26dB)
+  const totalGain = gain.value + (padEnabled.value ? -26 : 0)
   gainNode.gain.value = Tone.dbToGain(totalGain)
 }
 

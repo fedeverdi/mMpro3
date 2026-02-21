@@ -12,7 +12,7 @@
     >
       PAD
     </button>
-    <div class="text-[7px] text-gray-400 font-medium">20dB</div>
+    <div class="text-[7px] text-gray-400 font-medium">26dB</div>
   </div>
 </template>
 
