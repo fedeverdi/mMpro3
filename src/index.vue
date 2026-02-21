@@ -74,7 +74,7 @@
                         </div>
                     </div>
 
-                    <button @click="removeTrack" :disabled="tracks.length <= 1"
+                    <button @click="removeTrack(tracks[tracks.length - 1].id)" :disabled="tracks.length <= 1"
                         class="px-3 py-1 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded text-xs font-semibold transition-colors">
                         - Remove
                     </button>
@@ -131,10 +131,12 @@
                             <div v-for="track in tracks" :key="track.id" class="w-[8.5rem] h-full mixer-fade-in">
                                 <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)"
                                     :trackNumber="track.id" :master-channel="masterChannel" :subgroups="subgroups"
-                                    @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate" />
+                                    @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate"
+                                    @remove="removeTrack(track.id)" />
                                 <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
                                     :master-channel="masterChannel" :subgroups="subgroups"
-                                    @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate" />
+                                    @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate"
+                                    @remove="removeTrack(track.id)" />
                             </div>
                         </template>
                     </div>
@@ -399,9 +401,13 @@ function addTrackOfType(type: 'audio' | 'signal') {
     showAddTrackMenu.value = false
 }
 
-function removeTrack() {
+function removeTrack(trackId: number) {
     if (tracks.value.length <= 1) return
-    const removedTrack = tracks.value.pop()
+    
+    const trackIndex = tracks.value.findIndex(t => t.id === trackId)
+    if (trackIndex === -1) return
+    
+    const removedTrack = tracks.value.splice(trackIndex, 1)[0]
 
     // Remove the track ref from the map
     if (removedTrack) {

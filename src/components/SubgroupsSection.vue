@@ -1,6 +1,6 @@
 <template>
     <div
-        class="subgroups-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-gray-600 p-2 flex flex-col items-center gap-1 h-full w-full max-w-[6rem]">
+        class="subgroups-section bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-gray-600 p-2 flex flex-col items-center gap-1 h-full w-full max-w-[5rem]">
         <!-- Subgroup Header -->
         <div class="w-full flex items-center justify-between gap-1">
             <div class="text-xs font-bold text-gray-400 flex-1 text-center">{{ subgroupName }}</div>
@@ -40,8 +40,8 @@
             <div v-if="vuMetersHeight > 0"
                 class="flex flex-col items-center w-full justify-center bg-gray-900 rounded p-1 border border-gray-700">
                 <div class="flex gap-0 relative">
-                    <VuMeter :level="leftLevel" label="L" :height="vuMetersHeight" :width="15" class="-mr-2" :value-font-size="6" />
-                    <VuMeter :level="rightLevel" label="R" :height="vuMetersHeight" :width="15" class="-ml-2" :value-font-size="6" />
+                    <VuMeter :level="leftLevel" label="L" :height="vuMetersHeight" :width="10" class="-mr-3" :value-font-size="5" />
+                    <VuMeter :level="rightLevel" label="R" :height="vuMetersHeight" :width="10" class="-ml-3" :value-font-size="5" />
                 </div>
             </div>
 
@@ -55,7 +55,7 @@
 
         <!-- Route to Master Button -->
         <div class="w-full">
-            <button @click="toggleRouteToMaster" class="w-full py-1 text-xs font-bold rounded transition-all"
+            <button @click="toggleRouteToMaster" class="w-full py-1 text-[0.5rem] font-bold rounded transition-all"
                 :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
                 {{ routeToMaster ? '→ MASTER' : '→ DIRECT' }}
             </button>

@@ -3,7 +3,16 @@
     class="track-channel relative bg-gray-700 rounded-lg border border-gray-900 p-1 flex flex-col items-center gap-1 h-full">
     
     <!-- Track Header -->
-    <div class="text-xs font-bold text-center text-gray-300">Track {{ trackNumber }}</div>
+    <div class="w-full flex items-center justify-between gap-1">
+      <div class="text-xs font-bold text-gray-300 flex-1 text-center">Track {{ trackNumber }}</div>
+      <button 
+        @click="$emit('remove')" 
+        class="w-4 h-4 pb-[0.05rem] rounded-full bg-white/20 hover:bg-white/30 text-white/60 hover:text-white/80 text-xs flex items-center justify-center transition-all"
+        title="Remove Track"
+      >
+        ×
+      </button>
+    </div>
 
     <!-- Signal Selector Buttons -->
     <div class="w-full flex flex-col gap-0.5">
@@ -148,6 +157,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: 'soloChange', value: { trackNumber: number, isSolo: boolean }): void
   (e: 'levelUpdate', value: { trackNumber: number, level: number }): void
+  (e: 'remove'): void
 }>()
 
 type SignalType = 'sine' | 'square' | 'sawtooth' | 'triangle' | 'whiteNoise' | 'pinkNoise'
