@@ -15,7 +15,7 @@
 
         <!-- Output Device Selector -->
         <div class="w-full bg-gray-900 rounded p-1.5 border border-gray-700">
-            <OutputSelector icon="🔊" title="Select Subgroup Output" :devices="audioOutputs"
+            <OutputSelector title="Select Subgroup Output" :devices="audioOutputs"
                 :selected-device-id="selectedOutput" default-label="Default" default-description="Default audio output"
                 default-icon="🔊" :show-no-output="true" @select="handleOutputSelect" />
         </div>
