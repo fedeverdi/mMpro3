@@ -1,19 +1,16 @@
 <template>
-  <div class="flex flex-col h-full gap-2 relative transition-all duration-300 ease-out" :class="{ 'pl-3': !isCollapsed }" :style="{ width: sectionWidth + 'px' }">
+  <div class="flex flex-col h-full gap-2 relative transition-all duration-300 ease-out" :class="{ 'pl-2': !isCollapsed }" :style="{ width: sectionWidth + 'px' }">
     <!-- Resize Handle -->
     <div 
       :class="['absolute left-0 top-0 bottom-0 w-3 z-50 group bg-gray-900/20', isCollapsed ? 'cursor-default' : 'cursor-grab']"
       @mousedown.stop="startResize"
       :title="isCollapsed ? 'Panel collapsed' : 'Drag to resize'"
     >
-      <!-- Costola verticale -->
-      <div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-700/50 transition-colors"></div>
-      <div class="absolute left-[5px] top-0 bottom-0 w-px bg-gray-800/30"></div>
-      
+
       <!-- Collapse/Expand Button -->
       <button
         @click.stop="toggleCollapse"
-        class="absolute top-2 left-0 w-6 h-6 -translate-x-1/2 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg"
+        class="absolute top-2 -left-2 w-5 h-5 -translate-x-1/2 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg"
         :title="isCollapsed ? 'Expand panel' : 'Collapse panel'"
       >
         <svg class="w-3 h-3 text-gray-300 transition-transform" :class="{ 'rotate-180': !isCollapsed }" fill="currentColor" viewBox="0 0 20 20">
@@ -22,15 +19,27 @@
       </button>
       
       <!-- Grip Dots -->
-      <div class="absolute top-1/2 left-1 -translate-y-1/2 flex gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity pointer-events-none">
+      <div class="absolute top-1/2 -left-[0.17rem] -translate-y-1/2 flex gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity pointer-events-none">
         <!-- Column 1 -->
         <div class="flex flex-col gap-1">
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
           <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
           <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
           <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
         </div>
         <!-- Column 2 -->
         <div class="flex flex-col gap-1">
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+          <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
           <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
           <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
           <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
