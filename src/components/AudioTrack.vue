@@ -609,37 +609,41 @@ function handleAuxSendsUpdate(sends: Record<string, any>) {
       return
     }
 
-    // Get or create send node
+    // Get existing send info
     let sendInfo = auxSendNodes.get(auxId)
     let sendNode: any
+    let needsNewNode = false
 
-    // Check if we need to reconnect (new node or preFader changed)
-    const needsReconnect = !sendInfo || sendInfo.preFader !== send.preFader
+    // Check if preFader changed - need to recreate node to avoid double connections
+    if (sendInfo && sendInfo.preFader !== send.preFader) {
+      // Dispose old node completely
+      try {
+        sendInfo.node.disconnect()
+        sendInfo.node.dispose()
+      } catch (e) {
+        console.warn('Error disposing old send node:', e)
+      }
+      auxSendNodes.delete(auxId)
+      sendInfo = undefined
+      needsNewNode = true
+    }
 
+    // Create new node if needed
     if (!sendInfo) {
-      // Create new Tone.Gain for this send
-      sendNode = new Tone.Gain(0) // Start at 0 gain
+      sendNode = new Tone.Gain(0)
       sendInfo = { node: sendNode, preFader: send.preFader }
       auxSendNodes.set(auxId, sendInfo)
+      needsNewNode = true
     } else {
       sendNode = sendInfo.node
-      // Update preFader state
-      if (sendInfo.preFader !== send.preFader) {
-        sendInfo.preFader = send.preFader
-      }
     }
 
     // Update send level (convert dB to gain)
     const gainValue = Tone.dbToGain(send.level)
     sendNode.gain.value = gainValue
 
-    // Reconnect if needed
-    if (needsReconnect) {
-      try {
-        // Disconnect first to avoid double connections
-        sendNode.disconnect()
-      } catch (e) { }
-
+    // Connect new nodes
+    if (needsNewNode) {
       try {
         // Choose source based on pre/post fader
         const source = send.preFader ? balanceMerge : volumeMerge
