@@ -203,43 +203,15 @@
         </div>
 
         <div v-else class="flex flex-col gap-2">
-          <div v-for="aux in auxBuses" :key="aux.id"
-            class="flex flex-col items-center gap-1 bg-gray-800/50 rounded-lg p-2 border border-teal-700/30">
-            <!-- Aux name -->
-            <div class="text-[0.6rem] font-bold text-teal-300 text-center">
-              {{ aux.name }}
-            </div>
-
-            <!-- Send level knob -->
-            <div class="scale-[0.6] -my-2">
-              <Knob :modelValue="auxSendsData[aux.id]?.level ?? -60"
-                @update:modelValue="(val) => updateLocalAuxSend(aux.id, 'level', val)" :min="-60" :max="10" :step="0.1"
-                label="Level" unit="dB" color="#14b8a6" />
-            </div>
-
-            <!-- Controls row -->
-            <div class="w-full flex gap-1">
-              <!-- Pre/Post fader toggle -->
-              <button @click="toggleLocalPrePost(aux.id)" :class="[
-                'flex-1 py-0.5 px-1 text-[0.5rem] font-bold rounded transition-colors',
-                auxSendsData[aux.id]?.preFader
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-400'
-              ]">
-                {{ auxSendsData[aux.id]?.preFader ? 'PRE' : 'POST' }}
-              </button>
-
-              <!-- Mute send -->
-              <button @click="toggleLocalMute(aux.id)" :class="[
-                'flex-1 py-0.5 px-1 text-[0.5rem] font-bold rounded transition-colors',
-                auxSendsData[aux.id]?.muted
-                  ? 'bg-yellow-600 text-white'
-                  : 'bg-gray-700 text-gray-400'
-              ]">
-                M
-              </button>
-            </div>
-          </div>
+          <AuxSendControl
+            v-for="aux in auxBuses" 
+            :key="aux.id"
+            :aux="aux"
+            :aux-send-data="auxSendsData[aux.id]"
+            @update-level="(val) => updateLocalAuxSend(aux.id, 'level', val)"
+            @toggle-pre-post="toggleLocalPrePost(aux.id)"
+            @toggle-mute="toggleLocalMute(aux.id)"
+          />
         </div>
       </div>
     </div>
@@ -266,6 +238,7 @@ import TrackEQ from './audioTrack/TrackEQ.vue'
 import EQThumbnail from './audioTrack/EQThumbnail.vue'
 import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
 import TrackAuxSends from './audioTrack/TrackAuxSends.vue'
+import AuxSendControl from './audioTrack/AuxSendControl.vue'
 
 defineOptions({
   inheritAttrs: false
