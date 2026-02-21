@@ -54,7 +54,7 @@
     </div>
 
     <!-- Recorder Modal -->
-    <Recorder v-model="showRecorder" v-model:is-recording="isRecording" :audio-node="mergeNodeRef" :tone="ToneRef" :loaded-tracks="props.loadedTracks as any" />
+    <Recorder v-model="showRecorder" v-model:is-recording="isRecording" :audio-node="mergeNodeRef" :tone="ToneRef" :loaded-tracks="props.loadedTracks" />
   </div>
 </template>
 

@@ -5,38 +5,38 @@
         <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="close">
           <!-- Backdrop -->
           <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
-          
+
           <!-- Modal Content -->
-          <div class="relative bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-blue-600 p-6 max-w-[800px] w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            
+          <div
+            class="relative bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-blue-600 p-6 max-w-[800px] w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+
             <!-- Header -->
             <div class="flex items-center justify-between mb-6">
-              <h2 class="text-xl font-bold text-blue-400">🎬 Scene Manager</h2>
-              <button
-                @click="close"
+              <h2 class="text-xl font-bold text-blue-400">
+                <div class="flex">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="h-6 w-6 pr-2 pt-1" fill="currentColor">
+                    <path
+                      d="M149.333 216v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24v-80c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zM125.333 32H24C10.745 32 0 42.745 0 56v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24zm80 448H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm-24-424v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24zm24 264H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24z" />
+                  </svg>
+                  Scene Manager
+                </div>
+              </h2>
+              <button @click="close"
                 class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-700/80 hover:bg-red-600 text-gray-300 hover:text-white transition-colors text-sm font-bold"
-                title="Close"
-              >
+                title="Close">
                 X
               </button>
             </div>
 
             <!-- Save New Scene -->
             <div class="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-              <h3 class="text-sm font-bold text-gray-300 mb-3">💾 Save New Scene</h3>
+              <h3 class="text-sm font-bold text-gray-300 mb-3">Save New Scene</h3>
               <div class="flex gap-2">
-                <input
-                  v-model="newSceneName"
-                  type="text"
-                  placeholder="Scene name..."
+                <input v-model="newSceneName" type="text" placeholder="Scene name..."
                   class="flex-1 px-3 py-2 text-sm bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                  @keyup.enter="handleSaveNew"
-                />
-                <button
-                  @click="handleSaveNew"
-                  :disabled="!newSceneName.trim()"
-                  class="px-4 py-2 text-sm font-semibold rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                  @keyup.enter="handleSaveNew" />
+                <button @click="handleSaveNew" :disabled="!newSceneName.trim()"
+                  class="px-4 py-2 text-sm font-semibold rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                   Save
                 </button>
               </div>
@@ -44,98 +44,76 @@
 
             <!-- Scenes List -->
             <div class="space-y-2">
-              <h3 class="text-sm font-bold text-gray-300 mb-3">📚 Saved Scenes</h3>
-              
+              <h3 class="text-sm font-bold text-gray-300 mb-3">Saved Scenes</h3>
+
               <div v-if="scenes.length === 0" class="text-center py-8 text-gray-500">
                 No scenes saved yet. Create your first scene above!
               </div>
 
-              <div
-                v-for="scene in scenes"
-                :key="scene.id"
-                class="p-3 bg-gray-900/50 rounded border transition-all"
-                :class="scene.id === currentSceneId ? 'border-green-500' : 'border-gray-700 hover:border-gray-600'"
-              >
+              <div v-for="scene in scenes" :key="scene.id" class="p-3 bg-gray-900/50 rounded border transition-all"
+                :class="scene.id === currentSceneId ? 'border-green-500' : 'border-gray-700 hover:border-gray-600'">
                 <div class="flex items-center justify-between gap-3">
                   <!-- Scene Info -->
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
-                      <input
-                        v-if="editingSceneId === scene.id"
-                        v-model="editingSceneName"
-                        type="text"
+                      <input v-if="editingSceneId === scene.id" v-model="editingSceneName" type="text"
                         class="flex-1 px-2 py-1 text-sm bg-gray-800 text-white rounded border border-blue-500 focus:outline-none"
-                        @keyup.enter="saveRename(scene.id)"
-                        @keyup.esc="cancelRename"
-                      />
+                        @keyup.enter="saveRename(scene.id)" @keyup.esc="cancelRename" />
                       <div v-else class="flex items-center gap-2">
                         <span class="font-semibold text-white">{{ scene.name }}</span>
-                        <span v-if="scene.id === currentSceneId" class="px-2 py-0.5 text-[10px] font-bold bg-green-600 text-white rounded">
+                        <span v-if="scene.id === currentSceneId"
+                          class="px-2 py-0.5 text-[10px] font-bold bg-green-600 text-white rounded">
                           CURRENT
                         </span>
                       </div>
                     </div>
                     <div class="text-xs text-gray-500 mt-1">
                       {{ scene.tracks.length }} tracks • Created {{ formatDate(scene.createdAt) }}
-                      <span v-if="scene.updatedAt !== scene.createdAt"> • Updated {{ formatDate(scene.updatedAt) }}</span>
+                      <span v-if="scene.updatedAt !== scene.createdAt"> • Updated {{ formatDate(scene.updatedAt)
+                        }}</span>
                     </div>
                   </div>
 
                   <!-- Actions -->
                   <div class="flex gap-1 flex-shrink-0">
                     <!-- Update Button (only for current scene) -->
-                    <button
-                      v-if="scene.id === currentSceneId"
-                      @click="confirmUpdate(scene.id, scene.name)"
+                    <button v-if="scene.id === currentSceneId" @click="confirmUpdate(scene.id, scene.name)"
                       class="px-3 py-1 text-xs font-semibold rounded bg-green-600 hover:bg-green-500 text-white transition-colors"
-                      title="Update current scene"
-                    >
+                      title="Update current scene">
                       Update
                     </button>
 
                     <!-- Load Button -->
-                    <button
-                      @click="confirmLoad(scene.id, scene.name)"
+                    <button @click="confirmLoad(scene.id, scene.name)"
                       class="px-3 py-1 text-xs font-semibold rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-                      title="Load scene"
-                    >
+                      title="Load scene">
                       Load
                     </button>
 
                     <!-- Pin Button -->
-                    <button
-                      @click="emit('togglePin', scene.id)"
-                      class="px-3 py-1 text-xs font-semibold rounded transition-colors"
+                    <button @click="emit('togglePin', scene.id)"
+                      class="px-3 py-1 text-white text-xs font-semibold rounded transition-colors"
                       :class="scene.pinned ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-gray-700 hover:bg-gray-600'"
-                      :title="scene.pinned ? 'Unpin from quick access' : 'Pin to quick access'"
-                    >
+                      :title="scene.pinned ? 'Unpin from quick access' : 'Pin to quick access'">
                       {{ scene.pinned ? '📌' : '📍' }}
                     </button>
 
                     <!-- Rename Button -->
-                    <button
-                      v-if="editingSceneId !== scene.id"
-                      @click="startRename(scene.id, scene.name)"
+                    <button v-if="editingSceneId !== scene.id" @click="startRename(scene.id, scene.name)"
                       class="px-3 py-1 text-xs font-semibold rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors"
-                      title="Rename scene"
-                    >
+                      title="Rename scene">
                       ✏️
                     </button>
-                    <button
-                      v-else
-                      @click="saveRename(scene.id)"
+                    <button v-else @click="saveRename(scene.id)"
                       class="px-3 py-1 text-xs font-semibold rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-                      title="Save rename"
-                    >
+                      title="Save rename">
                       ✓
                     </button>
 
                     <!-- Delete Button -->
-                    <button
-                      @click="confirmDelete(scene.id, scene.name)"
+                    <button @click="confirmDelete(scene.id, scene.name)"
                       class="px-3 py-1 text-xs font-semibold rounded bg-red-600 hover:bg-red-500 text-white transition-colors"
-                      title="Delete scene"
-                    >
+                      title="Delete scene">
                       🗑️
                     </button>
                   </div>
@@ -145,15 +123,16 @@
           </div>
         </div>
       </Transition>
-      
+
       <!-- Confirmation Modal -->
       <Transition name="modal">
         <div v-if="confirmationModal.show" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <!-- Backdrop -->
           <div class="absolute inset-0 bg-black/90 backdrop-blur-sm" @click="cancelConfirmation"></div>
-          
+
           <!-- Confirmation Dialog -->
-          <div class="relative bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-gray-500 p-6 max-w-[500px] w-full shadow-2xl">
+          <div
+            class="relative bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-gray-500 p-6 max-w-[500px] w-full shadow-2xl">
             <div class="mb-4">
               <div class="flex items-center gap-3 mb-3">
                 <div class="text-3xl">{{ confirmationModal.icon }}</div>
@@ -161,19 +140,14 @@
               </div>
               <p class="text-sm text-gray-300">{{ confirmationModal.message }}</p>
             </div>
-            
+
             <div class="flex gap-2 justify-end">
-              <button
-                @click="cancelConfirmation"
-                class="px-4 py-2 text-sm font-semibold rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors"
-              >
+              <button @click="cancelConfirmation"
+                class="px-4 py-2 text-sm font-semibold rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors">
                 Cancel
               </button>
-              <button
-                @click="executeConfirmation"
-                class="px-4 py-2 text-sm font-semibold rounded transition-colors"
-                :class="confirmationModal.confirmClass"
-              >
+              <button @click="executeConfirmation" class="px-4 py-2 text-sm font-semibold rounded transition-colors"
+                :class="confirmationModal.confirmClass">
                 {{ confirmationModal.confirmText }}
               </button>
             </div>
@@ -331,7 +305,7 @@ function formatDate(timestamp: number): string {
   if (diffMins < 60) return `${diffMins}m ago`
   if (diffHours < 24) return `${diffHours}h ago`
   if (diffDays < 7) return `${diffDays}d ago`
-  
+
   return date.toLocaleDateString()
 }
 

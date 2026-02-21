@@ -37,14 +37,26 @@
 
                     <button @click="showScenesModal = true"
                         class="px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs font-semibold transition-colors flex items-center gap-1">
-                        🎬
+                        <div class="flex">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="h-3 w-3" fill="white">
+                                <path
+                                    d="M149.333 216v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24v-80c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zM125.333 32H24C10.745 32 0 42.745 0 56v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24zm80 448H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm-24-424v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24zm24 264H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24z" />
+                            </svg>
+                        </div>
                         Scenes
                     </button>
 
                     <button @click="handleClearScene"
                         class="px-3 py-1 bg-orange-600 hover:bg-orange-500 rounded text-xs font-semibold transition-colors"
                         title="Clear mixer - Reload page">
-                        Clear
+                        <div class="flex">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 pr-1" fill="white" viewBox="0 0 640 512">
+                                <path
+                                    d="M256.47 216.77l86.73 109.18s-16.6 102.36-76.57 150.12C206.66 523.85 0 510.19 0 510.19s3.8-23.14 11-55.43l94.62-112.17c3.97-4.7-.87-11.62-6.65-9.5l-60.4 22.09c14.44-41.66 32.72-80.04 54.6-97.47 59.97-47.76 163.3-40.94 163.3-40.94zM636.53 31.03l-19.86-25c-5.49-6.9-15.52-8.05-22.41-2.56l-232.48 177.8-34.14-42.97c-5.09-6.41-15.14-5.21-18.59 2.21l-25.33 54.55 86.73 109.18 58.8-12.45c8-1.69 11.42-11.2 6.34-17.6l-34.09-42.92 232.48-177.8c6.89-5.48 8.04-15.53 2.55-22.44z" />
+                            </svg>
+                            Clear
+                        </div>
+
                     </button>
 
                     <div class="w-px h-6 bg-gray-600"></div>
@@ -61,14 +73,22 @@
                             <button @click="addTrackOfType('audio')"
                                 class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2">
                                 <div class="flex">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="white" viewBox="0 0 256 512"><path d="M96 496V16c0-8.8-7.2-16-16-16H48c-8.8 0-16 7.2-16 16v480c0 8.8 7.2 16 16 16h32c8.8 0 16-7.2 16-16zm128 0V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v480c0 8.8 7.2 16 16 16h32c8.8 0 16-7.2 16-16z"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="white"
+                                        viewBox="0 0 256 512">
+                                        <path
+                                            d="M96 496V16c0-8.8-7.2-16-16-16H48c-8.8 0-16 7.2-16 16v480c0 8.8 7.2 16 16 16h32c8.8 0 16-7.2 16-16zm128 0V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v480c0 8.8 7.2 16 16 16h32c8.8 0 16-7.2 16-16z" />
+                                    </svg>
                                 </div>
                                 Audio Track
                             </button>
                             <button @click="addTrackOfType('signal')"
                                 class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2">
                                 <div class="flex">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="white" viewBox="0 0 640 512"><path d="M476 480H324a36 36 0 0 1-36-36V96h-96v156a36 36 0 0 1-36 36H16a16 16 0 0 1-16-16v-32a16 16 0 0 1 16-16h112V68a36 36 0 0 1 36-36h152a36 36 0 0 1 36 36v348h96V260a36 36 0 0 1 36-36h140a16 16 0 0 1 16 16v32a16 16 0 0 1-16 16H512v156a36 36 0 0 1-36 36z"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="white"
+                                        viewBox="0 0 640 512">
+                                        <path
+                                            d="M476 480H324a36 36 0 0 1-36-36V96h-96v156a36 36 0 0 1-36 36H16a16 16 0 0 1-16-16v-32a16 16 0 0 1 16-16h112V68a36 36 0 0 1 36-36h152a36 36 0 0 1 36 36v348h96V260a36 36 0 0 1 36-36h140a16 16 0 0 1 16 16v32a16 16 0 0 1-16 16H512v156a36 36 0 0 1-36 36z" />
+                                    </svg>
                                 </div>
                                 Signal Track
                             </button>
@@ -76,7 +96,11 @@
                             <button @click="addSubgroup(); showAddTrackMenu = false"
                                 class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2">
                                 <div class="flex">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="white" viewBox="0 0 512 512"><path d="M12.41 148.02l232.94 105.67c6.8 3.09 14.49 3.09 21.29 0l232.94-105.67c16.55-7.51 16.55-32.52 0-40.03L266.65 2.31a25.607 25.607 0 0 0-21.29 0L12.41 107.98c-16.55 7.51-16.55 32.53 0 40.04zm487.18 88.28l-58.09-26.33-161.64 73.27c-7.56 3.43-15.59 5.17-23.86 5.17s-16.29-1.74-23.86-5.17L70.51 209.97l-58.1 26.33c-16.55 7.5-16.55 32.5 0 40l232.94 105.59c6.8 3.08 14.49 3.08 21.29 0L499.59 276.3c16.55-7.5 16.55-32.5 0-40zm0 127.8l-57.87-26.23-161.86 73.37c-7.56 3.43-15.59 5.17-23.86 5.17s-16.29-1.74-23.86-5.17L70.29 337.87 12.41 364.1c-16.55 7.5-16.55 32.5 0 40l232.94 105.59c6.8 3.08 14.49 3.08 21.29 0L499.59 404.1c16.55-7.5 16.55-32.5 0-40z"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="white"
+                                        viewBox="0 0 512 512">
+                                        <path
+                                            d="M12.41 148.02l232.94 105.67c6.8 3.09 14.49 3.09 21.29 0l232.94-105.67c16.55-7.51 16.55-32.52 0-40.03L266.65 2.31a25.607 25.607 0 0 0-21.29 0L12.41 107.98c-16.55 7.51-16.55 32.53 0 40.04zm487.18 88.28l-58.09-26.33-161.64 73.27c-7.56 3.43-15.59 5.17-23.86 5.17s-16.29-1.74-23.86-5.17L70.51 209.97l-58.1 26.33c-16.55 7.5-16.55 32.5 0 40l232.94 105.59c6.8 3.08 14.49 3.08 21.29 0L499.59 276.3c16.55-7.5 16.55-32.5 0-40zm0 127.8l-57.87-26.23-161.86 73.37c-7.56 3.43-15.59 5.17-23.86 5.17s-16.29-1.74-23.86-5.17L70.29 337.87 12.41 364.1c-16.55 7.5-16.55 32.5 0 40l232.94 105.59c6.8 3.08 14.49 3.08 21.29 0L499.59 404.1c16.55-7.5 16.55-32.5 0-40z" />
+                                    </svg>
                                 </div>
                                 Subgroup
                             </button>
@@ -199,20 +223,13 @@
 
                 <!-- Master EQ Display, Spectrum & FX (Draggable) -->
                 <template v-else>
-                    <RightSection 
-                        ref="rightSectionRef"
-                        :master-channel="masterChannel" 
-                        :master-section-ref="masterSectionRef"
-                        :master-eq-output-node="masterEqOutputNode"
-                        :master-fx-output-node="masterFxOutputNode"
-                        :aux-buses="auxBuses"
+                    <RightSection ref="rightSectionRef" :master-channel="masterChannel"
+                        :master-section-ref="masterSectionRef" :master-eq-output-node="masterEqOutputNode"
+                        :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses"
                         @master-eq-output-node="handleMasterEqOutputNode"
-                        @master-fx-output-node="handleMasterFxOutputNode"
-                        @master-fx-component="handleMasterFxComponent"
-                        @update:master-eq-filters="handleMasterEQFiltersUpdate"
-                        @add-aux="addAux"
-                        @remove-aux="removeAux"
-                        @update-aux="updateAux" />
+                        @master-fx-output-node="handleMasterFxOutputNode" @master-fx-component="handleMasterFxComponent"
+                        @update:master-eq-filters="handleMasterEQFiltersUpdate" @add-aux="addAux"
+                        @remove-aux="removeAux" @update-aux="updateAux" />
 
                     <!-- Subgroups Section -->
                     <template v-for="subgroup in subgroups" :key="subgroup.id">
@@ -374,16 +391,16 @@ function addTrackOfType(type: 'audio' | 'signal') {
 
 function removeTrack(trackId: number) {
     if (tracks.value.length <= 1) return
-    
+
     const trackIndex = tracks.value.findIndex(t => t.id === trackId)
     if (trackIndex === -1) return
-    
+
     // Ask for confirmation
     const trackType = tracks.value[trackIndex].type === 'audio' ? 'Audio Track' : 'Signal Track'
     if (!confirm(`Remove ${trackType} ${trackId}?`)) {
         return
     }
-    
+
     const removedTrack = tracks.value.splice(trackIndex, 1)[0]
 
     // Remove the track ref from the map
@@ -483,7 +500,7 @@ function removeSubgroup(subgroupId: number) {
     const index = subgroups.value.findIndex(s => s.id === subgroupId)
     if (index !== -1) {
         const subgroup = subgroups.value[index]
-        
+
         // Ask for confirmation
         if (!confirm(`Remove ${subgroup.name}?`)) {
             return
@@ -522,7 +539,7 @@ function addAux() {
     // Create MediaStreamDestination for output routing
     const mainAudioContext = Tone.context.rawContext as AudioContext
     const outputStreamDest = mainAudioContext.createMediaStreamDestination()
-    
+
     // Always connect to stream destination for independent output
     node.connect(outputStreamDest as any)
 
@@ -539,14 +556,14 @@ function addAux() {
         outputAudioContext: null,
         outputSource: null
     }
-    
+
     auxBuses.value.push(newAux)
 }
 
 function removeAux(index: number) {
     if (index >= 0 && index < auxBuses.value.length) {
         const aux = auxBuses.value[index]
-        
+
         // Ask for confirmation
         if (!confirm(`Remove ${aux.name}?`)) {
             return
@@ -556,9 +573,9 @@ function removeAux(index: number) {
         if (aux.outputSource) {
             try {
                 aux.outputSource.disconnect()
-            } catch (e) {}
+            } catch (e) { }
         }
-        
+
         if (aux.outputAudioContext) {
             aux.outputAudioContext.close()
         }
@@ -576,17 +593,17 @@ function removeAux(index: number) {
 async function updateAux(index: number, updatedAux: AuxBus) {
     if (index >= 0 && index < auxBuses.value.length) {
         const aux = auxBuses.value[index]
-        
+
         // Update routing to master if changed
         if (updatedAux.routeToMaster !== aux.routeToMaster) {
             const node = toRaw(aux.node)
             const masterChan = toRaw(masterChannel.value)
             const outputStreamDest = toRaw(aux.outputStreamDest)
-            
+
             if (updatedAux.routeToMaster && masterChan) {
                 try {
                     node.disconnect()
-                } catch (e) {}
+                } catch (e) { }
                 // Connect to both master and stream destination
                 node.connect(masterChan)
                 if (outputStreamDest) {
@@ -595,21 +612,21 @@ async function updateAux(index: number, updatedAux: AuxBus) {
             } else {
                 try {
                     node.disconnect()
-                } catch (e) {}
+                } catch (e) { }
                 // Connect only to stream destination
                 if (outputStreamDest) {
                     node.connect(outputStreamDest as any)
                 }
             }
         }
-        
+
         // Handle output device change BEFORE updating values
         if (updatedAux.selectedOutputDevice !== aux.selectedOutputDevice) {
             await changeAuxOutputDevice(index, updatedAux.selectedOutputDevice)
         }
-        
+
         // Update values (preserve output routing objects that are managed separately)
-        auxBuses.value[index] = { 
+        auxBuses.value[index] = {
             ...updatedAux,
             outputStreamDest: auxBuses.value[index].outputStreamDest,
             outputAudioContext: auxBuses.value[index].outputAudioContext,
@@ -621,13 +638,13 @@ async function updateAux(index: number, updatedAux: AuxBus) {
 // Change aux output device
 async function changeAuxOutputDevice(index: number, deviceId: string | null | undefined) {
     if (index < 0 || index >= auxBuses.value.length) return
-    
+
     const aux = auxBuses.value[index]
     if (!aux.outputStreamDest || !Tone) return
 
     try {
         console.log(`[Aux ${aux.name}] Changing output to:`, deviceId || 'default')
-        
+
         // Disconnect and close existing output
         if (aux.outputSource) {
             console.log(`[Aux ${aux.name}] Disconnecting old source`)
@@ -638,7 +655,7 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
             }
             auxBuses.value[index].outputSource = null
         }
-        
+
         if (aux.outputAudioContext) {
             console.log(`[Aux ${aux.name}] Closing old AudioContext, state:`, aux.outputAudioContext.state)
             try {
@@ -793,7 +810,7 @@ function restoreSubgroupSnapshots(subgroupSnapshots: SubgroupSnapshot[]) {
         if (subgroup && subgroup.ref && subgroup.ref.restoreSnapshot) {
             subgroup.ref.restoreSnapshot(subgroupSnapshot)
         } else {
-            console.warn(`[Scene Load] Cannot restore subgroup ${subgroupSnapshot.name} (ID: ${subgroupSnapshot.id})`, 
+            console.warn(`[Scene Load] Cannot restore subgroup ${subgroupSnapshot.name} (ID: ${subgroupSnapshot.id})`,
                 { hasSubgroup: !!subgroup, hasRef: !!subgroup?.ref })
         }
     })
@@ -937,7 +954,7 @@ function handleLoadScene(sceneId: string) {
                 const missingSubgroups = scene.subgroups.filter(
                     (snapshot: SubgroupSnapshot) => !existingIds.has(snapshot.id)
                 )
-                
+
                 if (missingSubgroups.length > 0) {
                     missingSubgroups.forEach((snapshot: SubgroupSnapshot) => {
                         // Create Tone.js channel for this subgroup
