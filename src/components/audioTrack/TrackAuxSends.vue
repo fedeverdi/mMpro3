@@ -10,10 +10,6 @@
     ]"
     :title="`Aux Sends${hasActiveSends ? ' (Active)' : ''}`"
   >
-    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-      <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-      <path fill-rule="evenodd" d="M3.293 14.707a1 1 0 010-1.414L6.586 10 3.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-    </svg>
     AUX
   </button>
 </template>
@@ -46,6 +42,7 @@ interface AuxSend {
 interface Props {
   trackNumber: number
   auxBuses: AuxBus[]
+  auxSendsData?: Record<string, { level: number, preFader: boolean, muted: boolean }>
   trackNode?: any
 }
 
@@ -76,7 +73,9 @@ watch(() => props.auxBuses, (newBuses) => {
 
 // Check if any sends are active (level > -60 and not muted)
 const hasActiveSends = computed(() => {
-  return Object.values(auxSends.value).some(send => 
+  // Use auxSendsData from parent if available, otherwise fall back to local auxSends
+  const dataToCheck = props.auxSendsData || auxSends.value
+  return Object.values(dataToCheck).some(send => 
     send.level > -60 && !send.muted
   )
 })

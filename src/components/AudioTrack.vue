@@ -137,6 +137,11 @@
         <TrackEQ ref="trackEQRef" :eq3Node="eq3" :show="showEQ3Bands" />
       </div>
 
+      <!-- Aux Sends Button -->
+      <TrackAuxSends ref="auxSendsRef" :track-number="trackNumber" :aux-buses="auxBuses"
+        :aux-sends-data="auxSendsData"
+        @update-sends="handleAuxSendsUpdate" @toggle-panel="showAuxPanel = !showAuxPanel" />
+
       <!-- Mute & Solo Buttons -->
       <div class="flex flex-row gap-1 w-full">
         <button @click="toggleMute" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
@@ -148,10 +153,6 @@
           SOLO
         </button>
       </div>
-
-      <!-- Aux Sends Button -->
-      <TrackAuxSends ref="auxSendsRef" :track-number="trackNumber" :aux-buses="auxBuses"
-        @update-sends="handleAuxSendsUpdate" @toggle-panel="showAuxPanel = !showAuxPanel" />
 
       <!-- Aux Panel Content -->
       <div class="flex justify-center  scale-[0.75]">
