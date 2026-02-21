@@ -26,7 +26,7 @@
         </button>
 
         <!-- Aux name -->
-        <div class="text-center">
+        <div class="text-center -mt-2.5">
           <input 
             v-model="aux.name"
             @blur="updateAuxName(index, aux.name)"
@@ -36,7 +36,7 @@
         </div>
 
         <!-- Volume Knob -->
-        <div class="flex items-center justify-center scale-[0.65] -my-2">
+        <div class="flex items-center justify-center scale-[0.65] -my-5">
           <Knob
             :modelValue="aux.volume"
             @update:modelValue="(val) => updateAuxVolume(index, val)"
@@ -73,7 +73,7 @@
         <!-- Output routing -->
         <button
           @click="showOutputModal(index)"
-          class="py-0.5 text-[0.45rem] font-bold rounded bg-teal-600 hover:bg-teal-700 text-white transition-colors"
+          class="py-0.5 mt-1 text-[0.45rem] font-bold rounded bg-teal-600 hover:bg-teal-700 text-white transition-colors"
         >
           OUT
         </button>
