@@ -18,11 +18,9 @@
     <div class="w-full flex flex-col gap-1">
       <div class="w-full flex items-center justify-between gap-1">
         <div class="text-xs font-bold text-gray-300 flex-1 text-center">Track {{ trackNumber }}</div>
-        <button 
-          @click="$emit('remove')" 
+        <button @click="$emit('remove')"
           class="w-4 h-4 pb-[0.05rem] rounded-full bg-white/20 hover:bg-white/30 text-white/60 hover:text-white/80 text-xs flex items-center justify-center transition-all"
-          title="Remove Track"
-        >
+          title="Remove Track">
           ×
         </button>
       </div>
@@ -94,101 +92,95 @@
       <!-- Gain Control -->
       <div class="w-full flex items-center justify-center h-[4rem]">
         <div class="scale-[0.65]">
-          <Knob v-model="gain" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Gain" unit="dB" color="#8b5cf6" />
+          <Knob v-model="gain" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Gain" unit="dB"
+            color="#8b5cf6" />
         </div>
       </div>
 
       <!-- FX Section -->
-    <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
-      <div class="flex gap-1">
-        <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
-          :compressor-node="compressor" :meter="meterL" @toggle="toggleCompressor" />
-        <TrackReverb ref="trackReverbRef" :track-number="trackNumber" :enabled="reverbEnabled" :reverb-node="reverb"
-          @toggle="toggleReverb" />
+      <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
+        <div class="flex gap-1">
+          <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
+            :compressor-node="compressor" :meter="meterL" @toggle="toggleCompressor" />
+          <TrackReverb ref="trackReverbRef" :track-number="trackNumber" :enabled="reverbEnabled" :reverb-node="reverb"
+            @toggle="toggleReverb" />
+        </div>
       </div>
-    </div>
 
 
-    <!-- EQ Section -->
-    <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
-      <div class="flex items-center justify-between px-2">
-        <button @click="showEQ3Bands = !showEQ3Bands"
-          class="flex items-center gap-1 hover:text-gray-200 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-            class="w-3 h-3 text-gray-400 transition-transform" :class="showEQ3Bands ? 'rotate-90' : ''">
-            <path fill-rule="evenodd"
-              d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-              clip-rule="evenodd" />
-          </svg>
-          <div class="text-xs text-gray-400 uppercase tracking-wide">EQ</div>
+      <!-- EQ Section -->
+      <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
+        <div class="flex items-center justify-between px-2">
+          <button @click="showEQ3Bands = !showEQ3Bands"
+            class="flex items-center gap-1 hover:text-gray-200 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+              class="w-3 h-3 text-gray-400 transition-transform" :class="showEQ3Bands ? 'rotate-90' : ''">
+              <path fill-rule="evenodd"
+                d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                clip-rule="evenodd" />
+            </svg>
+            <div class="text-xs text-gray-400 uppercase tracking-wide">EQ</div>
+          </button>
+          <button @click="showParametricEQ = true"
+            class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors flex items-center justify-center"
+            title="Open Parametric EQ">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="white" class="h-2.5 w-2.5">
+              <path
+                d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z" />
+            </svg>
+          </button>
+        </div>
+        <!-- EQ Curve Thumbnail -->
+        <EQThumbnail :filters="eqFiltersData" />
+
+        <!-- 3-Band EQ Knobs (Accordion) -->
+        <TrackEQ ref="trackEQRef" :eq3Node="eq3" :show="showEQ3Bands" />
+      </div>
+
+      <!-- Mute & Solo Buttons -->
+      <div class="flex flex-row gap-1 w-full">
+        <button @click="toggleMute" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
+          :class="isMuted ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+          MUTE
         </button>
-        <button @click="showParametricEQ = true"
-          class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors flex items-center justify-center"
-          title="Open Parametric EQ">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="white" class="h-2.5 w-2.5">
-            <path
-              d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z" />
-          </svg>
+        <button @click="toggleSolo" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
+          :class="isSolo ? 'bg-yellow-500 text-gray-900 animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+          SOLO
         </button>
       </div>
-      <!-- EQ Curve Thumbnail -->
-      <EQThumbnail :filters="eqFiltersData" />
 
-      <!-- 3-Band EQ Knobs (Accordion) -->
-      <TrackEQ ref="trackEQRef" :eq3Node="eq3" :show="showEQ3Bands" />
-    </div>
+      <!-- Aux Sends Button -->
+      <TrackAuxSends ref="auxSendsRef" :track-number="trackNumber" :aux-buses="auxBuses"
+        @update-sends="handleAuxSendsUpdate" @toggle-panel="showAuxPanel = !showAuxPanel" />
 
-    <!-- Mute & Solo Buttons -->
-    <div class="flex flex-row gap-1 w-full">
-      <button @click="toggleMute" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
-        :class="isMuted ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-        MUTE
-      </button>
-      <button @click="toggleSolo" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
-        :class="isSolo ? 'bg-yellow-500 text-gray-900 animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-        SOLO
-      </button>
-    </div>
-
-    <!-- Aux Sends Button -->
-    <TrackAuxSends 
-      ref="auxSendsRef"
-      :track-number="trackNumber"
-      :aux-buses="auxBuses"
-      @update-sends="handleAuxSendsUpdate"
-      @toggle-panel="showAuxPanel = !showAuxPanel"
-    />
-
+      <!-- Aux Panel Content -->
       <div class="flex justify-center  scale-[0.75]">
         <PanKnob class="" v-model="pan" label="Pan" />
       </div>
 
       <!-- Volume Fader and VU Meter -->
       <div class="flex flex-col h-full">
-      <div class="text-[0.455rem] uppercase text-center">Volume</div>
-      <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
-        <!-- Routing Buttons -->
-        <div class="flex flex-col gap-1 absolute -left-[1.7rem] top-1/2 transform -translate-y-1/2 z-50">
-          <button @click="toggleRouteToMaster" :title="'Route to Master'"
-            class="w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
-            :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
-            M
-          </button>
-          <button 
-            v-for="subgroup in props.subgroups" 
-            :key="subgroup.id"
-            @click="toggleRouteToSubgroup(subgroup.id)" 
-            :title="`Route to ${subgroup.name}`"
-            class="w-5 h-7 text-[6px] font-bold rounded transition-all flex items-center justify-center"
-            :class="routedSubgroups.has(subgroup.id) ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'"
-          >
-            S{{ subgroup.id }}
-          </button>
+        <div class="text-[0.455rem] uppercase text-center">Volume</div>
+        <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
+          <!-- Routing Buttons -->
+          <div class="flex flex-col gap-4 absolute -left-[1.7rem] top-1/2 transform -translate-y-1/2 z-50">
+            <button @click="toggleRouteToMaster" :title="'Route to Master'"
+              class="w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+              :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
+              M
+            </button>
+            <button v-for="subgroup in props.subgroups" :key="subgroup.id" @click="toggleRouteToSubgroup(subgroup.id)"
+              :title="`Route to ${subgroup.name}`"
+              class="w-5 h-7 text-[6px] font-bold rounded transition-all flex items-center justify-center"
+              :class="routedSubgroups.has(subgroup.id) ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
+              S{{ subgroup.id }}
+            </button>
+          </div>
+          <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
+          <TrackMeter class="absolute -right-[1.6rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3"
+            v-if="faderHeight > 0" :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
+            :height="faderHeight + 20" />
         </div>
-        <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
-        <TrackMeter class="absolute -right-[1.6rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3" v-if="faderHeight > 0" :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
-          :height="faderHeight + 20" />
-      </div>
       </div>
     </template>
 
@@ -197,11 +189,9 @@
       <!-- Header -->
       <div class="sticky top-0 bg-gray-800 border-b border-teal-600/30 px-2 py-1 flex justify-between items-center">
         <span class="text-[0.65rem] font-bold text-teal-300">AUX SENDS</span>
-        <button 
-          @click="showAuxPanel = false"
+        <button @click="showAuxPanel = false"
           class="text-gray-400 hover:text-white text-lg leading-none w-5 h-5 flex items-center justify-center"
-          title="Close AUX Panel"
-        >
+          title="Close AUX Panel">
           ×
         </button>
       </div>
@@ -212,60 +202,44 @@
         </div>
 
         <div v-else class="flex flex-col gap-2">
-        <div 
-          v-for="aux in auxBuses" 
-          :key="aux.id"
-          class="flex flex-col items-center gap-1 bg-gray-800/50 rounded-lg p-2 border border-teal-700/30"
-        >
-          <!-- Aux name -->
-          <div class="text-[0.6rem] font-bold text-teal-300 text-center">
-            {{ aux.name }}
-          </div>
+          <div v-for="aux in auxBuses" :key="aux.id"
+            class="flex flex-col items-center gap-1 bg-gray-800/50 rounded-lg p-2 border border-teal-700/30">
+            <!-- Aux name -->
+            <div class="text-[0.6rem] font-bold text-teal-300 text-center">
+              {{ aux.name }}
+            </div>
 
-          <!-- Send level knob -->
-          <div class="scale-[0.6] -my-2">
-            <Knob
-              :modelValue="auxSendsData[aux.id]?.level ?? -60"
-              @update:modelValue="(val) => updateLocalAuxSend(aux.id, 'level', val)"
-              :min="-60"
-              :max="10"
-              :step="0.1"
-              label="Level"
-              unit="dB"
-              color="#14b8a6"
-            />
-          </div>
+            <!-- Send level knob -->
+            <div class="scale-[0.6] -my-2">
+              <Knob :modelValue="auxSendsData[aux.id]?.level ?? -60"
+                @update:modelValue="(val) => updateLocalAuxSend(aux.id, 'level', val)" :min="-60" :max="10" :step="0.1"
+                label="Level" unit="dB" color="#14b8a6" />
+            </div>
 
-          <!-- Controls row -->
-          <div class="w-full flex gap-1">
-            <!-- Pre/Post fader toggle -->
-            <button
-              @click="toggleLocalPrePost(aux.id)"
-              :class="[
+            <!-- Controls row -->
+            <div class="w-full flex gap-1">
+              <!-- Pre/Post fader toggle -->
+              <button @click="toggleLocalPrePost(aux.id)" :class="[
                 'flex-1 py-0.5 px-1 text-[0.5rem] font-bold rounded transition-colors',
-                auxSendsData[aux.id]?.preFader 
-                  ? 'bg-blue-600 text-white' 
+                auxSendsData[aux.id]?.preFader
+                  ? 'bg-blue-600 text-white'
                   : 'bg-gray-700 text-gray-400'
-              ]"
-            >
-              {{ auxSendsData[aux.id]?.preFader ? 'PRE' : 'POST' }}
-            </button>
+              ]">
+                {{ auxSendsData[aux.id]?.preFader ? 'PRE' : 'POST' }}
+              </button>
 
-            <!-- Mute send -->
-            <button
-              @click="toggleLocalMute(aux.id)"
-              :class="[
+              <!-- Mute send -->
+              <button @click="toggleLocalMute(aux.id)" :class="[
                 'flex-1 py-0.5 px-1 text-[0.5rem] font-bold rounded transition-colors',
-                auxSendsData[aux.id]?.muted 
-                  ? 'bg-yellow-600 text-white' 
+                auxSendsData[aux.id]?.muted
+                  ? 'bg-yellow-600 text-white'
                   : 'bg-gray-700 text-gray-400'
-              ]"
-            >
-              M
-            </button>
+              ]">
+                M
+              </button>
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </div>
 
@@ -616,7 +590,7 @@ function applyParametricEQ() {
 // Connect to output (can connect to master and/or multiple subgroups)
 function connectToOutput() {
   if (!volumeMerge || !Tone) return false
-  
+
   // Disconnect only from master and subgroups (preserve aux sends)
   if (props.masterChannel) {
     try {
@@ -625,7 +599,7 @@ function connectToOutput() {
       // Ignore if not connected
     }
   }
-  
+
   // Disconnect from all subgroups
   props.subgroups?.forEach(subgroup => {
     if (subgroup?.channel) {
@@ -636,12 +610,12 @@ function connectToOutput() {
       }
     }
   })
-  
+
   // Connect to master if enabled
   if (routeToMaster.value && props.masterChannel) {
     volumeMerge.connect(toRaw(props.masterChannel))
   }
-  
+
   // Connect to each enabled subgroup
   routedSubgroups.value.forEach(subgroupId => {
     const subgroup = props.subgroups?.find(s => s.id === subgroupId)
@@ -649,7 +623,7 @@ function connectToOutput() {
       volumeMerge.connect(toRaw(subgroup.channel))
     }
   })
-  
+
   // Warn if no output is selected
   if (!routeToMaster.value && routedSubgroups.value.size === 0) {
     console.warn(`[Track ${props.trackNumber}] No output destination selected`)
@@ -690,28 +664,28 @@ function updateLocalAuxSend(auxId: string, property: 'level', value: number) {
       muted: true
     }
   }
-  
+
   auxSendsData.value[auxId].level = value
-  
+
   // If level is increased from minimum, unmute automatically
   if (value > -60 && auxSendsData.value[auxId].muted) {
     auxSendsData.value[auxId].muted = false
   }
-  
+
   // Trigger audio routing update
   handleAuxSendsUpdate(auxSendsData.value)
 }
 
 function toggleLocalPrePost(auxId: string) {
   if (!auxSendsData.value[auxId]) return
-  
+
   auxSendsData.value[auxId].preFader = !auxSendsData.value[auxId].preFader
   handleAuxSendsUpdate(auxSendsData.value)
 }
 
 function toggleLocalMute(auxId: string) {
   if (!auxSendsData.value[auxId]) return
-  
+
   auxSendsData.value[auxId].muted = !auxSendsData.value[auxId].muted
   handleAuxSendsUpdate(auxSendsData.value)
 }
@@ -794,7 +768,7 @@ function handleAuxSendsUpdate(sends: Record<string, any>) {
         const source = send.preFader ? balanceMerge : volumeMerge
         source.connect(sendNode)
         sendNode.connect(toRaw(auxBus.node))
-        
+
         console.log(`Track ${props.trackNumber} → ${auxId}: ${send.level}dB (${send.preFader ? 'PRE' : 'POST'}-fader, gain: ${gainValue.toFixed(3)})`)
       } catch (e) {
         console.error('Error connecting aux send:', e)
@@ -1378,11 +1352,11 @@ function updateGain() {
 // Update pan value (constant power panning for stereo preservation)
 function updatePan() {
   if (!balanceLeft || !balanceRight || !Tone) return
-  
+
   // Constant power panning formula
   // Pan: -1 (left) to +1 (right)
   const panRadians = (pan.value * Math.PI) / 4  // Map -1..+1 to -π/4..+π/4
-  
+
   balanceLeft.gain.value = Math.cos(panRadians + Math.PI / 4)
   balanceRight.gain.value = Math.sin(panRadians + Math.PI / 4)
 }
@@ -1439,12 +1413,12 @@ defineExpose({
     pan.value = snapshot.pan
     isMuted.value = snapshot.muted
     isSolo.value = snapshot.soloed
-    
+
     // Restore output routing
     if (snapshot.routeToMaster !== undefined) {
       routeToMaster.value = snapshot.routeToMaster
     }
-    
+
     // Restore routed subgroups (support both old and new format)
     if (snapshot.routedSubgroups && Array.isArray(snapshot.routedSubgroups)) {
       routedSubgroups.value = new Set(snapshot.routedSubgroups)
@@ -1454,7 +1428,7 @@ defineExpose({
         routedSubgroups.value = new Set([props.subgroups[0].id])
       }
     }
-    
+
     // Reconnect to correct destination(s)
     nextTick(() => {
       connectToOutput()
