@@ -19,15 +19,11 @@
     <!-- VU Meters and Faders -->
     <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-4 min-h-0 mt-2">
       <!-- VU Meters Row -->
-      <div v-if="vuMetersHeight > 0"
-        class="flex flex-col items-center gap-1 w-full justify-center bg-gray-900 rounded p-1 border border-gray-700">
-        <div class="flex gap-4 relative">
-          <VuMeter :level="leftLevel" label="L" :height="vuMetersHeight" :width="25" />
-          <VuMeter :level="rightLevel" label="R" :height="vuMetersHeight" :width="25" />
-          <div class="text-[8px] text-gray-500 uppercase tracking-wider absolute bottom-6 left-1/2 transform -translate-x-1/2">RMS</div>
-
-        </div>
-      </div>
+      <MasterMeter 
+        :left-level="leftLevel" 
+        :right-level="rightLevel" 
+        :vu-meters-height="vuMetersHeight" 
+      />
 
       <!-- Faders Row -->
       <div v-if="fadersHeight > 0" class="flex gap-2 items-end mb-6">
@@ -64,7 +60,7 @@
 
 <script setup lang="ts">
 import MasterFader from './master/MasterFader.vue'
-import VuMeter from './core/VuMeter.vue'
+import MasterMeter from './master/MasterMeter.vue'
 import HeadphonesControl from './master/HeadphonesControl.vue'
 import RecorderButton from './recorder/RecorderButton.vue'
 import Recorder from './recorder/Recorder.vue'
