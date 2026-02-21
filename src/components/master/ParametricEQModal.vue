@@ -53,21 +53,21 @@
                 :style="{
                   left: `${popoverPosition.x}px`,
                   top: `${popoverPosition.y}px`,
-                  transform: `translate(70px, ${filters[draggedFilterIndex].gain > 0 ? '-30%' : filters[draggedFilterIndex].gain < 0 ? '-30%' : '-50%'})`
+                  transform: `translate(70px, ${displayFilters[draggedFilterIndex].gain > 0 ? '-30%' : displayFilters[draggedFilterIndex].gain < 0 ? '-30%' : '-50%'})`
                 }"
               >
                 <div class="text-[11px] font-mono text-gray-200 space-y-0.5">
                   <div class="flex items-center gap-2">
                     <span class="text-gray-400">Freq:</span>
-                    <span class="font-semibold">{{ filters[draggedFilterIndex].frequency }} Hz</span>
+                    <span class="font-semibold">{{ displayFilters[draggedFilterIndex].frequency }} Hz</span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="text-gray-400">Gain:</span>
-                    <span class="font-semibold">{{ filters[draggedFilterIndex].gain > 0 ? '+' : '' }}{{ filters[draggedFilterIndex].gain }} dB</span>
+                    <span class="font-semibold">{{ displayFilters[draggedFilterIndex].gain > 0 ? '+' : '' }}{{ displayFilters[draggedFilterIndex].gain }} dB</span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="text-gray-400">Q:</span>
-                    <span class="font-semibold">{{ filters[draggedFilterIndex].Q }}</span>
+                    <span class="font-semibold">{{ displayFilters[draggedFilterIndex].Q }}</span>
                   </div>
                 </div>
               </div>
@@ -77,7 +77,7 @@
           <!-- Filters List -->
           <div class="flex flex-wrap gap-2 mb-4 max-h-[220px] overflow-y-auto">
             <div
-              v-for="(filter, index) in filters"
+              v-for="(filter, index) in displayFilters"
               :key="filter.id"
               class="rounded-lg p-1.5 border-2 border-gray-700 w-[155px] flex-shrink-0 transition-colors"
               :class="draggedFilterIndex === index ? 'bg-gray-800/90' : 'bg-gray-900/50'"
@@ -89,9 +89,15 @@
                     class="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     :style="{ backgroundColor: filter.color || filterColors[index % filterColors.length] }"
                   ></div>
-                  <h3 class="text-[10px] font-bold text-gray-300">F{{ index + 1 }}</h3>
+                  <h3 class="text-[10px] font-bold text-gray-300">
+                    {{ filter.isSystem ? 'HPF' : `F${index + 1}` }}
+                  </h3>
+                  <span v-if="filter.isSystem" class="text-[8px] px-1 py-0.5 bg-blue-600/30 text-blue-400 rounded">
+                    System
+                  </span>
                 </div>
                 <button
+                  v-if="!filter.isSystem"
                   @click="removeFilter(index)"
                   class="text-red-400 hover:text-red-300 text-xs font-bold leading-none"
                   title="Remove filter"
@@ -107,7 +113,8 @@
                   <select
                     v-model="filter.type"
                     @change="createFilterChain()"
-                    class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                    :disabled="filter.isSystem"
+                    class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="lowshelf">Low Shelf</option>
                     <option value="peaking">Peaking</option>
@@ -125,8 +132,9 @@
                     type="number"
                     min="20"
                     max="20000"
+                    :disabled="filter.isSystem"
                     @input="updateFilterNode(index)"
-                    class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                    class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
                 
@@ -141,8 +149,9 @@
                       min="-24"
                       max="24"
                       step="0.5"
+                      :disabled="filter.isSystem"
                       @input="updateFilterNode(index)"
-                      class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                      class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
                   
@@ -155,9 +164,10 @@
                       min="0.1"
                       max="20"
                       step="0.1"
+                      :disabled="filter.isSystem"
                       @input="updateFilterNode(index)"
                       @blur="filter.Q = parseFloat(filter.Q.toFixed(2))"
-                      class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                      class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -193,6 +203,7 @@ interface Props {
   modelValue: boolean
   trackNumber: number
   eqFilters?: any
+  systemFilters?: any[]  // System filters (like HPF) - only for visualization, not editable
   title?: string
 }
 
@@ -251,6 +262,12 @@ const getInitialFilters = (): EQFilter[] => {
 
 const filters = ref<EQFilter[]>(getInitialFilters())
 
+// Combine user filters with system filters for visualization only
+const displayFilters = computed(() => {
+  const system = props.systemFilters || []
+  return [...system, ...filters.value]
+})
+
 const ToneRef = inject<any>('Tone')
 let Tone: any = null
 let filterNodes: any[] = []
@@ -299,8 +316,9 @@ onUnmounted(() => {
 })
 
 // Watch for external changes to eqFilters (e.g., when loading a scene)
+// Watch for external changes to eqFilters (user filters only)
 watch(() => props.eqFilters, (newFilters) => {
-  // Only sync if we have actual filter data (not undefined and not empty)
+  // Only sync if we have actual filter data
   if (!newFilters || newFilters.length === 0) return
   
   // Check if different from current filters
@@ -316,7 +334,7 @@ watch(() => props.eqFilters, (newFilters) => {
   
   if (!isDifferent) return
   
-  // Sync filters from external source
+  // Sync user filters from external source
   filters.value = newFilters.map((f: any, index: number) => ({
     id: index + 1,
     type: f.type,
@@ -331,6 +349,12 @@ watch(() => props.eqFilters, (newFilters) => {
     createFilterChain()
   })
 })
+
+// Watch for system filters changes (only affects visualization)
+watch(() => props.systemFilters, () => {
+  // Just redraw the curve, don't rebuild the filter chain
+  drawEQCurve()
+}, { deep: true })
 
 // Also sync when modal opens (for immediate visual update)
 watch(() => props.modelValue, (isOpen) => {
@@ -380,6 +404,8 @@ function createFilterChain() {
     
     filterNodes = []
     
+    // Create audio nodes only for user filters
+    // System filters (like HPF) come via systemFilters prop and are only for visualization
     filters.value.forEach((filter, index) => {
       const node = new Tone.Filter({
         type: filter.type,
@@ -397,13 +423,13 @@ function createFilterChain() {
       }
     })
     
-    // Emit the filter chain
+    // Emit the filter chain (only user filters)
     if (filterNodes.length > 0) {
       emit('update', {
         input: filterNodes[0],
         output: filterNodes[filterNodes.length - 1],
         filters: filterNodes,
-        filtersData: filters.value // Include original filter data for thumbnail
+        filtersData: userFilters // Only include user filters for save/update
       })
     }
   } catch (error) {
@@ -421,22 +447,33 @@ function disposeFilters() {
   filterNodes = []
 }
 
-function updateFilterNode(index: number) {
-  const filter = filters.value[index]
+function updateFilterNode(displayIndex: number) {
+  const filter = displayFilters.value[displayIndex]
+  
+  // Skip system filters - they cannot be edited
+  if (filter?.isSystem) return
+  
+  // Calculate the index in the user filters array
+  const systemFiltersCount = (props.systemFilters || []).length
+  const userFilterIndex = displayIndex - systemFiltersCount
+  
+  if (userFilterIndex < 0 || userFilterIndex >= filters.value.length) return
+  
+  const userFilter = filters.value[userFilterIndex]
   
   // If filter chain hasn't been created yet, create it first
-  if (!filter.node || filterNodes.length === 0) {
+  if (!userFilter.node || filterNodes.length === 0) {
     createFilterChain()
     return
   }
   
   // Update node parameters
-  filter.node.frequency.rampTo(filter.frequency, 0.01)
-  if (filter.type !== 'lowpass' && filter.type !== 'highpass') {
-    filter.node.gain.rampTo(filter.gain, 0.01)
+  userFilter.node.frequency.rampTo(userFilter.frequency, 0.01)
+  if (userFilter.type !== 'lowpass' && userFilter.type !== 'highpass') {
+    userFilter.node.gain.rampTo(userFilter.gain, 0.01)
   }
-  if (filter.type === 'peaking' || filter.type === 'lowpass' || filter.type === 'highpass') {
-    filter.node.Q.rampTo(filter.Q, 0.01)
+  if (userFilter.type === 'peaking' || userFilter.type === 'lowpass' || userFilter.type === 'highpass') {
+    userFilter.node.Q.rampTo(userFilter.Q, 0.01)
   }
   
   // Emit update event for thumbnail
@@ -463,10 +500,23 @@ function addFilter() {
   createFilterChain()
 }
 
-function removeFilter(index: number) {
+function removeFilter(displayIndex: number) {
+  const filter = displayFilters.value[displayIndex]
+  
+  // Cannot remove system filters
+  if (filter?.isSystem) return
+  
+  // If this is the last user filter, keep at least one
   if (filters.value.length <= 1) return
-  filters.value.splice(index, 1)
-  createFilterChain()
+  
+  // Calculate the index in the user filters array
+  const systemFiltersCount = (props.systemFilters || []).length
+  const userFilterIndex = displayIndex - systemFiltersCount
+  
+  if (userFilterIndex >= 0 && userFilterIndex < filters.value.length) {
+    filters.value.splice(userFilterIndex, 1)
+    createFilterChain()
+  }
 }
 
 function reset() {
@@ -496,8 +546,11 @@ function handleCanvasMouseDown(e: MouseEvent) {
   const minFreq = Math.log10(20)
   const maxFreq = Math.log10(20000)
   
-  for (let index = 0; index < filters.value.length; index++) {
-    const filter = filters.value[index]
+  for (let index = 0; index < displayFilters.value.length; index++) {
+    const filter = displayFilters.value[index]
+    
+    // Skip system filters - no Q control for them
+    if (filter.isSystem) continue
     
     // Only check for peaking, lowpass, highpass filters
     if (filter.type === 'peaking' || filter.type === 'lowpass' || filter.type === 'highpass') {
@@ -537,7 +590,7 @@ function handleCanvasMouseDown(e: MouseEvent) {
     isDragging.value = true
     
     // Set initial popover position
-    const filter = filters.value[filterIndex]
+    const filter = displayFilters.value[filterIndex]
     const filterX = ((Math.log10(filter.frequency) - minFreq) / (maxFreq - minFreq)) * width
     const actualGain = calculateFilterGain(filter, filter.frequency) * -1
     const filterY = (actualGain * (height / 48)) + (height / 2)
@@ -568,7 +621,7 @@ function handleCanvasMouseMove(e: MouseEvent) {
   
   // Update popover position during drag - calculate from filter position, not mouse position
   if (draggedFilterIndex.value !== null) {
-    const filter = filters.value[draggedFilterIndex.value]
+    const filter = displayFilters.value[draggedFilterIndex.value]
     const width = canvasRect.width
     const height = 450
     const minFreq = Math.log10(20)
@@ -586,7 +639,13 @@ function handleCanvasMouseMove(e: MouseEvent) {
   
   if (draggedFilterIndex.value === null) return
   
-  const filter = filters.value[draggedFilterIndex.value]
+  const filter = displayFilters.value[draggedFilterIndex.value]
+  
+  // Don't allow dragging system filters
+  if (filter.isSystem) {
+    handleCanvasMouseUp()
+    return
+  }
   
   if (isDraggingQ.value) {
     // Dragging Q arrows - only change Q based on horizontal movement
@@ -623,6 +682,7 @@ function handleCanvasMouseMove(e: MouseEvent) {
   }
   
   // Emit update event for real-time thumbnail update
+  // Emit only user filters (not system filters)
   if (filterNodes.length > 0) {
     emit('update', {
       input: filterNodes[0],
@@ -652,8 +712,12 @@ function isOverQArea(x: number, y: number): number {
   const maxFreq = Math.log10(20000)
   
   // Check from last to first (highest index first)
-  for (let index = filters.value.length - 1; index >= 0; index--) {
-    const filter = filters.value[index]
+  // Only check user filters (not system filters)
+  for (let index = displayFilters.value.length - 1; index >= 0; index--) {
+    const filter = displayFilters.value[index]
+    
+    // Skip system filters
+    if (filter.isSystem) continue
     
     if (filter.type === 'peaking' || filter.type === 'lowpass' || filter.type === 'highpass') {
       const filterX = ((Math.log10(filter.frequency) - minFreq) / (maxFreq - minFreq)) * width
@@ -687,8 +751,12 @@ function findNearestFilter(x: number, y: number): number {
   let minDistance = threshold
   
   // Check from last to first to prioritize higher index filters
-  for (let index = filters.value.length - 1; index >= 0; index--) {
-    const filter = filters.value[index]
+  // Only consider user filters (not system filters)
+  for (let index = displayFilters.value.length - 1; index >= 0; index--) {
+    const filter = displayFilters.value[index]
+    
+    // Skip system filters - they cannot be dragged
+    if (filter.isSystem) continue
     
     // Convert filter frequency to x position
     const minFreq = Math.log10(20)
@@ -771,7 +839,7 @@ function drawEQCurve() {
   const maxFreq = Math.log10(20000)
   
   // Draw individual filter areas (filled)
-  filters.value.forEach((filter, filterIndex) => {
+  displayFilters.value.forEach((filter, filterIndex) => {
     const filterColor = filter.color || filterColors[filterIndex % filterColors.length]
     
     // Create filled area
@@ -801,7 +869,7 @@ function drawEQCurve() {
   })
   
   // Draw individual filter curves
-  filters.value.forEach((filter, filterIndex) => {
+  displayFilters.value.forEach((filter, filterIndex) => {
     ctx.strokeStyle = filter.color || filterColors[filterIndex % filterColors.length]
     ctx.lineWidth = 1.5
     ctx.lineCap = 'round'
@@ -842,7 +910,7 @@ function drawEQCurve() {
     
     // Calculate combined gain from all filters (convolution)
     let totalGain = 0
-    filters.value.forEach(filter => {
+    displayFilters.value.forEach(filter => {
       // Multiply by -1 as in the original implementation
       totalGain += (calculateFilterGain(filter, freq) * -1)
     })
@@ -932,15 +1000,15 @@ function drawEQCurve() {
   }
   
   // Draw all non-dragged filters first
-  filters.value.forEach((filter, index) => {
+  displayFilters.value.forEach((filter, index) => {
     if (draggedFilterIndex.value !== index) {
       drawFilterPoint(filter, index)
     }
   })
   
   // Draw dragged filter last (on top)
-  if (draggedFilterIndex.value !== null && filters.value[draggedFilterIndex.value]) {
-    drawFilterPoint(filters.value[draggedFilterIndex.value], draggedFilterIndex.value)
+  if (draggedFilterIndex.value !== null && displayFilters.value[draggedFilterIndex.value]) {
+    drawFilterPoint(displayFilters.value[draggedFilterIndex.value], draggedFilterIndex.value)
   }
 }
 
@@ -957,9 +1025,27 @@ function calculateFilterGain(filter: EQFilter, freq: number): number {
       return lowShelvingCalculator.computeResponseAtFrequency(freq, filterFrequency, filterBoost, filterQ)
     } else if (filter.type === 'highshelf') {
       return highShelvingCalculator.computeResponseAtFrequency(freq, filterFrequency, filterBoost, filterQ)
-    } else if (filter.type === 'lowpass' || filter.type === 'highpass') {
-      // For now, return 0 for lowpass/highpass (not implemented in the classes)
-      return 0
+    } else if (filter.type === 'highpass') {
+      // Highpass filter: second order biquad
+      // |H(ω)|² = (ω/ω0)⁴ / [((ω/ω0)² - 1)² + (ω/ω0)²/Q²]
+      const w = freq / filterFrequency // normalized frequency
+      const w2 = w * w
+      const w4 = w2 * w2
+      const numerator = w4
+      const denominator = Math.pow(w2 - 1, 2) + (w2 / (filterQ * filterQ))
+      const magnitudeSquared = numerator / denominator
+      // Return gain in dB: 10 * log10(|H(ω)|²)
+      return 10 * Math.log10(Math.max(magnitudeSquared, 1e-10))
+    } else if (filter.type === 'lowpass') {
+      // Lowpass filter: second order biquad
+      // |H(ω)|² = 1 / [((ω/ω0)² - 1)² + (ω/ω0)²/Q²]
+      const w = freq / filterFrequency // normalized frequency
+      const w2 = w * w
+      const numerator = 1
+      const denominator = Math.pow(w2 - 1, 2) + (w2 / (filterQ * filterQ))
+      const magnitudeSquared = numerator / denominator
+      // Return gain in dB: 10 * log10(|H(ω)|²)
+      return 10 * Math.log10(Math.max(magnitudeSquared, 1e-10))
     }
   } catch (error) {
     console.warn('Error calculating filter gain:', error)

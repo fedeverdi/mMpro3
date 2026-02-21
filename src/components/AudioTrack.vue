@@ -135,7 +135,7 @@
           </button>
         </div>
         <!-- EQ Curve Thumbnail -->
-        <EQThumbnail :filters="eqFiltersData" />
+        <EQThumbnail :filters="eqFiltersData" :system-filters="systemFilters" />
 
         <!-- 3-Band EQ Knobs (Accordion) -->
         <TrackEQ ref="trackEQRef" :eq3Node="eq3" :show="showEQ3Bands" />
@@ -224,7 +224,7 @@
 
   <!-- Parametric EQ Modal -->
   <ParametricEQModal v-model="showParametricEQ" :trackNumber="trackNumber" :eq-filters="eqFiltersData"
-    @update="handleParametricEQUpdate" />
+    :system-filters="systemFilters" @update="handleParametricEQUpdate" />
 </template>
 
 <script setup lang="ts">
@@ -314,6 +314,26 @@ const reverbEnabled = ref(false)
 
 // Store EQ filters data for thumbnail
 const eqFiltersData = ref<any[]>([])
+
+// System filters (HPF) - separate from user filters, only for visualization
+const systemFilters = computed(() => {
+  const filters: any[] = []
+  
+  // Add HPF as a system filter when enabled
+  if (hpfEnabled.value) {
+    filters.push({
+      id: 'hpf-system',
+      type: 'highpass',
+      frequency: 80,
+      gain: 0,
+      Q: 0.707,
+      color: '#3b82f6',
+      isSystem: true
+    })
+  }
+  
+  return filters
+})
 
 // EQ accordion state
 const showEQ3Bands = ref(false)
@@ -548,11 +568,14 @@ function handleParametricEQUpdate(filters: any) {
     // Convert Vue reactive proxy to raw array
     const rawFiltersData = toRaw(filters.filtersData)
 
+    // Map to plain objects for storage
     eqFiltersData.value = rawFiltersData.map((f: any) => ({
+      id: f.id,
       type: f.type,
       frequency: f.frequency,
       gain: f.gain,
-      Q: f.Q
+      Q: f.Q,
+      color: f.color
     }))
   }
 
@@ -1366,15 +1389,19 @@ function updatePad() {
 function updateHPF() {
   if (!hpfNode || !padNode || !gainNode) return
   
+  // Safer approach: use disconnect() without arguments to disconnect all
+  // Then rebuild the chain
+  try {
+    padNode.disconnect()
+    hpfNode.disconnect()
+  } catch (e) { }
+  
   if (hpfEnabled.value) {
-    // Enable HPF: disconnect direct path and route through filter
-    try { padNode.disconnect(gainNode) } catch (e) { }
+    // Enable HPF: pad -> hpf -> gain
     padNode.connect(hpfNode)
     hpfNode.connect(gainNode)
   } else {
-    // Disable HPF: disconnect filter and create direct path
-    try { padNode.disconnect(hpfNode) } catch (e) { }
-    try { hpfNode.disconnect(gainNode) } catch (e) { }
+    // Disable HPF: pad -> gain (direct bypass)
     padNode.connect(gainNode)
   }
 }
