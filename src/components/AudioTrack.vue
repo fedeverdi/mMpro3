@@ -85,18 +85,20 @@
       </div>
     </div>
 
-    <!-- Waveform Display -->
-    <WaveformDisplay ref="waveformDisplayRef" :waveform-node="waveform" :audio-buffer="currentAudioBuffer"
-      :is-playing="isPlaying" :current-time="currentPlaybackTime" />
+    <!-- Normal Track Content -->
+    <template v-if="!showAuxPanel">
+      <!-- Waveform Display -->
+      <WaveformDisplay ref="waveformDisplayRef" :waveform-node="waveform" :audio-buffer="currentAudioBuffer"
+        :is-playing="isPlaying" :current-time="currentPlaybackTime" />
 
-    <!-- Gain Control -->
-    <div class="w-full flex items-center justify-center h-[4rem]">
-      <div class="scale-[0.65]">
-        <Knob v-model="gain" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Gain" unit="dB" color="#8b5cf6" />
+      <!-- Gain Control -->
+      <div class="w-full flex items-center justify-center h-[4rem]">
+        <div class="scale-[0.65]">
+          <Knob v-model="gain" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Gain" unit="dB" color="#8b5cf6" />
+        </div>
       </div>
-    </div>
 
-    <!-- FX Section -->
+      <!-- FX Section -->
     <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
       <div class="flex gap-1">
         <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
@@ -148,19 +150,21 @@
       </button>
     </div>
 
-    <!-- Aux Sends -->
+    <!-- Aux Sends Button -->
     <TrackAuxSends 
+      ref="auxSendsRef"
       :track-number="trackNumber"
       :aux-buses="auxBuses"
       @update-sends="handleAuxSendsUpdate"
+      @toggle-panel="showAuxPanel = !showAuxPanel"
     />
 
-    <div class="flex justify-center  scale-[0.75]">
-      <PanKnob class="" v-model="pan" label="Pan" />
-    </div>
+      <div class="flex justify-center  scale-[0.75]">
+        <PanKnob class="" v-model="pan" label="Pan" />
+      </div>
 
-    <!-- Volume Fader and VU Meter -->
-    <div class="flex flex-col h-full">
+      <!-- Volume Fader and VU Meter -->
+      <div class="flex flex-col h-full">
       <div class="text-[0.455rem] uppercase text-center">Volume</div>
       <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
         <!-- Routing Buttons -->
@@ -184,6 +188,84 @@
         <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
         <TrackMeter class="absolute -right-[1.6rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3" v-if="faderHeight > 0" :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
           :height="faderHeight + 20" />
+      </div>
+      </div>
+    </template>
+
+    <!-- Aux Panel Content -->
+    <div v-else class="w-full flex-1 overflow-y-auto flex flex-col gap-2 aux-panel-scrollbar">
+      <!-- Header -->
+      <div class="sticky top-0 bg-gray-800 border-b border-teal-600/30 px-2 py-1 flex justify-between items-center">
+        <span class="text-[0.65rem] font-bold text-teal-300">AUX SENDS</span>
+        <button 
+          @click="showAuxPanel = false"
+          class="text-gray-400 hover:text-white text-lg leading-none w-5 h-5 flex items-center justify-center"
+          title="Close AUX Panel"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="px-2">
+        <div v-if="auxBuses.length === 0" class="text-center py-4 text-gray-500 text-[0.6rem]">
+          No aux buses
+        </div>
+
+        <div v-else class="flex flex-col gap-2">
+        <div 
+          v-for="aux in auxBuses" 
+          :key="aux.id"
+          class="flex flex-col items-center gap-1 bg-gray-800/50 rounded-lg p-2 border border-teal-700/30"
+        >
+          <!-- Aux name -->
+          <div class="text-[0.6rem] font-bold text-teal-300 text-center">
+            {{ aux.name }}
+          </div>
+
+          <!-- Send level knob -->
+          <div class="scale-[0.6] -my-2">
+            <Knob
+              :modelValue="auxSendsData[aux.id]?.level ?? -60"
+              @update:modelValue="(val) => updateLocalAuxSend(aux.id, 'level', val)"
+              :min="-60"
+              :max="10"
+              :step="0.1"
+              label="Level"
+              unit="dB"
+              color="#14b8a6"
+            />
+          </div>
+
+          <!-- Controls row -->
+          <div class="w-full flex gap-1">
+            <!-- Pre/Post fader toggle -->
+            <button
+              @click="toggleLocalPrePost(aux.id)"
+              :class="[
+                'flex-1 py-0.5 px-1 text-[0.5rem] font-bold rounded transition-colors',
+                auxSendsData[aux.id]?.preFader 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-700 text-gray-400'
+              ]"
+            >
+              {{ auxSendsData[aux.id]?.preFader ? 'PRE' : 'POST' }}
+            </button>
+
+            <!-- Mute send -->
+            <button
+              @click="toggleLocalMute(aux.id)"
+              :class="[
+                'flex-1 py-0.5 px-1 text-[0.5rem] font-bold rounded transition-colors',
+                auxSendsData[aux.id]?.muted 
+                  ? 'bg-yellow-600 text-white' 
+                  : 'bg-gray-700 text-gray-400'
+              ]"
+            >
+              M
+            </button>
+          </div>
+        </div>
+      </div>
       </div>
     </div>
 
@@ -250,7 +332,12 @@ const isMuted = ref(false)
 const isSolo = ref(false)
 const isLoading = ref(false)
 const showParametricEQ = ref(false)
+const showAuxPanel = ref(false)
+const auxSendsRef = ref<any>(null)
 const waveformDisplayRef = ref<any>(null)
+
+// Local aux sends state
+const auxSendsData = ref<Record<string, { level: number, preFader: boolean, muted: boolean }>>({})
 
 // Audio source selection
 const audioSourceType = ref<'file' | 'input'>('file')
@@ -320,6 +407,19 @@ let audioContextStarted: boolean = false // Track if Tone.start() has been calle
 
 // Aux sends: Map of aux bus ID to { node, preFader }
 const auxSendNodes = new Map<string, { node: any, preFader: boolean }>()
+
+// Initialize aux sends data when aux buses change
+watch(() => props.auxBuses, (newBuses) => {
+  newBuses.forEach(aux => {
+    if (!auxSendsData.value[aux.id]) {
+      auxSendsData.value[aux.id] = {
+        level: -60,
+        preFader: false,
+        muted: true
+      }
+    }
+  })
+}, { immediate: true, deep: true })
 
 // Calculate fader height based on container
 function updateFaderHeight() {
@@ -568,11 +668,44 @@ function disconnectFromSubgroup(subgroupId: number) {
   }
 }
 
+// Local aux send control functions
+function updateLocalAuxSend(auxId: string, property: 'level', value: number) {
+  if (!auxSendsData.value[auxId]) {
+    auxSendsData.value[auxId] = {
+      level: -60,
+      preFader: false,
+      muted: true
+    }
+  }
+  
+  auxSendsData.value[auxId].level = value
+  
+  // If level is increased from minimum, unmute automatically
+  if (value > -60 && auxSendsData.value[auxId].muted) {
+    auxSendsData.value[auxId].muted = false
+  }
+  
+  // Trigger audio routing update
+  handleAuxSendsUpdate(auxSendsData.value)
+}
+
+function toggleLocalPrePost(auxId: string) {
+  if (!auxSendsData.value[auxId]) return
+  
+  auxSendsData.value[auxId].preFader = !auxSendsData.value[auxId].preFader
+  handleAuxSendsUpdate(auxSendsData.value)
+}
+
+function toggleLocalMute(auxId: string) {
+  if (!auxSendsData.value[auxId]) return
+  
+  auxSendsData.value[auxId].muted = !auxSendsData.value[auxId].muted
+  handleAuxSendsUpdate(auxSendsData.value)
+}
+
 // Handle aux sends update
 function handleAuxSendsUpdate(sends: Record<string, any>) {
   if (!Tone || !volumeMerge || !balanceMerge) return
-
-  console.log('Aux sends updated for track', props.trackNumber, sends)
 
   // Get all aux IDs from the sends object
   const sendIds = Object.keys(sends)
@@ -1534,6 +1667,8 @@ onUnmounted(() => {
 })
 
 // FX Functions - Physically reconnect chain to preserve stereo
+
+// FX Functions - Physically reconnect chain to preserve stereo
 function toggleCompressor() {
   compressorEnabled.value = !compressorEnabled.value
 
@@ -1596,3 +1731,23 @@ function toggleReverb() {
   }
 }
 </script>
+
+<style scoped>
+/* Custom lightweight scrollbar for AUX panel */
+.aux-panel-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.aux-panel-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aux-panel-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(20, 184, 166, 0.3);
+  border-radius: 2px;
+}
+
+.aux-panel-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(20, 184, 166, 0.5);
+}
+</style>

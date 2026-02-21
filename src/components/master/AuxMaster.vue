@@ -9,7 +9,7 @@
       No aux buses yet. Click + to add one.
     </div>
 
-    <div v-else class="flex-1 grid gap-1.5 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar" 
+    <div v-else class="flex-1 grid gap-1.5 min-h-0 overflow-y-auto overflow-x-auto custom-scrollbar" 
          style="grid-template-columns: repeat(6, 1fr); grid-auto-rows: max-content;">
       <div v-for="(aux, index) in auxBuses" :key="aux.id" class="relative flex flex-col gap-0.5 bg-gray-800/50 rounded-lg p-1.5 border border-teal-700/50">
         <!-- Remove button (hidden for now) -->
@@ -214,8 +214,10 @@ function toggleAuxMasterRouting(index: number) {
 </script>
 
 <style scoped>
+/* Vertical scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
+  height: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -230,5 +232,19 @@ function toggleAuxMasterRouting(index: number) {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(20, 184, 166, 0.7);
+}
+
+/* Horizontal scrollbar - very minimal */
+.custom-scrollbar::-webkit-scrollbar:horizontal {
+  height: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:horizontal {
+  background: rgba(20, 184, 166, 0.4);
+  border-radius: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:horizontal:hover {
+  background: rgba(20, 184, 166, 0.6);
 }
 </style>
