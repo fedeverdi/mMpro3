@@ -44,6 +44,30 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
+                <!-- PAD -->
+                <div class="flex flex-col items-center">
+                  <div class="px-4 py-2 bg-yellow-700 text-white rounded-lg font-semibold border-2 border-dashed border-yellow-400">
+                    PAD
+                  </div>
+                  <div class="text-xs text-orange-400 mt-1">-26dB if enabled</div>
+                </div>
+                
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                
+                <!-- HPF -->
+                <div class="flex flex-col items-center">
+                  <div class="px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold border-2 border-dashed border-blue-400">
+                    HPF
+                  </div>
+                  <div class="text-xs text-orange-400 mt-1">80Hz if enabled</div>
+                </div>
+                
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                
                 <!-- Gain -->
                 <div class="flex flex-col items-center">
                   <div class="px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold">
