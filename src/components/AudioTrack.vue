@@ -486,13 +486,14 @@ function initAudioNodes() {
     wet: 0            // Bypassed: 0% wet = no reverb
   })
 
-  // Connect chain: pad -> gain -> hpf -> eq3 -> reverb -> balance -> volume
+  // Connect chain: pad -> hpf -> gain -> eq3 -> reverb -> balance -> volume
   // PAD is pre-gain (professional mixer architecture)
+  // HPF is pre-gain (removes rumble before amplification)
   // Compressor is bypassed by default (not in chain)
-  // HPF is also bypassed by default (connected but with wet=0)
-  padNode.connect(gainNode)
-  gainNode.connect(hpfNode)
-  hpfNode.connect(eq3)
+  // HPF starts bypassed (direct connection pad -> gain)
+  padNode.connect(gainNode) // Bypass HPF by default
+  // hpfNode connections will be managed by updateHPF()
+  gainNode.connect(eq3)
 
   // Connect stereo metering to eq3 (before effects)
   eq3.connect(channelSplit)
@@ -1363,10 +1364,19 @@ function updatePad() {
 
 // Update HPF state
 function updateHPF() {
-  if (!hpfNode) return
-  // When disabled, set frequency to 20Hz (below audible range, effectively bypassing)
-  // When enabled, set frequency to 80Hz
-  hpfNode.frequency.value = hpfEnabled.value ? 80 : 20
+  if (!hpfNode || !padNode || !gainNode) return
+  
+  if (hpfEnabled.value) {
+    // Enable HPF: disconnect direct path and route through filter
+    try { padNode.disconnect(gainNode) } catch (e) { }
+    padNode.connect(hpfNode)
+    hpfNode.connect(gainNode)
+  } else {
+    // Disable HPF: disconnect filter and create direct path
+    try { padNode.disconnect(hpfNode) } catch (e) { }
+    try { hpfNode.disconnect(gainNode) } catch (e) { }
+    padNode.connect(gainNode)
+  }
 }
 
 // Update pan value (constant power panning for stereo preservation)
