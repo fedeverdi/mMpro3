@@ -99,16 +99,24 @@
           </h3>
           
           <div class="space-y-3">
-            <!-- Route to Master -->
-            <label class="flex items-center gap-3 p-3 bg-gray-800 rounded hover:bg-gray-750 cursor-pointer">
-              <input 
-                type="checkbox" 
-                :checked="auxBuses[selectedAuxIndex]?.routeToMaster"
-                @change="toggleAuxMasterRouting(selectedAuxIndex)"
-                class="w-4 h-4"
-              />
-              <span class="text-sm text-gray-300">Route to Master</span>
-            </label>
+            <!-- Route to Master - Toggle Switch -->
+            <div class="flex items-center justify-between p-3 bg-gray-800 rounded">
+              <span class="text-sm font-medium text-gray-300">Route to Master</span>
+              <button
+                @click="toggleAuxMasterRouting(selectedAuxIndex)"
+                :class="[
+                  'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-gray-900',
+                  auxBuses[selectedAuxIndex]?.routeToMaster ? 'bg-teal-600' : 'bg-gray-600'
+                ]"
+              >
+                <span
+                  :class="[
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                    auxBuses[selectedAuxIndex]?.routeToMaster ? 'translate-x-6' : 'translate-x-1'
+                  ]"
+                />
+              </button>
+            </div>
 
             <!-- Divider -->
             <div class="border-t border-gray-700 my-4"></div>

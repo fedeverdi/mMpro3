@@ -523,12 +523,6 @@ function addAux() {
     const mainAudioContext = Tone.context.rawContext as AudioContext
     const outputStreamDest = mainAudioContext.createMediaStreamDestination()
     
-    // Connect node to both master (if enabled) and stream destination
-    const masterChan = toRaw(masterChannel.value)
-    if (masterChan) {
-        node.connect(masterChan)
-    }
-    
     // Always connect to stream destination for independent output
     node.connect(outputStreamDest as any)
 
@@ -538,7 +532,7 @@ function addAux() {
         volume: 0,
         muted: false,
         soloed: false,
-        routeToMaster: true,
+        routeToMaster: false,
         selectedOutputDevice: 'no-output',
         node,
         outputStreamDest,
