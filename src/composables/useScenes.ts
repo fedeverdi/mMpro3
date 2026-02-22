@@ -94,6 +94,7 @@ export interface Scene {
   master: MasterSnapshot
   subgroups?: SubgroupSnapshot[]
   auxBuses?: AuxSnapshot[]
+  automation?: any // Automation data from useAutomation().exportAutomation()
   createdAt: number
   updatedAt: number
   pinned?: boolean
@@ -221,7 +222,14 @@ export function useScenes() {
     }
   }
 
-  async function createScene(name: string, tracks: TrackSnapshot[], master: MasterSnapshot, subgroups?: SubgroupSnapshot[], auxBuses?: AuxSnapshot[]): Promise<Scene> {
+  async function createScene(
+    name: string, 
+    tracks: TrackSnapshot[], 
+    master: MasterSnapshot, 
+    subgroups?: SubgroupSnapshot[], 
+    auxBuses?: AuxSnapshot[],
+    automation?: any
+  ): Promise<Scene> {
     const scene: Scene = {
       id: `scene_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       name,
@@ -229,6 +237,7 @@ export function useScenes() {
       master,
       subgroups,
       auxBuses,
+      automation,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -238,7 +247,14 @@ export function useScenes() {
     return scene
   }
 
-  async function updateScene(sceneId: string, tracks: TrackSnapshot[], master: MasterSnapshot, subgroups?: SubgroupSnapshot[], auxBuses?: AuxSnapshot[]) {
+  async function updateScene(
+    sceneId: string, 
+    tracks: TrackSnapshot[], 
+    master: MasterSnapshot, 
+    subgroups?: SubgroupSnapshot[], 
+    auxBuses?: AuxSnapshot[],
+    automation?: any
+  ) {
     const index = scenes.value.findIndex(s => s.id === sceneId)
     if (index !== -1) {
       const scene = scenes.value[index]
@@ -248,6 +264,7 @@ export function useScenes() {
         master,
         subgroups,
         auxBuses,
+        automation,
         updatedAt: Date.now()
       }
       

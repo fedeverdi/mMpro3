@@ -1,6 +1,9 @@
 <template>
   <div
-    class="track-channel relative bg-gray-800 rounded-lg border border-gray-700 p-1 flex flex-col items-center gap-1 h-full">
+    :class="[
+      'track-channel relative bg-gray-800 rounded-lg border p-1 flex flex-col items-center gap-1 h-full',
+      isRecording ? 'border-red-500 border-2' : 'border-gray-700'
+    ]">
     <!-- Loading Overlay -->
     <div v-if="isLoading"
       class="absolute inset-0 bg-gray-900 bg-opacity-80 rounded-lg z-50 flex flex-col items-center justify-center gap-2">
@@ -17,7 +20,13 @@
     <!-- Track Header -->
     <div class="w-full flex flex-col gap-1">
       <div class="w-full flex items-center justify-between gap-1">
-        <div class="text-xs font-bold text-gray-300 flex-1 text-center">Track {{ trackNumber }}</div>
+        <div class="flex items-center gap-1 flex-1 justify-center">
+          <div class="text-xs font-bold text-gray-300">Track {{ trackNumber }}</div>
+          <div v-if="isRecording" 
+            class="px-1 py-0.5 bg-red-600 text-white text-[0.5rem] font-bold rounded animate-pulse">
+            REC
+          </div>
+        </div>
         <button @click="$emit('remove')"
           class="w-4 h-4 pb-[0.05rem] rounded-full bg-white/20 hover:bg-white/30 text-white/60 hover:text-white/80 text-xs flex items-center justify-center transition-all"
           title="Remove Track">
@@ -154,6 +163,21 @@
         </button>
       </div>
 
+      <!-- Arm for Recording Button -->
+      <button @click="emit('toggle-arm')" 
+        class="w-full py-1.5 text-[0.5rem] font-bold rounded transition-all border-2"
+        :class="isArmed 
+          ? 'bg-red-700 border-red-500 text-white shadow-lg shadow-red-500/50' 
+          : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
+        title="Arm track for automation recording">
+        <div class="flex items-center justify-center gap-1">
+          <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="6" />
+          </svg>
+          <span>ARM</span>
+        </div>
+      </button>
+
       <!-- Aux Panel Content -->
       <div class="flex justify-center  scale-[0.75]">
         <PanKnob class="" v-model="pan" label="Pan" />
@@ -244,6 +268,9 @@ defineOptions({
 const ToneRef = inject<any>('Tone')
 let Tone: any = null
 
+// Inject automation system
+const automation = inject<any>('automation', null)
+
 const { saveAudioFile, getAudioFile } = useAudioFileStorage()
 
 interface Props {
@@ -251,17 +278,20 @@ interface Props {
   masterChannel?: any
   subgroups?: Array<{ id: number, name: string, channel: any, ref: any }>
   auxBuses?: Array<{ id: string, name: string, volume: number, muted: boolean, soloed: boolean, routeToMaster: boolean, node?: any }>
+  isArmed?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   subgroups: () => [],
-  auxBuses: () => []
+  auxBuses: () => [],
+  isArmed: false
 })
 
 const emit = defineEmits<{
   (e: 'soloChange', value: { trackNumber: number, isSolo: boolean }): void
   (e: 'levelUpdate', value: { trackNumber: number, level: number }): void
   (e: 'remove'): void
+  (e: 'toggle-arm'): void
 }>()
 
 // Audio state
@@ -337,6 +367,23 @@ const pan = ref(0) // -1 (left) to +1 (right)
 const isStereo = ref(true) // Track if source is stereo or mono (default stereo)
 const trackLevelL = ref(-60) // Left/Mono level
 const trackLevelR = ref(-60) // Right level (only for stereo)
+
+// Automation recording - track last recorded values to avoid redundant points
+const lastRecordedVolume = ref<number | null>(null)
+const lastRecordedPan = ref<number | null>(null)
+
+// Check if this track is currently recording automation
+const isRecording = computed(() => {
+  if (!automation || !automation.isRecording.value) return false
+  if (!automation.transport.value.isPlaying) return false
+  if (!props.isArmed) return false // Only show REC if track is armed
+  
+  // Check if any lane for this track is in write mode
+  return automation.automationLanes.value.some((lane: any) => 
+    lane.trackId === props.trackNumber && 
+    (lane.mode === 'write' || lane.mode === 'touch' || lane.mode === 'latch')
+  )
+})
 const currentPlaybackTime = ref(0)
 
 // Component refs
@@ -1448,6 +1495,47 @@ watch(padEnabled, updatePad)
 watch(hpfEnabled, updateHPF)
 watch(pan, updatePan)
 
+// Automation recording - watch for parameter changes
+watch(volume, (newValue) => {
+  if (!automation || !automation.transport.value.isPlaying) return
+  
+  // Check if there's a volume lane for this track in write/touch/latch mode
+  const volumeLane = automation.automationLanes.value.find((lane: any) => 
+    lane.trackId === props.trackNumber && 
+    lane.parameter === 'volume' &&
+    (lane.mode === 'write' || lane.mode === 'touch' || lane.mode === 'latch')
+  )
+  
+  if (!volumeLane) return
+  
+  // Only record if value changed significantly (>= 0.1 dB)
+  if (lastRecordedVolume.value === null || Math.abs(newValue - lastRecordedVolume.value) >= 0.1) {
+    const currentTime = automation.transport.value.currentTime
+    automation.addPoint(props.trackNumber, 'volume', currentTime, newValue)
+    lastRecordedVolume.value = newValue
+  }
+})
+
+watch(pan, (newValue) => {
+  if (!automation || !automation.transport.value.isPlaying) return
+  
+  // Check if there's a pan lane for this track in write/touch/latch mode
+  const panLane = automation.automationLanes.value.find((lane: any) => 
+    lane.trackId === props.trackNumber && 
+    lane.parameter === 'pan' &&
+    (lane.mode === 'write' || lane.mode === 'touch' || lane.mode === 'latch')
+  )
+  
+  if (!panLane) return
+  
+  // Only record if value changed significantly (>= 0.01)
+  if (lastRecordedPan.value === null || Math.abs(newValue - lastRecordedPan.value) >= 0.01) {
+    const currentTime = automation.transport.value.currentTime
+    automation.addPoint(props.trackNumber, 'pan', currentTime, newValue)
+    lastRecordedPan.value = newValue
+  }
+})
+
 // Expose methods for external control
 defineExpose({
   setMuted: (muted: boolean) => {
@@ -1456,6 +1544,23 @@ defineExpose({
   },
   isSolo: () => isSolo.value,
   disconnectFromSubgroup, // Expose for cleanup when subgroup is removed
+  
+  // Automation control - set values without triggering recording
+  setVolume: (value: number, skipRecording = false) => {
+    if (skipRecording) {
+      // Temporarily update last recorded value to prevent recording
+      lastRecordedVolume.value = value
+    }
+    volume.value = value
+  },
+  
+  setPan: (value: number, skipRecording = false) => {
+    if (skipRecording) {
+      // Temporarily update last recorded value to prevent recording
+      lastRecordedPan.value = value
+    }
+    pan.value = value
+  },
 
   getSnapshot: () => {
     return {
