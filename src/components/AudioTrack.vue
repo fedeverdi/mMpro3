@@ -411,6 +411,12 @@ watch(() => props.auxBuses, (newBuses) => {
   })
 }, { immediate: true, deep: true })
 
+// Update aux sends when track mute changes
+watch(isMuted, () => {
+  // Re-apply aux sends to update gain based on mute state
+  handleAuxSendsUpdate(auxSendsData.value)
+})
+
 // Calculate fader height based on container
 function updateFaderHeight() {
   if (faderContainer.value) {
@@ -834,7 +840,8 @@ function handleAuxSendsUpdate(sends: Record<string, any>) {
     }
 
     // Update send level (convert dB to gain)
-    const gainValue = Tone.dbToGain(send.level)
+    // If track is muted, force send to 0 regardless of send level
+    const gainValue = isMuted.value ? 0 : Tone.dbToGain(send.level)
     sendNode.gain.value = gainValue
 
     // Connect new nodes

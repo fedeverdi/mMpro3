@@ -338,10 +338,18 @@ interface AuxBus {
     soloed: boolean
     routeToMaster: boolean
     selectedOutputDevice?: string | null
-    node?: any
+    node?: any  // Input node (Channel)
+    outputNode?: any  // Output node (final node of FX chain)
     outputStreamDest?: MediaStreamAudioDestinationNode | null
     outputAudioContext?: AudioContext | null
     outputSource?: MediaStreamAudioSourceNode | null
+    // FX Chain
+    reverbNode?: any
+    reverbEnabled?: boolean
+    reverbParams?: { decay: number, preDelay: number, wet: number }
+    delayNode?: any
+    delayEnabled?: boolean
+    delayParams?: { delayTime: number, feedback: number, wet: number }
 }
 
 const auxBuses = ref<AuxBus[]>([])
@@ -527,8 +535,8 @@ function addAux() {
     const id = `aux-${nextAuxId++}`
     const name = `AUX ${nextAuxId - 1}`
 
-    // Create Tone.js channel for this aux
-    const node = new Tone.Channel({
+    // Create Tone.js channel for this aux - this receives sends from tracks
+    const inputNode = new Tone.Channel({
         volume: 0,
         pan: 0,
         mute: false,
@@ -537,12 +545,44 @@ function addAux() {
         channelInterpretation: 'speakers'
     })
 
+    // Create FX chain
+    // Reverb (100% wet when enabled, bypassed with wet=0)
+    const reverbNode = new Tone.Reverb({
+        decay: 2.5,
+        preDelay: 0.01,
+        wet: 0  // Start bypassed
+    })
+    
+    // Generate reverb impulse response (required for Tone.Reverb)
+    reverbNode.generate().then(() => {
+    }).catch(err => {
+        console.error(`[AUX ${name}] Reverb generation failed:`, err)
+    })
+
+    // Delay (with feedback, bypassed with wet=0)
+    const delayNode = new Tone.FeedbackDelay({
+        delayTime: 0.25,  // 250ms (quarter note at 120bpm)
+        feedback: 0.3,
+        wet: 0  // Start bypassed
+    })
+    
+    // Output node (final point of FX chain)
+    const outputNode = new Tone.Gain(1)
+
+    // FX Chain: input → reverb → delay → outputNode → destinations
+    // outputNode is the final node that connects to master and/or output device
+    
     // Create MediaStreamDestination for output routing
     const mainAudioContext = Tone.context.rawContext as AudioContext
     const outputStreamDest = mainAudioContext.createMediaStreamDestination()
 
-    // Always connect to stream destination for independent output
-    node.connect(outputStreamDest as any)
+    // Connect FX chain - ALWAYS connected, bypass via wet=0
+    inputNode.connect(reverbNode)
+    reverbNode.connect(delayNode)
+    delayNode.connect(outputNode)
+    
+    // Output node connects to stream destination by default
+    outputNode.connect(outputStreamDest as any)
 
     const newAux: AuxBus = {
         id,
@@ -552,10 +592,18 @@ function addAux() {
         soloed: false,
         routeToMaster: false,
         selectedOutputDevice: 'no-output',
-        node,
+        node: inputNode,
+        outputNode,
         outputStreamDest,
         outputAudioContext: null,
-        outputSource: null
+        outputSource: null,
+        // FX
+        reverbNode,
+        reverbEnabled: false,
+        reverbParams: { decay: 2.5, preDelay: 0.01, wet: 0 },
+        delayNode,
+        delayEnabled: false,
+        delayParams: { delayTime: 0.25, feedback: 0.3, wet: 0 }
     }
 
     auxBuses.value.push(newAux)
@@ -597,26 +645,26 @@ async function updateAux(index: number, updatedAux: AuxBus) {
 
         // Update routing to master if changed
         if (updatedAux.routeToMaster !== aux.routeToMaster) {
-            const node = toRaw(aux.node)
+            const outputNode = toRaw(aux.outputNode)  // Use outputNode (end of FX chain)
             const masterChan = toRaw(masterChannel.value)
             const outputStreamDest = toRaw(aux.outputStreamDest)
 
             if (updatedAux.routeToMaster && masterChan) {
                 try {
-                    node.disconnect()
+                    outputNode.disconnect()
                 } catch (e) { }
                 // Connect to both master and stream destination
-                node.connect(masterChan)
+                outputNode.connect(masterChan)
                 if (outputStreamDest) {
-                    node.connect(outputStreamDest as any)
+                    outputNode.connect(outputStreamDest as any)
                 }
             } else {
                 try {
-                    node.disconnect()
+                    outputNode.disconnect()
                 } catch (e) { }
                 // Connect only to stream destination
                 if (outputStreamDest) {
-                    node.connect(outputStreamDest as any)
+                    outputNode.connect(outputStreamDest as any)
                 }
             }
         }
@@ -626,9 +674,13 @@ async function updateAux(index: number, updatedAux: AuxBus) {
             await changeAuxOutputDevice(index, updatedAux.selectedOutputDevice)
         }
 
-        // Update values (preserve output routing objects that are managed separately)
+        // Update values (preserve audio nodes and output routing objects that are managed separately)
         auxBuses.value[index] = {
             ...updatedAux,
+            node: auxBuses.value[index].node,
+            outputNode: auxBuses.value[index].outputNode,
+            reverbNode: auxBuses.value[index].reverbNode,
+            delayNode: auxBuses.value[index].delayNode,
             outputStreamDest: auxBuses.value[index].outputStreamDest,
             outputAudioContext: auxBuses.value[index].outputAudioContext,
             outputSource: auxBuses.value[index].outputSource
@@ -869,7 +921,12 @@ async function handleSaveScene(sceneName: string) {
             muted: aux.muted,
             soloed: aux.soloed,
             routeToMaster: aux.routeToMaster,
-            selectedOutputDevice: aux.selectedOutputDevice
+            selectedOutputDevice: aux.selectedOutputDevice,
+            // FX
+            reverbEnabled: aux.reverbEnabled,
+            reverbParams: aux.reverbParams,
+            delayEnabled: aux.delayEnabled,
+            delayParams: aux.delayParams
         })
     })
 
@@ -966,7 +1023,7 @@ function handleLoadScene(sceneId: string) {
 
                 // Create aux buses from scene
                 scene.auxBuses.forEach((auxSnapshot: AuxSnapshot) => {
-                    // Create Tone.js channel for this aux
+                    // Create Tone.js channel for this aux (input node)
                     const node = new Tone.Channel({
                         volume: auxSnapshot.volume,
                         pan: 0,
@@ -976,19 +1033,46 @@ function handleLoadScene(sceneId: string) {
                         channelInterpretation: 'speakers'
                     })
 
+                    // Create FX chain with saved parameters
+                    const reverbParams = auxSnapshot.reverbParams || { decay: 2.5, preDelay: 0.01, wet: 0 }
+                    const reverbNode = new Tone.Reverb({
+                        decay: reverbParams.decay,
+                        preDelay: reverbParams.preDelay,
+                        wet: auxSnapshot.reverbEnabled ? reverbParams.wet : 0
+                    })
+                    
+                    reverbNode.generate().catch(err => {
+                        console.error(`[Aux ${auxSnapshot.name}] Reverb generation failed:`, err)
+                    })
+                    
+                    const delayParams = auxSnapshot.delayParams || { delayTime: 0.25, feedback: 0.3, wet: 0 }
+                    const delayNode = new Tone.FeedbackDelay({
+                        delayTime: delayParams.delayTime,
+                        feedback: delayParams.feedback,
+                        wet: auxSnapshot.delayEnabled ? delayParams.wet : 0
+                    })
+                    
+                    // Output node (final point of FX chain)
+                    const outputNode = new Tone.Gain(1)
+
                     // Create MediaStreamDestination for output routing
                     const mainAudioContext = Tone.context.rawContext as AudioContext
                     const outputStreamDest = mainAudioContext.createMediaStreamDestination()
 
-                    // Connect nodes based on routeToMaster setting
+                    // Connect FX chain
+                    node.connect(reverbNode)
+                    reverbNode.connect(delayNode)
+                    delayNode.connect(outputNode)
+                    
+                    // Connect outputNode based on routeToMaster setting
                     if (auxSnapshot.routeToMaster) {
                         const masterChan = toRaw(masterChannel.value)
                         if (masterChan) {
-                            node.connect(masterChan)
+                            outputNode.connect(masterChan)
                         }
-                        node.connect(outputStreamDest as any)
+                        outputNode.connect(outputStreamDest as any)
                     } else {
-                        node.connect(outputStreamDest as any)
+                        outputNode.connect(outputStreamDest as any)
                     }
 
                     const newAux: AuxBus = {
@@ -1000,9 +1084,17 @@ function handleLoadScene(sceneId: string) {
                         routeToMaster: auxSnapshot.routeToMaster,
                         selectedOutputDevice: auxSnapshot.selectedOutputDevice ?? 'no-output',
                         node,
+                        outputNode,
                         outputStreamDest,
                         outputAudioContext: null,
-                        outputSource: null
+                        outputSource: null,
+                        // FX
+                        reverbNode,
+                        reverbEnabled: auxSnapshot.reverbEnabled || false,
+                        reverbParams,
+                        delayNode,
+                        delayEnabled: auxSnapshot.delayEnabled || false,
+                        delayParams
                     }
 
                     auxBuses.value.push(newAux)
@@ -1169,7 +1261,12 @@ async function handleUpdateScene(sceneId: string) {
             muted: aux.muted,
             soloed: aux.soloed,
             routeToMaster: aux.routeToMaster,
-            selectedOutputDevice: aux.selectedOutputDevice
+            selectedOutputDevice: aux.selectedOutputDevice,
+            // FX
+            reverbEnabled: aux.reverbEnabled,
+            reverbParams: aux.reverbParams,
+            delayEnabled: aux.delayEnabled,
+            delayParams: aux.delayParams
         })
     })
 

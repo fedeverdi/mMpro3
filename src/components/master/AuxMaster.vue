@@ -38,15 +38,50 @@
                         :max="10" label="Vol" unit="dB" color="#14b8a6" />
                 </div>
 
+                <!-- FX Buttons -->
+                <div class="grid grid-cols-2 gap-1">
+                    <div class="relative flex items-center gap-0.5">
+                        <button @click="toggleAuxReverb(index)" :class="[
+                            'flex-1 py-0.5 text-[0.5rem] font-bold rounded transition-colors',
+                            aux.reverbEnabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                        ]" title="Reverb">
+                            RV
+                        </button>
+                        <button @click.stop="showReverbModal(index)" :disabled="!aux.reverbEnabled"
+                            class="p-0.5 rounded hover:bg-green-700 disabled:opacity-30 disabled:hover:bg-transparent">
+                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="relative flex items-center gap-0.5">
+                        <button @click="toggleAuxDelay(index)" :class="[
+                            'flex-1 py-0.5 text-[0.5rem] font-bold rounded transition-colors',
+                            aux.delayEnabled ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                        ]" title="Delay">
+                            DL
+                        </button>
+                        <button @click.stop="showDelayModal(index)" :disabled="!aux.delayEnabled"
+                            class="p-0.5 rounded hover:bg-blue-700 disabled:opacity-30 disabled:hover:bg-transparent">
+                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
 
                 <!-- Output routing -->
-                <div class="grid grid-cols-2 gap-1 mt-1">
+                <div class="grid grid-cols-2 gap-1 mt-0.5">
                     <button @click="showOutputModal(index)"
-                        class="py-0.5 mt-1 text-[0.45rem] font-bold rounded bg-teal-600 hover:bg-teal-700 text-white transition-colors">
+                        class="py-0.5 text-[0.45rem] font-bold rounded bg-teal-600 hover:bg-teal-700 text-white transition-colors">
                         OUT
                     </button>
                     <button @click="toggleAuxMute(index)" :class="[
-                        'py-0.5 mt-1 text-[0.45rem] font-bold rounded transition-colors',
+                        'py-0.5 text-[0.45rem] font-bold rounded transition-colors',
                         aux.muted ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-400'
                     ]">
                         M
@@ -189,6 +224,72 @@
                 </div>
             </div>
         </Teleport>
+
+        <!-- Reverb FX Modal -->
+        <Teleport to="body">
+            <div v-if="selectedReverbAux !== null"
+                class="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]"
+                @mousedown.self="selectedReverbAux = null">
+                <div class="bg-gray-900 rounded-lg border-2 border-green-600 p-6 max-w-md w-full mx-4" @click.stop>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-green-300">
+                            {{ auxBuses[selectedReverbAux]?.name }} - Reverb
+                        </h3>
+                        <button @click="selectedReverbAux = null"
+                            class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    <div class="flex flex-wrap gap-4 justify-center">
+                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.decay || 2.5"
+                            @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'decay', val)"
+                            :min="0.1" :max="10" :step="0.1" label="Decay" unit="s" color="#10b981" />
+                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.preDelay || 0.01"
+                            @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'preDelay', val)"
+                            :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#f59e0b" />
+                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.wet ?? 0"
+                            @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'wet', val)" :min="0"
+                            :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
+                    </div>
+                    <div class="mt-4 text-xs text-gray-400 text-center">
+                        <p><strong>Decay:</strong> Reverb tail length</p>
+                        <p><strong>Pre-Delay:</strong> Time before reverb starts</p>
+                        <p><strong>Wet:</strong> Effect amount (100% for aux send)</p>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Delay FX Modal -->
+        <Teleport to="body">
+            <div v-if="selectedDelayAux !== null"
+                class="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]"
+                @mousedown.self="selectedDelayAux = null">
+                <div class="bg-gray-900 rounded-lg border-2 border-blue-600 p-6 max-w-md w-full mx-4" @click.stop>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-blue-300">
+                            {{ auxBuses[selectedDelayAux]?.name }} - Delay
+                        </h3>
+                        <button @click="selectedDelayAux = null"
+                            class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    <div class="flex flex-wrap gap-4 justify-center">
+                        <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.delayTime || 0.25"
+                            @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'delayTime', val)"
+                            :min="0.01" :max="2" :step="0.01" label="Time" unit="s" color="#3b82f6" />
+                        <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.feedback || 0.3"
+                            @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'feedback', val)"
+                            :min="0" :max="0.95" :step="0.01" label="Feedback" unit="%" color="#8b5cf6" />
+                        <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.wet !== undefined ? auxBuses[selectedDelayAux].delayParams.wet : 0"
+                            @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'wet', val)" :min="0"
+                            :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
+                    </div>
+                    <div class="mt-4 text-xs text-gray-400 text-center">
+                        <p><strong>Time:</strong> Delay time (ms to seconds)</p>
+                        <p><strong>Feedback:</strong> Number of repeats</p>
+                        <p><strong>Wet:</strong> Effect amount (100% for aux send)</p>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
 
@@ -205,10 +306,18 @@ interface AuxBus {
     soloed: boolean
     routeToMaster: boolean
     selectedOutputDevice?: string | null
-    node?: any
+    node?: any  // Input node
+    outputNode?: any  // Output node (final node of FX chain)
     outputStreamDest?: MediaStreamAudioDestinationNode | null
     outputAudioContext?: AudioContext | null
     outputSource?: MediaStreamAudioSourceNode | null
+    // FX Chain
+    reverbNode?: any
+    reverbEnabled?: boolean
+    reverbParams?: { decay: number, preDelay: number, wet: number }
+    delayNode?: any
+    delayEnabled?: boolean
+    delayParams?: { delayTime: number, feedback: number, wet: number }
 }
 
 interface Props {
@@ -229,6 +338,8 @@ let Tone: any = null
 const { audioOutputDevices, enumerateAudioOutputs } = useAudioDevices()
 
 const selectedAuxIndex = ref<number | null>(null)
+const selectedReverbAux = ref<number | null>(null)
+const selectedDelayAux = ref<number | null>(null)
 const auxBuses = ref<AuxBus[]>(props.auxBuses || [])
 
 // Enumerate audio output devices on mount
@@ -312,6 +423,141 @@ function getDeviceLabel(deviceId: string | null | undefined): string {
     if (deviceId === 'no-output') return 'No Output'
     const device = audioOutputDevices.value.find(d => d.deviceId === deviceId)
     return device?.label || 'Unknown Device'
+}
+
+// Toggle Reverb FX
+function toggleAuxReverb(index: number) {
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = props.auxBuses[index]
+    const newEnabled = !aux.reverbEnabled
+    
+    // Toggle wet parameter (restore saved value when enabling, 0 when disabling)
+    if (aux.reverbNode) {
+        if (newEnabled) {
+            // Restore saved wet value
+            const savedWet = aux.reverbParams?.wet ?? 0
+            aux.reverbNode.wet.value = savedWet
+        } else {
+            // Disable: set to 0
+            aux.reverbNode.wet.value = 0
+        }
+    }
+    
+    // Update state
+    const updatedAux = { ...aux, reverbEnabled: newEnabled }
+    emit('update-aux', index, updatedAux)
+}
+
+// Toggle Delay FX
+function toggleAuxDelay(index: number) {
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = props.auxBuses[index]
+    const newEnabled = !aux.delayEnabled
+    
+    // Toggle wet parameter (restore saved value when enabling, 0 when disabling)
+    if (aux.delayNode) {
+        if (newEnabled) {
+            // Restore saved wet value
+            const savedWet = aux.delayParams?.wet ?? 0
+            aux.delayNode.wet.value = savedWet
+        } else {
+            // Disable: set to 0
+            aux.delayNode.wet.value = 0
+        }
+    }
+    
+    // Update state
+    const updatedAux = { ...aux, delayEnabled: newEnabled }
+    emit('update-aux', index, updatedAux)
+}
+
+// NOTE: reconnectAuxChain is no longer needed - FX are always connected, controlled via wet parameter
+
+// Show reverb modal
+function showReverbModal(index: number) {
+    selectedReverbAux.value = index
+}
+
+// Show delay modal
+function showDelayModal(index: number) {
+    selectedDelayAux.value = index
+    const aux = auxBuses.value[index]
+}
+
+// Update single reverb parameter
+function updateAuxReverbParam(index: number, param: 'decay' | 'preDelay' | 'wet', value: number) {
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = props.auxBuses[index]
+    
+    // Update the audio node directly (no emit = no lag)
+    if (aux.reverbNode) {
+        if (param === 'decay') {
+            aux.reverbNode.decay = value
+        } else if (param === 'preDelay') {
+            aux.reverbNode.preDelay = value
+        } else if (param === 'wet') {
+            aux.reverbNode.wet.value = value
+        }
+    }
+    
+    // Update internal params object (for UI sync)
+    if (!aux.reverbParams) {
+        aux.reverbParams = { decay: 2.5, preDelay: 0.01, wet: 0 }
+    }
+    aux.reverbParams[param] = value
+}
+
+// Update single delay parameter
+function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback' | 'wet', value: number) {
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = props.auxBuses[index]
+    
+    // Update the audio node directly (no emit = no lag)
+    if (aux.delayNode) {
+        if (param === 'delayTime') {
+            aux.delayNode.delayTime.value = value
+        } else if (param === 'feedback') {
+            aux.delayNode.feedback.value = value
+        } else if (param === 'wet') {
+            aux.delayNode.wet.value = value
+        }
+    }
+    
+    // Update internal params object (for UI sync)
+    if (!aux.delayParams) {
+        aux.delayParams = { delayTime: 0.25, feedback: 0.3, wet: 0 }
+    }
+    aux.delayParams[param] = value
+}
+
+// Update Reverb parameters
+function updateAuxReverbParams(index: number, params: { decay: number, preDelay: number, wet: number }) {
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = props.auxBuses[index]
+    
+    if (aux.reverbNode) {
+        aux.reverbNode.decay = params.decay
+        aux.reverbNode.preDelay = params.preDelay
+        aux.reverbNode.wet.value = params.wet
+    }
+    
+    const updatedAux = { ...aux, reverbParams: params }
+    emit('update-aux', index, updatedAux)
+}
+
+// Update Delay parameters
+function updateAuxDelayParams(index: number, params: { delayTime: number, feedback: number, wet: number }) {
+    if (!props.auxBuses || !props.auxBuses[index]) return
+    const aux = props.auxBuses[index]
+    
+    if (aux.delayNode) {
+        aux.delayNode.delayTime.value = params.delayTime
+        aux.delayNode.feedback.value = params.feedback
+        aux.delayNode.wet.value = params.wet
+    }
+    
+    const updatedAux = { ...aux, delayParams: params }
+    emit('update-aux', index, updatedAux)
 }
 </script>
 

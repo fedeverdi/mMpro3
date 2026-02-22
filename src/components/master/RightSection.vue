@@ -173,10 +173,18 @@ interface AuxBus {
   soloed: boolean
   routeToMaster: boolean
   selectedOutputDevice?: string | null
-  node?: any
+  node?: any  // Input node
+  outputNode?: any  // Output node
   outputStreamDest?: MediaStreamAudioDestinationNode | null
   outputAudioContext?: AudioContext | null
   outputSource?: MediaStreamAudioSourceNode | null
+  // FX Chain
+  reverbNode?: any
+  reverbEnabled?: boolean
+  reverbParams?: { decay: number, preDelay: number, wet: number }
+  delayNode?: any
+  delayEnabled?: boolean
+  delayParams?: { delayTime: number, feedback: number, wet: number }
 }
 
 interface Props {

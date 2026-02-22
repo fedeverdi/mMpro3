@@ -80,6 +80,11 @@ export interface AuxSnapshot {
   soloed: boolean
   routeToMaster: boolean
   selectedOutputDevice?: string | null
+  // FX Chain
+  reverbEnabled?: boolean
+  reverbParams?: { decay: number, preDelay: number, wet: number }
+  delayEnabled?: boolean
+  delayParams?: { delayTime: number, feedback: number, wet: number }
 }
 
 export interface Scene {
