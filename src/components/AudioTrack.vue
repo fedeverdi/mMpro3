@@ -164,7 +164,7 @@
       </div>
 
       <!-- Aux Panel Content -->
-      <div class="flex justify-center  scale-[0.75]">
+      <div class="flex justify-center scale-[0.75]">
         <PanKnob class="" v-model="pan" label="Pan" />
       </div>
 
@@ -197,6 +197,24 @@
             </button>
           </div>
           <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
+          
+          <!-- Phase Correlation LED (stereo only) - Above VU meters -->
+          <div v-if="isStereo && faderHeight > 0" class="absolute -right-[1.8rem] -top-7 z-50 flex flex-col items-center gap-0.5">
+            <button
+              @click="showPhaseModal = true"
+              :class="[
+                'w-3 h-3 rounded-full transition-all shadow-lg',
+                phaseCorrelation < -0.2 ? 'bg-red-500 shadow-red-500/50 animate-pulse' :
+                phaseCorrelation < 0.2 ? 'bg-yellow-500 shadow-yellow-500/50' :
+                phaseCorrelation < 0.85 ? 'bg-green-500 shadow-green-500/50' :
+                'bg-blue-500 shadow-blue-500/50'
+              ]"
+              title="Phase Correlation - Click for details"
+            >
+            </button>
+            <span class="text-[0.35rem] text-gray-400 font-bold uppercase tracking-tighter">Phase</span>
+          </div>
+          
           <TrackMeter class="absolute -right-[1.6rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3"
             v-if="faderHeight > 0" :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
             :height="faderHeight + 20" />
@@ -234,6 +252,13 @@
   <!-- Parametric EQ Modal -->
   <ParametricEQModal v-model="showParametricEQ" :trackNumber="trackNumber" :eq-filters="eqFiltersData"
     :system-filters="systemFilters" @update="handleParametricEQUpdate" />
+
+  <!-- Phase Correlation Modal -->
+  <PhaseCorrelationModal 
+    v-model="showPhaseModal" 
+    :correlation="phaseCorrelation" 
+    :track-number="trackNumber" 
+  />
 </template>
 
 <script setup lang="ts">
@@ -242,6 +267,8 @@ import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import TrackFader from './audioTrack/TrackFader.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
+import PhaseCorrelationMeter from './audioTrack/PhaseCorrelationMeter.vue'
+import PhaseCorrelationModal from './audioTrack/PhaseCorrelationModal.vue'
 import Knob from './core/Knob.vue'
 import PanKnob from './audioTrack/PanKnob.vue'
 import ParametricEQModal from './master/ParametricEQModal.vue'
@@ -302,6 +329,7 @@ const isSolo = ref(false)
 const isLoading = ref(false)
 const showParametricEQ = ref(false)
 const showAuxPanel = ref(false)
+const showPhaseModal = ref(false)
 const auxSendsRef = ref<any>(null)
 const waveformDisplayRef = ref<any>(null)
 
@@ -362,6 +390,14 @@ const pan = ref(0) // -1 (left) to +1 (right)
 const isStereo = ref(true) // Track if source is stereo or mono (default stereo)
 const trackLevelL = ref(-60) // Left/Mono level
 const trackLevelR = ref(-60) // Right level (only for stereo)
+const phaseCorrelation = ref(0) // Phase correlation: -1 (out of phase) to +1 (mono)
+
+// Analyser nodes for phase correlation measurement
+let analyserL: any = null
+let analyserR: any = null
+const analyserBufferSize = 2048
+const analyserDataL = new Float32Array(analyserBufferSize)
+const analyserDataR = new Float32Array(analyserBufferSize)
 
 // Automation recording - track last recorded values to avoid redundant points
 const lastRecordedVolume = ref<number | null>(null)
@@ -539,6 +575,17 @@ function initAudioNodes() {
   meterL = new Tone.Meter() // Left channel (or mono)
   meterR = new Tone.Meter() // Right channel
 
+  // Create analyser nodes for phase correlation measurement
+  if (Tone.context) {
+    analyserL = Tone.context.createAnalyser()
+    analyserL.fftSize = analyserBufferSize
+    analyserL.smoothingTimeConstant = 0 // No smoothing for accurate readings
+    
+    analyserR = Tone.context.createAnalyser()
+    analyserR.fftSize = analyserBufferSize
+    analyserR.smoothingTimeConstant = 0 // No smoothing for accurate readings
+  }
+
   // Create meter for gate monitoring (pre-gate, post-gain)
   gateMeter = new Tone.Meter()
 
@@ -574,6 +621,12 @@ function initAudioNodes() {
   eq3.connect(channelSplit)
   channelSplit.connect(meterL, 0) // Left channel to meterL
   channelSplit.connect(meterR, 1) // Right channel to meterR
+
+  // Connect analyser nodes for phase correlation
+  if (analyserL && analyserR) {
+    channelSplit.connect(analyserL as any, 0) // Left channel to analyserL
+    channelSplit.connect(analyserR as any, 1) // Right channel to analyserR
+  }
 
   // Connect waveform analyzer to eq3 for visualization
   eq3.connect(waveform)
@@ -883,9 +936,41 @@ function startLevelMonitoring() {
       if (isStereo.value && meterR) {
         const levelR = meterR.getValue() as number
         trackLevelR.value = Math.max(-60, levelR)
+        
+        // Calculate phase correlation for stereo tracks
+        if (analyserL && analyserR) {
+          // Get time-domain data from both channels
+          analyserL.getFloatTimeDomainData(analyserDataL)
+          analyserR.getFloatTimeDomainData(analyserDataR)
+          
+          // Calculate correlation: correlation = sum(L*R) / sqrt(sum(L²) * sum(R²))
+          let sumLR = 0
+          let sumL2 = 0
+          let sumR2 = 0
+          
+          for (let i = 0; i < analyserBufferSize; i++) {
+            const l = analyserDataL[i]
+            const r = analyserDataR[i]
+            sumLR += l * r
+            sumL2 += l * l
+            sumR2 += r * r
+          }
+          
+          // Prevent division by zero and check for valid signal
+          const denominator = Math.sqrt(sumL2 * sumR2)
+          if (denominator > 0.00001) {
+            const newCorrelation = sumLR / denominator
+            // Smooth the correlation value slightly to reduce jitter
+            phaseCorrelation.value = phaseCorrelation.value * 0.7 + newCorrelation * 0.3
+          } else {
+            // Silence: default to neutral correlation
+            phaseCorrelation.value = 0
+          }
+        }
       } else {
         // Mono: copy left to right for consistency
         trackLevelR.value = trackLevelL.value
+        phaseCorrelation.value = 1 // Mono is always perfectly correlated
       }
     }
   }, 50)
