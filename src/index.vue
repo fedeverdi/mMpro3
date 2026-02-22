@@ -1644,11 +1644,6 @@ function toggleRecordMode() {
             const volumeLane = automation.getOrCreateLane(track.id, 'volume')
             volumeLane.mode = 'write'
             volumeLane.enabled = true
-            
-            // Create pan lane in WRITE mode
-            const panLane = automation.getOrCreateLane(track.id, 'pan')
-            panLane.mode = 'write'
-            panLane.enabled = true
         })
         
         automation.isRecording.value = true

@@ -415,7 +415,6 @@ const analyserDataR = new Float32Array(analyserBufferSize)
 
 // Automation recording - track last recorded values to avoid redundant points
 const lastRecordedVolume = ref<number | null>(null)
-const lastRecordedPan = ref<number | null>(null)
 const lastRecordedTime = ref<number>(0)
 let automationRecordingInterval: any = null
 
@@ -1634,32 +1633,6 @@ watch(volume, (newValue) => {
   }
 })
 
-watch(pan, (newValue) => {
-  if (!automation || !automation.transport.value.isPlaying) return
-  
-  // Check if there's a pan lane for this track in write/touch/latch mode
-  const panLane = automation.automationLanes.value.find((lane: any) => 
-    lane.trackId === props.trackNumber && 
-    lane.parameter === 'pan' &&
-    (lane.mode === 'write' || lane.mode === 'touch' || lane.mode === 'latch')
-  )
-  
-  if (!panLane) return
-  
-  const currentTime = automation.transport.value.currentTime
-  
-  // In WRITE mode: always record to capture all movements
-  // In TOUCH/LATCH: only record if value changed significantly
-  const shouldRecord = panLane.mode === 'write' ||
-    lastRecordedPan.value === null ||
-    Math.abs(newValue - lastRecordedPan.value) >= 0.005 // Reduced threshold for smoother curves
-  
-  if (shouldRecord) {
-    automation.addPoint(props.trackNumber, 'pan', currentTime, newValue)
-    lastRecordedPan.value = newValue
-  }
-})
-
 // Start continuous automation recording when in WRITE mode
 watch([() => automation?.isRecording.value, () => automation?.transport.value.isPlaying], ([isRec, isPlaying]) => {
   // Stop any existing interval
@@ -1702,17 +1675,6 @@ watch([() => automation?.isRecording.value, () => automation?.transport.value.is
       automation.addPoint(props.trackNumber, 'volume', currentTime, volume.value)
       lastRecordedVolume.value = volume.value
     }
-    
-    // Record pan if there's a WRITE pan lane
-    const panLane = automation.automationLanes.value.find((lane: any) => 
-      lane.trackId === props.trackNumber && 
-      lane.parameter === 'pan' &&
-      lane.mode === 'write'
-    )
-    if (panLane) {
-      automation.addPoint(props.trackNumber, 'pan', currentTime, pan.value)
-      lastRecordedPan.value = pan.value
-    }
   }, 50) // 20 points per second for smooth curves
 })
 
@@ -1735,10 +1697,7 @@ defineExpose({
   },
   
   setPan: (value: number, skipRecording = false) => {
-    if (skipRecording) {
-      // Temporarily update last recorded value to prevent recording
-      lastRecordedPan.value = value
-    }
+    // Pan automation playback only (recording disabled)
     pan.value = value
   },
 
