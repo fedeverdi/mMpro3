@@ -193,7 +193,7 @@
           </button>
           
           <!-- Routing Buttons -->
-          <div class="flex flex-col gap-4 absolute -left-[1.7rem] top-1/2 transform -translate-y-1/2 z-50">
+          <div class="flex flex-col gap-2 absolute -left-[1.7rem] top-1/2 transform -translate-y-1/2 z-50">
             <button @click="toggleRouteToMaster" :title="'Route to Master'"
               class="w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
               :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
