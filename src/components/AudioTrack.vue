@@ -1367,26 +1367,26 @@ function updateVolume() {
   if (!volumeNodeL || !volumeNodeR || !Tone) return
 
   if (isMuted.value) {
-    volumeNodeL.gain.value = 0  // Mute = 0 gain
-    volumeNodeR.gain.value = 0
+    volumeNodeL.gain.rampTo(0, 0.01)  // Mute with short ramp
+    volumeNodeR.gain.rampTo(0, 0.01)
   } else {
     // Convert dB to linear gain
     const gainValue = Tone.dbToGain(volume.value)
-    volumeNodeL.gain.value = gainValue
-    volumeNodeR.gain.value = gainValue
+    volumeNodeL.gain.rampTo(gainValue, 0.01)
+    volumeNodeR.gain.rampTo(gainValue, 0.01)
   }
 }
 
 function updateGain() {
   if (!gainNode || !Tone) return
-  gainNode.gain.value = Tone.dbToGain(gain.value)
+  gainNode.gain.rampTo(Tone.dbToGain(gain.value), 0.01)
 }
 
 // Update PAD state (pre-gain attenuation)
 function updatePad() {
   if (!padNode || !Tone) return
   // PAD: -26dB attenuation when enabled, 0dB (unity) when disabled
-  padNode.gain.value = padEnabled.value ? Tone.dbToGain(-26) : 1
+  padNode.gain.rampTo(padEnabled.value ? Tone.dbToGain(-26) : 1, 0.01)
 }
 
 // Update HPF state
@@ -1418,8 +1418,8 @@ function updatePan() {
   // Pan: -1 (left) to +1 (right)
   const panRadians = (pan.value * Math.PI) / 4  // Map -1..+1 to -π/4..+π/4
 
-  balanceLeft.gain.value = Math.cos(panRadians + Math.PI / 4)
-  balanceRight.gain.value = Math.sin(panRadians + Math.PI / 4)
+  balanceLeft.gain.rampTo(Math.cos(panRadians + Math.PI / 4), 0.01)
+  balanceRight.gain.rampTo(Math.sin(panRadians + Math.PI / 4), 0.01)
 }
 
 // Watch for parameter changes
