@@ -8,6 +8,7 @@ export interface TrackSnapshot {
   soloed: boolean
   padEnabled?: boolean
   hpfEnabled?: boolean
+  phaseInverted?: boolean
   sourceType: 'none' | 'youtube' | 'input' | 'file'
   youtubeURL?: string
   selectedInputDevice?: string
