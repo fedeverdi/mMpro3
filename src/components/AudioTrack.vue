@@ -174,12 +174,22 @@
         <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
           <!-- ARM Button -->
           <button @click="emit('toggle-arm')" 
-            class="absolute -left-[1.9rem] bottom-[0.3rem] w-5 h-5 text-[0.4rem] font-bold rounded transition-all border"
+            class="absolute -left-[1.9rem] bottom-[1.2rem] w-5 h-5 text-[0.4rem] font-bold rounded transition-all border"
             :class="isArmed 
               ? 'bg-red-700 border-red-500 text-white shadow-md shadow-red-500/50' 
               : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
             title="Arm track for automation recording">
             A
+          </button>
+          
+          <!-- Phase Invert Button -->
+          <button @click="togglePhaseInvert" 
+            class="absolute -left-[1.9rem] bottom-[2.7rem] w-5 h-5 text-[0.65rem] font-bold rounded transition-all border"
+            :class="phaseInverted 
+              ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-500/50' 
+              : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
+            title="Phase Invert (180° polarity flip)">
+            Ø
           </button>
           
           <!-- Routing Buttons -->
@@ -326,6 +336,7 @@ const faderHeight = ref(0)
 const isPlaying = ref(false)
 const isMuted = ref(false)
 const isSolo = ref(false)
+const phaseInverted = ref(false)
 const isLoading = ref(false)
 const showParametricEQ = ref(false)
 const showAuxPanel = ref(false)
@@ -426,6 +437,7 @@ const trackGateRef = ref<InstanceType<typeof TrackGate> | null>(null)
 let player: any = null // Can be Tone.Player or Tone.UserMedia
 let currentAudioBuffer: AudioBuffer | null = null // Store current audio buffer for player recreation
 let padNode: any = null // PAD attenuation (-26dB when enabled) - PRE-GAIN
+let phaseInvertNode: any = null // Phase invert (polarity flip) - PRE-GAIN
 let gainNode: any = null
 let hpfNode: any = null // High-pass filter at 80Hz
 let gate: any = null // Custom noise gate (Gain node)
@@ -538,6 +550,9 @@ function initAudioNodes() {
   // PAD node (pre-gain attenuation)
   padNode = new Tone.Gain(1) // 1 = 0dB (no pad), will be set to lower value when enabled
 
+  // Phase invert node (polarity flip)
+  phaseInvertNode = new Tone.Gain(1) // 1 = normal polarity, -1 = inverted polarity
+
   gainNode = new Tone.Gain(1) // 1 = 0dB (unity gain), not 0!
 
   // High-pass filter at 80Hz (bypassed when disabled)
@@ -603,13 +618,15 @@ function initAudioNodes() {
     release: 0.25
   })
 
-  // Connect chain: pad -> hpf -> gain -> gate -> eq3 -> balance -> volume
+  // Connect chain: pad -> phaseInvert -> hpf -> gain -> gate -> eq3 -> balance -> volume
   // PAD is pre-gain (professional mixer architecture)
+  // Phase invert is pre-gain (inverts polarity before amplification)
   // HPF is pre-gain (removes rumble before amplification)
   // Gate is post-gain (eliminates noise from properly amplified signal)
   // Compressor is bypassed by default (not in chain)
-  // HPF starts bypassed (direct connection pad -> gain)
-  padNode.connect(gainNode) // Bypass HPF by default
+  // HPF starts bypassed (direct connection phaseInvert -> gain)
+  padNode.connect(phaseInvertNode)
+  phaseInvertNode.connect(gainNode) // Bypass HPF by default
   // hpfNode connections will be managed by updateHPF()
   // Gate starts bypassed (direct connection gain -> eq3)
   gainNode.connect(eq3) // Bypass gate by default
@@ -1537,22 +1554,22 @@ function updatePad() {
 
 // Update HPF state
 function updateHPF() {
-  if (!hpfNode || !padNode || !gainNode) return
+  if (!hpfNode || !padNode || !phaseInvertNode || !gainNode) return
 
   // Safer approach: use disconnect() without arguments to disconnect all
   // Then rebuild the chain
   try {
-    padNode.disconnect()
+    phaseInvertNode.disconnect()
     hpfNode.disconnect()
   } catch (e) { }
 
   if (hpfEnabled.value) {
-    // Enable HPF: pad -> hpf -> gain
-    padNode.connect(hpfNode)
+    // Enable HPF: phaseInvert -> hpf -> gain
+    phaseInvertNode.connect(hpfNode)
     hpfNode.connect(gainNode)
   } else {
-    // Disable HPF: pad -> gain (direct bypass)
-    padNode.connect(gainNode)
+    // Disable HPF: phaseInvert -> gain (direct bypass)
+    phaseInvertNode.connect(gainNode)
   }
 }
 
@@ -1566,6 +1583,16 @@ function updatePan() {
 
   balanceLeft.gain.rampTo(Math.cos(panRadians + Math.PI / 4), 0.01)
   balanceRight.gain.rampTo(Math.sin(panRadians + Math.PI / 4), 0.01)
+}
+
+// Toggle phase inversion (180° polarity flip)
+function togglePhaseInvert() {
+  phaseInverted.value = !phaseInverted.value
+  
+  if (!phaseInvertNode) return
+  
+  // Use rampTo to avoid clicks (10ms transition)
+  phaseInvertNode.gain.rampTo(phaseInverted.value ? -1 : 1, 0.01)
 }
 
 // Watch for parameter changes
@@ -1649,6 +1676,7 @@ defineExpose({
       gain: gain.value,
       padEnabled: padEnabled.value,
       hpfEnabled: hpfEnabled.value,
+      phaseInverted: phaseInverted.value,
       pan: pan.value,
       muted: isMuted.value,
       soloed: isSolo.value,
@@ -1692,6 +1720,13 @@ defineExpose({
     }
     if (snapshot.hpfEnabled !== undefined) {
       hpfEnabled.value = snapshot.hpfEnabled
+    }
+    if (snapshot.phaseInverted !== undefined) {
+      phaseInverted.value = snapshot.phaseInverted
+      // Apply phase inversion with ramp to avoid clicks
+      if (phaseInvertNode) {
+        phaseInvertNode.gain.rampTo(phaseInverted.value ? -1 : 1, 0.01)
+      }
     }
     pan.value = snapshot.pan
     isMuted.value = snapshot.muted
