@@ -56,7 +56,7 @@ const showModal = ref(false)
 // Internal state for controls
 const decay = ref(1.5)
 const preDelay = ref(0.01)
-const wet = ref(0.3)
+const wet = ref(0) // Start at 0 (disabled), user adjusts when enabling reverb
 
 function handleToggle() {
   emit('toggle')
@@ -92,7 +92,7 @@ defineExpose({
   resetToDefaults: () => {
     decay.value = 1.5
     preDelay.value = 0.01
-    wet.value = 0.3
+    wet.value = 0 // Start at 0 when resetting
     updateReverbNode()
   },
   getSnapshot: () => ({
