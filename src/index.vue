@@ -277,7 +277,7 @@
                 <!-- Collapse/Expand Button -->
                 <button
                     @click.stop="toggleAutomationCollapse"
-                    class="absolute left-2 top-1/2 -translate-y-1/2 w-5 h-5 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg"
+                    class="absolute -mt-2 left-2 top-1/2 -translate-y-1/2 w-5 h-5 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg"
                     :title="automationCollapsed ? 'Expand automation panel' : 'Collapse automation panel'"
                 >
                     <svg class="w-3 h-3 text-gray-300 transition-transform" :class="{ 'rotate-180': automationCollapsed }" fill="currentColor" viewBox="0 0 20 20">
