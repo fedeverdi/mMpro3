@@ -101,16 +101,11 @@
         </div>
       </div>
 
-      <!-- FX Section -->
+      <!-- Gate Section -->
       <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
-        <div class="flex gap-1">
-          <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
-            :compressor-node="compressor" :meter="meterL" @toggle="toggleCompressor" />
-          <TrackReverb ref="trackReverbRef" :track-number="trackNumber" :enabled="reverbEnabled" :reverb-node="reverb"
-            @toggle="toggleReverb" />
-        </div>
+        <TrackGate ref="trackGateRef" :track-number="trackNumber" :enabled="gateEnabled"
+          :gate-node="gate" :meter="meterL" @toggle="toggleGate" @update-params="handleGateParamsUpdate" />
       </div>
-
 
       <!-- EQ Section -->
       <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
@@ -139,6 +134,16 @@
 
         <!-- 3-Band EQ Knobs (Accordion) -->
         <TrackEQ ref="trackEQRef" :eq3Node="eq3" :show="showEQ3Bands" />
+      </div>
+
+      <!-- FX Section -->
+      <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
+        <div class="flex gap-1">
+          <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
+            :compressor-node="compressor" :meter="meterL" @toggle="toggleCompressor" />
+          <TrackReverb ref="trackReverbRef" :track-number="trackNumber" :enabled="reverbEnabled" :reverb-node="reverb"
+            @toggle="toggleReverb" />
+        </div>
       </div>
 
       <!-- Aux Sends Button -->
@@ -230,6 +235,7 @@ import Knob from './core/Knob.vue'
 import PanKnob from './audioTrack/PanKnob.vue'
 import ParametricEQModal from './master/ParametricEQModal.vue'
 import TrackCompressor from './audioTrack/TrackCompressor.vue'
+import TrackGate from './audioTrack/TrackGate.vue'
 import TrackReverb from './audioTrack/TrackReverb.vue'
 import TrackEQ from './audioTrack/TrackEQ.vue'
 import EQThumbnail from './audioTrack/EQThumbnail.vue'
@@ -303,6 +309,7 @@ let audioInputSource: MediaStreamAudioSourceNode | null = null
 
 // FX state
 const compressorEnabled = ref(false)
+const gateEnabled = ref(false)
 const reverbEnabled = ref(false)
 
 // Store EQ filters data for thumbnail
@@ -345,6 +352,7 @@ const currentPlaybackTime = ref(0)
 // Component refs
 const trackEQRef = ref<InstanceType<typeof TrackEQ> | null>(null)
 const trackCompressorRef = ref<InstanceType<typeof TrackCompressor> | null>(null)
+const trackGateRef = ref<InstanceType<typeof TrackGate> | null>(null)
 const trackReverbRef = ref<InstanceType<typeof TrackReverb> | null>(null)
 
 // Tone.js nodes
@@ -353,7 +361,16 @@ let currentAudioBuffer: AudioBuffer | null = null // Store current audio buffer 
 let padNode: any = null // PAD attenuation (-26dB when enabled) - PRE-GAIN
 let gainNode: any = null
 let hpfNode: any = null // High-pass filter at 80Hz
+let gate: any = null // Custom noise gate (Gain node)
 let eq3: any = null
+
+// Gate parameters and state
+let gateThreshold = -45 // dB
+let gateAttack = 0.005 // seconds (5ms)
+let gateRelease = 0.3 // seconds (300ms)
+let gateRange = -30 // dB attenuation when closed
+let gateIsOpen = false
+let gateMonitoringId: number | null = null
 let parametricEQFilters: any = null // Parametric EQ filter chain
 let compressor: any = null
 let reverb: any = null
@@ -369,6 +386,7 @@ let volumeSplit: any = null
 let volumeMerge: any = null
 let meterL: any = null // Left channel meter (or mono)
 let meterR: any = null // Right channel meter (stereo only)
+let gateMeter: any = null // Pre-gate meter for gate monitoring
 let channelSplit: any = null // Split stereo to L/R for metering
 let waveform: any = null // Waveform analyzer
 let resizeObserver: ResizeObserver | null = null
@@ -457,6 +475,9 @@ function initAudioNodes() {
     rolloff: -24 // 24dB/octave
   })
 
+  // Custom noise gate using Gain node for proper attack/release/range control
+  gate = new Tone.Gain(1) // Start at unity gain
+
   eq3 = new Tone.EQ3({
     low: 0,
     mid: 0,
@@ -481,6 +502,12 @@ function initAudioNodes() {
   channelSplit = new Tone.Split() // Split stereo into L/R
   meterL = new Tone.Meter() // Left channel (or mono)
   meterR = new Tone.Meter() // Right channel
+  
+  // Create meter for gate monitoring (pre-gate, post-gain)
+  gateMeter = new Tone.Meter()
+  
+  // Create meter for gate monitoring (pre-gate, post-gain)
+  gateMeter = new Tone.Meter()
 
   // Waveform analyzer (for visualization)
   waveform = new Tone.Waveform(512) // 512 samples for waveform display
@@ -499,14 +526,19 @@ function initAudioNodes() {
     wet: 0            // Bypassed: 0% wet = no reverb
   })
 
-  // Connect chain: pad -> hpf -> gain -> eq3 -> reverb -> balance -> volume
+  // Connect chain: pad -> hpf -> gain -> gate -> eq3 -> reverb -> balance -> volume
   // PAD is pre-gain (professional mixer architecture)
   // HPF is pre-gain (removes rumble before amplification)
+  // Gate is post-gain (eliminates noise from properly amplified signal)
   // Compressor is bypassed by default (not in chain)
   // HPF starts bypassed (direct connection pad -> gain)
   padNode.connect(gainNode) // Bypass HPF by default
   // hpfNode connections will be managed by updateHPF()
-  gainNode.connect(eq3)
+  // Gate starts bypassed (direct connection gain -> eq3)
+  gainNode.connect(eq3) // Bypass gate by default
+  // gate connections will be managed by toggleGate()
+  // Connect gate meter to gainNode for pre-gate monitoring
+  gainNode.connect(gateMeter)
 
   // Connect stereo metering to eq3 (before effects)
   eq3.connect(channelSplit)
@@ -1468,6 +1500,8 @@ defineExpose({
       })),
       compressorEnabled: compressorEnabled.value,
       compressor: trackCompressorRef.value?.getParams(),
+      gateEnabled: gateEnabled.value,
+      gate: trackGateRef.value?.getParams(),
       reverbEnabled: reverbEnabled.value,
       reverb: trackReverbRef.value?.getParams(),
       auxSends: { ...auxSendsData.value }
@@ -1572,6 +1606,15 @@ defineExpose({
     }
     if (shouldEnableCompressor !== compressorEnabled.value) {
       toggleCompressor()
+    }
+
+    // Restore gate
+    const shouldEnableGate = snapshot.gateEnabled || false
+    if (snapshot.gate) {
+      trackGateRef.value?.setParams(snapshot.gate)
+    }
+    if (shouldEnableGate !== gateEnabled.value) {
+      toggleGate()
     }
 
     // Restore reverb
@@ -1704,7 +1747,11 @@ onUnmounted(() => {
   if (volumeMerge) volumeMerge.dispose()
   if (meterL) meterL.dispose()
   if (meterR) meterR.dispose()
+  if (gateMeter) gateMeter.dispose()
   if (channelSplit) channelSplit.dispose()
+  
+  // Stop gate monitoring
+  stopGateMonitoring()
 
   // Cleanup aux send nodes
   auxSendNodes.forEach((sendInfo) => {
@@ -1811,6 +1858,130 @@ function toggleReverb() {
     reverb.wet.value = 0
   }
 }
+
+function toggleGate() {
+  gateEnabled.value = !gateEnabled.value
+
+  if (!gainNode || !gate || !eq3) return
+
+  // Disconnect gainNode from eq3 and gate
+  try {
+    gainNode.disconnect(eq3)
+  } catch (e) { }
+  try {
+    gainNode.disconnect(gate)
+  } catch (e) { }
+
+  // Disconnect gate from eq3
+  try {
+    gate.disconnect(eq3)
+  } catch (e) { }
+
+  if (gateEnabled.value) {
+    // Apply real parameters from component
+    const params = trackGateRef.value?.getParams() || {
+      threshold: -45,
+      attack: 0.005,
+      release: 0.3,
+      range: -30
+    }
+    gateThreshold = params.threshold
+    gateAttack = params.attack
+    gateRelease = params.release
+    gateRange = params.range
+    
+    // Reset gate to open state
+    gate.gain.value = 1
+    gateIsOpen = true
+
+    // Chain: gainNode → gate → eq3
+    gainNode.connect(gate)
+    gate.connect(eq3)
+    
+    // Ensure gateMeter stays connected for monitoring
+    try {
+      gainNode.connect(gateMeter)
+    } catch (e) { }
+    
+    // Start gate monitoring
+    startGateMonitoring()
+  } else {
+    // Stop gate monitoring
+    stopGateMonitoring()
+    
+    // Bypass gate: gainNode → eq3 (skip gate)
+    gainNode.connect(eq3)
+    
+    // Ensure gateMeter stays connected for monitoring
+    try {
+      gainNode.connect(gateMeter)
+    } catch (e) { }
+  }
+}
+
+function handleGateParamsUpdate(params: { threshold: number, attack: number, release: number, range: number }) {
+  if (!gate) return
+  
+  // Update custom gate parameters
+  gateThreshold = params.threshold
+  gateAttack = params.attack
+  gateRelease = params.release
+  gateRange = params.range
+}
+
+// Custom gate monitoring functions
+function startGateMonitoring() {
+  if (gateMonitoringId || !gateMeter || !gate) return
+  
+  function updateGate() {
+    if (!gateEnabled.value || !gateMeter || !gate) {
+      gateMonitoringId = null
+      return
+    }
+    
+    try {
+      // Get current level from gateMeter (already in dB)
+      const currentLevel = gateMeter.getValue()
+      
+      // Determine if gate should be open
+      const shouldBeOpen = currentLevel > gateThreshold
+      
+      if (shouldBeOpen !== gateIsOpen) {
+        gateIsOpen = shouldBeOpen
+        
+        if (shouldBeOpen) {
+          // Open gate: ramp to unity gain (0dB = 1)
+          gate.gain.rampTo(1, gateAttack)
+        } else {
+          // Close gate: ramp to range attenuation
+          // Convert dB to linear gain: gain = 10^(dB/20)
+          const targetGain = Math.pow(10, gateRange / 20)
+          gate.gain.rampTo(targetGain, gateRelease)
+        }
+      }
+    } catch (error) {
+      console.error('[Gate] Monitoring error:', error)
+    }
+    
+    gateMonitoringId = requestAnimationFrame(updateGate)
+  }
+  
+  updateGate()
+}
+
+function stopGateMonitoring() {
+  if (gateMonitoringId) {
+    cancelAnimationFrame(gateMonitoringId)
+    gateMonitoringId = null
+  }
+  
+  // Reset gate to unity gain when stopping
+  if (gate && gate.gain) {
+    gate.gain.rampTo(1, 0.05)
+  }
+  gateIsOpen = false
+}
+
 </script>
 
 <style scoped>

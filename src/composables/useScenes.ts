@@ -19,6 +19,11 @@ export interface TrackSnapshot {
   compressorRatio?: number
   compressorAttack?: number
   compressorRelease?: number
+  gateEnabled?: boolean
+  gateThreshold?: number
+  gateAttack?: number
+  gateRelease?: number
+  gateRange?: number
   reverbEnabled?: boolean
   reverbDecay?: number
   reverbPreDelay?: number
