@@ -267,7 +267,10 @@
   <PhaseCorrelationModal 
     v-model="showPhaseModal" 
     :correlation="phaseCorrelation" 
-    :track-number="trackNumber" 
+    :track-number="trackNumber"
+    :audio-data-l="analyserDataL"
+    :audio-data-r="analyserDataR"
+    :is-stereo="isStereo"
   />
 </template>
 
