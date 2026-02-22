@@ -120,7 +120,7 @@
         </header>
 
         <!-- Mixer Console -->
-        <main class="flex-1 flex gap-2 p-2 overflow-hidden">
+        <main class="flex-1 flex gap-2 p-2 pb-14 overflow-hidden">
             <!-- Audio Tracks Section (flexible) -->
             <div class="tracks-scroll-wrap flex-1 overflow-hidden min-w-0 pb-[2px]">
                 <div class="tracks-scroll overflow-x-auto overflow-y-hidden h-full">
@@ -251,14 +251,26 @@
             </div>
         </main>
 
-        <!-- Automation Section (Resizable/Collapsible) -->
+        <!-- Footer Info -->
+        <footer class="bg-black/50 backdrop-blur-sm border-t border-gray-700 px-6 py-2 fixed bottom-0 left-0 right-0 z-[100]">
+            <div class="flex justify-between items-center text-xs text-gray-500">
+                <div>
+                    Built with Nuxt 3, Tone.js & Tailwind CSS
+                </div>
+                <div>
+                    Sample Rate: {{ sampleRate }}Hz | Buffer Size: {{ bufferSize }}
+                </div>
+            </div>
+        </footer>
+
+        <!-- Automation Section (Resizable/Collapsible) - Fixed position overlay -->
         <div v-if="isReady" 
-            class="automation-section relative transition-all duration-300 ease-out border-t border-gray-700"
-            :style="{ height: automationHeight + 'px' }">
+            class="automation-section fixed left-0 right-0 transition-all duration-300 ease-out border-t border-gray-700 z-[90] bg-gray-900"
+            :style="{ height: automationCollapsed ? '17px' : automationHeight + 'px', bottom: '34px' }">
             
             <!-- Resize Handle -->
             <div 
-                :class="['absolute left-0 right-0 top-0 h-3 z-50 group bg-gray-900/20', automationCollapsed ? 'cursor-default' : 'cursor-ns-resize']"
+                :class="['absolute left-0 right-0 top-0 h-4 z-10 group bg-gray-900/20', automationCollapsed ? 'cursor-default' : 'cursor-ns-resize']"
                 @mousedown.stop="startAutomationResize"
                 :title="automationCollapsed ? 'Panel collapsed' : 'Drag to resize'"
             >
@@ -303,7 +315,7 @@
             </div>
 
             <!-- Automation Content (hidden when collapsed) -->
-            <div v-show="!automationCollapsed" class="h-full overflow-hidden pt-3">
+            <div v-show="!automationCollapsed" class="h-full overflow-hidden pt-[1rem]">
                 <!-- Automation Timeline -->
                 <Timeline 
                     :transport="automation.transport.value" 
@@ -340,18 +352,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Footer Info -->
-        <footer class="bg-black/50 backdrop-blur-sm border-t border-gray-700 px-6 py-3">
-            <div class="flex justify-between items-center text-xs text-gray-500">
-                <div>
-                    Built with Nuxt 3, Tone.js & Tailwind CSS
-                </div>
-                <div>
-                    Sample Rate: {{ sampleRate }}Hz | Buffer Size: {{ bufferSize }}
-                </div>
-            </div>
-        </footer>
 
         <!-- Audio Flow Modal -->
         <AudioFlowModal v-model="showAudioFlowModal" :subgroups="subgroups.map(s => ({ id: s.id, name: s.name }))"
@@ -470,7 +470,7 @@ const playbackLoopId = ref<number | null>(null)
 const armedTracks = ref<Set<number>>(new Set()) // Tracks armed for recording
 
 // Automation panel resize/collapse
-const automationHeight = ref(300) // Default height in pixels
+const automationHeight = ref(220) // Default height in pixels
 const automationCollapsed = ref(false)
 const automationSavedHeight = ref(300)
 let automationResizing = false
