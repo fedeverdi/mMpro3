@@ -416,6 +416,8 @@ const analyserDataR = new Float32Array(analyserBufferSize)
 // Automation recording - track last recorded values to avoid redundant points
 const lastRecordedVolume = ref<number | null>(null)
 const lastRecordedPan = ref<number | null>(null)
+const lastRecordedTime = ref<number>(0)
+let automationRecordingInterval: any = null
 
 // Check if this track is currently recording automation
 const isRecording = computed(() => {
@@ -1618,9 +1620,15 @@ watch(volume, (newValue) => {
   
   if (!volumeLane) return
   
-  // Only record if value changed significantly (>= 0.1 dB)
-  if (lastRecordedVolume.value === null || Math.abs(newValue - lastRecordedVolume.value) >= 0.1) {
-    const currentTime = automation.transport.value.currentTime
+  const currentTime = automation.transport.value.currentTime
+  
+  // In WRITE mode: always record to capture all movements
+  // In TOUCH/LATCH: only record if value changed significantly
+  const shouldRecord = volumeLane.mode === 'write' ||
+    lastRecordedVolume.value === null ||
+    Math.abs(newValue - lastRecordedVolume.value) >= 0.05 // Reduced threshold for smoother curves
+  
+  if (shouldRecord) {
     automation.addPoint(props.trackNumber, 'volume', currentTime, newValue)
     lastRecordedVolume.value = newValue
   }
@@ -1638,12 +1646,74 @@ watch(pan, (newValue) => {
   
   if (!panLane) return
   
-  // Only record if value changed significantly (>= 0.01)
-  if (lastRecordedPan.value === null || Math.abs(newValue - lastRecordedPan.value) >= 0.01) {
-    const currentTime = automation.transport.value.currentTime
+  const currentTime = automation.transport.value.currentTime
+  
+  // In WRITE mode: always record to capture all movements
+  // In TOUCH/LATCH: only record if value changed significantly
+  const shouldRecord = panLane.mode === 'write' ||
+    lastRecordedPan.value === null ||
+    Math.abs(newValue - lastRecordedPan.value) >= 0.005 // Reduced threshold for smoother curves
+  
+  if (shouldRecord) {
     automation.addPoint(props.trackNumber, 'pan', currentTime, newValue)
     lastRecordedPan.value = newValue
   }
+})
+
+// Start continuous automation recording when in WRITE mode
+watch([() => automation?.isRecording.value, () => automation?.transport.value.isPlaying], ([isRec, isPlaying]) => {
+  // Stop any existing interval
+  if (automationRecordingInterval) {
+    clearInterval(automationRecordingInterval)
+    automationRecordingInterval = null
+  }
+  
+  if (!automation || !isRec || !isPlaying) return
+  
+  // Check if any lane for this track is in WRITE mode
+  const hasWriteLane = automation.automationLanes.value.some((lane: any) => 
+    lane.trackId === props.trackNumber && lane.mode === 'write'
+  )
+  
+  if (!hasWriteLane) return
+  
+  // Record current values every 50ms to ensure continuous data capture
+  automationRecordingInterval = setInterval(() => {
+    if (!automation || !automation.transport.value.isPlaying) {
+      clearInterval(automationRecordingInterval)
+      automationRecordingInterval = null
+      return
+    }
+    
+    const currentTime = automation.transport.value.currentTime
+    
+    // Avoid recording multiple points at the exact same time
+    if (Math.abs(currentTime - lastRecordedTime.value) < 0.01) return
+    
+    lastRecordedTime.value = currentTime
+    
+    // Record volume if there's a WRITE volume lane
+    const volumeLane = automation.automationLanes.value.find((lane: any) => 
+      lane.trackId === props.trackNumber && 
+      lane.parameter === 'volume' &&
+      lane.mode === 'write'
+    )
+    if (volumeLane) {
+      automation.addPoint(props.trackNumber, 'volume', currentTime, volume.value)
+      lastRecordedVolume.value = volume.value
+    }
+    
+    // Record pan if there's a WRITE pan lane
+    const panLane = automation.automationLanes.value.find((lane: any) => 
+      lane.trackId === props.trackNumber && 
+      lane.parameter === 'pan' &&
+      lane.mode === 'write'
+    )
+    if (panLane) {
+      automation.addPoint(props.trackNumber, 'pan', currentTime, pan.value)
+      lastRecordedPan.value = pan.value
+    }
+  }, 50) // 20 points per second for smooth curves
 })
 
 // Expose methods for external control
@@ -1670,6 +1740,102 @@ defineExpose({
       lastRecordedPan.value = value
     }
     pan.value = value
+  },
+
+  // Playback control methods for automation transport synchronization
+  startPlayback: async () => {
+    if (!Tone) return
+    if (isPlaying.value) return // Already playing
+
+    // For audio input, unmute instead
+    if (audioSourceType.value === 'input') {
+      if (audioLoaded.value && isMuted.value) {
+        toggleMute()
+      }
+      return
+    }
+
+    // For file playback
+    if (!player || !audioLoaded.value) {
+      return // Cannot play: audio not loaded
+    }
+
+    // Start audio context once (required by browsers for user interaction)
+    if (!audioContextStarted) {
+      await Tone.start()
+      audioContextStarted = true
+    }
+
+    // Ensure master audio elements are playing
+    if (props.masterChannel?.ensureAudioPlaying) {
+      props.masterChannel.ensureAudioPlaying()
+    }
+
+    // CRITICAL FIX: Recreate player after stop to avoid resampling issues
+    if (player && currentAudioBuffer) {
+      try {
+        player.disconnect()
+        player.dispose()
+      } catch (e) { }
+
+      await new Promise(resolve => setTimeout(resolve, 10))
+
+      player = new Tone.Player({
+        url: currentAudioBuffer,
+        loop: true,
+        playbackRate: 1.0,
+        fadeIn: 0.01,
+        fadeOut: 0.01
+      })
+
+      player.connect(padNode)
+    }
+
+    const startTime = Tone.now() + 0.05
+    player.start(startTime)
+    isPlaying.value = true
+
+    waveformDisplayRef.value?.start()
+    startPlaybackTimeTracking()
+  },
+
+  pausePlayback: () => {
+    if (!isPlaying.value) return // Already paused
+
+    // For audio input, mute instead
+    if (audioSourceType.value === 'input') {
+      if (audioLoaded.value && !isMuted.value) {
+        toggleMute()
+      }
+      return
+    }
+
+    // For file playback
+    if (!player || !audioLoaded.value) return
+
+    player.stop()
+    isPlaying.value = false
+    waveformDisplayRef.value?.stop()
+    stopPlaybackTimeTracking()
+  },
+
+  stopPlayback: () => {
+    // For audio input, mute instead
+    if (audioSourceType.value === 'input') {
+      if (audioLoaded.value && !isMuted.value) {
+        toggleMute()
+      }
+      return
+    }
+
+    // For file playback
+    if (!player || !audioLoaded.value) return
+
+    player.stop()
+    isPlaying.value = false
+    currentPlaybackTime.value = 0
+    stopPlaybackTimeTracking()
+    waveformDisplayRef.value?.stop()
   },
 
   getSnapshot: () => {
@@ -1887,6 +2053,12 @@ defineExpose({
 
 // Cleanup
 onUnmounted(() => {
+  // Clear automation recording interval
+  if (automationRecordingInterval) {
+    clearInterval(automationRecordingInterval)
+    automationRecordingInterval = null
+  }
+
   // Disconnect audio input source if active
   if (audioInputSource) {
     try {

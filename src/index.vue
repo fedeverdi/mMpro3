@@ -1580,16 +1580,41 @@ onMounted(async () => {
 function handlePlay() {
     automation.play()
     startPlaybackLoop()
+    
+    // Synchronize all audio track playback with automation transport
+    trackRefs.value.forEach((trackRef, trackId) => {
+        const track = tracks.value.find(t => t.id === trackId)
+        // Only sync audio tracks, not signal generators
+        if (track?.type === 'audio' && trackRef?.startPlayback) {
+            trackRef.startPlayback()
+        }
+    })
 }
 
 function handlePause() {
     automation.pause()
     stopPlaybackLoop()
+    
+    // Pause all audio track playback
+    trackRefs.value.forEach((trackRef, trackId) => {
+        const track = tracks.value.find(t => t.id === trackId)
+        if (track?.type === 'audio' && trackRef?.pausePlayback) {
+            trackRef.pausePlayback()
+        }
+    })
 }
 
 function handleStop() {
     automation.stop()
     stopPlaybackLoop()
+    
+    // Stop all audio track playback
+    trackRefs.value.forEach((trackRef, trackId) => {
+        const track = tracks.value.find(t => t.id === trackId)
+        if (track?.type === 'audio' && trackRef?.stopPlayback) {
+            trackRef.stopPlayback()
+        }
+    })
 }
 
 function toggleRecordMode() {
