@@ -429,7 +429,7 @@ function createFilterChain() {
         input: filterNodes[0],
         output: filterNodes[filterNodes.length - 1],
         filters: filterNodes,
-        filtersData: userFilters // Only include user filters for save/update
+        filtersData: filters.value // Only include user filters for save/update
       })
     }
   } catch (error) {
@@ -682,7 +682,6 @@ function handleCanvasMouseMove(e: MouseEvent) {
   }
   
   // Emit update event for real-time thumbnail update
-  // Emit only user filters (not system filters)
   if (filterNodes.length > 0) {
     emit('update', {
       input: filterNodes[0],
@@ -692,10 +691,33 @@ function handleCanvasMouseMove(e: MouseEvent) {
     })
   }
   
+  // Always redraw the visual curve for smooth dragging
   drawEQCurve()
 }
 
 function handleCanvasMouseUp() {
+  // Apply final values to the filter node when dragging ends
+  if (draggedFilterIndex.value !== null && filterNodes.length > 0) {
+    const filter = displayFilters.value[draggedFilterIndex.value]
+    
+    if (filter && !filter.isSystem && filter.node) {
+      // Apply final values with a short ramp
+      filter.node.frequency.rampTo(filter.frequency, 0.05)
+      if (filter.type !== 'lowpass' && filter.type !== 'highpass') {
+        filter.node.gain.rampTo(filter.gain, 0.05)
+      }
+      filter.node.Q.rampTo(filter.Q, 0.05)
+      
+      // Emit final update
+      emit('update', {
+        input: filterNodes[0],
+        output: filterNodes[filterNodes.length - 1],
+        filters: filterNodes,
+        filtersData: filters.value
+      })
+    }
+  }
+  
   isDragging.value = false
   isDraggingQ.value = false
   draggedFilterIndex.value = null

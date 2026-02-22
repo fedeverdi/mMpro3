@@ -561,6 +561,7 @@ function handleParametricEQUpdate(filters: any) {
   if (!filters) return
 
   // Store the latest filter chain
+  const previousFilters = parametricEQFilters
   parametricEQFilters = filters
 
   // Store filter data for thumbnail
@@ -579,8 +580,18 @@ function handleParametricEQUpdate(filters: any) {
     }))
   }
 
-  // Apply the parametric EQ to the audio chain
-  applyParametricEQ()
+  // Only reconnect the audio chain if the filter chain structure changed
+  // (e.g., filters added/removed, or first time initialization)
+  // If it's just parameter updates (dragging), the nodes are already connected
+  const shouldReconnect = !previousFilters || 
+    !previousFilters.input || 
+    !previousFilters.output ||
+    previousFilters.input !== filters.input ||
+    previousFilters.output !== filters.output
+  
+  if (shouldReconnect) {
+    applyParametricEQ()
+  }
 }
 
 // Insert or remove parametric EQ from the chain with minimal disconnections
