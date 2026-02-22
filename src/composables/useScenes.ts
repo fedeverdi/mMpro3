@@ -6,6 +6,8 @@ export interface TrackSnapshot {
   pan: number
   muted: boolean
   soloed: boolean
+  padEnabled?: boolean
+  hpfEnabled?: boolean
   sourceType: 'none' | 'youtube' | 'input' | 'file'
   youtubeURL?: string
   selectedInputDevice?: string

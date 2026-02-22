@@ -142,8 +142,7 @@
       </div>
 
       <!-- Aux Sends Button -->
-      <TrackAuxSends ref="auxSendsRef" :track-number="trackNumber" :aux-buses="auxBuses"
-        :aux-sends-data="auxSendsData"
+      <TrackAuxSends ref="auxSendsRef" :track-number="trackNumber" :aux-buses="auxBuses" :aux-sends-data="auxSendsData"
         @update-sends="handleAuxSendsUpdate" @toggle-panel="showAuxPanel = !showAuxPanel" />
 
       <!-- Mute & Solo Buttons -->
@@ -207,15 +206,9 @@
         </div>
 
         <div v-else class="flex flex-col gap-2">
-          <AuxSendControl
-            v-for="aux in auxBuses" 
-            :key="aux.id"
-            :aux="aux"
-            :aux-send-data="auxSendsData[aux.id]"
+          <AuxSendControl v-for="aux in auxBuses" :key="aux.id" :aux="aux" :aux-send-data="auxSendsData[aux.id]"
             @update-level="(val) => updateLocalAuxSend(aux.id, 'level', val)"
-            @toggle-pre-post="toggleLocalPrePost(aux.id)"
-            @toggle-mute="toggleLocalMute(aux.id)"
-          />
+            @toggle-pre-post="toggleLocalPrePost(aux.id)" @toggle-mute="toggleLocalMute(aux.id)" />
         </div>
       </div>
     </div>
@@ -318,7 +311,7 @@ const eqFiltersData = ref<any[]>([])
 // System filters (HPF) - separate from user filters, only for visualization
 const systemFilters = computed(() => {
   const filters: any[] = []
-  
+
   // Add HPF as a system filter when enabled
   if (hpfEnabled.value) {
     filters.push({
@@ -331,7 +324,7 @@ const systemFilters = computed(() => {
       isSystem: true
     })
   }
-  
+
   return filters
 })
 
@@ -583,12 +576,12 @@ function handleParametricEQUpdate(filters: any) {
   // Only reconnect the audio chain if the filter chain structure changed
   // (e.g., filters added/removed, or first time initialization)
   // If it's just parameter updates (dragging), the nodes are already connected
-  const shouldReconnect = !previousFilters || 
-    !previousFilters.input || 
+  const shouldReconnect = !previousFilters ||
+    !previousFilters.input ||
     !previousFilters.output ||
     previousFilters.input !== filters.input ||
     previousFilters.output !== filters.output
-  
+
   if (shouldReconnect) {
     applyParametricEQ()
   }
@@ -1399,14 +1392,14 @@ function updatePad() {
 // Update HPF state
 function updateHPF() {
   if (!hpfNode || !padNode || !gainNode) return
-  
+
   // Safer approach: use disconnect() without arguments to disconnect all
   // Then rebuild the chain
   try {
     padNode.disconnect()
     hpfNode.disconnect()
   } catch (e) { }
-  
+
   if (hpfEnabled.value) {
     // Enable HPF: pad -> hpf -> gain
     padNode.connect(hpfNode)
@@ -1482,6 +1475,9 @@ defineExpose({
   },
 
   restoreFromSnapshot: (snapshot: any) => {
+    // Initialize audio nodes if not already done
+    initAudioNodes()
+
     // Restore volume, gain, pad, hpf, and pan
     volume.value = snapshot.volume
     if (snapshot.gain !== undefined) {
@@ -1496,6 +1492,12 @@ defineExpose({
     pan.value = snapshot.pan
     isMuted.value = snapshot.muted
     isSolo.value = snapshot.soloed
+
+    // Ensure PAD and HPF audio nodes are properly connected after restore
+    nextTick(() => {
+      updatePad()
+      updateHPF()
+    })
 
     // Restore output routing
     if (snapshot.routeToMaster !== undefined) {
