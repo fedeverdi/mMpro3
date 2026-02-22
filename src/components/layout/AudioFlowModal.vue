@@ -80,6 +80,29 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
+                <!-- Gate with meter tap -->
+                <div class="flex flex-col items-center gap-2">
+                  <!-- Gate meter tap branching UP -->
+                  <div class="flex flex-col items-center gap-1">
+                    <div class="px-2 py-1 bg-purple-600 text-white rounded text-[10px] font-bold shadow-lg">
+                      Gate Meter
+                    </div>
+                    <svg class="w-4 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
+                    </svg>
+                    <div class="text-[9px] text-purple-500 font-bold">↓ TAP</div>
+                  </div>
+                  <!-- Gate main node -->
+                  <div class="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold border-2 border-dashed border-purple-400">
+                    Gate
+                  </div>
+                  <div class="text-xs text-orange-400">If Enabled</div>
+                </div>
+                
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                
                 <!-- EQ3 with analysis taps -->
                 <div class="flex flex-col items-center gap-2">
                   <!-- Analysis taps branching UP -->
@@ -116,7 +139,7 @@
                 
                 <!-- Compressor -->
                 <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold border-2 border-dashed border-purple-400">
+                  <div class="px-4 py-2 bg-indigo-700 text-white rounded-lg font-semibold border-2 border-dashed border-indigo-400">
                     Compressor
                   </div>
                   <div class="text-xs text-orange-400 mt-1">If Enabled</div>
@@ -126,12 +149,31 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
-                <!-- Reverb -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold">
-                    Reverb
+                <!-- Reverb Send/Return (Parallel) -->
+                <div class="flex flex-col items-center border-2 border-green-500/50 rounded-lg p-3 bg-green-900/10 relative">
+                  <div class="text-xs text-green-300 font-bold mb-2 uppercase">Parallel Reverb</div>
+                  <div class="flex items-center gap-2">
+                    <!-- Dry path -->
+                    <div class="flex flex-col items-center gap-1">
+                      <div class="text-[9px] text-gray-400 font-bold">DRY</div>
+                      <svg class="w-4 h-12 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14"/>
+                      </svg>
+                      <div class="text-[9px] text-gray-400">Direct</div>
+                    </div>
+                    
+                    <!-- Wet path -->
+                    <div class="flex flex-col items-center gap-1">
+                      <div class="text-[9px] text-green-400 font-bold">WET</div>
+                      <div class="px-2 py-1 bg-green-700 text-white rounded text-[10px] font-semibold">Send</div>
+                      <svg class="w-3 h-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                      </svg>
+                      <div class="px-2 py-1 bg-green-600 text-white rounded text-[10px] font-semibold">Reverb</div>
+                      <div class="text-[9px] text-green-400">Return</div>
+                    </div>
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">Wet=0 when off</div>
+                  <div class="text-[9px] text-green-400 mt-1.5">Send gain controls wet level</div>
                 </div>
                 
                 <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
