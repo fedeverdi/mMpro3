@@ -43,6 +43,7 @@ interface Props {
   trackNumber: number
   enabled: boolean
   reverbNode?: any
+  reverbSendNode?: any // Send gain for parallel reverb architecture
 }
 
 const props = defineProps<Props>()
@@ -63,12 +64,14 @@ function handleToggle() {
 }
 
 function updateReverbNode() {
-  if (!props.reverbNode) return
+  if (!props.reverbNode || !props.reverbSendNode) return
   
-  // Direct assignment instead of rampTo to avoid scheduling events
+  // In parallel architecture:
+  // - reverb.wet is always 1 (100% wet)
+  // - reverbSend.gain controls the wet/dry mix
   props.reverbNode.decay = decay.value // Decay can't be ramped, it's a constructor property
   props.reverbNode.preDelay = preDelay.value // PreDelay can't be ramped either
-  props.reverbNode.wet.value = wet.value
+  props.reverbSendNode.gain.value = wet.value // Control send level (wet amount)
 }
 
 // Watch for parameter changes

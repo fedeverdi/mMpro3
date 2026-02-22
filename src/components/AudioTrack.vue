@@ -142,7 +142,7 @@
           <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
             :compressor-node="compressor" :meter="meterL" @toggle="toggleCompressor" />
           <TrackReverb ref="trackReverbRef" :track-number="trackNumber" :enabled="reverbEnabled" :reverb-node="reverb"
-            @toggle="toggleReverb" />
+            :reverb-send-node="reverbSend" @toggle="toggleReverb" />
         </div>
       </div>
 
@@ -374,6 +374,7 @@ let gateMonitoringId: number | null = null
 let parametricEQFilters: any = null // Parametric EQ filter chain
 let compressor: any = null
 let reverb: any = null
+let reverbSend: any = null // Send gain for parallel reverb (controls wet level)
 // Balance control (stereo-preserving): Split → Gain L/R → Merge
 let balanceSplit: any = null
 let balanceLeft: any = null
@@ -523,8 +524,11 @@ function initAudioNodes() {
   reverb = new Tone.Reverb({
     decay: 1.5,
     preDelay: 0.01,
-    wet: 0            // Bypassed: 0% wet = no reverb
+    wet: 1            // Always 100% wet (mix controlled by reverbSend gain)
   })
+  
+  // Reverb send gain (controls wet/dry mix in parallel architecture)
+  reverbSend = new Tone.Gain(0) // Start at 0 (no reverb)
 
   // Connect chain: pad -> hpf -> gain -> gate -> eq3 -> reverb -> balance -> volume
   // PAD is pre-gain (professional mixer architecture)
@@ -548,11 +552,17 @@ function initAudioNodes() {
   // Connect waveform analyzer to eq3 for visualization
   eq3.connect(waveform)
 
-  // Initial FX chain: eq3 -> reverb -> balance (compressor bypassed)
+  // Initial FX chain: eq3 -> balanceSplit (dry path, compressor and reverb bypassed)
+  // Reverb architecture: Parallel send/return to avoid dry gain issues
+  // eq3 → balanceSplit (dry)
+  // eq3 → reverbSend → reverb → balanceSplit (wet)
   // NOTE: Compressor is NOT connected by default to preserve stereo
   // Use toggleCompressor() to enable it
-  eq3.connect(reverb)
-
+  eq3.connect(balanceSplit)
+  
+  // Reverb send/return (parallel - always connected, controlled by reverbSend gain)
+  eq3.connect(reverbSend)
+  reverbSend.connect(reverb)
   reverb.connect(balanceSplit)
 
   // Balance control: Split → Gain L/R → Merge
@@ -1840,22 +1850,15 @@ function toggleCompressor() {
 function toggleReverb() {
   reverbEnabled.value = !reverbEnabled.value
 
-  if (!reverb) return
+  if (!reverbSend) return
 
   if (reverbEnabled.value) {
-    // Apply real parameters from component
-    const params = trackReverbRef.value?.getParams() || {
-      decay: 1.5,
-      preDelay: 0.01,
-      wet: 0.3
-    }
-    reverb.decay = params.decay
-    reverb.preDelay = params.preDelay
-    // Direct assignment instead of rampTo
-    reverb.wet.value = params.wet
+    // Restore wet level from component
+    const params = trackReverbRef.value?.getParams() || { wet: 0 }
+    reverbSend.gain.value = params.wet
   } else {
-    // Bypass: wet=0 = no reverb
-    reverb.wet.value = 0
+    // Bypass: set send to 0 (no signal to reverb)
+    reverbSend.gain.value = 0
   }
 }
 

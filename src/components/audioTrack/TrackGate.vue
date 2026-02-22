@@ -204,13 +204,9 @@ function startGateMonitoring() {
         // Determine if gate is open
         isGateOpen.value = currentLevel.value > threshold.value
         
-        // Calculate gate open percentage for visual feedback
-        if (currentLevel.value <= threshold.value) {
-          gateOpenPercentage.value = 0
-        } else {
-          // Normalize between threshold and 0dB
-          gateOpenPercentage.value = Math.min(100, ((currentLevel.value - threshold.value) / (0 - threshold.value)) * 100)
-        }
+        // Calculate signal level percentage for visual feedback (absolute level, not relative to threshold)
+        // Map from -80dB to 0dB → 0% to 100%
+        gateOpenPercentage.value = Math.max(0, Math.min(100, ((currentLevel.value + 80) / 80) * 100))
       }
     } catch (error) {
       console.error('Error in gate monitoring:', error)
