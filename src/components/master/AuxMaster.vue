@@ -40,15 +40,18 @@
 
                 <!-- FX Buttons -->
                 <div class="grid grid-cols-2 gap-1">
-                    <div class="relative flex items-center gap-0.5">
-                        <button @click="toggleAuxReverb(index)" :class="[
-                            'flex-1 py-0.5 text-[0.5rem] font-bold rounded transition-colors',
-                            aux.reverbEnabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                        ]" title="Reverb">
+                    <div :class="[
+                        'flex items-center justify-center gap-0.5 px-1 py-0.5 rounded transition-colors overflow-hidden',
+                        aux.reverbEnabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'
+                    ]">
+                        <button @click="toggleAuxReverb(index)" 
+                            class="flex-1 text-[0.5rem] font-bold hover:opacity-80"
+                            title="Toggle Reverb">
                             RV
                         </button>
-                        <button @click.stop="showReverbModal(index)" :disabled="!aux.reverbEnabled"
-                            class="p-0.5 rounded hover:bg-green-700 disabled:opacity-30 disabled:hover:bg-transparent">
+                        <button v-if="aux.reverbEnabled" @click.stop="showReverbModal(index)" 
+                            class="px-0.5 hover:bg-green-700 rounded"
+                            title="Reverb Settings">
                             <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd"
                                     d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
@@ -56,15 +59,18 @@
                             </svg>
                         </button>
                     </div>
-                    <div class="relative flex items-center gap-0.5">
-                        <button @click="toggleAuxDelay(index)" :class="[
-                            'flex-1 py-0.5 text-[0.5rem] font-bold rounded transition-colors',
-                            aux.delayEnabled ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                        ]" title="Delay">
+                    <div :class="[
+                        'flex items-center justify-center gap-0.5 px-1 py-0.5 rounded transition-colors overflow-hidden',
+                        aux.delayEnabled ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400'
+                    ]">
+                        <button @click="toggleAuxDelay(index)" 
+                            class="flex-1 text-[0.5rem] font-bold hover:opacity-80"
+                            title="Toggle Delay">
                             DL
                         </button>
-                        <button @click.stop="showDelayModal(index)" :disabled="!aux.delayEnabled"
-                            class="p-0.5 rounded hover:bg-blue-700 disabled:opacity-30 disabled:hover:bg-transparent">
+                        <button v-if="aux.delayEnabled" @click.stop="showDelayModal(index)" 
+                            class="px-0.5 hover:bg-blue-700 rounded"
+                            title="Delay Settings">
                             <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd"
                                     d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
