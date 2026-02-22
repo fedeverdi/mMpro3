@@ -163,21 +163,6 @@
         </button>
       </div>
 
-      <!-- Arm for Recording Button -->
-      <button @click="emit('toggle-arm')" 
-        class="w-full py-1.5 text-[0.5rem] font-bold rounded transition-all border-2"
-        :class="isArmed 
-          ? 'bg-red-700 border-red-500 text-white shadow-lg shadow-red-500/50' 
-          : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
-        title="Arm track for automation recording">
-        <div class="flex items-center justify-center gap-1">
-          <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-            <circle cx="10" cy="10" r="6" />
-          </svg>
-          <span>ARM</span>
-        </div>
-      </button>
-
       <!-- Aux Panel Content -->
       <div class="flex justify-center  scale-[0.75]">
         <PanKnob class="" v-model="pan" label="Pan" />
@@ -187,6 +172,16 @@
       <div class="flex flex-col h-full">
         <div class="text-[0.455rem] uppercase text-center">Volume</div>
         <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
+          <!-- ARM Button -->
+          <button @click="emit('toggle-arm')" 
+            class="absolute -left-[1.9rem] bottom-[0.3rem] w-5 h-5 text-[0.4rem] font-bold rounded transition-all border"
+            :class="isArmed 
+              ? 'bg-red-700 border-red-500 text-white shadow-md shadow-red-500/50' 
+              : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
+            title="Arm track for automation recording">
+            A
+          </button>
+          
           <!-- Routing Buttons -->
           <div class="flex flex-col gap-4 absolute -left-[1.7rem] top-1/2 transform -translate-y-1/2 z-50">
             <button @click="toggleRouteToMaster" :title="'Route to Master'"
