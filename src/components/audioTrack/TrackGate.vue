@@ -4,7 +4,7 @@
     'w-full cursor-pointer py-1 px-2 text-[10px] font-bold rounded transition-all flex items-center justify-between',
     enabled ? 'bg-purple-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
   ]">
-    <span>GATE</span>
+    <span>GT</span>
     <button @click.stop="showModal = true"
       class="p-0.5 rounded transition-colors"
       :class="enabled ? 'hover:bg-purple-700' : 'hover:bg-gray-500'">
