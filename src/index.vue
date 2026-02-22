@@ -555,7 +555,7 @@ function addAux() {
     
     // Generate reverb impulse response (required for Tone.Reverb)
     reverbNode.generate().then(() => {
-    }).catch(err => {
+    }).catch((err: any) => {
         console.error(`[AUX ${name}] Reverb generation failed:`, err)
     })
 
