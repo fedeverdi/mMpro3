@@ -59,10 +59,19 @@ tccutil reset Microphone com.federicoverdi.mMpro3
 ```
 Audio Source (File/Mic)
   ↓
+PAD (-26dB attenuation when enabled)
+  ↓
+Phase Invert (180° polarity flip when enabled)
+  ↓
+High-Pass Filter (80Hz @ 24dB/oct when enabled)
+  ↓
 Gain Node (Input Level)
+  ↓
+Noise Gate (If enabled - attack/release/range control)
   ↓
 EQ3 (3-band EQ: Low, Mid, High)
   ├─→ VU Meters (TAP - Left/Right analysis)
+  ├─→ Phase Correlation Meter (TAP - Stereo analysis L/R)
   └─→ Waveform Display (TAP - Visual representation)
   ↓
 Compressor (If enabled via track controls)

@@ -56,6 +56,18 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                 </svg>
                 
+                <!-- Phase Invert -->
+                <div class="flex flex-col items-center">
+                  <div class="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold border-2 border-dashed border-purple-400">
+                    Ø
+                  </div>
+                  <div class="text-xs text-orange-400 mt-1">Phase Invert</div>
+                </div>
+                
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                
                 <!-- HPF -->
                 <div class="flex flex-col items-center">
                   <div class="px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold border-2 border-dashed border-blue-400">
@@ -115,6 +127,15 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
                       </svg>
                       <div class="text-[9px] text-yellow-500 font-bold">↓ TAP</div>
+                    </div>
+                    <div class="flex flex-col items-center gap-1">
+                      <div class="px-2 py-1 bg-pink-600 text-white rounded text-[10px] font-bold shadow-lg">
+                        Phase Corr
+                      </div>
+                      <svg class="w-4 h-6 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
+                      </svg>
+                      <div class="text-[9px] text-pink-500 font-bold">↓ TAP</div>
                     </div>
                     <div class="flex flex-col items-center gap-1">
                       <div class="px-2 py-1 bg-cyan-600 text-white rounded text-[10px] font-bold shadow-lg">
