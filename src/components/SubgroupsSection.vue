@@ -35,7 +35,7 @@
         </div>
 
         <!-- VU Meters and Faders -->
-        <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-2 min-h-0">
+        <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-2 min-h-0 -mt-2">
             <!-- VU Meters Row -->
             <div v-if="vuMetersHeight > 0"
                 class="flex flex-col items-center w-full justify-center bg-gray-900 rounded p-1 border border-gray-700">

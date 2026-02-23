@@ -32,7 +32,7 @@
     />
 
     <!-- VU Meters and Faders -->
-    <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-4 min-h-0 mt-2">
+    <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-4 min-h-0 ">
       <!-- VU Meters Row -->
       <MasterMeter 
         :left-level="leftLevel" 
@@ -41,7 +41,7 @@
       />
 
       <!-- Faders Row -->
-      <div v-if="fadersHeight > 0" class="flex gap-2 items-end mb-6">
+      <div v-if="fadersHeight > 0" class="flex gap-2 items-end mb-6 mt-2">
         <MasterFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" />
         <MasterFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" />
       </div>

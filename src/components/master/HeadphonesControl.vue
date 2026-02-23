@@ -16,7 +16,7 @@
 
     <!-- Headphones Volume Control & Meter -->
     <div class="w-full flex items-center justify-center gap-2 bg-gray-900 rounded border border-gray-700 px-2">
-      <div class="scale-[0.7]">
+      <div class="scale-[0.7] -mt-2 -mb-2">
         <Knob 
           :model-value="volume" 
           @update:model-value="$emit('update:volume', $event)"
