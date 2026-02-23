@@ -217,11 +217,16 @@ async function onMasterOutputSelect(deviceId: string | null) {
     // Connect mergeNode to masterOutputGain
     mergeNode.connect(masterOutputGain)
     
-    // Apply mute state if needed
+    // Reconnect headphones (they were disconnected by mergeNode.disconnect() above)
+    if (headphonesGain && headphonesStreamDest) {
+      mergeNode.connect(headphonesGain)
+    }
+    
+    // Apply mute state if needed (use rampTo to avoid clicks)
     if (masterMuted.value) {
-      masterOutputGain.gain.value = 0
+      masterOutputGain.gain.rampTo(0, 0.01)
     } else {
-      masterOutputGain.gain.value = 1
+      masterOutputGain.gain.rampTo(1, 0.01)
     }
     
     // If null is selected, use default Tone destination
@@ -357,6 +362,12 @@ async function onHeadphonesOutputSelect(deviceId: string | null) {
         console.warn('[Headphones Output] Error closing context:', e)
       }
       headphonesAudioContext = null
+    }
+    
+    // If null or no-output is selected, just close and return (headphones off)
+    if (!deviceId || deviceId === 'no-output') {
+      console.log('[Headphones Output] Headphones disabled')
+      return
     }
     
     // Small delay to ensure cleanup is complete
@@ -620,13 +631,8 @@ onMounted(async () => {
   // Enumerate audio outputs
   await enumerateAudioOutputs()
   
-  // Initialize headphones output with default device
-  // Wait a bit to ensure headphonesStreamDest is created
-  setTimeout(() => {
-    if (headphonesStreamDest) {
-      onHeadphonesOutputSelect(null)
-    }
-  }, 300)
+  // Headphones start disabled (user must explicitly select a device)
+  // The headphonesStreamDest exists but no AudioContext is created until user selects a device
 
   // Calculate initial height
   await nextTick()
