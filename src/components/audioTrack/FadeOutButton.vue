@@ -3,7 +3,7 @@
     <button @click.stop="showFadeOutMenu = !showFadeOutMenu"
       :disabled="!isPlaying || audioSourceType === 'input'"
       class="px-1.5 py-1 text-xs rounded transition-colors flex items-center justify-center"
-      :class="isPlaying && audioSourceType === 'file' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-gray-700 text-gray-500 cursor-not-allowed'"
+      :class="isPlaying && audioSourceType === 'file' ? 'bg-slate-400 hover:bg-slate-300' : 'bg-gray-700 text-gray-500 cursor-not-allowed'"
       title="Fade Out Options">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
         <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
@@ -13,13 +13,13 @@
     
     <!-- Fade Out Curve Dropdown -->
     <div v-if="showFadeOutMenu && isPlaying && audioSourceType === 'file'"
-      class="absolute top-full mt-1 right-0 bg-gray-800 border border-gray-600 rounded shadow-lg z-50 min-w-[140px]"
+      class="absolute top-full mt-1 left-0 bg-gray-800 border border-gray-600 rounded shadow-lg z-50 min-w-[140px]"
       @click.stop>
       <div class="text-[0.5rem] font-bold text-gray-400 px-2 py-1 border-b border-gray-700">FADE OUT</div>
       
       <!-- Duration Knob -->
-      <div class="px-2 py-2 border-b border-gray-700">
-        <div class="flex items-center justify-center">
+      <div class="px-2 py-0 border-b border-gray-700">
+        <div class="flex items-center justify-center scale-[0.7]">
           <Knob 
             :model-value="fadeDuration" 
             @update:model-value="fadeDuration = $event"

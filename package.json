@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
+    "pack": "sh ./build-and-sign.sh",
     "make": "electron-forge make",
     "build": "./build-and-sign.sh",
     "publish": "electron-forge publish",
