@@ -107,11 +107,10 @@
     </div>
 
     <!-- Normal Track Content -->
-    <Transition name="fade" mode="out-in">
-      <div v-if="!showAuxPanel" key="normal-content" class="w-full flex-1 flex flex-col gap-2">
-        <!-- Waveform Display -->
-        <WaveformDisplay ref="waveformDisplayRef" :waveform-node="waveform" :audio-buffer="currentAudioBuffer"
-          :is-playing="isPlaying" :current-time="currentPlaybackTime" />
+    <template v-if="!showAuxPanel">
+      <!-- Waveform Display -->
+      <WaveformDisplay ref="waveformDisplayRef" :waveform-node="waveform" :audio-buffer="currentAudioBuffer"
+        :is-playing="isPlaying" :current-time="currentPlaybackTime" />
 
       <!-- Gain Control -->
       <div class="w-full flex items-center justify-center gap-2 h-[4rem]">
@@ -245,14 +244,14 @@
             :height="faderHeight + 20" />
         </div>
       </div>
-      </div>
+    </template>
 
-      <!-- Aux Panel Content -->
-      <div v-else key="aux-content" class="w-full flex-1 overflow-y-auto flex flex-col gap-2 aux-panel-scrollbar">
-        <!-- Header -->
-        <div class="sticky top-0 bg-gray-800 border-b border-teal-600/30 px-2 py-1 flex justify-between items-center">
-          <span class="text-[0.65rem] font-bold text-teal-300">AUX SENDS</span>
-          <button @click="showAuxPanel = false"
+    <!-- Aux Panel Content -->
+    <div v-if="showAuxPanel" class="w-full flex-1 overflow-y-auto flex flex-col gap-2 aux-panel-scrollbar">
+      <!-- Header -->
+      <div class="sticky top-0 bg-gray-800 border-b border-teal-600/30 px-2 py-1 flex justify-between items-center">
+        <span class="text-[0.65rem] font-bold text-teal-300">AUX SENDS</span>
+        <button @click="showAuxPanel = false"
           class="w-4 h-4 pb-[0.08rem] rounded-full bg-white/20 hover:bg-white/30 text-white/60 hover:text-white/80 text-xs flex items-center justify-center transition-all"
           title="Close AUX Panel">
           ×
@@ -270,8 +269,7 @@
             @toggle-pre-post="toggleLocalPrePost(aux.id)" @toggle-mute="toggleLocalMute(aux.id)" />
         </div>
       </div>
-      </div>
-    </Transition>
+    </div>
 
   </div>
 
@@ -2304,22 +2302,6 @@ function stopGateMonitoring() {
 </script>
 
 <style scoped>
-/* Fade transition for aux panel */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.fade-enter-to,
-.fade-leave-from {
-  opacity: 1;
-}
-
 /* Custom lightweight scrollbar for AUX panel */
 .aux-panel-scrollbar::-webkit-scrollbar {
   width: 4px;
