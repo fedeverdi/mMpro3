@@ -84,7 +84,7 @@ const emit = defineEmits<{
 }>()
 
 const showFadeOutMenu = ref(false)
-const fadeDuration = ref(3) // Default 3 seconds
+const fadeDuration = ref(5) // Default 3 seconds
 
 // Initialize
 onMounted(() => {
