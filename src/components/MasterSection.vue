@@ -15,7 +15,8 @@
         default-label="Default" 
         default-description="Default audio output"
         icon="🔊"
-        default-icon="🔊" 
+        default-icon="🔊"
+        :show-no-output="false"
         @select="onMasterOutputSelect" 
       />
     </div>

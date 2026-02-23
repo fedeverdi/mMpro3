@@ -113,7 +113,7 @@ const rightLevel = ref(-60)
 
 // Audio outputs
 const { audioOutputDevices, enumerateAudioOutputs } = useAudioDevices()
-const selectedOutput = ref<string | null>('no-output')
+const selectedOutput = ref<string | null>(null)
 
 // Container and dynamic height
 const metersContainer = ref<HTMLElement | null>(null)
@@ -161,31 +161,116 @@ async function onOutputSelect() {
     try {
         // Close existing output context if any
         if (outputAudioContext) {
-            await outputAudioContext.close()
+            console.log('[Subgroup Output] Closing old AudioContext, state:', outputAudioContext.state)
+            try {
+                if (outputAudioContext.state !== 'closed') {
+                    await outputAudioContext.close()
+                }
+            } catch (e) {
+                console.warn('[Subgroup Output] Error closing context:', e)
+            }
             outputAudioContext = null
         }
+
+        // Small delay to ensure cleanup is complete
+        await new Promise(resolve => setTimeout(resolve, 50))
 
         // If "no-output" is selected, don't create any output context
         if (selectedOutput.value === 'no-output') {
             return
         }
 
+        // Parse composite deviceId (format: "realDeviceId:channelIndex")
+        let realDeviceId = selectedOutput.value || ''
+        let targetChannel: number | null = null
+        
+        if (selectedOutput.value && selectedOutput.value.includes(':')) {
+            const parts = selectedOutput.value.split(':')
+            realDeviceId = parts[0]
+            targetChannel = parseInt(parts[1], 10)
+            console.log(`[Subgroup Output] Parsed composite deviceId: device="${realDeviceId}", channel=${targetChannel + 1}`)
+        }
+
         // Create new AudioContext targeting selected device
         const mainAudioContext = Tone.context.rawContext as AudioContext
         const contextOptions: any = {
-            latencyHint: 'interactive', // Lower latency for better sync
+            latencyHint: 'interactive',
             sampleRate: mainAudioContext.sampleRate
         }
 
-        if (selectedOutput.value && selectedOutput.value !== '') {
-            contextOptions.sinkId = selectedOutput.value
+        if (realDeviceId && realDeviceId !== '') {
+            contextOptions.sinkId = realDeviceId
         }
 
         outputAudioContext = new AudioContext(contextOptions)
-
-        // Create simple playback chain
+        
+        // Log device info
+        console.log('[Subgroup Output] Output AudioContext created')
+        console.log('[Subgroup Output] Destination maxChannelCount:', outputAudioContext.destination.maxChannelCount)
+        console.log('[Subgroup Output] SinkId:', (outputAudioContext as any).sinkId)
+        
+        // Detect number of output channels from device capabilities
+        let deviceChannelCount = outputAudioContext.destination.maxChannelCount
+        
+        // If we have a target channel from composite ID, use that as indicator of multi-channel device
+        if (targetChannel !== null) {
+            // Target channel tells us the device has at least targetChannel+1 channels
+            // For Rubix44 we know it has 4 channels
+            deviceChannelCount = Math.max(4, targetChannel + 1)
+        }
+        
+        console.log(`[Subgroup Output] Device channel count: ${deviceChannelCount}`)
+        
+        // Configure destination for multi-channel output
+        try {
+            outputAudioContext.destination.channelCount = deviceChannelCount
+            outputAudioContext.destination.channelCountMode = 'explicit'
+            outputAudioContext.destination.channelInterpretation = 'discrete'
+            console.log(`[Subgroup Output] Set destination to ${deviceChannelCount} channels (discrete)`)
+        } catch (e) {
+            console.warn('[Subgroup Output] Could not configure destination:', e)
+        }
+        
+        // Create audio routing
         const source = outputAudioContext.createMediaStreamSource(outputStreamDest.stream)
-        source.connect(outputAudioContext.destination)
+        
+        // Check actual channel count from the source
+        const actualChannelCount = source.channelCount
+        console.log(`[Subgroup Output] Source has ${actualChannelCount} channels`)
+        
+        // If a specific channel was selected (from composite deviceId), route to that channel
+        if (targetChannel !== null && deviceChannelCount > 2) {
+            // Create a channel merger to route subgroup to specific output channels
+            const channelMerger = outputAudioContext.createChannelMerger(deviceChannelCount)
+            
+            if (actualChannelCount === 2) {
+                // Stereo source - split and route to consecutive channels
+                const splitter = outputAudioContext.createChannelSplitter(2)
+                source.connect(splitter)
+                
+                // Route left to target channel, right to target+1 (if stereo width allows)
+                splitter.connect(channelMerger, 0, targetChannel)
+                if (targetChannel + 1 < deviceChannelCount) {
+                    splitter.connect(channelMerger, 1, targetChannel + 1)
+                    console.log(`[Subgroup Output] Routing stereo to output channels ${targetChannel + 1}-${targetChannel + 2} of ${deviceChannelCount}`)
+                } else {
+                    console.log(`[Subgroup Output] Routing mono (left) to output channel ${targetChannel + 1} of ${deviceChannelCount}`)
+                }
+            } else {
+                // Mono source - route directly to target channel
+                const monoGain = outputAudioContext.createGain()
+                source.connect(monoGain)
+                monoGain.connect(channelMerger, 0, targetChannel)
+                console.log(`[Subgroup Output] Routing mono to output channel ${targetChannel + 1} of ${deviceChannelCount}`)
+            }
+            
+            // Connect merger to destination
+            channelMerger.connect(outputAudioContext.destination)
+        } else {
+            // Default routing (stereo output or no specific channel selected)
+            source.connect(outputAudioContext.destination)
+            console.log('[Subgroup Output] Default stereo routing')
+        }
 
         // Resume if suspended
         if (outputAudioContext.state === 'suspended') {
@@ -354,12 +439,19 @@ function updateRouting() {
         }
     } else if (selectedOutput.value === 'no-output') {
         // No output - meters work but no audio out
-    } else {
+        console.log('[Subgroup] No output selected')
+    } else if (!selectedOutput.value || selectedOutput.value === '') {
+        // Default output when no specific device is selected
         try {
             outputGain.connect(Tone.getDestination())
+            console.log('[Subgroup] Connecting to default Tone destination')
         } catch (e) {
             console.error('[Subgroup] Error connecting to destination:', e)
         }
+    } else {
+        // Specific device selected - audio will be routed via outputAudioContext
+        // No need to connect to Tone destination
+        console.log('[Subgroup] Using dedicated output device:', selectedOutput.value)
     }
 }
 

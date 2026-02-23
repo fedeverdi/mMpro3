@@ -59,14 +59,18 @@
       </div>
 
       <!-- Audio Input Device Selector (shown when source is 'input') -->
-      <div v-if="audioSourceType === 'input'" class="w-full">
-        <select v-model="selectedAudioInput" @change="handleAudioInputChange"
-          class="w-full text-xs bg-gray-800 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-blue-500 focus:outline-none">
-          <option value="">Select Input...</option>
-          <option v-for="device in audioInputs" :key="device.deviceId" :value="device.deviceId">
-            {{ device.label || `Input ${device.deviceId.substring(0, 12)}...` }}
-          </option>
-        </select>
+      <div v-if="audioSourceType === 'input'" class="w-full bg-gray-900 rounded p-1 border border-gray-700">
+        <InputSelector
+          icon="🎤"
+          title="Select Audio Input"
+          :devices="audioInputs"
+          :selected-device-id="selectedAudioInput"
+          default-label="No Input"
+          default-description="Select an audio input device"
+          default-icon="🎤"
+          :show-file-option="false"
+          @select="handleInputSelect"
+        />
       </div>
 
       <!-- Transport Controls -->
@@ -313,6 +317,7 @@ import PadButton from './audioTrack/PadButton.vue'
 import HPFButton from './audioTrack/HPFButton.vue'
 import FadeOutButton from './audioTrack/FadeOutButton.vue'
 import BPMDisplay from './audioTrack/BPMDisplay.vue'
+import InputSelector from './audioTrack/InputSelector.vue'
 
 defineOptions({
   inheritAttrs: false
@@ -1496,10 +1501,14 @@ async function handleAudioInputChange() {
   }
 }
 
-// Handle channel selection change for multi-channel devices
-function handleChannelChange() {
-  // Re-run audio input setup with new channel
-  if (selectedAudioInput.value) {
+// Handle input device selection from InputSelector
+function handleInputSelect(deviceId: string | null) {
+  if (deviceId === null || deviceId === '') {
+    // Clear input selection
+    selectedAudioInput.value = ''
+    stopAudio()
+  } else {
+    selectedAudioInput.value = deviceId
     handleAudioInputChange()
   }
 }
