@@ -660,11 +660,11 @@ function addAux() {
     })
 
     // Create FX chain
-    // Reverb (100% wet for professional aux bus setup)
+    // Reverb (initially disabled - wet will be set to 1.0 when enabled)
     const reverbNode = new Tone.Reverb({
         decay: 2.5,
         preDelay: 0.01,
-        wet: 1.0  // 100% wet (professional aux bus standard)
+        wet: 0  // Start disabled
     })
     
     // Generate reverb impulse response (required for Tone.Reverb)
@@ -673,11 +673,11 @@ function addAux() {
         console.error(`[AUX ${name}] Reverb generation failed:`, err)
     })
 
-    // Delay (100% wet for professional aux bus setup)
+    // Delay (initially disabled - wet will be set to 1.0 when enabled)
     const delayNode = new Tone.FeedbackDelay({
         delayTime: 0.25,  // 250ms (quarter note at 120bpm)
         feedback: 0.3,
-        wet: 1.0  // 100% wet (professional aux bus standard)
+        wet: 0  // Start disabled
     })
     
     // Output node (final point of FX chain)
