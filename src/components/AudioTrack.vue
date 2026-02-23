@@ -26,6 +26,12 @@
             class="px-1 py-0.5 bg-red-600 text-white text-[0.5rem] font-bold rounded animate-pulse">
             REC
           </div>
+          <!-- BPM Display -->
+          <div v-if="detectedBPM && audioSourceType === 'file' && audioLoaded"
+            class="px-1.5 py-0.5 bg-blue-600/20 border border-blue-500/40 text-blue-300 text-[0.45rem] font-bold rounded"
+            :title="'Detected BPM: ' + detectedBPM.toFixed(1)">
+            {{ Math.round(detectedBPM) }} BPM
+          </div>
         </div>
         <button @click="$emit('remove')"
           class="w-4 h-4 pb-[0.05rem] rounded-full bg-white/20 hover:bg-white/30 text-white/60 hover:text-white/80 text-xs flex items-center justify-center transition-all"
@@ -66,7 +72,7 @@
       <!-- Transport Controls -->
       <div class="flex gap-1 justify-center">
         <button @click="togglePlay"
-          class="px-2 py-1 w-full text-xs rounded transition-colors flex items-center justify-center"
+          class="px-2 py-1 flex-1 text-xs rounded transition-colors flex items-center justify-center"
           :class="isPlaying ? 'bg-green-600 hover:bg-green-500 animate-pulse' : (audioLoaded ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500')">
           <!-- Show microphone icon for audio input -->
           <svg v-if="audioSourceType === 'input'" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"
@@ -84,11 +90,19 @@
           </svg>
         </button>
         <button @click="stopAudio"
-          class="px-2 py-1 w-full text-xs rounded transition-colors bg-gray-600 hover:bg-gray-500 flex items-center justify-center">
+          class="px-2 py-1 flex-1 text-xs rounded transition-colors bg-gray-600 hover:bg-gray-500 flex items-center justify-center">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
             <path d="M6 6h12v12H6z" />
           </svg>
         </button>
+        <!-- Fade Out Button -->
+        <FadeOutButton 
+          :is-playing="isPlaying"
+          :audio-source-type="audioSourceType"
+          :volume="volume"
+          @update:volume="volume = $event"
+          @fade-complete="handleFadeComplete"
+        />
       </div>
     </div>
 
@@ -294,6 +308,7 @@ import TrackAuxSends from './audioTrack/TrackAuxSends.vue'
 import AuxSendControl from './audioTrack/AuxSendControl.vue'
 import PadButton from './audioTrack/PadButton.vue'
 import HPFButton from './audioTrack/HPFButton.vue'
+import FadeOutButton from './audioTrack/FadeOutButton.vue'
 
 defineOptions({
   inheritAttrs: false
@@ -405,6 +420,7 @@ const isStereo = ref(true) // Track if source is stereo or mono (default stereo)
 const trackLevelL = ref(-60) // Left/Mono level
 const trackLevelR = ref(-60) // Right level (only for stereo)
 const phaseCorrelation = ref(0) // Phase correlation: -1 (out of phase) to +1 (mono)
+const detectedBPM = ref<number | null>(null) // Detected BPM from audio file
 
 // Analyser nodes for phase correlation measurement
 let analyserL: any = null
@@ -1126,6 +1142,9 @@ async function handleFileUpload(event: Event) {
     audioLoaded.value = true
     isLoading.value = false
 
+    // Detect BPM from audio buffer
+    detectBPM(audioBuffer)
+
     // Force DOM update
     await nextTick()
 
@@ -1249,6 +1268,9 @@ async function loadFileFromIndexedDB(savedFileId: string, silent: boolean = fals
     if (!silent) {
       isLoading.value = false
     }
+
+    // Detect BPM from audio buffer
+    detectBPM(audioBuffer)
 
     // Force DOM update
     await nextTick()
@@ -1517,6 +1539,101 @@ function stopAudio() {
 
   // Stop waveform
   waveformDisplayRef.value?.stop()
+}
+
+// Handle fade-out completion
+function handleFadeComplete() {
+  stopAudio()
+}
+
+// Detect BPM from audio buffer using peak detection
+function detectBPM(audioBuffer: AudioBuffer) {
+  if (!audioBuffer) {
+    detectedBPM.value = null
+    return
+  }
+
+  try {
+    // Get first channel data
+    const channelData = audioBuffer.getChannelData(0)
+    const sampleRate = audioBuffer.sampleRate
+    
+    // Analyze only first 30 seconds for performance
+    const maxDuration = 30 // seconds
+    const samplesPerSecond = sampleRate
+    const totalSamples = Math.min(channelData.length, maxDuration * samplesPerSecond)
+    
+    // Calculate energy in windows (beat detection)
+    const windowSize = Math.floor(sampleRate * 0.05) // 50ms windows
+    const energyValues: number[] = []
+    
+    for (let i = 0; i < totalSamples - windowSize; i += windowSize) {
+      let energy = 0
+      for (let j = 0; j < windowSize; j++) {
+        energy += Math.abs(channelData[i + j])
+      }
+      energyValues.push(energy / windowSize)
+    }
+    
+    // Find peaks in energy
+    const peaks: number[] = []
+    const threshold = energyValues.reduce((a, b) => a + b, 0) / energyValues.length * 1.3
+    
+    for (let i = 1; i < energyValues.length - 1; i++) {
+      if (energyValues[i] > threshold && 
+          energyValues[i] > energyValues[i - 1] && 
+          energyValues[i] > energyValues[i + 1]) {
+        peaks.push(i)
+      }
+    }
+    
+    if (peaks.length < 2) {
+      detectedBPM.value = null
+      return
+    }
+    
+    // Calculate intervals between peaks
+    const intervals: number[] = []
+    for (let i = 1; i < peaks.length; i++) {
+      intervals.push(peaks[i] - peaks[i - 1])
+    }
+    
+    // Find most common interval (mode)
+    const intervalCounts = new Map<number, number>()
+    intervals.forEach(interval => {
+      const rounded = Math.round(interval / 2) * 2 // Group similar intervals
+      intervalCounts.set(rounded, (intervalCounts.get(rounded) || 0) + 1)
+    })
+    
+    let maxCount = 0
+    let mostCommonInterval = 0
+    intervalCounts.forEach((count, interval) => {
+      if (count > maxCount) {
+        maxCount = count
+        mostCommonInterval = interval
+      }
+    })
+    
+    // Convert interval to BPM
+    const secondsPerBeat = (mostCommonInterval * windowSize) / sampleRate
+    const bpm = 60 / secondsPerBeat
+    
+    // Validate BPM range (60-180 typical for music)
+    if (bpm >= 60 && bpm <= 200) {
+      detectedBPM.value = bpm
+    } else if (bpm < 60) {
+      // Try doubling if too slow
+      detectedBPM.value = bpm * 2
+    } else if (bpm > 200) {
+      // Try halving if too fast
+      detectedBPM.value = bpm / 2
+    } else {
+      detectedBPM.value = null
+    }
+  } catch (error) {
+    console.error('Error detecting BPM:', error)
+    detectedBPM.value = null
+  }
 }
 
 function toggleMute() {
