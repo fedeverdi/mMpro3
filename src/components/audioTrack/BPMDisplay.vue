@@ -8,6 +8,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import * as BeatDetector from 'web-audio-beat-detector'
 
 interface Props {
   audioBuffer: AudioBuffer | null
@@ -28,89 +29,46 @@ watch(() => props.audioBuffer, (newBuffer) => {
   }
 }, { immediate: true })
 
-// Detect BPM from audio buffer using peak detection
-function detectBPM(audioBuffer: AudioBuffer) {
+// Detect BPM from audio buffer using web-audio-beat-detector
+async function detectBPM(audioBuffer: AudioBuffer) {
   if (!audioBuffer) {
     detectedBPM.value = null
     return
   }
 
   try {
-    // Get first channel data
-    const channelData = audioBuffer.getChannelData(0)
-    const sampleRate = audioBuffer.sampleRate
+    console.log('🎵 Detecting BPM with web-audio-beat-detector...')
+    const tempo = await BeatDetector.analyze(audioBuffer)
     
-    // Analyze only first 30 seconds for performance
-    const maxDuration = 30 // seconds
-    const samplesPerSecond = sampleRate
-    const totalSamples = Math.min(channelData.length, maxDuration * samplesPerSecond)
-    
-    // Calculate energy in windows (beat detection)
-    const windowSize = Math.floor(sampleRate * 0.05) // 50ms windows
-    const energyValues: number[] = []
-    
-    for (let i = 0; i < totalSamples - windowSize; i += windowSize) {
-      let energy = 0
-      for (let j = 0; j < windowSize; j++) {
-        energy += Math.abs(channelData[i + j])
+    if (tempo && typeof tempo === 'number') {
+      let correctedTempo = tempo
+      
+      // Try to find the best tempo in the 70-130 BPM sweet spot
+      const candidates = [tempo, tempo / 2, tempo / 1.5, tempo * 2]
+      const sweetSpotCandidates = candidates.filter(bpm => bpm >= 70 && bpm <= 130)
+      
+      if (sweetSpotCandidates.length > 0) {
+        // Pick the one closest to 90-100 BPM (most common music range)
+        correctedTempo = sweetSpotCandidates.reduce((prev, curr) => 
+          Math.abs(curr - 95) < Math.abs(prev - 95) ? curr : prev
+        )
+      } else if (tempo > 140) {
+        // If no sweet spot candidate, halve if too fast
+        correctedTempo = tempo / 2
+      } else if (tempo < 60) {
+        // If too slow, double it
+        correctedTempo = tempo * 2
       }
-      energyValues.push(energy / windowSize)
-    }
-    
-    // Find peaks in energy
-    const peaks: number[] = []
-    const threshold = energyValues.reduce((a, b) => a + b, 0) / energyValues.length * 1.3
-    
-    for (let i = 1; i < energyValues.length - 1; i++) {
-      if (energyValues[i] > threshold && 
-          energyValues[i] > energyValues[i - 1] && 
-          energyValues[i] > energyValues[i + 1]) {
-        peaks.push(i)
+      
+      if (correctedTempo !== tempo) {
+        console.log(`🎯 Corrected: ${tempo.toFixed(1)} BPM -> ${correctedTempo.toFixed(1)} BPM`)
       }
-    }
-    
-    if (peaks.length < 2) {
-      detectedBPM.value = null
-      return
-    }
-    
-    // Calculate intervals between peaks
-    const intervals: number[] = []
-    for (let i = 1; i < peaks.length; i++) {
-      intervals.push(peaks[i] - peaks[i - 1])
-    }
-    
-    // Find most common interval (mode)
-    const intervalCounts = new Map<number, number>()
-    intervals.forEach(interval => {
-      const rounded = Math.round(interval / 2) * 2 // Group similar intervals
-      intervalCounts.set(rounded, (intervalCounts.get(rounded) || 0) + 1)
-    })
-    
-    let maxCount = 0
-    let mostCommonInterval = 0
-    intervalCounts.forEach((count, interval) => {
-      if (count > maxCount) {
-        maxCount = count
-        mostCommonInterval = interval
-      }
-    })
-    
-    // Convert interval to BPM
-    const secondsPerBeat = (mostCommonInterval * windowSize) / sampleRate
-    const bpm = 60 / secondsPerBeat
-    
-    // Validate BPM range (60-180 typical for music)
-    if (bpm >= 60 && bpm <= 200) {
-      detectedBPM.value = bpm
-    } else if (bpm < 60) {
-      // Try doubling if too slow
-      detectedBPM.value = bpm * 2
-    } else if (bpm > 200) {
-      // Try halving if too fast
-      detectedBPM.value = bpm / 2
+      
+      detectedBPM.value = correctedTempo
+      console.log(`✅ Final BPM: ${correctedTempo.toFixed(1)}`)
     } else {
       detectedBPM.value = null
+      console.log('❌ Could not detect BPM')
     }
   } catch (error) {
     console.error('Error detecting BPM:', error)
