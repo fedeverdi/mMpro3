@@ -383,6 +383,7 @@ const audioInputs = audioInputDevices // Use the shared ref
 const selectedAudioInput = ref<string>('')
 let audioInputStream: MediaStream | null = null
 let audioInputSource: MediaStreamAudioSourceNode | null = null
+let channelSplitter: ChannelSplitterNode | null = null
 
 // FX state
 const compressorEnabled = ref(false)
@@ -1327,6 +1328,13 @@ function handleSourceTypeChange() {
     } catch (e) { }
     audioInputSource = null
   }
+  
+  if (channelSplitter) {
+    try {
+      channelSplitter.disconnect()
+    } catch (e) { }
+    channelSplitter = null
+  }
 
   if (audioInputStream) {
     audioInputStream.getTracks().forEach(track => track.stop())
@@ -1368,6 +1376,13 @@ async function handleAudioInputChange() {
       } catch (e) { }
       audioInputSource = null
     }
+    
+    if (channelSplitter) {
+      try {
+        channelSplitter.disconnect()
+      } catch (e) { }
+      channelSplitter = null
+    }
 
     // Dispose old player if it exists and is not already a Gain (input wrapper)
     if (player && typeof player.stop === 'function') {
@@ -1380,23 +1395,67 @@ async function handleAudioInputChange() {
       player = null
     }
 
+    // Parse composite deviceId (format: "realDeviceId:channelIndex")
+    let realDeviceId = selectedAudioInput.value
+    let targetChannel: number | null = null
+    
+    if (selectedAudioInput.value.includes(':')) {
+      const parts = selectedAudioInput.value.split(':')
+      realDeviceId = parts[0]
+      targetChannel = parseInt(parts[1], 10)
+      console.log(`[Track ${props.trackNumber}] Parsed composite deviceId: device="${realDeviceId}", channel=${targetChannel + 1}`)
+    }
+    
     // Get audio stream from selected device
     audioInputStream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        deviceId: { exact: selectedAudioInput.value },
+        deviceId: { exact: realDeviceId },
         echoCancellation: false,
         noiseSuppression: false,
-        autoGainControl: false
+        autoGainControl: false,
+        sampleRate: { ideal: 48000 },
+        channelCount: { min: 1, ideal: 8, max: 32 } // Request all available channels
       }
     })
 
     // Create MediaStreamSource from the stream (native Web Audio API node)
     audioInputSource = Tone.context.createMediaStreamSource(audioInputStream)
 
-    // Detect if stereo or mono based on audio tracks
-    const audioTracks = audioInputStream.getAudioTracks()
-    const channelCount = audioTracks.length > 0 ? audioTracks[0].getSettings().channelCount || 1 : 1
-    isStereo.value = channelCount === 2
+    // Get actual channel count from the source
+    if (!audioInputSource) {
+      throw new Error('Failed to create audio input source')
+    }
+    const actualChannelCount = audioInputSource.channelCount
+    console.log(`[Track ${props.trackNumber}] MediaStreamSource has ${actualChannelCount} channels`)
+    
+    // For multi-channel devices with specific channel selected, use channel splitter
+    let sourceNode: AudioNode | null = audioInputSource
+    
+    if (targetChannel !== null && actualChannelCount > 1 && audioInputSource) {
+      // Clean up old splitter
+      if (channelSplitter) {
+        try {
+          (channelSplitter as ChannelSplitterNode).disconnect()
+        } catch (e) {}
+      }
+      
+      // Create channel splitter to separate individual channels
+      channelSplitter = Tone.context.createChannelSplitter(actualChannelCount) as ChannelSplitterNode
+      audioInputSource.connect(channelSplitter)
+      
+      // Create a merger to convert selected channel to mono output
+      const channelMerger = Tone.context.createChannelMerger(1)
+      
+      // Connect selected channel (0-based) to the merger
+      channelSplitter.connect(channelMerger, targetChannel, 0)
+      
+      sourceNode = channelMerger
+      isStereo.value = false // Each track uses one channel
+      
+      console.log(`[Track ${props.trackNumber}] Using input channel ${targetChannel + 1} of ${actualChannelCount}`)
+    } else {
+      isStereo.value = actualChannelCount === 2
+    }
 
     // Reuse player if it's already a Gain node, otherwise create new
     if (!player || typeof player.stop === 'function') {
@@ -1404,9 +1463,9 @@ async function handleAudioInputChange() {
       player.connect(padNode!)
     }
 
-    // Connect the native media stream source to player input
-    if (audioInputSource) {
-      audioInputSource.connect(player.input)
+    // Connect the source node (either direct or through channel splitter) to player input
+    if (sourceNode) {
+      sourceNode.connect(player.input)
     }
 
     // CRITICAL: Ensure volume node is connected to master output
@@ -1434,6 +1493,14 @@ async function handleAudioInputChange() {
     alert('Error accessing audio input. Please check permissions and try again.')
     audioLoaded.value = false
     isPlaying.value = false
+  }
+}
+
+// Handle channel selection change for multi-channel devices
+function handleChannelChange() {
+  // Re-run audio input setup with new channel
+  if (selectedAudioInput.value) {
+    handleAudioInputChange()
   }
 }
 
@@ -2048,6 +2115,13 @@ onUnmounted(() => {
       audioInputSource.disconnect()
     } catch (e) { }
     audioInputSource = null
+  }
+  
+  if (channelSplitter) {
+    try {
+      channelSplitter.disconnect()
+    } catch (e) { }
+    channelSplitter = null
   }
 
   // Stop audio input stream if active

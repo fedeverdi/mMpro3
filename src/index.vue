@@ -841,6 +841,17 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
             return
         }
 
+        // Parse composite deviceId (format: "realDeviceId:channelIndex")
+        let realDeviceId = deviceId || ''
+        let targetChannel: number | null = null
+        
+        if (deviceId && deviceId.includes(':')) {
+            const parts = deviceId.split(':')
+            realDeviceId = parts[0]
+            targetChannel = parseInt(parts[1], 10)
+            console.log(`[Aux ${aux.name}] Parsed composite deviceId: device="${realDeviceId}", channel=${targetChannel + 1}`)
+        }
+
         // Create new AudioContext targeting selected device
         const mainAudioContext = Tone.context.rawContext as AudioContext
         const contextOptions: any = {
@@ -848,15 +859,63 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
             sampleRate: mainAudioContext.sampleRate
         }
 
-        if (deviceId && deviceId !== '') {
-            contextOptions.sinkId = deviceId
+        if (realDeviceId && realDeviceId !== '') {
+            contextOptions.sinkId = realDeviceId
         }
 
         const outputAudioContext = new AudioContext(contextOptions)
-
-        // Create simple playback chain
+        
+        // Log device info
+        console.log(`[Aux ${aux.name}] Output AudioContext created`)
+        console.log(`[Aux ${aux.name}] Destination maxChannelCount:`, outputAudioContext.destination.maxChannelCount)
+        console.log(`[Aux ${aux.name}] SinkId:`, (outputAudioContext as any).sinkId)
+        
+        // Detect number of output channels from device capabilities
+        let deviceChannelCount = outputAudioContext.destination.maxChannelCount
+        
+        // If we have a target channel from composite ID, use that as indicator of multi-channel device
+        if (targetChannel !== null) {
+            // Target channel tells us the device has at least targetChannel+1 channels
+            // For Rubix44 we know it has 4 channels
+            deviceChannelCount = Math.max(4, targetChannel + 1)
+        }
+        
+        console.log(`[Aux ${aux.name}] Device channel count: ${deviceChannelCount}`)
+        
+        // Configure destination for multi-channel output
+        try {
+            outputAudioContext.destination.channelCount = deviceChannelCount
+            outputAudioContext.destination.channelCountMode = 'explicit'
+            outputAudioContext.destination.channelInterpretation = 'discrete'
+            console.log(`[Aux ${aux.name}] Set destination to ${deviceChannelCount} channels (discrete)`)
+        } catch (e) {
+            console.warn(`[Aux ${aux.name}] Could not configure destination:`, e)
+        }
+        
+        // Create audio routing
         const source = outputAudioContext.createMediaStreamSource(aux.outputStreamDest.stream)
-        source.connect(outputAudioContext.destination)
+        
+        // If a specific channel was selected (from composite deviceId), route to that channel
+        if (targetChannel !== null && deviceChannelCount > 2) {
+            // Create a channel merger to route mono aux to specific output channel
+            const channelMerger = outputAudioContext.createChannelMerger(deviceChannelCount)
+            
+            // Create a gain node for the mono aux source
+            const monoGain = outputAudioContext.createGain()
+            source.connect(monoGain)
+            
+            // Connect mono source to the target output channel
+            monoGain.connect(channelMerger, 0, targetChannel)
+            
+            // Connect merger to destination
+            channelMerger.connect(outputAudioContext.destination)
+            
+            console.log(`[Aux ${aux.name}] Routing to output channel ${targetChannel + 1} of ${deviceChannelCount}`)
+        } else {
+            // Default routing (stereo output or no specific channel selected)
+            source.connect(outputAudioContext.destination)
+            console.log(`[Aux ${aux.name}] Default stereo routing`)
+        }
 
         // Resume if suspended
         if (outputAudioContext.state === 'suspended') {
@@ -1177,7 +1236,7 @@ function handleLoadScene(sceneId: string) {
                         wet: auxSnapshot.reverbEnabled ? reverbParams.wet : 0
                     })
                     
-                    reverbNode.generate().catch(err => {
+                    reverbNode.generate().catch((err: any) => {
                         console.error(`[Aux ${auxSnapshot.name}] Reverb generation failed:`, err)
                     })
                     

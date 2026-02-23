@@ -15,7 +15,7 @@
 
         <!-- Output Device Selector -->
         <div class="w-full bg-gray-900 rounded p-1.5 border border-gray-700">
-            <OutputSelector title="Select Subgroup Output" :devices="audioOutputs"
+            <OutputSelector title="Select Subgroup Output" :devices="audioOutputDevices"
                 :selected-device-id="selectedOutput" default-label="Default" default-description="Default audio output"
                 default-icon="🔊" :show-no-output="true" @select="handleOutputSelect" />
         </div>
@@ -72,6 +72,7 @@ import TrackLimiter from './audioTrack/TrackLimiter.vue'
 import TrackDelay from './audioTrack/TrackDelay.vue'
 import { ref, watch, onMounted, onUnmounted, nextTick, inject, toRaw } from 'vue'
 import SubgroupFader from './subgroups/SubgroupFader.vue'
+import { useAudioDevices } from '../composables/useAudioDevices'
 
 // Props
 interface Props {
@@ -111,7 +112,7 @@ const leftLevel = ref(-60)
 const rightLevel = ref(-60)
 
 // Audio outputs
-const audioOutputs = ref<MediaDeviceInfo[]>([])
+const { audioOutputDevices, enumerateAudioOutputs } = useAudioDevices()
 const selectedOutput = ref<string | null>('no-output')
 
 // Container and dynamic height
@@ -145,24 +146,6 @@ function updateMetersHeight() {
         const availableHeight = Math.max(160, height - 80)
         fadersHeight.value = Math.max(90, Math.floor(availableHeight * 0.49))
         vuMetersHeight.value = Math.max(60, Math.floor(availableHeight * 0.46))
-    }
-}
-
-// Enumerate audio output devices
-async function enumerateAudioOutputs() {
-    try {
-        // Request microphone permission to unlock device labels
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            stream.getTracks().forEach(track => track.stop())
-        } catch (permError) {
-            console.warn('[Subgroup Audio Outputs] Permission denied for device labels')
-        }
-
-        const devices = await navigator.mediaDevices.enumerateDevices()
-        audioOutputs.value = devices.filter(device => device.kind === 'audiooutput')
-    } catch (error) {
-        console.error('[Subgroup Audio Outputs] Error enumerating devices:', error)
     }
 }
 

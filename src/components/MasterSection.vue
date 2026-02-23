@@ -6,9 +6,23 @@
       <div class="text-xs font-bold text-blue-400">MASTER</div>
     </div>
 
+    <!-- Master Output Selector -->
+    <div class="w-full bg-gray-900 rounded p-1.5 border border-gray-700">
+      <OutputSelector 
+        title="Master Output" 
+        :devices="audioOutputDevices"
+        :selected-device-id="selectedMasterOutput" 
+        default-label="Default" 
+        default-description="Default audio output"
+        icon="🔊"
+        default-icon="🔊" 
+        @select="onMasterOutputSelect" 
+      />
+    </div>
+
     <!-- Headphones Control -->
     <HeadphonesControl
-      :devices="audioOutputs"
+      :devices="audioOutputDevices"
       :selected-device-id="selectedHeadphonesOutput"
       :volume="headphonesVolume"
       :level="headphonesLevel"
@@ -62,9 +76,11 @@
 import MasterFader from './master/MasterFader.vue'
 import MasterMeter from './master/MasterMeter.vue'
 import HeadphonesControl from './master/HeadphonesControl.vue'
+import OutputSelector from './master/OutputSelector.vue'
 import RecorderButton from './recorder/RecorderButton.vue'
 import Recorder from './recorder/Recorder.vue'
 import { ref, watch, onMounted, onUnmounted, nextTick, inject, toRaw } from 'vue'
+import { useAudioDevices } from '../composables/useAudioDevices'
 
 // Props
 interface Props {
@@ -97,9 +113,14 @@ const showRecorder = ref(false)
 const isRecording = ref(false)
 
 // Audio outputs
-const audioOutputs = ref<MediaDeviceInfo[]>([])
+const { audioOutputDevices, enumerateAudioOutputs } = useAudioDevices()
 const selectedHeadphonesOutput = ref<string | null>(null)
-const selectedMasterOutput = ref<string | null>(null) // For future master output device selection
+const selectedMasterOutput = ref<string | null>(null)
+
+// Master output routing
+let masterOutputGain: any = null
+let masterOutputStreamDest: MediaStreamAudioDestinationNode | null = null
+let masterOutputAudioContext: AudioContext | null = null
 
 // Headphones output routing (direct connection in main context for perfect sync)
 let headphonesGain: any = null
@@ -134,21 +155,155 @@ function updateMetersHeight() {
   }
 }
 
-// Enumerate audio output devices
-async function enumerateAudioOutputs() {
+// Handle master output selection
+async function onMasterOutputSelect(deviceId: string | null) {
+  selectedMasterOutput.value = deviceId
+  
+  if (!mergeNode || !Tone) return
+  
   try {
-    // Request microphone permission to unlock device labels
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      stream.getTracks().forEach(track => track.stop())
-    } catch (permError) {
-      console.warn('[Audio Outputs] Permission denied for device labels')
+    // Disconnect from existing output
+    if (masterOutputGain) {
+      try {
+        masterOutputGain.disconnect()
+      } catch (e) {
+        console.warn('[Master Output] Error disconnecting gain:', e)
+      }
     }
-
-    const devices = await navigator.mediaDevices.enumerateDevices()
-    audioOutputs.value = devices.filter(device => device.kind === 'audiooutput')
+    
+    // Close existing master output context if any
+    if (masterOutputAudioContext) {
+      console.log('[Master Output] Closing old AudioContext, state:', masterOutputAudioContext.state)
+      try {
+        if (masterOutputAudioContext.state !== 'closed') {
+          await masterOutputAudioContext.close()
+        }
+      } catch (e) {
+        console.warn('[Master Output] Error closing context:', e)
+      }
+      masterOutputAudioContext = null
+    }
+    
+    // Small delay to ensure cleanup is complete
+    await new Promise(resolve => setTimeout(resolve, 50))
+    
+    // If null is selected, use default Tone destination
+    if (!deviceId) {
+      console.log('[Master Output] Using default Tone.js destination')
+      mergeNode.toDestination()
+      return
+    }
+    
+    // Parse composite deviceId (format: \"realDeviceId:channelIndex\")
+    let realDeviceId = deviceId
+    let targetChannel: number | null = null
+    
+    if (deviceId.includes(':')) {
+      const parts = deviceId.split(':')
+      realDeviceId = parts[0]
+      targetChannel = parseInt(parts[1], 10)
+      console.log(`[Master Output] Parsed composite deviceId: device=\"${realDeviceId}\", channel=${targetChannel + 1}`)
+    }
+    
+    // Create stream destination if not exists
+    if (!masterOutputStreamDest) {
+      masterOutputStreamDest = Tone.context.createMediaStreamDestination()
+    }
+    
+    // Disconnect mergeNode from Tone destination and connect to stream destination
+    try {
+      mergeNode.disconnect()
+    } catch (e) { }
+    
+    // Create gain node for master output
+    if (!masterOutputGain) {
+      masterOutputGain = new Tone.Gain(1).toDestination() as any
+    }
+    
+    // Connect merge to gain to stream destination
+    mergeNode.connect(masterOutputGain)
+    masterOutputGain.disconnect()
+    masterOutputGain.connect(masterOutputStreamDest as any)
+    
+    // Create new AudioContext targeting selected device
+    const mainAudioContext = Tone.context.rawContext as AudioContext
+    const contextOptions: any = {
+      latencyHint: 'interactive',
+      sampleRate: mainAudioContext.sampleRate
+    }
+    
+    if (realDeviceId && realDeviceId !== '') {
+      contextOptions.sinkId = realDeviceId
+    }
+    
+    masterOutputAudioContext = new AudioContext(contextOptions)
+    
+    // Log device info
+    console.log('[Master Output] Output AudioContext created')
+    console.log('[Master Output] Destination maxChannelCount:', masterOutputAudioContext.destination.maxChannelCount)
+    console.log('[Master Output] SinkId:', (masterOutputAudioContext as any).sinkId)
+    
+    // Detect number of output channels from device capabilities
+    let deviceChannelCount = masterOutputAudioContext.destination.maxChannelCount
+    
+    // If we have a target channel from composite ID, use that as indicator of multi-channel device
+    if (targetChannel !== null) {
+      // For multi-channel devices like Rubix44
+      deviceChannelCount = Math.max(4, targetChannel + 1)
+    }
+    
+    console.log(`[Master Output] Device channel count: ${deviceChannelCount}`)
+    
+    // Configure destination for multi-channel output
+    try {
+      masterOutputAudioContext.destination.channelCount = deviceChannelCount
+      masterOutputAudioContext.destination.channelCountMode = 'explicit'
+      masterOutputAudioContext.destination.channelInterpretation = 'discrete'
+      console.log(`[Master Output] Set destination to ${deviceChannelCount} channels (discrete)`)
+    } catch (e) {
+      console.warn('[Master Output] Could not configure destination:', e)
+    }
+    
+    // Create audio routing from stream
+    if (!masterOutputStreamDest) {
+      throw new Error('Master output stream destination not initialized')
+    }
+    const source = masterOutputAudioContext.createMediaStreamSource(masterOutputStreamDest.stream)
+    
+    // If a specific channel was selected (from composite deviceId), route to that channel
+    if (targetChannel !== null && deviceChannelCount > 2) {
+      // Create a channel merger to route stereo master to specific output channels
+      const channelMerger = masterOutputAudioContext.createChannelMerger(deviceChannelCount)
+      
+      // Split the stereo source
+      const splitter = masterOutputAudioContext.createChannelSplitter(2)
+      source.connect(splitter)
+      
+      // Route left to target channel, right to target+1 (if stereo width allows)
+      splitter.connect(channelMerger, 0, targetChannel)
+      if (targetChannel + 1 < deviceChannelCount) {
+        splitter.connect(channelMerger, 1, targetChannel + 1)
+        console.log(`[Master Output] Routing stereo to output channels ${targetChannel + 1}-${targetChannel + 2} of ${deviceChannelCount}`)
+      } else {
+        console.log(`[Master Output] Routing mono (left) to output channel ${targetChannel + 1} of ${deviceChannelCount}`)
+      }
+      
+      // Connect merger to destination
+      channelMerger.connect(masterOutputAudioContext.destination)
+    } else {
+      // Default routing (stereo output or no specific channel selected)
+      source.connect(masterOutputAudioContext.destination)
+      console.log('[Master Output] Default stereo routing')
+    }
+    
+    // Resume if suspended
+    if (masterOutputAudioContext.state === 'suspended') {
+      await masterOutputAudioContext.resume()
+    }
+    
+    console.log('[Master Output] Changed to:', deviceId || 'default')
   } catch (error) {
-    console.error('[Audio Outputs] Error enumerating devices:', error)
+    console.error('[Master Output] Error changing device:', error)
   }
 }
 
@@ -232,7 +387,8 @@ function initMasterChannel() {
   rightGain.connect(rightMeter)
   rightGain.connect(mergeNode, 0, 1)
   
-  // Main output to default destination (uses main output selector)
+  // Main output - initially connect to default Tone destination
+  // Will be reconfigured if user selects a specific device
   mergeNode.toDestination()
   
   // Headphones output: mergeNode → gain → meter → streamDest (all in main Tone context)
@@ -413,7 +569,11 @@ function restoreSnapshot(snapshot: any) {
   // Restore output devices
   if (snapshot.selectedMasterOutput !== undefined) {
     selectedMasterOutput.value = snapshot.selectedMasterOutput
-    // TODO: Apply master output device change when feature is implemented
+    nextTick(() => {
+      if (selectedMasterOutput.value !== null) {
+        onMasterOutputSelect(selectedMasterOutput.value)
+      }
+    })
   }
   if (snapshot.selectedHeadphonesOutput !== undefined) {
     selectedHeadphonesOutput.value = snapshot.selectedHeadphonesOutput
@@ -468,6 +628,16 @@ onUnmounted(() => {
     mergeNodeRef.value = null
   }
   if (headphonesGain) headphonesGain.dispose()
+  if (masterOutputGain) masterOutputGain.dispose()
+  
+  // Cleanup master output context
+  if (masterOutputAudioContext) {
+    masterOutputAudioContext.close()
+    masterOutputAudioContext = null
+  }
+  if (masterOutputStreamDest) {
+    masterOutputStreamDest = null
+  }
   
   // Cleanup headphones context
   if (headphonesAudioContext) {
