@@ -106,11 +106,13 @@
       </div>
     </div>
 
-    <!-- Normal Track Content -->
-    <template v-if="!showAuxPanel">
-      <!-- Waveform Display -->
-      <WaveformDisplay ref="waveformDisplayRef" :waveform-node="waveform" :audio-buffer="currentAudioBuffer"
-        :is-playing="isPlaying" :current-time="currentPlaybackTime" />
+    <!-- Content Wrapper with Transition -->
+    <Transition name="fade" mode="out-in">
+      <!-- Normal Track Content -->
+      <div v-if="!showAuxPanel" key="normal" class="w-full flex-1 flex flex-col gap-2 min-h-0">
+        <!-- Waveform Display -->
+        <WaveformDisplay ref="waveformDisplayRef" :waveform-node="waveform" :audio-buffer="currentAudioBuffer"
+          :is-playing="isPlaying" :current-time="currentPlaybackTime" />
 
       <!-- Gain Control -->
       <div class="w-full flex items-center justify-center gap-2 h-[4rem]">
@@ -188,7 +190,7 @@
         <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
           <!-- ARM Button -->
           <button @click="emit('toggle-arm')" 
-            class="absolute -left-[1.9rem] bottom-[1.2rem] w-5 h-5 text-[0.4rem] font-bold rounded transition-all border"
+            class="absolute left-[0.2rem] bottom-[1.2rem] w-5 h-5 text-[0.4rem] font-bold rounded transition-all border"
             :class="isArmed 
               ? 'bg-red-700 border-red-500 text-white shadow-md shadow-red-500/50' 
               : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
@@ -198,7 +200,7 @@
           
           <!-- Phase Invert Button -->
           <button @click="togglePhaseInvert" 
-            class="absolute -left-[1.9rem] bottom-[2.7rem] w-5 h-5 text-[0.65rem] font-bold rounded transition-all border"
+            class="absolute left-[0.2rem] bottom-[2.7rem] w-5 h-5 text-[0.65rem] font-bold rounded transition-all border"
             :class="phaseInverted 
               ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-500/50' 
               : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
@@ -207,7 +209,7 @@
           </button>
           
           <!-- Routing Buttons -->
-          <div class="flex flex-col gap-2 absolute -left-[1.7rem] top-1/2 transform -translate-y-1/2 z-50">
+          <div class="flex flex-col gap-2 absolute left-[0.2rem] top-1/2 transform -translate-y-1/2 z-50">
             <button @click="toggleRouteToMaster" :title="'Route to Master'"
               class="w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
               :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
@@ -223,7 +225,7 @@
           <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
           
           <!-- Phase Correlation LED (stereo only) - Above VU meters -->
-          <div v-if="isStereo && faderHeight > 0" class="absolute -right-[1.8rem] -top-7 z-50 flex flex-col items-center gap-0.5">
+          <div v-if="isStereo && faderHeight > 0" class="absolute right-[0.25rem] -top-8 z-50 flex flex-col items-center gap-0.5">
             <button
               @click="showPhaseModal = true"
               :class="[
@@ -239,19 +241,19 @@
             <span class="text-[0.35rem] text-gray-400 font-bold uppercase tracking-tighter">Phase</span>
           </div>
           
-          <TrackMeter class="absolute -right-[1.6rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3"
+          <TrackMeter class="absolute right-[0.4rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3"
             v-if="faderHeight > 0" :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
             :height="faderHeight + 20" />
         </div>
       </div>
-    </template>
+      </div>
 
-    <!-- Aux Panel Content -->
-    <div v-if="showAuxPanel" class="w-full flex-1 overflow-y-auto flex flex-col gap-2 aux-panel-scrollbar">
-      <!-- Header -->
-      <div class="sticky top-0 bg-gray-800 border-b border-teal-600/30 px-2 py-1 flex justify-between items-center">
-        <span class="text-[0.65rem] font-bold text-teal-300">AUX SENDS</span>
-        <button @click="showAuxPanel = false"
+      <!-- Aux Panel Content -->
+      <div v-else key="aux" class="w-full flex-1 overflow-y-auto flex flex-col gap-2 aux-panel-scrollbar">
+        <!-- Header -->
+        <div class="sticky top-0 bg-gray-800 border-b border-teal-600/30 px-2 py-1 flex justify-between items-center">
+          <span class="text-[0.65rem] font-bold text-teal-300">AUX SENDS</span>
+          <button @click="showAuxPanel = false"
           class="w-4 h-4 pb-[0.08rem] rounded-full bg-white/20 hover:bg-white/30 text-white/60 hover:text-white/80 text-xs flex items-center justify-center transition-all"
           title="Close AUX Panel">
           ×
@@ -269,7 +271,8 @@
             @toggle-pre-post="toggleLocalPrePost(aux.id)" @toggle-mute="toggleLocalMute(aux.id)" />
         </div>
       </div>
-    </div>
+      </div>
+    </Transition>
 
   </div>
 
@@ -2302,6 +2305,17 @@ function stopGateMonitoring() {
 </script>
 
 <style scoped>
+/* Fade transition for content switching */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 /* Custom lightweight scrollbar for AUX panel */
 .aux-panel-scrollbar::-webkit-scrollbar {
   width: 4px;
