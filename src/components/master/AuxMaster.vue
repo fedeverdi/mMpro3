@@ -251,7 +251,7 @@
                         <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.preDelay || 0.01"
                             @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'preDelay', val)"
                             :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#f59e0b" />
-                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.wet ?? 0"
+                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.wet ?? 1.0"
                             @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'wet', val)" :min="0"
                             :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
                     </div>
@@ -440,8 +440,8 @@ function toggleAuxReverb(index: number) {
     // Toggle wet parameter (restore saved value when enabling, 0 when disabling)
     if (aux.reverbNode) {
         if (newEnabled) {
-            // Restore saved wet value
-            const savedWet = aux.reverbParams?.wet ?? 0
+            // Restore saved wet value (default 100% for professional aux bus setup)
+            const savedWet = aux.reverbParams?.wet ?? 1.0
             aux.reverbNode.wet.value = savedWet
         } else {
             // Disable: set to 0

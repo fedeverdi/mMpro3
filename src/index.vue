@@ -660,11 +660,11 @@ function addAux() {
     })
 
     // Create FX chain
-    // Reverb (100% wet when enabled, bypassed with wet=0)
+    // Reverb (100% wet for professional aux bus setup)
     const reverbNode = new Tone.Reverb({
         decay: 2.5,
         preDelay: 0.01,
-        wet: 0  // Start bypassed
+        wet: 1.0  // 100% wet (professional aux bus standard)
     })
     
     // Generate reverb impulse response (required for Tone.Reverb)
@@ -714,7 +714,7 @@ function addAux() {
         // FX
         reverbNode,
         reverbEnabled: false,
-        reverbParams: { decay: 2.5, preDelay: 0.01, wet: 0 },
+        reverbParams: { decay: 2.5, preDelay: 0.01, wet: 1.0 },
         delayNode,
         delayEnabled: false,
         delayParams: { delayTime: 0.25, feedback: 0.3, wet: 0 }
@@ -1170,7 +1170,7 @@ function handleLoadScene(sceneId: string) {
                     })
 
                     // Create FX chain with saved parameters
-                    const reverbParams = auxSnapshot.reverbParams || { decay: 2.5, preDelay: 0.01, wet: 0 }
+                    const reverbParams = auxSnapshot.reverbParams || { decay: 2.5, preDelay: 0.01, wet: 1.0 }
                     const reverbNode = new Tone.Reverb({
                         decay: reverbParams.decay,
                         preDelay: reverbParams.preDelay,
