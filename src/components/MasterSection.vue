@@ -317,26 +317,109 @@ async function onHeadphonesOutputSelect(deviceId: string | null) {
   try {
     // Close existing headphones context if any
     if (headphonesAudioContext) {
-      await headphonesAudioContext.close()
+      console.log('[Headphones Output] Closing old AudioContext, state:', headphonesAudioContext.state)
+      try {
+        if (headphonesAudioContext.state !== 'closed') {
+          await headphonesAudioContext.close()
+        }
+      } catch (e) {
+        console.warn('[Headphones Output] Error closing context:', e)
+      }
       headphonesAudioContext = null
+    }
+    
+    // Small delay to ensure cleanup is complete
+    await new Promise(resolve => setTimeout(resolve, 50))
+    
+    // Parse composite deviceId (format: "realDeviceId:channelIndex")
+    let realDeviceId = deviceId || ''
+    let targetChannel: number | null = null
+    
+    if (deviceId && deviceId.includes(':')) {
+      const parts = deviceId.split(':')
+      realDeviceId = parts[0]
+      targetChannel = parseInt(parts[1], 10)
+      console.log(`[Headphones Output] Parsed composite deviceId: device="${realDeviceId}", channel=${targetChannel + 1}`)
     }
     
     // Create new AudioContext targeting selected device
     const mainAudioContext = Tone.context.rawContext as AudioContext
     const contextOptions: any = {
-      latencyHint: 'interactive', // Lower latency for better sync
+      latencyHint: 'interactive',
       sampleRate: mainAudioContext.sampleRate
     }
     
-    if (deviceId) {
-      contextOptions.sinkId = deviceId
+    if (realDeviceId && realDeviceId !== '') {
+      contextOptions.sinkId = realDeviceId
     }
     
     headphonesAudioContext = new AudioContext(contextOptions)
     
-    // Create simple playback chain
+    // Log device info
+    console.log('[Headphones Output] Output AudioContext created')
+    console.log('[Headphones Output] Destination maxChannelCount:', headphonesAudioContext.destination.maxChannelCount)
+    console.log('[Headphones Output] SinkId:', (headphonesAudioContext as any).sinkId)
+    
+    // Detect number of output channels from device capabilities
+    let deviceChannelCount = headphonesAudioContext.destination.maxChannelCount
+    
+    // If we have a target channel from composite ID, use that as indicator of multi-channel device
+    if (targetChannel !== null) {
+      deviceChannelCount = Math.max(4, targetChannel + 1)
+    }
+    
+    console.log(`[Headphones Output] Device channel count: ${deviceChannelCount}`)
+    
+    // Configure destination for multi-channel output
+    try {
+      headphonesAudioContext.destination.channelCount = deviceChannelCount
+      headphonesAudioContext.destination.channelCountMode = 'explicit'
+      headphonesAudioContext.destination.channelInterpretation = 'discrete'
+      console.log(`[Headphones Output] Set destination to ${deviceChannelCount} channels (discrete)`)
+    } catch (e) {
+      console.warn('[Headphones Output] Could not configure destination:', e)
+    }
+    
+    // Create audio routing from stream
     const source = headphonesAudioContext.createMediaStreamSource(headphonesStreamDest.stream)
-    source.connect(headphonesAudioContext.destination)
+    
+    // Check actual channel count from the source
+    const actualChannelCount = source.channelCount
+    console.log(`[Headphones Output] Source has ${actualChannelCount} channels`)
+    
+    // If a specific channel was selected (from composite deviceId), route to that channel
+    if (targetChannel !== null && deviceChannelCount > 2) {
+      // Create a channel merger to route stereo headphones to specific output channels
+      const channelMerger = headphonesAudioContext.createChannelMerger(deviceChannelCount)
+      
+      if (actualChannelCount === 2) {
+        // Stereo source - split and route to consecutive channels
+        const splitter = headphonesAudioContext.createChannelSplitter(2)
+        source.connect(splitter)
+        
+        // Route left to target channel, right to target+1 (if stereo width allows)
+        splitter.connect(channelMerger, 0, targetChannel)
+        if (targetChannel + 1 < deviceChannelCount) {
+          splitter.connect(channelMerger, 1, targetChannel + 1)
+          console.log(`[Headphones Output] Routing stereo to output channels ${targetChannel + 1}-${targetChannel + 2} of ${deviceChannelCount}`)
+        } else {
+          console.log(`[Headphones Output] Routing mono (left) to output channel ${targetChannel + 1} of ${deviceChannelCount}`)
+        }
+      } else {
+        // Mono source - route directly to target channel
+        const monoGain = headphonesAudioContext.createGain()
+        source.connect(monoGain)
+        monoGain.connect(channelMerger, 0, targetChannel)
+        console.log(`[Headphones Output] Routing mono to output channel ${targetChannel + 1} of ${deviceChannelCount}`)
+      }
+      
+      // Connect merger to destination
+      channelMerger.connect(headphonesAudioContext.destination)
+    } else {
+      // Default routing (stereo output or no specific channel selected)
+      source.connect(headphonesAudioContext.destination)
+      console.log('[Headphones Output] Default stereo routing')
+    }
     
     // Resume if suspended
     if (headphonesAudioContext.state === 'suspended') {
@@ -489,6 +572,14 @@ onMounted(async () => {
 
   // Enumerate audio outputs
   await enumerateAudioOutputs()
+  
+  // Initialize headphones output with default device
+  // Wait a bit to ensure headphonesStreamDest is created
+  setTimeout(() => {
+    if (headphonesStreamDest) {
+      onHeadphonesOutputSelect(null)
+    }
+  }, 300)
 
   // Calculate initial height
   await nextTick()
