@@ -188,6 +188,7 @@ let limiterNode: any = null
 const fxChainEnabled = new Set<string>()
 let isRegeneratingReverb = false
 let isUpdatingLimiter = false
+let reverbRegenerateTimeout: any = null
 
 // FX parameters (for scene snapshots)
 const compressorParams = ref({
@@ -344,6 +345,11 @@ watch(() => props.masterEqOutputNode, (newVal) => {
 
 // Cleanup
 onUnmounted(() => {
+  // Clear any pending reverb regeneration
+  if (reverbRegenerateTimeout) {
+    clearTimeout(reverbRegenerateTimeout)
+  }
+  
   if (outputNode) outputNode.dispose()
   if (compressorNode) compressorNode.dispose()
   if (reverbNode) reverbNode.dispose()
@@ -593,44 +599,56 @@ function updateReverb(params: any) {
     reverbNode.wet.rampTo(params.wet, 0.1)
   }
   
-  // Decay and preDelay require regeneration
+  // Decay and preDelay require regeneration - use debounce to avoid continuous regeneration
   if (params.decay !== undefined || params.preDelay !== undefined) {
-    if (isRegeneratingReverb) return
-    
-    isRegeneratingReverb = true
-    const currentWet = reverbNode.wet.value
-    const oldReverb = reverbNode
-    
-    const newReverb = new Tone.Reverb({
-      decay: params.decay ?? oldReverb.decay,
-      preDelay: params.preDelay ?? oldReverb.preDelay
-    })
-    newReverb.wet.value = 0
-    
-    if (oldReverb.wet.value > 0) {
-      oldReverb.wet.rampTo(0, 0.05)
+    // Clear any pending regeneration
+    if (reverbRegenerateTimeout) {
+      clearTimeout(reverbRegenerateTimeout)
     }
     
-    newReverb.generate().then(() => {
-      setTimeout(() => {
-        reverbNode = newReverb
-        rebuildFXChain()
-        
-        if (oldReverb) {
-          try {
-            oldReverb.disconnect()
-            oldReverb.dispose()
-          } catch (e) {}
-        }
-        
-        newReverb.wet.rampTo(params.wet ?? currentWet, 0.05)
-        
-        setTimeout(() => {
-          isRegeneratingReverb = false
-        }, 100)
-      }, 60)
-    })
+    // Debounce: wait 150ms after last change before regenerating
+    reverbRegenerateTimeout = setTimeout(() => {
+      regenerateReverb(params)
+    }, 150)
   }
+}
+
+function regenerateReverb(params: any) {
+  if (!reverbNode || isRegeneratingReverb) return
+  
+  isRegeneratingReverb = true
+  const currentWet = reverbNode.wet.value
+  const oldReverb = reverbNode
+  
+  const newReverb = new Tone.Reverb({
+    decay: params.decay ?? oldReverb.decay,
+    preDelay: params.preDelay ?? oldReverb.preDelay
+  })
+  newReverb.wet.value = 0
+  
+  if (oldReverb.wet.value > 0) {
+    oldReverb.wet.rampTo(0, 0.05)
+  }
+  
+  newReverb.generate().then(() => {
+    setTimeout(() => {
+      reverbNode = newReverb
+      rebuildFXChain()
+      
+      if (oldReverb) {
+        try {
+          oldReverb.disconnect()
+          oldReverb.dispose()
+        } catch (e) {}
+      }
+      
+      newReverb.wet.rampTo(params.wet ?? currentWet, 0.05)
+      
+      setTimeout(() => {
+        isRegeneratingReverb = false
+      }, 100)
+    }, 60)
+  })
 }
 
 // Delay functions
