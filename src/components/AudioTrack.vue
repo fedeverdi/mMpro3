@@ -2159,14 +2159,17 @@ function toggleCompressor() {
       attack: 0.1,
       release: 0.25
     }
-    compressor.threshold.value = params.threshold
-    compressor.ratio.value = params.ratio
-    compressor.attack.value = params.attack
-    compressor.release.value = params.release
-
+    
     // Chain: eq3 → compressor → balanceSplit
     eq3.connect(compressor)
     compressor.connect(balanceSplit)
+    
+    // Smooth fade in by ramping ratio from 1:1 (bypass) to target
+    compressor.threshold.value = params.threshold
+    compressor.ratio.value = 1
+    compressor.attack.value = params.attack
+    compressor.release.value = params.release
+    compressor.ratio.rampTo(params.ratio, 0.15)
   } else {
     // Bypass compressor completely: eq3 → balanceSplit (skip compressor)
     eq3.connect(balanceSplit)

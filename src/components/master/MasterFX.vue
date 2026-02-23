@@ -513,18 +513,26 @@ async function toggleCompressor(enabled: boolean, params?: any) {
     if (!compressorNode) {
       compressorNode = new Tone.Compressor({
         threshold: params?.threshold ?? -40,
-        ratio: params?.ratio ?? 2,
+        ratio: 1, // Start with no compression
         attack: params?.attack ?? 0.01,
         release: params?.release ?? 0.25,
         knee: 30
       })
     }
     fxChainEnabled.add('compressor')
+    rebuildFXChain()
+    // Smooth fade in by ramping ratio from 1:1 (bypass) to target
+    const targetRatio = params?.ratio ?? 2
+    compressorNode.ratio.rampTo(targetRatio, 0.50)
   } else {
+    // Smooth fade out before removing from chain
+    if (compressorNode) {
+      compressorNode.ratio.rampTo(1, 0.50)
+      await new Promise(resolve => setTimeout(resolve, 150))
+    }
     fxChainEnabled.delete('compressor')
+    rebuildFXChain()
   }
-
-  rebuildFXChain()
 }
 
 function updateCompressor(params: any) {
@@ -554,15 +562,23 @@ async function toggleReverb(enabled: boolean, params?: any) {
         decay: params?.decay ?? 1.5,
         preDelay: params?.preDelay ?? 0.01
       })
-      reverbNode.wet.value = params?.wet ?? 0.3
+      reverbNode.wet.value = 0
       await reverbNode.generate()
     }
     fxChainEnabled.add('reverb')
+    rebuildFXChain()
+    // Smooth fade in
+    const targetWet = params?.wet ?? 0.3
+    reverbNode.wet.rampTo(targetWet, 0.3)
   } else {
+    // Smooth fade out before removing from chain
+    if (reverbNode) {
+      reverbNode.wet.rampTo(0, 0.3)
+      await new Promise(resolve => setTimeout(resolve, 300))
+    }
     fxChainEnabled.delete('reverb')
+    rebuildFXChain()
   }
-
-  rebuildFXChain()
 }
 
 function updateReverb(params: any) {
@@ -626,16 +642,24 @@ async function toggleDelay(enabled: boolean, params?: any) {
       delayNode = new Tone.FeedbackDelay({
         delayTime: params?.delayTime ?? 0.25,
         feedback: params?.feedback ?? 0.15,
-        wet: params?.wet ?? 0.15,
+        wet: 0,
         maxDelay: 2
       })
     }
     fxChainEnabled.add('delay')
+    rebuildFXChain()
+    // Smooth fade in
+    const targetWet = params?.wet ?? 0.15
+    delayNode.wet.rampTo(targetWet, 0.3)
   } else {
+    // Smooth fade out before removing from chain
+    if (delayNode) {
+      delayNode.wet.rampTo(0, 0.3)
+      await new Promise(resolve => setTimeout(resolve, 300))
+    }
     fxChainEnabled.delete('delay')
+    rebuildFXChain()
   }
-
-  rebuildFXChain()
 }
 
 function updateDelay(params: any) {
@@ -684,18 +708,25 @@ async function toggleLimiter(enabled: boolean, params?: any) {
       // Use Compressor with heavy ratio as limiter
       limiterNode = new Tone.Compressor({
         threshold: params?.threshold ?? -1,
-        ratio: 20,
+        ratio: 1, // Start with no limiting
         attack: 0.003,
         release: 0.1,
         knee: 6
       })
     }
     fxChainEnabled.add('limiter')
+    rebuildFXChain()
+    // Smooth fade in by ramping ratio from 1:1 (bypass) to 20:1 (limiting)
+    limiterNode.ratio.rampTo(20, 0.15)
   } else {
+    // Smooth fade out before removing from chain
+    if (limiterNode) {
+      limiterNode.ratio.rampTo(1, 0.15)
+      await new Promise(resolve => setTimeout(resolve, 150))
+    }
     fxChainEnabled.delete('limiter')
+    rebuildFXChain()
   }
-
-  rebuildFXChain()
 }
 
 function updateLimiter(params: any) {
