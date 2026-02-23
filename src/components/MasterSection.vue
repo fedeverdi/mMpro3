@@ -49,6 +49,20 @@
 
     <!-- Master Controls -->
     <div class="w-full mt-2 flex gap-1">
+      <!-- Master Mute Button -->
+      <button @click="toggleMasterMute" class="flex-1 py-1 text-xs font-bold rounded transition-all"
+        :class="masterMuted ? 'bg-red-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
+        title="Mute master output (headphones still active)">
+        <div class="flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="white" class="h-3 w-3" viewBox="0 0 576 512">
+            <path v-if="masterMuted"
+              d="M215.03 71.05L126.06 160H24c-13.26 0-24 10.74-24 24v144c0 13.25 10.74 24 24 24h102.06l88.97 88.95c15.03 15.03 40.97 4.47 40.97-16.97V88.02c0-21.46-25.96-31.98-40.97-16.97zM461.64 256l45.64-45.64c6.3-6.3 6.3-16.52 0-22.82l-22.82-22.82c-6.3-6.3-16.52-6.3-22.82 0L416 210.36l-45.64-45.64c-6.3-6.3-16.52-6.3-22.82 0l-22.82 22.82c-6.3 6.3-6.3 16.52 0 22.82L370.36 256l-45.63 45.63c-6.3 6.3-6.3 16.52 0 22.82l22.82 22.82c6.3 6.3 16.52 6.3 22.82 0L416 301.64l45.64 45.64c6.3 6.3 16.52 6.3 22.82 0l22.82-22.82c6.3-6.3 6.3-16.52 0-22.82L461.64 256z" />
+            <path v-else
+              d="M215.03 71.05L126.06 160H24c-13.26 0-24 10.74-24 24v144c0 13.25 10.74 24 24 24h102.06l88.97 88.95c15.03 15.03 40.97 4.47 40.97-16.97V88.02c0-21.46-25.96-31.98-40.97-16.97zm233.32-51.08c-14.17-8.18-32.06-3.34-40.24 10.82-8.18 14.17-3.34 32.06 10.82 40.24 65.09 37.54 105.76 107.59 105.76 184.97 0 77.38-40.67 147.43-105.76 184.97-14.17 8.18-19.01 26.07-10.82 40.24 8.18 14.17 26.07 19.01 40.24 10.82 77.62-44.79 126.34-128.31 126.34-236.03s-48.72-191.24-126.34-236.03zm-63.58 79.13c-14.17-8.19-32.06-3.34-40.24 10.82-8.19 14.17-3.34 32.06 10.82 40.24 34.44 19.87 55.89 57.1 55.89 96.84 0 39.74-21.45 76.97-55.89 96.84-14.17 8.19-19.01 26.07-10.82 40.24 8.19 14.17 26.07 19.01 40.24 10.82 50.68-29.23 87.16-84.25 87.16-147.9s-36.48-118.67-87.16-147.9z" />
+          </svg>
+        </div>
+      </button>
+
       <!-- Link Button -->
       <button @click="toggleLink" class="flex-1 py-1 text-xs font-bold rounded transition-all"
         :class="isLinked ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
@@ -103,6 +117,7 @@ const leftVolume = ref(0)
 const rightVolume = ref(0)
 const headphonesVolume = ref(-60)
 const isLinked = ref(true)
+const masterMuted = ref(false)
 
 // VU meter levels
 const leftLevel = ref(-60)
@@ -188,10 +203,34 @@ async function onMasterOutputSelect(deviceId: string | null) {
     // Small delay to ensure cleanup is complete
     await new Promise(resolve => setTimeout(resolve, 50))
     
+    // Create gain node for master output if it doesn't exist
+    // This gain is used for master mute functionality (headphones bypass this)
+    if (!masterOutputGain) {
+      masterOutputGain = new Tone.Gain(1) as any
+    }
+    
+    // Disconnect mergeNode and reconnect through masterOutputGain
+    try {
+      mergeNode.disconnect()
+    } catch (e) { }
+    
+    // Connect mergeNode to masterOutputGain
+    mergeNode.connect(masterOutputGain)
+    
+    // Apply mute state if needed
+    if (masterMuted.value) {
+      masterOutputGain.gain.value = 0
+    } else {
+      masterOutputGain.gain.value = 1
+    }
+    
     // If null is selected, use default Tone destination
     if (!deviceId) {
       console.log('[Master Output] Using default Tone.js destination')
-      mergeNode.toDestination()
+      try {
+        masterOutputGain.disconnect()
+      } catch (e) { }
+      masterOutputGain.toDestination()
       return
     }
     
@@ -211,19 +250,11 @@ async function onMasterOutputSelect(deviceId: string | null) {
       masterOutputStreamDest = Tone.context.createMediaStreamDestination()
     }
     
-    // Disconnect mergeNode from Tone destination and connect to stream destination
+    // Disconnect masterOutputGain and connect to stream destination
     try {
-      mergeNode.disconnect()
+      masterOutputGain.disconnect()
     } catch (e) { }
     
-    // Create gain node for master output
-    if (!masterOutputGain) {
-      masterOutputGain = new Tone.Gain(1).toDestination() as any
-    }
-    
-    // Connect merge to gain to stream destination
-    mergeNode.connect(masterOutputGain)
-    masterOutputGain.disconnect()
     masterOutputGain.connect(masterOutputStreamDest as any)
     
     // Create new AudioContext targeting selected device
@@ -471,9 +502,11 @@ function initMasterChannel() {
   rightGain.connect(rightMeter)
   rightGain.connect(mergeNode, 0, 1)
   
-  // Main output - initially connect to default Tone destination
-  // Will be reconfigured if user selects a specific device
-  mergeNode.toDestination()
+  // Create master output gain for mute functionality
+  // (headphones bypass this gain, so mute only affects main output)
+  masterOutputGain = new Tone.Gain(1)
+  mergeNode.connect(masterOutputGain)
+  masterOutputGain.toDestination()
   
   // Headphones output: mergeNode → gain → meter → streamDest (all in main Tone context)
   mergeNode.connect(headphonesGain)
@@ -530,6 +563,15 @@ function updateHeadphonesVolume() {
 watch([leftVolume, rightVolume], updateMasterVolume)
 watch(headphonesVolume, updateHeadphonesVolume)
 
+// Watch master mute state
+watch(masterMuted, (muted) => {
+  if (masterOutputGain && Tone) {
+    // Smoothly transition the gain to avoid clicking
+    masterOutputGain.gain.rampTo(muted ? 0 : 1, 0.05)
+    console.log(`[Master Output] ${muted ? 'Muted' : 'Unmuted'} (headphones still active)`)
+  }
+})
+
 // When linked, sync right to left
 watch(leftVolume, (newVal) => {
   if (isLinked.value) {
@@ -552,6 +594,11 @@ function toggleLink() {
   if (isLinked.value) {
     rightVolume.value = leftVolume.value
   }
+}
+
+// Toggle master mute (headphones stay active)
+function toggleMasterMute() {
+  masterMuted.value = !masterMuted.value
 }
 
 // Initialize
@@ -643,6 +690,7 @@ function getSnapshot() {
     rightVolume: rightVolume.value,
     headphonesVolume: headphonesVolume.value,
     isLinked: isLinked.value,
+    masterMuted: masterMuted.value,
     selectedMasterOutput: selectedMasterOutput.value,
     selectedHeadphonesOutput: selectedHeadphonesOutput.value,
     ...fxSnapshot  // Merge FX snapshot
@@ -657,6 +705,7 @@ function restoreSnapshot(snapshot: any) {
   if (snapshot.rightVolume !== undefined) rightVolume.value = snapshot.rightVolume
   if (snapshot.headphonesVolume !== undefined) headphonesVolume.value = snapshot.headphonesVolume
   if (snapshot.isLinked !== undefined) isLinked.value = snapshot.isLinked
+  if (snapshot.masterMuted !== undefined) masterMuted.value = snapshot.masterMuted
 
   // Restore output devices
   if (snapshot.selectedMasterOutput !== undefined) {
