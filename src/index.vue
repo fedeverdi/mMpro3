@@ -895,22 +895,38 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
         // Create audio routing
         const source = outputAudioContext.createMediaStreamSource(aux.outputStreamDest.stream)
         
+        // Check actual channel count from the source
+        const actualChannelCount = source.channelCount
+        console.log(`[Aux ${aux.name}] Source has ${actualChannelCount} channels`)
+        
         // If a specific channel was selected (from composite deviceId), route to that channel
         if (targetChannel !== null && deviceChannelCount > 2) {
-            // Create a channel merger to route mono aux to specific output channel
+            // Create a channel merger to route aux to specific output channels
             const channelMerger = outputAudioContext.createChannelMerger(deviceChannelCount)
             
-            // Create a gain node for the mono aux source
-            const monoGain = outputAudioContext.createGain()
-            source.connect(monoGain)
-            
-            // Connect mono source to the target output channel
-            monoGain.connect(channelMerger, 0, targetChannel)
+            if (actualChannelCount === 2) {
+                // Stereo source - split and route to consecutive channels
+                const splitter = outputAudioContext.createChannelSplitter(2)
+                source.connect(splitter)
+                
+                // Route left to target channel, right to target+1 (if stereo width allows)
+                splitter.connect(channelMerger, 0, targetChannel)
+                if (targetChannel + 1 < deviceChannelCount) {
+                    splitter.connect(channelMerger, 1, targetChannel + 1)
+                    console.log(`[Aux ${aux.name}] Routing stereo to output channels ${targetChannel + 1}-${targetChannel + 2} of ${deviceChannelCount}`)
+                } else {
+                    console.log(`[Aux ${aux.name}] Routing mono (left) to output channel ${targetChannel + 1} of ${deviceChannelCount}`)
+                }
+            } else {
+                // Mono source - route directly to target channel
+                const monoGain = outputAudioContext.createGain()
+                source.connect(monoGain)
+                monoGain.connect(channelMerger, 0, targetChannel)
+                console.log(`[Aux ${aux.name}] Routing mono to output channel ${targetChannel + 1} of ${deviceChannelCount}`)
+            }
             
             // Connect merger to destination
             channelMerger.connect(outputAudioContext.destination)
-            
-            console.log(`[Aux ${aux.name}] Routing to output channel ${targetChannel + 1} of ${deviceChannelCount}`)
         } else {
             // Default routing (stereo output or no specific channel selected)
             source.connect(outputAudioContext.destination)
