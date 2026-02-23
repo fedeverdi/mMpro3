@@ -284,10 +284,25 @@
                         <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.feedback || 0.3"
                             @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'feedback', val)"
                             :min="0" :max="0.95" :step="0.01" label="Feedback" unit="%" color="#8b5cf6" />
-                        <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.wet !== undefined ? auxBuses[selectedDelayAux].delayParams.wet : 0"
+                        <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.wet !== undefined ? auxBuses[selectedDelayAux].delayParams.wet : 1.0"
                             @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'wet', val)" :min="0"
                             :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
                     </div>
+                    
+                    <!-- Tap Tempo Button -->
+                    <div class="mt-4 flex flex-col items-center gap-2">
+                        <button @click="handleTapTempo"
+                            class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-all active:scale-95 shadow-lg">
+                            TAP TEMPO
+                        </button>
+                        <div v-if="tapBpm !== null" class="text-sm text-blue-300 font-bold">
+                            {{ tapBpm }} BPM ({{ (auxBuses[selectedDelayAux]?.delayParams?.delayTime || 0).toFixed(3) }}s)
+                        </div>
+                        <div v-else class="text-xs text-gray-500">
+                            Click button repeatedly at your desired tempo
+                        </div>
+                    </div>
+                    
                     <div class="mt-4 text-xs text-gray-400 text-center">
                         <p><strong>Time:</strong> Delay time (ms to seconds)</p>
                         <p><strong>Feedback:</strong> Number of repeats</p>
@@ -348,6 +363,10 @@ const selectedReverbAux = ref<number | null>(null)
 const selectedDelayAux = ref<number | null>(null)
 const auxBuses = ref<AuxBus[]>(props.auxBuses || [])
 
+// Tap tempo state
+const tapTimes = ref<number[]>([])
+const tapBpm = ref<number | null>(null)
+
 // Enumerate audio output devices on mount
 onMounted(async () => {
     await enumerateAudioOutputs()
@@ -359,6 +378,14 @@ watch(() => props.auxBuses, (newVal) => {
         auxBuses.value = newVal
     }
 }, { deep: true })
+
+// Reset tap tempo when delay modal is closed
+watch(selectedDelayAux, (newVal) => {
+    if (newVal === null) {
+        tapTimes.value = []
+        tapBpm.value = null
+    }
+})
 
 // Add new aux
 function addAux() {
@@ -463,8 +490,8 @@ function toggleAuxDelay(index: number) {
     // Toggle wet parameter (restore saved value when enabling, 0 when disabling)
     if (aux.delayNode) {
         if (newEnabled) {
-            // Restore saved wet value
-            const savedWet = aux.delayParams?.wet ?? 0
+            // Restore saved wet value (default 100% for professional aux bus setup)
+            const savedWet = aux.delayParams?.wet ?? 1.0
             aux.delayNode.wet.value = savedWet
         } else {
             // Disable: set to 0
@@ -508,7 +535,7 @@ function updateAuxReverbParam(index: number, param: 'decay' | 'preDelay' | 'wet'
     
     // Update internal params object (for UI sync)
     if (!aux.reverbParams) {
-        aux.reverbParams = { decay: 2.5, preDelay: 0.01, wet: 0 }
+        aux.reverbParams = { decay: 2.5, preDelay: 0.01, wet: 1.0 }
     }
     aux.reverbParams[param] = value
 }
@@ -531,9 +558,49 @@ function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback' | 'w
     
     // Update internal params object (for UI sync)
     if (!aux.delayParams) {
-        aux.delayParams = { delayTime: 0.25, feedback: 0.3, wet: 0 }
+        aux.delayParams = { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
     }
     aux.delayParams[param] = value
+}
+
+// Tap tempo function
+function handleTapTempo() {
+    if (selectedDelayAux.value === null) return
+    
+    const now = Date.now()
+    tapTimes.value.push(now)
+    
+    // Keep only last 4 taps
+    if (tapTimes.value.length > 4) {
+        tapTimes.value.shift()
+    }
+    
+    // Need at least 2 taps to calculate interval
+    if (tapTimes.value.length >= 2) {
+        // Calculate average interval between taps
+        let totalInterval = 0
+        for (let i = 1; i < tapTimes.value.length; i++) {
+            totalInterval += tapTimes.value[i] - tapTimes.value[i - 1]
+        }
+        const avgInterval = totalInterval / (tapTimes.value.length - 1)
+        
+        // Convert to seconds and set delay time
+        const delayTime = avgInterval / 1000
+        
+        // Calculate BPM for display (60000ms per minute / interval in ms)
+        tapBpm.value = Math.round(60000 / avgInterval)
+        
+        // Update delay time
+        updateAuxDelayParam(selectedDelayAux.value, 'delayTime', delayTime)
+    }
+    
+    // Reset tap times after 2 seconds of inactivity
+    setTimeout(() => {
+        if (tapTimes.value.length > 0 && Date.now() - tapTimes.value[tapTimes.value.length - 1] >= 2000) {
+            tapTimes.value = []
+            tapBpm.value = null
+        }
+    }, 2000)
 }
 
 // Update Reverb parameters

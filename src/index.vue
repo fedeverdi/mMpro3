@@ -673,11 +673,11 @@ function addAux() {
         console.error(`[AUX ${name}] Reverb generation failed:`, err)
     })
 
-    // Delay (with feedback, bypassed with wet=0)
+    // Delay (100% wet for professional aux bus setup)
     const delayNode = new Tone.FeedbackDelay({
         delayTime: 0.25,  // 250ms (quarter note at 120bpm)
         feedback: 0.3,
-        wet: 0  // Start bypassed
+        wet: 1.0  // 100% wet (professional aux bus standard)
     })
     
     // Output node (final point of FX chain)
@@ -717,7 +717,7 @@ function addAux() {
         reverbParams: { decay: 2.5, preDelay: 0.01, wet: 1.0 },
         delayNode,
         delayEnabled: false,
-        delayParams: { delayTime: 0.25, feedback: 0.3, wet: 0 }
+        delayParams: { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
     }
 
     auxBuses.value.push(newAux)
@@ -1181,7 +1181,7 @@ function handleLoadScene(sceneId: string) {
                         console.error(`[Aux ${auxSnapshot.name}] Reverb generation failed:`, err)
                     })
                     
-                    const delayParams = auxSnapshot.delayParams || { delayTime: 0.25, feedback: 0.3, wet: 0 }
+                    const delayParams = auxSnapshot.delayParams || { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
                     const delayNode = new Tone.FeedbackDelay({
                         delayTime: delayParams.delayTime,
                         feedback: delayParams.feedback,
