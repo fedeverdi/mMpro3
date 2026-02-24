@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watchEffect, onUnmounted } from 'vue'
 import Knob from '../core/Knob.vue'
 
 interface Props {
@@ -58,6 +58,8 @@ const delayTime = ref(0.25)
 const feedback = ref(0.3)
 const wet = ref(0.3)
 
+let rafId: number | null = null
+
 function handleToggle() {
   emit('toggle')
 }
@@ -71,9 +73,28 @@ function updateDelayNode() {
   props.delayNode.wet.value = wet.value
 }
 
-// Watch for parameter changes
-watch([delayTime, feedback, wet], () => {
-  updateDelayNode()
+// Watch for parameter changes with throttling
+watchEffect(() => {
+  // Track dependencies
+  delayTime.value
+  feedback.value
+  wet.value
+  
+  // Throttle updates with requestAnimationFrame
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+  }
+  
+  rafId = requestAnimationFrame(() => {
+    updateDelayNode()
+    rafId = null
+  })
+})
+
+onUnmounted(() => {
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+  }
 })
 
 // Expose methods for snapshot save/restore

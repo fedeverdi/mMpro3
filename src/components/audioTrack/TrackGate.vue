@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, inject, onUnmounted } from 'vue'
+import { ref, watch, watchEffect, inject, onUnmounted } from 'vue'
 import Knob from '../core/Knob.vue'
 
 interface Props {
@@ -135,13 +135,35 @@ function updateGateNode() {
   })
 }
 
-// Watch for parameter changes
-watch([threshold, attack, release, range], () => {
-  // Only update gate node if it exists and gate is enabled
-  if (props.enabled && props.gateNode) {
-    updateGateNode()
+let rafId: number | null = null
+
+// Watch for parameter changes with throttling
+watchEffect(() => {
+  // Track dependencies
+  threshold.value
+  attack.value
+  release.value
+  range.value
+  
+  // Throttle updates with requestAnimationFrame
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
   }
-  updateThresholdPosition()
+  
+  rafId = requestAnimationFrame(() => {
+    // Only update gate node if it exists and gate is enabled
+    if (props.enabled && props.gateNode) {
+      updateGateNode()
+    }
+    updateThresholdPosition()
+    rafId = null
+  })
+})
+
+onUnmounted(() => {
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+  }
 })
 
 function updateThresholdPosition() {

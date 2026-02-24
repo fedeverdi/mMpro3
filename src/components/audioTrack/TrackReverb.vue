@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watchEffect, onUnmounted } from 'vue'
 import Knob from '../core/Knob.vue'
 
 interface Props {
@@ -59,6 +59,8 @@ const decay = ref(1.5)
 const preDelay = ref(0.01)
 const wet = ref(0) // Start at 0 (disabled), user adjusts when enabling reverb
 
+let rafId: number | null = null
+
 function handleToggle() {
   emit('toggle')
 }
@@ -74,9 +76,28 @@ function updateReverbNode() {
   props.reverbSendNode.gain.value = wet.value // Control send level (wet amount)
 }
 
-// Watch for parameter changes
-watch([decay, preDelay, wet], () => {
-  updateReverbNode()
+// Watch for parameter changes with throttling
+watchEffect(() => {
+  // Track dependencies
+  decay.value
+  preDelay.value
+  wet.value
+  
+  // Throttle updates with requestAnimationFrame
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+  }
+  
+  rafId = requestAnimationFrame(() => {
+    updateReverbNode()
+    rafId = null
+  })
+})
+
+onUnmounted(() => {
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+  }
 })
 
 // Expose methods for snapshot save/restore

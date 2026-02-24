@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watchEffect, onUnmounted } from 'vue'
 import Knob from '../core/Knob.vue'
 
 interface Props {
@@ -46,7 +46,9 @@ const eqLow = ref(0)
 const eqMid = ref(0)
 const eqHigh = ref(0)
 
-// Update EQ3 node when values change
+let rafId: number | null = null
+
+// Update EQ3 node when values change - throttled with requestAnimationFrame
 function updateEQ() {
   if (!props.eq3Node) return
   
@@ -60,8 +62,29 @@ function updateEQ() {
   props.eq3Node.high.value = highVal
 }
 
-// Watch for changes
-watch([eqLow, eqMid, eqHigh], updateEQ)
+// Watch for changes with throttling
+watchEffect(() => {
+  // Track dependencies
+  const low = eqLow.value
+  const mid = eqMid.value
+  const high = eqHigh.value
+  
+  // Throttle updates with requestAnimationFrame
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+  }
+  
+  rafId = requestAnimationFrame(() => {
+    updateEQ()
+    rafId = null
+  })
+})
+
+onUnmounted(() => {
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+  }
+})
 
 // Expose methods for snapshot system
 function getParams() {

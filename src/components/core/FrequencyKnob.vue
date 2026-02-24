@@ -100,6 +100,8 @@ const isDragging = ref(false)
 const startY = ref(0)
 const startValue = ref(0)
 const editableValue = ref(props.modelValue)
+let rafId: number | null = null
+let pendingValue: number | null = null
 
 // Convert frequency to logarithmic position (0-1)
 function freqToPosition(freq: number): number {
@@ -186,12 +188,37 @@ function onDrag(e: MouseEvent | TouchEvent) {
   const newPosition = Math.max(0, Math.min(1, currentPosition + deltaPosition))
   const newFreq = positionToFreq(newPosition)
   
-  editableValue.value = newFreq
-  emit('update:modelValue', newFreq)
+  // Use requestAnimationFrame to throttle updates
+  pendingValue = newFreq
+  
+  if (rafId === null) {
+    rafId = requestAnimationFrame(() => {
+      if (pendingValue !== null) {
+        editableValue.value = pendingValue
+        emit('update:modelValue', pendingValue)
+        pendingValue = null
+      }
+      rafId = null
+    })
+  }
 }
 
 function stopDrag() {
   isDragging.value = false
+  
+  // Cancel any pending animation frame
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+  }
+  
+  // Emit final pending value
+  if (pendingValue !== null) {
+    editableValue.value = pendingValue
+    emit('update:modelValue', pendingValue)
+    pendingValue = null
+  }
+  
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
   document.removeEventListener('touchmove', onDrag)
@@ -204,8 +231,19 @@ function onWheel(e: WheelEvent) {
   const newPosition = Math.max(0, Math.min(1, currentPosition + delta))
   const newFreq = positionToFreq(newPosition)
   
-  editableValue.value = newFreq
-  emit('update:modelValue', newFreq)
+  // Use requestAnimationFrame to throttle updates
+  pendingValue = newFreq
+  
+  if (rafId === null) {
+    rafId = requestAnimationFrame(() => {
+      if (pendingValue !== null) {
+        editableValue.value = pendingValue
+        emit('update:modelValue', pendingValue)
+        pendingValue = null
+      }
+      rafId = null
+    })
+  }
 }
 
 function reset440Hz() {

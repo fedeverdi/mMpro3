@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, watchEffect, nextTick, onUnmounted } from 'vue'
 import Knob from '../core/Knob.vue'
 
 interface Props {
@@ -66,6 +66,8 @@ const threshold = ref(-3)
 const attack = ref(0.003)
 const release = ref(0.1)
 
+let rafId: number | null = null
+
 function handleToggle() {
   emit('toggle')
 }
@@ -85,9 +87,28 @@ function updateLimiterNode() {
   }
 }
 
-// Watch for parameter changes
-watch([threshold, attack, release], () => {
-  updateLimiterNode()
+// Watch for parameter changes with throttling
+watchEffect(() => {
+  // Track dependencies
+  threshold.value
+  attack.value
+  release.value
+  
+  // Throttle updates with requestAnimationFrame
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+  }
+  
+  rafId = requestAnimationFrame(() => {
+    updateLimiterNode()
+    rafId = null
+  })
+})
+
+onUnmounted(() => {
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+  }
 })
 
 // Expose methods for snapshot save/restore

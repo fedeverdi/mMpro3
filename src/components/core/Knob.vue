@@ -113,6 +113,8 @@ const startValue = ref(0)
 const isEditing = ref(false)
 const editValue = ref('')
 const editInput = ref<HTMLInputElement | null>(null)
+let rafId: number | null = null
+let pendingValue: number | null = null
 
 // Calculate angle for the knob (270 degrees range)
 const angle = computed(() => {
@@ -225,11 +227,35 @@ function onDrag(e: MouseEvent | TouchEvent) {
   // Apply step
   newValue = Math.round(newValue / props.step) * props.step
   
-  emit('update:modelValue', newValue)
+  // Use requestAnimationFrame to throttle updates
+  pendingValue = newValue
+  
+  if (rafId === null) {
+    rafId = requestAnimationFrame(() => {
+      if (pendingValue !== null) {
+        emit('update:modelValue', pendingValue)
+        pendingValue = null
+      }
+      rafId = null
+    })
+  }
 }
 
 function stopDrag() {
   isDragging.value = false
+  
+  // Cancel any pending animation frame
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+  }
+  
+  // Emit final pending value
+  if (pendingValue !== null) {
+    emit('update:modelValue', pendingValue)
+    pendingValue = null
+  }
+  
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('touchmove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
@@ -261,7 +287,18 @@ function onWheel(e: WheelEvent) {
   
   // Don't apply step rounding on wheel - allow smooth continuous control
   
-  emit('update:modelValue', newValue)
+  // Use requestAnimationFrame to throttle updates
+  pendingValue = newValue
+  
+  if (rafId === null) {
+    rafId = requestAnimationFrame(() => {
+      if (pendingValue !== null) {
+        emit('update:modelValue', pendingValue)
+        pendingValue = null
+      }
+      rafId = null
+    })
+  }
 }
 
 function startEditing() {
