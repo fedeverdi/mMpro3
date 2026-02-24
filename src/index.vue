@@ -392,7 +392,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, toRaw, nextTick, inject, watch, onUnmounted, provide } from 'vue'
+import { ref, onMounted, computed, toRaw, nextTick, inject, watch, onUnmounted, provide, type Ref } from 'vue'
 import AudioTrack from './components/AudioTrack.vue'
 import SignalTrack from './components/SignalTrack.vue'
 import AudioFlowModal from './components/layout/AudioFlowModal.vue'
@@ -457,6 +457,7 @@ interface Track {
 
 // App ready state
 const isReady = ref(false)
+const isAppReady = inject<Ref<boolean>>('isAppReady', ref(false))
 
 // Audio Flow Modal
 const showAudioFlowModal = ref(false)
@@ -1637,6 +1638,7 @@ onMounted(async () => {
     // Delay to ensure all components are fully mounted and initialized
     setTimeout(() => {
         isReady.value = true
+        isAppReady.value = true // Notify App.vue that everything is ready
     }, 100)
 
     // Close add track menu when clicking outside
