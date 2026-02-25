@@ -15,9 +15,9 @@
                         <div class="flex gap-1 items-center">
                             <span class="text-[10px] text-gray-400 font-semibold uppercase">Quick scenes:</span>
                             <button v-for="scene in pinnedScenes" :key="scene.id" @click="handleLoadScene(scene.id)"
-                                class="px-2 py-1 text-[0.5rem] rounded transition-colors uppercase" :class="scene.id === currentSceneId
-                                    ? 'bg-green-600 hover:bg-green-500 text-white'
-                                    : 'bg-yellow-600 hover:bg-yellow-500 text-white'"
+                                class="px-2 py-0.5 text-[0.65rem] rounded transition-all uppercase border" :class="scene.id === currentSceneId
+                                    ? 'border-green-500 bg-green-500/20 text-green-400'
+                                    : 'border-gray-600 hover:border-yellow-500 hover:bg-yellow-500/10 text-gray-300 hover:text-yellow-400'"
                                 :title="`Load scene: ${scene.name}`">
                                 {{ scene.name }}
                             </button>
@@ -27,7 +27,7 @@
 
                 <div class="flex gap-2 items-center flex-wrap">
                     <button @click="showAudioFlowModal = true"
-                        class="px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded text-xs font-semibold transition-colors flex items-center gap-1">
+                        class="px-3 py-1.5 border border-gray-600 hover:border-purple-500 hover:bg-purple-500/10 rounded text-xs font-semibold text-gray-300 hover:text-purple-400 transition-all flex items-center gap-1.5">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -36,19 +36,17 @@
                     </button>
 
                     <button @click="showScenesModal = true"
-                        class="px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs font-semibold transition-colors flex items-center gap-1">
-                        <div class="flex">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="h-3 w-3" fill="white">
-                                <path
-                                    d="M149.333 216v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24v-80c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zM125.333 32H24C10.745 32 0 42.745 0 56v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24zm80 448H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm-24-424v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24zm24 264H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24z" />
-                            </svg>
-                        </div>
+                        class="px-3 py-1.5 border border-gray-600 hover:border-green-500 hover:bg-green-500/10 rounded text-xs font-semibold text-gray-300 hover:text-green-400 transition-all flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="h-3.5 w-3.5" fill="currentColor">
+                            <path
+                                d="M149.333 216v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24v-80c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zM125.333 32H24C10.745 32 0 42.745 0 56v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24zm80 448H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm-24-424v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24zm24 264H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24z" />
+                        </svg>
                         Scenes
                     </button>
 
                     <!-- File Manager Button -->
                     <button @click="showFileManager = true"
-                        class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs font-semibold transition-colors flex items-center gap-1">
+                        class="px-3 py-1.5 border border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 rounded text-xs font-semibold text-gray-300 hover:text-blue-400 transition-all flex items-center gap-1.5">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -57,24 +55,24 @@
                     </button>
 
                     <button @click="handleClearScene"
-                        class="px-3 py-1 bg-orange-600 hover:bg-orange-500 rounded text-xs font-semibold transition-colors"
+                        class="px-3 py-1.5 border border-gray-600 hover:border-orange-500 hover:bg-orange-500/10 rounded text-xs font-semibold text-gray-300 hover:text-orange-400 transition-all flex items-center gap-1.5"
                         title="Clear mixer - Reload page">
-                        <div class="flex">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 pr-1" fill="white" viewBox="0 0 640 512">
-                                <path
-                                    d="M256.47 216.77l86.73 109.18s-16.6 102.36-76.57 150.12C206.66 523.85 0 510.19 0 510.19s3.8-23.14 11-55.43l94.62-112.17c3.97-4.7-.87-11.62-6.65-9.5l-60.4 22.09c14.44-41.66 32.72-80.04 54.6-97.47 59.97-47.76 163.3-40.94 163.3-40.94zM636.53 31.03l-19.86-25c-5.49-6.9-15.52-8.05-22.41-2.56l-232.48 177.8-34.14-42.97c-5.09-6.41-15.14-5.21-18.59 2.21l-25.33 54.55 86.73 109.18 58.8-12.45c8-1.69 11.42-11.2 6.34-17.6l-34.09-42.92 232.48-177.8c6.89-5.48 8.04-15.53 2.55-22.44z" />
-                            </svg>
-                            Clear
-                        </div>
-
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 640 512">
+                            <path
+                                d="M256.47 216.77l86.73 109.18s-16.6 102.36-76.57 150.12C206.66 523.85 0 510.19 0 510.19s3.8-23.14 11-55.43l94.62-112.17c3.97-4.7-.87-11.62-6.65-9.5l-60.4 22.09c14.44-41.66 32.72-80.04 54.6-97.47 59.97-47.76 163.3-40.94 163.3-40.94zM636.53 31.03l-19.86-25c-5.49-6.9-15.52-8.05-22.41-2.56l-232.48 177.8-34.14-42.97c-5.09-6.41-15.14-5.21-18.59 2.21l-25.33 54.55 86.73 109.18 58.8-12.45c8-1.69 11.42-11.2 6.34-17.6l-34.09-42.92 232.48-177.8c6.89-5.48 8.04-15.53 2.55-22.44z" />
+                        </svg>
+                        Clear
                     </button>
 
                     <div class="w-px h-6 bg-gray-600"></div>
 
                     <div class="relative -mt-[3px]">
                         <button @click="showAddTrackMenu = !showAddTrackMenu" :disabled="tracks.length >= 24"
-                            class="px-3 h-full py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded text-xs font-semibold transition-colors">
-                            + Add
+                            class="px-3 h-full py-1.5 border border-gray-600 hover:border-emerald-500 hover:bg-emerald-500/10 disabled:border-gray-700 disabled:bg-gray-800/50 disabled:cursor-not-allowed rounded text-xs font-semibold text-gray-300 hover:text-emerald-400 disabled:text-gray-600 transition-all flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add
                         </button>
 
                         <!-- Dropdown Menu -->
@@ -118,8 +116,11 @@
                     </div>
 
                     <button @click="removeTrack(tracks[tracks.length - 1].id)" :disabled="tracks.length <= 1"
-                        class="px-3 py-1 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded text-xs font-semibold transition-colors">
-                        - Remove
+                        class="px-3 py-1.5 border border-gray-600 hover:border-red-500 hover:bg-red-500/10 disabled:border-gray-700 disabled:bg-gray-800/50 disabled:cursor-not-allowed rounded text-xs font-semibold text-gray-300 hover:text-red-400 disabled:text-gray-600 transition-all flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                        </svg>
+                        Remove
                     </button>
 
                     <div class="text-xs text-gray-400">
