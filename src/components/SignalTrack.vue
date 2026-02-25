@@ -3,7 +3,10 @@
     class="track-channel relative bg-gray-700 rounded-lg border border-gray-900 p-1 flex flex-col items-center gap-1 h-full">
     
     <!-- Track Header -->
-    <div class="w-full flex items-center justify-between gap-1">
+    <div class="w-full flex items-center justify-between gap-1 track-header cursor-move"
+      draggable="true"
+      @dragstart="$emit('drag-start')"
+      title="Drag to reorder">
       <div class="text-xs font-bold text-gray-300 flex-1 text-center">Track {{ trackNumber }}</div>
       <button 
         @click="$emit('remove')" 
@@ -148,16 +151,19 @@ interface Props {
   trackNumber: number
   masterChannel?: any
   subgroups?: Array<{ id: number, name: string, channel: any, ref: any }>
+  isDragging?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  subgroups: () => []
+  subgroups: () => [],
+  isDragging: false
 })
 
 const emit = defineEmits<{
   (e: 'soloChange', value: { trackNumber: number, isSolo: boolean }): void
   (e: 'levelUpdate', value: { trackNumber: number, level: number }): void
   (e: 'remove'): void
+  (e: 'drag-start'): void
 }>()
 
 type SignalType = 'sine' | 'square' | 'sawtooth' | 'triangle' | 'whiteNoise' | 'pinkNoise'
@@ -756,3 +762,20 @@ defineExpose({
   }
 })
 </script>
+
+<style scoped>
+/* Drag and drop header */
+.track-header {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.track-header:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 4px;
+}
+
+.track-header:active {
+  cursor: grabbing !important;
+}
+</style>

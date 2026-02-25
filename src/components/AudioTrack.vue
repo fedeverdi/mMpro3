@@ -19,7 +19,10 @@
 
     <!-- Track Header -->
     <div class="w-full flex flex-col gap-1">
-      <div class="w-full flex items-center justify-between gap-1">
+      <div class="w-full flex items-center justify-between gap-1 track-header cursor-move" 
+        draggable="true"
+        @dragstart="$emit('drag-start')"
+        title="Drag to reorder">
         <div class="flex items-center gap-1 flex-1 justify-center">
           <div class="text-xs font-bold text-gray-300">Track {{ trackNumber }}</div>
           <div v-if="isRecording" 
@@ -338,12 +341,14 @@ interface Props {
   subgroups?: Array<{ id: number, name: string, channel: any, ref: any }>
   auxBuses?: Array<{ id: string, name: string, volume: number, muted: boolean, soloed: boolean, routeToMaster: boolean, node?: any }>
   isArmed?: boolean
+  isDragging?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   subgroups: () => [],
   auxBuses: () => [],
-  isArmed: false
+  isArmed: false,
+  isDragging: false
 })
 
 const emit = defineEmits<{
@@ -351,6 +356,7 @@ const emit = defineEmits<{
   (e: 'levelUpdate', value: { trackNumber: number, level: number }): void
   (e: 'remove'): void
   (e: 'toggle-arm'): void
+  (e: 'drag-start'): void
 }>()
 
 // Audio state
@@ -2388,6 +2394,21 @@ function stopGateMonitoring() {
 </script>
 
 <style scoped>
+/* Drag and drop header */
+.track-header {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.track-header:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 4px;
+}
+
+.track-header:active {
+  cursor: grabbing !important;
+}
+
 /* Fade transition for content switching */
 .fade-enter-active,
 .fade-leave-active {

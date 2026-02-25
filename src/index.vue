@@ -161,17 +161,39 @@
 
                         <!-- Audio Tracks -->
                         <template v-else>
-                            <div v-for="track in tracks" :key="track.id" class="w-[8.5rem] h-full mixer-fade-in">
-                                <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)"
-                                    :trackNumber="track.id" :master-channel="masterChannel" :subgroups="subgroups"
-                                    @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate"
-                                    @remove="removeTrack(track.id)" />
-                                <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
-                                    :master-channel="masterChannel" :subgroups="subgroups" :aux-buses="auxBuses"
+                            <div v-for="track in tracks" :key="track.id" 
+                                class="w-[8.5rem] h-full mixer-fade-in track-wrapper"
+                                :class="{
+                                    'dragging': draggedTrackId === track.id,
+                                    'drag-over': dragOverTrackId === track.id
+                                }"
+                                @dragover="handleTrackDragOver(track.id, $event)"
+                                @dragleave="handleTrackDragLeave"
+                                @drop="handleTrackDrop(track.id)"
+                                @dragend="handleTrackDragEnd">
+                                <SignalTrack v-if="track.type === 'signal'" 
+                                    :ref="el => setTrackRef(track.id, el)"
+                                    :trackNumber="track.id" 
+                                    :master-channel="masterChannel" 
+                                    :subgroups="subgroups"
+                                    :is-dragging="draggedTrackId === track.id"
+                                    @soloChange="handleSoloChange" 
+                                    @levelUpdate="handleLevelUpdate"
+                                    @remove="removeTrack(track.id)"
+                                    @drag-start="handleTrackDragStart(track.id)" />
+                                <AudioTrack v-else 
+                                    :ref="el => setTrackRef(track.id, el)" 
+                                    :trackNumber="track.id"
+                                    :master-channel="masterChannel" 
+                                    :subgroups="subgroups" 
+                                    :aux-buses="auxBuses"
                                     :is-armed="isTrackArmed(track.id)"
-                                    @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate"
+                                    :is-dragging="draggedTrackId === track.id"
+                                    @soloChange="handleSoloChange" 
+                                    @levelUpdate="handleLevelUpdate"
                                     @toggle-arm="toggleTrackArm(track.id)"
-                                    @remove="removeTrack(track.id)" />
+                                    @remove="removeTrack(track.id)"
+                                    @drag-start="handleTrackDragStart(track.id)" />
                             </div>
                         </template>
                     </div>
@@ -533,6 +555,56 @@ function removeTrack(trackId: number) {
         // Also remove from solo tracks if it was soloed
         soloTracks.value.delete(removedTrack.id)
     }
+}
+
+// Drag and Drop for track reordering
+const draggedTrackId = ref<number | null>(null)
+const dragOverTrackId = ref<number | null>(null)
+
+function handleTrackDragStart(trackId: number) {
+    draggedTrackId.value = trackId
+}
+
+function handleTrackDragOver(trackId: number, event: DragEvent) {
+    event.preventDefault() // Necessary to allow drop
+    if (draggedTrackId.value === trackId) return
+    dragOverTrackId.value = trackId
+}
+
+function handleTrackDragLeave() {
+    dragOverTrackId.value = null
+}
+
+function handleTrackDrop(targetTrackId: number) {
+    const draggedId = draggedTrackId.value
+    if (draggedId === null || draggedId === targetTrackId) {
+        draggedTrackId.value = null
+        dragOverTrackId.value = null
+        return
+    }
+
+    // Find indices
+    const draggedIndex = tracks.value.findIndex(t => t.id === draggedId)
+    const targetIndex = tracks.value.findIndex(t => t.id === targetTrackId)
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+        draggedTrackId.value = null
+        dragOverTrackId.value = null
+        return
+    }
+
+    // Reorder tracks
+    const [removed] = tracks.value.splice(draggedIndex, 1)
+    tracks.value.splice(targetIndex, 0, removed)
+
+    // Clear drag state
+    draggedTrackId.value = null
+    dragOverTrackId.value = null
+}
+
+function handleTrackDragEnd() {
+    draggedTrackId.value = null
+    dragOverTrackId.value = null
 }
 
 // Track refs management (only for tracks, not for master components)
@@ -1135,6 +1207,9 @@ async function handleSaveScene(sceneName: string) {
         })
     })
 
+    // Save current track order
+    const trackOrder = tracks.value.map(t => t.id)
+
     // Create and save scene
     const scene = await createScene(
         sceneName, 
@@ -1142,7 +1217,8 @@ async function handleSaveScene(sceneName: string) {
         masterSnapshot, 
         subgroupSnapshots, 
         auxSnapshots,
-        automation.exportAutomation() // Add automation data
+        automation.exportAutomation(), // Add automation data
+        trackOrder // Add track order
     )
     setCurrentScene(scene.id)
 }
@@ -1328,6 +1404,31 @@ function handleLoadScene(sceneId: string) {
                     }))
                     nextAuxId = maxId + 1
                 }
+            }
+
+            // Restore track order if saved in scene
+            if (scene.trackOrder && scene.trackOrder.length > 0) {
+                // Find tracks that exist in the current session
+                const reorderedTracks: Track[] = []
+                const existingTrackIds = new Set(tracks.value.map(t => t.id))
+                
+                // Add tracks in the saved order (if they exist)
+                scene.trackOrder.forEach(trackId => {
+                    const track = tracks.value.find(t => t.id === trackId)
+                    if (track) {
+                        reorderedTracks.push(track)
+                    }
+                })
+                
+                // Add any remaining tracks that weren't in the saved order (shouldn't happen normally)
+                tracks.value.forEach(track => {
+                    if (!scene.trackOrder!.includes(track.id)) {
+                        reorderedTracks.push(track)
+                    }
+                })
+                
+                // Update tracks array with reordered tracks
+                tracks.value = reorderedTracks
             }
 
             // Wait for Vue to update props before restoring tracks
@@ -1982,6 +2083,43 @@ onUnmounted(() => {
 
 .tracks-scroll-wrap {
     position: relative;
+}
+
+/* Track drag and drop styles */
+.track-wrapper {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.track-wrapper.dragging {
+    opacity: 0.5;
+}
+
+.track-wrapper.drag-over {
+    transform: translateX(4px);
+}
+
+.track-wrapper.drag-over::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #3b82f6 0%, #8b5cf6 100%);
+    border-radius: 2px;
+    z-index: 10;
+    animation: pulse-glow 1s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+    }
+    50% {
+        opacity: 0.7;
+        box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+    }
 }
 
 .tracks-scroll-wrap::after {
