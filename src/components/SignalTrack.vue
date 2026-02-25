@@ -150,6 +150,7 @@ let Tone: any = null
 
 interface Props {
   trackNumber: number
+  order: number
   masterChannel?: any
   subgroups?: Array<{ id: number, name: string, channel: any, ref: any }>
   isDragging?: boolean
@@ -157,7 +158,8 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   subgroups: () => [],
-  isDragging: false
+  isDragging: false,
+  order: 0
 })
 
 const emit = defineEmits<{
@@ -688,6 +690,8 @@ defineExpose({
   
   getSnapshot: () => {
     return {
+      trackNumber: props.trackNumber,
+      order: props.order,
       trackType: 'signal' as const,
       selectedSignal: selectedSignal.value,
       signalVolume: signalVolume.value,

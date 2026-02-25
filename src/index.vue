@@ -161,7 +161,7 @@
 
                         <!-- Audio Tracks -->
                         <template v-else>
-                            <div v-for="track in tracks" :key="track.id" 
+                            <div v-for="track in sortedTracks" :key="track.id" 
                                 class="w-[8.5rem] h-full mixer-fade-in track-wrapper"
                                 :class="{
                                     'dragging': draggedTrackId === track.id,
@@ -173,7 +173,8 @@
                                 @dragend="handleTrackDragEnd">
                                 <SignalTrack v-if="track.type === 'signal'" 
                                     :ref="el => setTrackRef(track.id, el)"
-                                    :trackNumber="track.id" 
+                                    :trackNumber="track.id"
+                                    :order="track.order"
                                     :master-channel="masterChannel" 
                                     :subgroups="subgroups"
                                     :is-dragging="draggedTrackId === track.id"
@@ -184,6 +185,7 @@
                                 <AudioTrack v-else 
                                     :ref="el => setTrackRef(track.id, el)" 
                                     :trackNumber="track.id"
+                                    :order="track.order"
                                     :master-channel="masterChannel" 
                                     :subgroups="subgroups" 
                                     :aux-buses="auxBuses"
@@ -475,6 +477,7 @@ let nextAuxId = 1
 interface Track {
     id: number
     type: 'audio' | 'signal'
+    order: number
 }
 
 // App ready state
@@ -507,14 +510,19 @@ provide('automation', automation)
 
 // Tracks management
 const tracks = ref<Track[]>([
-    { id: 1, type: 'audio' },
-    { id: 2, type: 'audio' },
-    { id: 3, type: 'audio' },
-    { id: 4, type: 'audio' },
-    { id: 5, type: 'audio' },
-    { id: 6, type: 'audio' },
-    { id: 7, type: 'signal' }
+    { id: 1, type: 'audio', order: 1 },
+    { id: 2, type: 'audio', order: 2 },
+    { id: 3, type: 'audio', order: 3 },
+    { id: 4, type: 'audio', order: 4 },
+    { id: 5, type: 'audio', order: 5 },
+    { id: 6, type: 'audio', order: 6 },
+    { id: 7, type: 'signal', order: 7 }
 ])
+
+// Computed per ordinare le tracce per order
+const sortedTracks = computed(() => {
+    return [...tracks.value].sort((a, b) => a.order - b.order)
+})
 
 const showAddTrackMenu = ref(false)
 
@@ -531,7 +539,9 @@ function getNextAvailableId(): number {
 
 function addTrackOfType(type: 'audio' | 'signal') {
     if (tracks.value.length >= 24) return
-    tracks.value.push({ id: getNextAvailableId(), type })
+    const newId = getNextAvailableId()
+    const maxOrder = tracks.value.length > 0 ? Math.max(...tracks.value.map(t => t.order)) : 0
+    tracks.value.push({ id: newId, type, order: maxOrder + 1 })
     showAddTrackMenu.value = false
 }
 
@@ -583,19 +593,20 @@ function handleTrackDrop(targetTrackId: number) {
         return
     }
 
-    // Find indices
-    const draggedIndex = tracks.value.findIndex(t => t.id === draggedId)
-    const targetIndex = tracks.value.findIndex(t => t.id === targetTrackId)
+    // Find tracks
+    const draggedTrack = tracks.value.find(t => t.id === draggedId)
+    const targetTrack = tracks.value.find(t => t.id === targetTrackId)
 
-    if (draggedIndex === -1 || targetIndex === -1) {
+    if (!draggedTrack || !targetTrack) {
         draggedTrackId.value = null
         dragOverTrackId.value = null
         return
     }
 
-    // Reorder tracks
-    const [removed] = tracks.value.splice(draggedIndex, 1)
-    tracks.value.splice(targetIndex, 0, removed)
+    // Scambia gli order delle due tracce
+    const tempOrder = draggedTrack.order
+    draggedTrack.order = targetTrack.order
+    targetTrack.order = tempOrder
 
     // Clear drag state
     draggedTrackId.value = null
@@ -1207,9 +1218,6 @@ async function handleSaveScene(sceneName: string) {
         })
     })
 
-    // Save current track order
-    const trackOrder = tracks.value.map(t => t.id)
-
     // Create and save scene
     const scene = await createScene(
         sceneName, 
@@ -1217,8 +1225,7 @@ async function handleSaveScene(sceneName: string) {
         masterSnapshot, 
         subgroupSnapshots, 
         auxSnapshots,
-        automation.exportAutomation(), // Add automation data
-        trackOrder // Add track order
+        automation.exportAutomation() // Add automation data
     )
     setCurrentScene(scene.id)
 }
@@ -1406,31 +1413,6 @@ function handleLoadScene(sceneId: string) {
                 }
             }
 
-            // Restore track order if saved in scene
-            if (scene.trackOrder && scene.trackOrder.length > 0) {
-                // Find tracks that exist in the current session
-                const reorderedTracks: Track[] = []
-                const existingTrackIds = new Set(tracks.value.map(t => t.id))
-                
-                // Add tracks in the saved order (if they exist)
-                scene.trackOrder.forEach(trackId => {
-                    const track = tracks.value.find(t => t.id === trackId)
-                    if (track) {
-                        reorderedTracks.push(track)
-                    }
-                })
-                
-                // Add any remaining tracks that weren't in the saved order (shouldn't happen normally)
-                tracks.value.forEach(track => {
-                    if (!scene.trackOrder!.includes(track.id)) {
-                        reorderedTracks.push(track)
-                    }
-                })
-                
-                // Update tracks array with reordered tracks
-                tracks.value = reorderedTracks
-            }
-
             // Wait for Vue to update props before restoring tracks
             nextTick(() => {
                 // Restore each track's state (NOW aux buses exist and props are updated)
@@ -1438,6 +1420,12 @@ function handleLoadScene(sceneId: string) {
                     const trackRef = trackRefs.value.get(trackSnapshot.trackNumber)
                     if (trackRef && trackRef.restoreFromSnapshot) {
                         trackRef.restoreFromSnapshot(trackSnapshot)
+                    }
+                    
+                    // Restore track order
+                    const track = tracks.value.find(t => t.id === trackSnapshot.trackNumber)
+                    if (track && trackSnapshot.order !== undefined) {
+                        track.order = trackSnapshot.order
                     }
                 })
             })

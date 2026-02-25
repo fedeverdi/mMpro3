@@ -338,6 +338,7 @@ const { saveAudioFile, getAudioFile } = useAudioFileStorage()
 
 interface Props {
   trackNumber: number
+  order: number
   masterChannel?: any
   subgroups?: Array<{ id: number, name: string, channel: any, ref: any }>
   auxBuses?: Array<{ id: string, name: string, volume: number, muted: boolean, soloed: boolean, routeToMaster: boolean, node?: any }>
@@ -349,7 +350,8 @@ const props = withDefaults(defineProps<Props>(), {
   subgroups: () => [],
   auxBuses: () => [],
   isArmed: false,
-  isDragging: false
+  isDragging: false,
+  order: 0
 })
 
 const emit = defineEmits<{
@@ -1943,6 +1945,7 @@ defineExpose({
   getSnapshot: () => {
     return {
       trackNumber: props.trackNumber,
+      order: props.order,
       volume: volume.value,
       gain: gain.value,
       padEnabled: padEnabled.value,

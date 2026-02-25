@@ -2,6 +2,7 @@ import { ref, toRaw } from 'vue'
 
 export interface TrackSnapshot {
   trackNumber: number
+  order: number
   volume: number
   pan: number
   muted: boolean
@@ -92,7 +93,6 @@ export interface Scene {
   id: string
   name: string
   tracks: TrackSnapshot[]
-  trackOrder?: number[] // Array of track IDs in display order
   master: MasterSnapshot
   subgroups?: SubgroupSnapshot[]
   auxBuses?: AuxSnapshot[]
@@ -230,14 +230,12 @@ export function useScenes() {
     master: MasterSnapshot, 
     subgroups?: SubgroupSnapshot[], 
     auxBuses?: AuxSnapshot[],
-    automation?: any,
-    trackOrder?: number[]
+    automation?: any
   ): Promise<Scene> {
     const scene: Scene = {
       id: `scene_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       name,
       tracks,
-      trackOrder,
       master,
       subgroups,
       auxBuses,
@@ -257,8 +255,7 @@ export function useScenes() {
     master: MasterSnapshot, 
     subgroups?: SubgroupSnapshot[], 
     auxBuses?: AuxSnapshot[],
-    automation?: any,
-    trackOrder?: number[]
+    automation?: any
   ) {
     const index = scenes.value.findIndex(s => s.id === sceneId)
     if (index !== -1) {
@@ -266,7 +263,6 @@ export function useScenes() {
       const updatedScene: Scene = {
         ...scene,
         tracks,
-        trackOrder,
         master,
         subgroups,
         auxBuses,
