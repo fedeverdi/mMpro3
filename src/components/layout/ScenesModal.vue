@@ -107,31 +107,46 @@
 
                     <!-- Pin Button -->
                     <button @click="emit('togglePin', scene.id)"
-                      class="px-3 py-1 text-xs font-semibold rounded border transition-all"
+                      class="px-3 py-1 text-xs font-semibold rounded border transition-all flex items-center gap-1"
                       :class="scene.pinned 
                         ? 'border-yellow-500 bg-yellow-500/20 text-yellow-400 hover:border-yellow-400 hover:bg-yellow-500/30' 
                         : 'border-gray-600 hover:border-gray-500 hover:bg-gray-500/10 text-gray-300 hover:text-gray-200'"
                       :title="scene.pinned ? 'Unpin from quick access' : 'Pin to quick access'">
-                      {{ scene.pinned ? '📌' : '📍' }}
+                      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                        <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" />
+                      </svg>
+                      {{ scene.pinned ? 'Unpin' : 'Pin' }}
                     </button>
 
                     <!-- Rename Button -->
                     <button v-if="editingSceneId !== scene.id" @click="startRename(scene.id, scene.name)"
-                      class="px-3 py-1 text-xs font-semibold rounded border border-gray-600 hover:border-gray-500 hover:bg-gray-500/10 text-gray-300 hover:text-gray-200 transition-all"
+                      class="px-3 py-1 text-xs font-semibold rounded border border-gray-600 hover:border-gray-500 hover:bg-gray-500/10 text-gray-300 hover:text-gray-200 transition-all flex items-center gap-1"
                       title="Rename scene">
-                      ✏️
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                      Edit
                     </button>
                     <button v-else @click="saveRename(scene.id)"
-                      class="px-3 py-1 text-xs font-semibold rounded border border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 text-gray-300 hover:text-blue-400 transition-all"
+                      class="px-3 py-1 text-xs font-semibold rounded border border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 text-gray-300 hover:text-blue-400 transition-all flex items-center gap-1"
                       title="Save rename">
-                      ✓
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Save
                     </button>
 
                     <!-- Delete Button -->
                     <button @click="confirmDelete(scene.id, scene.name)"
-                      class="px-3 py-1 text-xs font-semibold rounded border border-gray-600 hover:border-red-500 hover:bg-red-500/10 text-gray-300 hover:text-red-400 transition-all"
+                      class="px-3 py-1 text-xs font-semibold rounded border border-gray-600 hover:border-red-500 hover:bg-red-500/10 text-gray-300 hover:text-red-400 transition-all flex items-center gap-1"
                       title="Delete scene">
-                      🗑️
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete
                     </button>
                   </div>
                 </div>
