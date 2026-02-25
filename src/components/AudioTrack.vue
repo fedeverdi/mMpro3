@@ -57,14 +57,14 @@
       <div v-if="audioSourceType === 'file'" class="w-full flex gap-1">
         <input type="file" accept="audio/*" @change="handleFileUpload" ref="fileInput" class="hidden" />
         <button @click="($refs.fileInput as HTMLInputElement)?.click()"
-          class="flex-1 px-2 truncate py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 transition-colors">
+          class="flex-1 px-2 truncate py-0 text-xs bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 transition-colors">
           {{ fileName || 'Load Audio' }}
         </button>
         <!-- Library button - Small square icon button -->
         <button v-if="fileManagerAPI" @click="openLibrary"
-          class="w-7 h-7 flex-shrink-0 bg-blue-700 hover:bg-blue-600 rounded border border-blue-600 transition-colors flex items-center justify-center"
+          class="w-6 h-6 flex-shrink-0 bg-blue-700 hover:bg-blue-600 rounded border border-blue-600 transition-colors flex items-center justify-center"
           title="Open Audio Library">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
