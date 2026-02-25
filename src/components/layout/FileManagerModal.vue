@@ -45,11 +45,31 @@
 
       <!-- Search Bar -->
       <div class="px-4 pb-3 border-b border-gray-700">
+        <div class="flex gap-2 mb-2">
+          <button @click="viewMode = 'all'"
+            :class="[
+              'flex-1 px-3 py-2 rounded text-sm font-medium transition-colors',
+              viewMode === 'all' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            ]">
+            All Files
+          </button>
+          <button @click="viewMode = 'byArtist'"
+            :class="[
+              'flex-1 px-3 py-2 rounded text-sm font-medium transition-colors',
+              viewMode === 'byArtist' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            ]">
+            By Artist
+          </button>
+        </div>
         <div class="relative">
           <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <input v-model="searchQuery" type="text" placeholder="Search files..."
+          <input v-model="searchQuery" type="text" placeholder="Search by title, artist or file name..."
             class="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" />
           <button v-if="searchQuery" @click="searchQuery = ''"
             class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
@@ -89,7 +109,8 @@
           <p class="text-gray-500 text-sm mt-2">Upload your first audio file to get started</p>
         </div>
 
-        <div v-else class="grid gap-2">
+        <!-- View: All Files -->
+        <div v-else-if="viewMode === 'all'" class="grid gap-2">
           <div v-for="file in filteredFiles" :key="file.id"
             class="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors group">
             <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -98,8 +119,12 @@
                   d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
               <div class="flex-1 min-w-0">
-                <p class="text-white font-medium truncate">{{ file.fileName }}</p>
-                <p class="text-gray-500 text-xs">{{ formatDate(file.timestamp) }} • {{ formatSize(file) }}</p>
+                <p class="text-white font-medium truncate">{{ file.title || file.fileName }}</p>
+                <p class="text-gray-500 text-xs">
+                  <span v-if="file.artist" class="text-blue-400">{{ file.artist }}</span>
+                  <span v-if="file.artist"> • </span>
+                  {{ formatDate(file.timestamp) }} • {{ formatSize(file) }}
+                </p>
               </div>
             </div>
             <div class="flex items-center gap-2">
@@ -113,6 +138,63 @@
                 title="Delete file">
                 Delete
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- View: By Artist -->
+        <div v-else class="grid gap-3">
+          <div v-for="artistGroup in filesByArtist" :key="artistGroup.artist" class="border border-gray-700 rounded-lg overflow-hidden">
+            <!-- Artist Header -->
+            <button @click="toggleArtist(artistGroup.artist)"
+              class="w-full flex items-center justify-between p-3 bg-gray-900 hover:bg-gray-800 transition-colors">
+              <div class="flex items-center gap-3">
+                <svg 
+                  :class="[
+                    'w-5 h-5 text-gray-400 transition-transform',
+                    expandedArtists.has(artistGroup.artist) ? 'rotate-90' : ''
+                  ]" 
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <div class="text-left">
+                  <p class="text-white font-semibold">{{ artistGroup.artist }}</p>
+                  <p class="text-gray-500 text-xs">{{ artistGroup.count }} track{{ artistGroup.count !== 1 ? 's' : '' }}</p>
+                </div>
+              </div>
+            </button>
+            
+            <!-- Artist Files -->
+            <div v-if="expandedArtists.has(artistGroup.artist)" class="bg-gray-950 border-t border-gray-700">
+              <div v-for="file in artistGroup.files" :key="file.id"
+                class="flex items-center justify-between p-3 border-b border-gray-800 last:border-b-0 hover:bg-gray-900 transition-colors">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                  <svg class="w-6 h-6 text-blue-400 flex-shrink-0 ml-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                  </svg>
+                  <div class="flex-1 min-w-0">
+                      <p class="text-white text-sm truncate">{{ file.title || file.fileName }}</p>
+                    <p class="text-gray-500 text-xs">{{ formatDate(file.timestamp) }} • {{ formatSize(file) }}</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button @click="$emit('select-file', file)"
+                    class="px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs font-semibold text-white transition-colors"
+                    title="Load to track">
+                    Load
+                  </button>
+                  <button @click="confirmDelete(file)"
+                    class="px-3 py-1 bg-red-600 hover:bg-red-500 rounded text-xs font-semibold text-white transition-colors"
+                    title="Delete file">
+                    Delete
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -147,6 +229,8 @@ interface StoredAudioFile {
   arrayBuffer: ArrayBuffer
   mimeType: string
   timestamp: number
+  artist?: string
+  title?: string
 }
 
 interface Props {
@@ -168,6 +252,8 @@ const isUploading = ref(false)
 const uploadProgress = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 const searchQuery = ref('')
+const viewMode = ref<'all' | 'byArtist'>('all')
+const expandedArtists = ref<Set<string>>(new Set())
 
 const sortedFiles = computed(() => {
   return [...files.value].sort((a, b) => b.timestamp - a.timestamp)
@@ -180,14 +266,51 @@ const filteredFiles = computed(() => {
   
   const query = searchQuery.value.toLowerCase()
   return sortedFiles.value.filter(file => 
-    file.fileName.toLowerCase().includes(query)
+    file.fileName.toLowerCase().includes(query) ||
+    file.artist?.toLowerCase().includes(query) ||
+    file.title?.toLowerCase().includes(query)
   )
 })
+
+// Group files by artist
+const filesByArtist = computed(() => {
+  const grouped = new Map<string, StoredAudioFile[]>()
+  
+  filteredFiles.value.forEach(file => {
+    const artist = file.artist || 'Unknown Artist'
+    if (!grouped.has(artist)) {
+      grouped.set(artist, [])
+    }
+    grouped.get(artist)!.push(file)
+  })
+  
+  // Convert to array and sort by artist name
+  return Array.from(grouped.entries())
+    .sort(([artistA], [artistB]) => artistA.localeCompare(artistB))
+    .map(([artist, files]) => ({
+      artist,
+      files: files.sort((a, b) => b.timestamp - a.timestamp),
+      count: files.length
+    }))
+})
+
+function toggleArtist(artist: string) {
+  if (expandedArtists.value.has(artist)) {
+    expandedArtists.value.delete(artist)
+  } else {
+    expandedArtists.value.add(artist)
+  }
+}
 
 async function loadFiles() {
   isLoading.value = true
   try {
     files.value = await getAllAudioFiles()
+    // Auto-expand all artists when in byArtist mode
+    if (viewMode.value === 'byArtist') {
+      const artists = new Set(files.value.map(f => f.artist || 'Unknown Artist'))
+      expandedArtists.value = new Set(artists)
+    }
   } catch (error) {
     console.error('Failed to load audio files:', error)
   } finally {
@@ -335,6 +458,14 @@ function close() {
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
     loadFiles()
+  }
+})
+
+// Auto-expand all artists when switching to byArtist view
+watch(viewMode, (newMode) => {
+  if (newMode === 'byArtist') {
+    const artists = new Set(files.value.map(f => f.artist || 'Unknown Artist'))
+    expandedArtists.value = new Set(artists)
   }
 })
 </script>

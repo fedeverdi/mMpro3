@@ -1,6 +1,7 @@
 /**
  * Composable for storing and retrieving audio files using IndexedDB
  */
+import { parseBlob } from 'music-metadata'
 
 const DB_NAME = 'MMpro3_AudioFiles'
 const DB_VERSION = 1
@@ -12,6 +13,8 @@ interface StoredAudioFile {
   arrayBuffer: ArrayBuffer
   mimeType: string
   timestamp: number
+  artist?: string
+  title?: string
 }
 
 export function useAudioFileStorage() {
@@ -39,19 +42,49 @@ export function useAudioFileStorage() {
     })
   }
 
+  // Extract metadata from audio file using music-metadata
+  async function extractMetadata(file: File): Promise<{ artist: string; title: string }> {
+    try {
+      const metadata = await parseBlob(file)
+      const artist = metadata.common.artist || 'Unknown Artist'
+      const title = metadata.common.title || file.name.replace(/\.[^/.]+$/, '')
+      return { artist, title }
+    } catch (error) {
+      // Fallback to filename parsing if tags are not available
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '')
+      const dashPattern = /^([^-]+)\s*-\s*(.+)$/
+      const dashMatch = nameWithoutExt.match(dashPattern)
+      
+      if (dashMatch && dashMatch[1] && dashMatch[2]) {
+        return { 
+          artist: dashMatch[1].trim(), 
+          title: dashMatch[2].trim() 
+        }
+      } else {
+        return { 
+          artist: 'Unknown Artist', 
+          title: nameWithoutExt 
+        }
+      }
+    }
+  }
+
   // Save audio file to IndexedDB
   async function saveAudioFile(file: File): Promise<string> {
     const database = await initDB()
     const arrayBuffer = await file.arrayBuffer()
     
     const fileId = `audio_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    const metadata = await extractMetadata(file)
     
     const storedFile: StoredAudioFile = {
       id: fileId,
       fileName: file.name,
       arrayBuffer,
       mimeType: file.type,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      artist: metadata.artist,
+      title: metadata.title
     }
 
     return new Promise((resolve, reject) => {
