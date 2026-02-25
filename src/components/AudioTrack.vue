@@ -90,7 +90,14 @@
       <div class="flex gap-1 justify-center">
         <button @click="togglePlay"
           class="px-2 py-1 flex-1 text-xs rounded transition-colors flex items-center justify-center"
-          :class="isPlaying ? 'bg-green-600 hover:bg-green-500 animate-pulse' : (audioLoaded ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500')">
+          :class="currentPlaylist && isPlaying 
+            ? 'bg-blue-600 hover:bg-blue-500 animate-pulse' 
+            : isPlaying 
+              ? 'bg-green-600 hover:bg-green-500 animate-pulse' 
+              : audioLoaded 
+                ? 'bg-green-600 hover:bg-green-500' 
+                : 'bg-blue-600 hover:bg-blue-500'"
+          :title="currentPlaylist && isPlaying ? 'Next track' : (isPlaying ? 'Pause' : 'Play')">
           <!-- Show microphone icon for audio input -->
           <svg v-if="audioSourceType === 'input'" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"
             class="w-3 h-3">
@@ -98,10 +105,15 @@
             <path
               d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
           </svg>
-          <!-- Show play/pause for file playback -->
+          <!-- Show play icon when not playing -->
           <svg v-else-if="!isPlaying" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
             <path d="M8 5v14l11-7z" />
           </svg>
+          <!-- Show forward/next icon when playlist is playing (isPlaying is true at this point) -->
+          <svg v-else-if="currentPlaylist" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
+            <path d="M6 4l8 8-8 8V4zm10 0v16h2V4h-2z" />
+          </svg>
+          <!-- Show pause icon for single file playback -->
           <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
             <path d="M6 4h4v16H6zM14 4h4v16h-4z" />
           </svg>
@@ -558,8 +570,8 @@ let playbackTimeInterval: number | null = null
 let playbackStartTime: number = 0
 let audioContextStarted: boolean = false // Track if Tone.start() has been called
 
-// Playlist queue management
-let currentPlaylist: any = null
+// Playlist queue management (using refs for reactivity in template)
+const currentPlaylist = ref<any>(null)
 let playlistFiles: any[] = []
 let currentPlaylistIndex = 0
 
@@ -1147,7 +1159,7 @@ async function loadFileFromLibrary(storedFile: any, preservePlaylist = false) {
 
   // Reset playlist state when loading a single file (unless called from playlist)
   if (!preservePlaylist) {
-    currentPlaylist = null
+    currentPlaylist.value = null
     playlistFiles = []
     currentPlaylistIndex = 0
   }
@@ -1205,9 +1217,9 @@ async function loadFileFromLibrary(storedFile: any, preservePlaylist = false) {
 
       player = new Tone.Player({
         url: audioBuffer,
-        loop: currentPlaylist ? false : true, // Don't loop when playing playlist
+        loop: currentPlaylist.value ? false : true, // Don't loop when playing playlist
         playbackRate: 1.0,
-        onended: currentPlaylist ? handlePlaylistTrackEnd : undefined,
+        onended: currentPlaylist.value ? handlePlaylistTrackEnd : undefined,
       })
       player.connect(padNode)
     }
@@ -1233,13 +1245,13 @@ async function loadFileFromLibrary(storedFile: any, preservePlaylist = false) {
 
 // Handle when playlist track ends
 async function handlePlaylistTrackEnd() {
-  if (!currentPlaylist || !playlistFiles.length) return
+  if (!currentPlaylist.value || !playlistFiles.length) return
   
   currentPlaylistIndex++
   
   // Check if we reached the end of the playlist
   if (currentPlaylistIndex >= playlistFiles.length) {
-    console.log(`✓ Playlist "${currentPlaylist.name}" finished`)
+    console.log(`✓ Playlist "${currentPlaylist.value.name}" finished`)
     // Loop back to start
     currentPlaylistIndex = 0
   }
@@ -1249,7 +1261,7 @@ async function handlePlaylistTrackEnd() {
   console.log(`→ Loading next track: ${nextFile.title || nextFile.fileName} (${currentPlaylistIndex + 1}/${playlistFiles.length})`)
   
   await loadFileFromLibrary(nextFile, true) // preserve playlist state
-  fileName.value = `${currentPlaylist.name} (${currentPlaylistIndex + 1}/${playlistFiles.length})`
+  fileName.value = `${currentPlaylist.value.name} (${currentPlaylistIndex + 1}/${playlistFiles.length})`
   
   // Auto-play next track if currently playing
   if (isPlaying.value) {
@@ -1279,12 +1291,12 @@ async function loadPlaylistFromLibrary(playlist: any) {
     }
 
     // Store playlist state
-    currentPlaylist = playlist
+    currentPlaylist.value = playlist
     playlistFiles = files
     currentPlaylistIndex = 0
     
-    // Load first file
-    await loadFileFromLibrary(files[0])
+    // Load first file (preserve playlist state)
+    await loadFileFromLibrary(files[0], true)
     
     // Show notification that playlist was loaded
     console.log(`✓ Loaded playlist "${playlist.name}" (${files.length} tracks) - playing first track`)
@@ -1338,7 +1350,7 @@ async function checkIfDuplicate(newBuffer: ArrayBuffer, fileName: string, fileSi
 // Shared function to load audio file
 async function loadAudioFile(file: File, name: string) {
   // Reset playlist state when loading a single file
-  currentPlaylist = null
+  currentPlaylist.value = null
   playlistFiles = []
   currentPlaylistIndex = 0
 
@@ -1416,9 +1428,9 @@ async function loadAudioFile(file: File, name: string) {
       // Create new Tone.Player
       player = new Tone.Player({
         url: audioBuffer,
-        loop: currentPlaylist ? false : true, // Don't loop when playing playlist
+        loop: currentPlaylist.value ? false : true, // Don't loop when playing playlist
         playbackRate: 1.0,
-        onended: currentPlaylist ? handlePlaylistTrackEnd : undefined,
+        onended: currentPlaylist.value ? handlePlaylistTrackEnd : undefined,
       })
       player.connect(padNode)
     }
@@ -1529,11 +1541,11 @@ async function loadFileFromIndexedDB(savedFileId: string, silent: boolean = fals
       // Create new Tone.Player
       player = new Tone.Player({
         url: audioBuffer,
-        loop: currentPlaylist ? false : true, // Don't loop when playing playlist
+        loop: currentPlaylist.value ? false : true, // Don't loop when playing playlist
         playbackRate: 1.0,
         fadeIn: 0.01,   // Prevent resampling artifacts
         fadeOut: 0.01,   // Prevent clicks on stop
-        onended: currentPlaylist ? handlePlaylistTrackEnd : undefined,
+        onended: currentPlaylist.value ? handlePlaylistTrackEnd : undefined,
       })
       player.connect(padNode)
     }
@@ -1574,7 +1586,7 @@ async function loadFileFromIndexedDB(savedFileId: string, silent: boolean = fals
 // Handle source type change
 function handleSourceTypeChange() {
   // Reset playlist state when changing source type
-  currentPlaylist = null
+  currentPlaylist.value = null
   playlistFiles = []
   currentPlaylistIndex = 0
 
@@ -1845,11 +1857,11 @@ async function togglePlay() {
       // Recreate player with same buffer
       player = new Tone.Player({
         url: currentAudioBuffer,
-        loop: currentPlaylist ? false : true, // Don't loop when playing playlist
+        loop: currentPlaylist.value ? false : true, // Don't loop when playing playlist
         playbackRate: 1.0,
         fadeIn: 0.01,
         fadeOut: 0.01,
-        onended: currentPlaylist ? handlePlaylistTrackEnd : undefined,
+        onended: currentPlaylist.value ? handlePlaylistTrackEnd : undefined,
       })
 
       // Reconnect to audio chain
@@ -1867,15 +1879,46 @@ async function togglePlay() {
     // Start playback time tracking
     startPlaybackTimeTracking()
   } else {
-    // Stop playback
-    player.stop()
-    isPlaying.value = false
+    // If playlist is playing, skip to next track instead of stopping
+    if (currentPlaylist.value && playlistFiles.length > 0) {
+      // Stop current track
+      player.stop()
+      isPlaying.value = false
+      stopPlaybackTimeTracking()
+      
+      // Move to next track
+      currentPlaylistIndex++
+      if (currentPlaylistIndex >= playlistFiles.length) {
+        currentPlaylistIndex = 0 // Loop back to start
+      }
+      
+      // Load and play next track
+      const nextFile = playlistFiles[currentPlaylistIndex]
+      console.log(`⏭️ Skipping to next track: ${nextFile.title || nextFile.fileName} (${currentPlaylistIndex + 1}/${playlistFiles.length})`)
+      
+      await loadFileFromLibrary(nextFile, true) // preserve playlist state
+      fileName.value = `${currentPlaylist.value.name} (${currentPlaylistIndex + 1}/${playlistFiles.length})`
+      
+      // Auto-start playback
+      await nextTick()
+      if (player && typeof player.start === 'function') {
+        const startTime = Tone.now() + 0.05
+        player.start(startTime)
+        isPlaying.value = true
+        waveformDisplayRef.value?.start()
+        startPlaybackTimeTracking()
+      }
+    } else {
+      // No playlist: stop playback normally
+      player.stop()
+      isPlaying.value = false
 
-    // Stop waveform
-    waveformDisplayRef.value?.stop()
+      // Stop waveform
+      waveformDisplayRef.value?.stop()
 
-    // Stop playback time tracking
-    stopPlaybackTimeTracking()
+      // Stop playback time tracking
+      stopPlaybackTimeTracking()
+    }
   }
 }
 
@@ -2133,11 +2176,11 @@ defineExpose({
 
       player = new Tone.Player({
         url: currentAudioBuffer,
-        loop: currentPlaylist ? false : true, // Don't loop when playing playlist
+        loop: currentPlaylist.value ? false : true, // Don't loop when playing playlist
         playbackRate: 1.0,
         fadeIn: 0.01,
         fadeOut: 0.01,
-        onended: currentPlaylist ? handlePlaylistTrackEnd : undefined,
+        onended: currentPlaylist.value ? handlePlaylistTrackEnd : undefined,
       })
 
       player.connect(padNode)
