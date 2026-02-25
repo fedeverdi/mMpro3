@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="trackElement"
     :class="[
       'track-channel relative bg-gray-800 rounded-lg border p-1 flex flex-col items-center gap-1 h-full',
       isRecording ? 'border-red-500 border-2' : 'border-gray-700'
@@ -21,7 +22,7 @@
     <div class="w-full flex flex-col gap-1">
       <div class="w-full flex items-center justify-between gap-1 track-header cursor-move" 
         draggable="true"
-        @dragstart="$emit('drag-start')"
+        @dragstart="handleDragStart"
         title="Drag to reorder">
         <div class="flex items-center gap-1 flex-1 justify-center">
           <div class="text-xs font-bold text-gray-300">Track {{ trackNumber }}</div>
@@ -358,6 +359,42 @@ const emit = defineEmits<{
   (e: 'toggle-arm'): void
   (e: 'drag-start'): void
 }>()
+
+// Ref per l'elemento traccia (usato per generare il ghost durante il drag)
+const trackElement = ref<HTMLElement | null>(null)
+
+// Funzione per gestire l'inizio del drag con ghost personalizzato
+const handleDragStart = (event: DragEvent) => {
+  // Crea un ghost personalizzato della traccia
+  if (trackElement.value && event.dataTransfer) {
+    const clone = trackElement.value.cloneNode(true) as HTMLElement
+    
+    // Stile del ghost - forza le dimensioni esatte per evitare espansioni
+    clone.style.position = 'absolute'
+    clone.style.top = '-9999px'
+    clone.style.left = '-9999px'
+    clone.style.width = trackElement.value.offsetWidth + 'px'
+    clone.style.height = trackElement.value.offsetHeight + 'px'
+    clone.style.opacity = '0.5'
+    clone.style.transform = 'rotate(3deg)'
+    clone.style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.5)'
+    clone.style.border = '2px solid rgba(59, 130, 246, 0.5)'
+    clone.style.pointerEvents = 'none'
+    clone.style.overflow = 'hidden'
+    
+    document.body.appendChild(clone)
+    
+    // Imposta il clone come drag image
+    event.dataTransfer.setDragImage(clone, trackElement.value.offsetWidth / 2, 30)
+    
+    // Rimuovi il clone dopo un breve ritardo
+    setTimeout(() => {
+      document.body.removeChild(clone)
+    }, 0)
+  }
+  
+  emit('drag-start')
+}
 
 // Audio state
 const fileInput = ref<HTMLInputElement | null>(null)
