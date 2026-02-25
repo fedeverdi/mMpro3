@@ -1,7 +1,7 @@
 <template>
   <div v-if="modelValue" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
     @click.self="close">
-    <div class="bg-gray-800 rounded-lg shadow-2xl w-[800px] max-h-[600px] flex flex-col border border-gray-700">
+    <div class="bg-gray-800 rounded-lg shadow-2xl w-[1200px] max-w-[95vw] max-h-[85vh] flex flex-col border border-gray-700">
       <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b border-gray-700">
         <div class="flex items-center gap-2">
@@ -71,7 +71,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input v-model="searchQuery" type="text" placeholder="Search by title, artist or file name..."
-              class="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" />
+              class="w-full h-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" />
             <button v-if="searchQuery" @click="searchQuery = ''"
               class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,7 +106,7 @@
       </div>
 
       <!-- Files List -->
-      <div class="flex-1 overflow-y-auto p-4">
+      <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
         <div v-if="isLoading" class="flex items-center justify-center h-32">
           <svg class="animate-spin h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -156,23 +156,29 @@
                 </p>
               </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1">
               <button @click="$emit('select-file', file)"
-                class="px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs font-semibold text-white transition-colors"
+                class="p-2 border border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 rounded text-gray-300 hover:text-blue-400 transition-all group"
                 title="Load to track">
-                Load
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
               </button>
               <button @click="confirmDelete(file)"
-                class="px-3 py-1 bg-red-600 hover:bg-red-500 rounded text-xs font-semibold text-white transition-colors"
+                class="p-2 border border-gray-600 hover:border-red-500 hover:bg-red-500/10 rounded text-gray-300 hover:text-red-400 transition-all group"
                 title="Delete file">
-                Delete
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
               </button>
             </div>
           </div>
         </div>
 
         <!-- View: All Files - Grid -->
-        <div v-else-if="viewMode === 'all' && viewLayout === 'grid'" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <div v-else-if="viewMode === 'all' && viewLayout === 'grid'" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
           <div v-for="file in filteredFiles" :key="file.id"
             class="bg-gray-900 rounded-lg border border-gray-700 hover:border-blue-500 transition-all overflow-hidden group cursor-pointer">
             <!-- Artwork -->
@@ -186,16 +192,22 @@
                 </svg>
               </div>
               <!-- Overlay buttons -->
-              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-70 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                 <button @click="$emit('select-file', file)"
-                  class="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded text-xs font-semibold text-white transition-colors"
+                  class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-blue-500 hover:bg-blue-500/20 rounded-lg text-gray-300 hover:text-blue-400 transition-all"
                   title="Load to track">
-                  Load
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
                 </button>
                 <button @click.stop="confirmDelete(file)"
-                  class="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs font-semibold text-white transition-colors"
+                  class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-red-500 hover:bg-red-500/20 rounded-lg text-gray-300 hover:text-red-400 transition-all"
                   title="Delete file">
-                  Delete
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -258,16 +270,22 @@
                     <p class="text-gray-500 text-xs">{{ formatDate(file.timestamp) }} • {{ formatSize(file) }}</p>
                   </div>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1">
                   <button @click="$emit('select-file', file)"
-                    class="px-3 py-1 bg-green-600 hover:bg-green-500 rounded text-xs font-semibold text-white transition-colors"
+                    class="p-2 border border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 rounded text-gray-300 hover:text-blue-400 transition-all"
                     title="Load to track">
-                    Load
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
                   </button>
                   <button @click="confirmDelete(file)"
-                    class="px-3 py-1 bg-red-600 hover:bg-red-500 rounded text-xs font-semibold text-white transition-colors"
+                    class="p-2 border border-gray-600 hover:border-red-500 hover:bg-red-500/10 rounded text-gray-300 hover:text-red-400 transition-all"
                     title="Delete file">
-                    Delete
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -275,7 +293,7 @@
 
             <!-- Artist Files - Grid View -->
             <div v-if="expandedArtists.has(artistGroup.artist) && viewLayout === 'grid'" class="bg-gray-950 border-t border-gray-700 p-3">
-              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
                 <div v-for="file in artistGroup.files" :key="file.id"
                   class="bg-gray-900 rounded-lg border border-gray-800 hover:border-blue-500 transition-all overflow-hidden group cursor-pointer">
                   <!-- Artwork -->
@@ -289,16 +307,22 @@
                       </svg>
                     </div>
                     <!-- Overlay buttons -->
-                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-70 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                       <button @click="$emit('select-file', file)"
-                        class="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded text-xs font-semibold text-white transition-colors"
+                        class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-blue-500 hover:bg-blue-500/20 rounded-lg text-gray-300 hover:text-blue-400 transition-all"
                         title="Load to track">
-                        Load
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
                       </button>
                       <button @click.stop="confirmDelete(file)"
-                        class="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs font-semibold text-white transition-colors"
+                        class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-red-500 hover:bg-red-500/20 rounded-lg text-gray-300 hover:text-red-400 transition-all"
                         title="Delete file">
-                        Delete
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                       </button>
                     </div>
                   </div>
@@ -589,3 +613,30 @@ watch(viewMode, (newMode) => {
   }
 })
 </script>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 12px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #1f2937; /* gray-800 */
+  border-radius: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #4b5563; /* gray-600 */
+  border-radius: 6px;
+  border: 2px solid #1f2937;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6b7280; /* gray-500 */
+}
+
+/* Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #1f2937;
+}
+</style>
