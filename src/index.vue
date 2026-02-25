@@ -68,7 +68,7 @@
 
                     <div class="relative -mt-[3px]">
                         <button @click="showAddTrackMenu = !showAddTrackMenu" :disabled="tracks.length >= 24"
-                            class="px-3 h-full py-1.5 border border-gray-600 hover:border-emerald-500 hover:bg-emerald-500/10 disabled:border-gray-700 disabled:bg-gray-800/50 disabled:cursor-not-allowed rounded text-xs font-semibold text-gray-300 hover:text-emerald-400 disabled:text-gray-600 transition-all flex items-center gap-1.5">
+                            class="mt-1 px-3 h-full py-1.5 border border-gray-600 hover:border-emerald-500 hover:bg-emerald-500/10 disabled:border-gray-700 disabled:bg-gray-800/50 disabled:cursor-not-allowed rounded text-xs font-semibold text-gray-300 hover:text-emerald-400 disabled:text-gray-600 transition-all flex items-center gap-1.5">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>

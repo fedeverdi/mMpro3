@@ -22,7 +22,7 @@
                 </div>
               </h2>
               <button @click="close"
-                class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-700/80 hover:bg-red-600 text-gray-300 hover:text-white transition-colors text-sm font-bold"
+                class="w-9 h-9 flex items-center justify-center rounded-full border border-gray-600 hover:border-red-500 hover:bg-red-500/10 text-gray-300 hover:text-red-400 transition-all text-sm font-bold"
                 title="Close">
                 X
               </button>
@@ -36,7 +36,14 @@
                   class="flex-1 px-3 py-2 text-sm bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                   @keyup.enter="handleSaveNew" />
                 <button @click="handleSaveNew" :disabled="!newSceneName.trim()"
-                  class="px-4 py-2 text-sm font-semibold rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  class="px-4 py-2 text-sm font-semibold rounded border transition-all flex items-center gap-1.5"
+                  :class="newSceneName.trim() 
+                    ? 'border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 text-gray-300 hover:text-blue-400' 
+                    : 'border-gray-700 bg-gray-800/50 text-gray-600 cursor-not-allowed'">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
                   Save
                 </button>
               </div>
@@ -62,7 +69,7 @@
                       <div v-else class="flex items-center gap-2">
                         <span class="font-semibold text-white">{{ scene.name }}</span>
                         <span v-if="scene.id === currentSceneId"
-                          class="px-2 py-0.5 text-[10px] font-bold bg-green-600 text-white rounded">
+                          class="px-2 py-0.5 text-[10px] font-bold border border-green-500 bg-green-500/20 text-green-400 rounded">
                           CURRENT
                         </span>
                       </div>
@@ -78,41 +85,51 @@
                   <div class="flex gap-1 flex-shrink-0">
                     <!-- Update Button (only for current scene) -->
                     <button v-if="scene.id === currentSceneId" @click="confirmUpdate(scene.id, scene.name)"
-                      class="px-3 py-1 text-xs font-semibold rounded bg-green-600 hover:bg-green-500 text-white transition-colors"
+                      class="px-3 py-1 text-xs font-semibold rounded border border-gray-600 hover:border-green-500 hover:bg-green-500/10 text-gray-300 hover:text-green-400 transition-all flex items-center gap-1"
                       title="Update current scene">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
                       Update
                     </button>
 
                     <!-- Load Button -->
                     <button @click="confirmLoad(scene.id, scene.name)"
-                      class="px-3 py-1 text-xs font-semibold rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                      class="px-3 py-1 text-xs font-semibold rounded border border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 text-gray-300 hover:text-blue-400 transition-all flex items-center gap-1"
                       title="Load scene">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
                       Load
                     </button>
 
                     <!-- Pin Button -->
                     <button @click="emit('togglePin', scene.id)"
-                      class="px-3 py-1 text-white text-xs font-semibold rounded transition-colors"
-                      :class="scene.pinned ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-gray-700 hover:bg-gray-600'"
+                      class="px-3 py-1 text-xs font-semibold rounded border transition-all"
+                      :class="scene.pinned 
+                        ? 'border-yellow-500 bg-yellow-500/20 text-yellow-400 hover:border-yellow-400 hover:bg-yellow-500/30' 
+                        : 'border-gray-600 hover:border-gray-500 hover:bg-gray-500/10 text-gray-300 hover:text-gray-200'"
                       :title="scene.pinned ? 'Unpin from quick access' : 'Pin to quick access'">
                       {{ scene.pinned ? '📌' : '📍' }}
                     </button>
 
                     <!-- Rename Button -->
                     <button v-if="editingSceneId !== scene.id" @click="startRename(scene.id, scene.name)"
-                      class="px-3 py-1 text-xs font-semibold rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+                      class="px-3 py-1 text-xs font-semibold rounded border border-gray-600 hover:border-gray-500 hover:bg-gray-500/10 text-gray-300 hover:text-gray-200 transition-all"
                       title="Rename scene">
                       ✏️
                     </button>
                     <button v-else @click="saveRename(scene.id)"
-                      class="px-3 py-1 text-xs font-semibold rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                      class="px-3 py-1 text-xs font-semibold rounded border border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 text-gray-300 hover:text-blue-400 transition-all"
                       title="Save rename">
                       ✓
                     </button>
 
                     <!-- Delete Button -->
                     <button @click="confirmDelete(scene.id, scene.name)"
-                      class="px-3 py-1 text-xs font-semibold rounded bg-red-600 hover:bg-red-500 text-white transition-colors"
+                      class="px-3 py-1 text-xs font-semibold rounded border border-gray-600 hover:border-red-500 hover:bg-red-500/10 text-gray-300 hover:text-red-400 transition-all"
                       title="Delete scene">
                       🗑️
                     </button>
@@ -143,11 +160,11 @@
 
             <div class="flex gap-2 justify-end">
               <button @click="cancelConfirmation"
-                class="px-4 py-2 text-sm font-semibold rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors">
+                class="px-4 py-2 text-sm font-semibold rounded border border-gray-600 hover:border-gray-500 hover:bg-gray-500/10 text-gray-300 hover:text-gray-200 transition-all">
                 Cancel
               </button>
-              <button @click="executeConfirmation" class="px-4 py-2 text-sm font-semibold rounded transition-colors"
-                :class="confirmationModal.confirmClass">
+              <button @click="executeConfirmation" class="px-4 py-2 text-sm font-semibold rounded border transition-all"
+                :class="getConfirmButtonClasses()">
                 {{ confirmationModal.confirmText }}
               </button>
             </div>
@@ -260,7 +277,7 @@ function confirmLoad(sceneId: string, sceneName: string) {
     `Load scene "${sceneName}"? This will replace your current mixer state with the saved scene configuration.`,
     '📂',
     'Load Scene',
-    'bg-blue-600 hover:bg-blue-500 text-white',
+    'load',
     () => {
       emit('load', sceneId)
       close()
@@ -274,7 +291,7 @@ function confirmUpdate(sceneId: string, sceneName: string) {
     `Update scene "${sceneName}"? This will overwrite the saved scene with your current mixer state.`,
     '💾',
     'Update',
-    'bg-green-600 hover:bg-green-500 text-white',
+    'update',
     () => {
       emit('update', sceneId)
       close()
@@ -288,9 +305,21 @@ function confirmDelete(sceneId: string, sceneName: string) {
     `Delete scene "${sceneName}"? This action cannot be undone.`,
     '⚠️',
     'Delete',
-    'bg-red-600 hover:bg-red-500 text-white',
+    'delete',
     () => emit('delete', sceneId)
   )
+}
+
+function getConfirmButtonClasses() {
+  const type = confirmationModal.value.confirmClass
+  if (type === 'load') {
+    return 'border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 text-gray-300 hover:text-blue-400'
+  } else if (type === 'update') {
+    return 'border-gray-600 hover:border-green-500 hover:bg-green-500/10 text-gray-300 hover:text-green-400'
+  } else if (type === 'delete') {
+    return 'border-gray-600 hover:border-red-500 hover:bg-red-500/10 text-gray-300 hover:text-red-400'
+  }
+  return 'border-gray-600 hover:border-gray-500 hover:bg-gray-500/10 text-gray-300 hover:text-gray-200'
 }
 
 function formatDate(timestamp: number): string {
