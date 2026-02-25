@@ -65,18 +65,43 @@
             By Artist
           </button>
         </div>
-        <div class="relative">
-          <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input v-model="searchQuery" type="text" placeholder="Search by title, artist or file name..."
-            class="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" />
-          <button v-if="searchQuery" @click="searchQuery = ''"
-            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-          </button>
+            <input v-model="searchQuery" type="text" placeholder="Search by title, artist or file name..."
+              class="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" />
+            <button v-if="searchQuery" @click="searchQuery = ''"
+              class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <!-- Layout Toggle -->
+          <div class="flex gap-1 bg-gray-900 border border-gray-700 rounded p-1">
+            <button @click="viewLayout = 'list'"
+              :class="[
+                'p-2 rounded transition-colors',
+                viewLayout === 'list' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'
+              ]"
+              title="List view">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <button @click="viewLayout = 'grid'"
+              :class="[
+                'p-2 rounded transition-colors',
+                viewLayout === 'grid' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'
+              ]"
+              title="Grid view">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -109,8 +134,8 @@
           <p class="text-gray-500 text-sm mt-2">Upload your first audio file to get started</p>
         </div>
 
-        <!-- View: All Files -->
-        <div v-else-if="viewMode === 'all'" class="grid gap-2">
+        <!-- View: All Files - List -->
+        <div v-else-if="viewMode === 'all' && viewLayout === 'list'" class="grid gap-2">
           <div v-for="file in filteredFiles" :key="file.id"
             class="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors group">
             <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -146,8 +171,51 @@
           </div>
         </div>
 
+        <!-- View: All Files - Grid -->
+        <div v-else-if="viewMode === 'all' && viewLayout === 'grid'" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          <div v-for="file in filteredFiles" :key="file.id"
+            class="bg-gray-900 rounded-lg border border-gray-700 hover:border-blue-500 transition-all overflow-hidden group cursor-pointer">
+            <!-- Artwork -->
+            <div class="aspect-square bg-gray-800 relative overflow-hidden">
+              <img v-if="file.artwork" :src="file.artwork" :alt="file.title || file.fileName" 
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+              <div v-else class="w-full h-full flex items-center justify-center">
+                <svg class="w-16 h-16 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+              </div>
+              <!-- Overlay buttons -->
+              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                <button @click="$emit('select-file', file)"
+                  class="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded text-xs font-semibold text-white transition-colors"
+                  title="Load to track">
+                  Load
+                </button>
+                <button @click.stop="confirmDelete(file)"
+                  class="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs font-semibold text-white transition-colors"
+                  title="Delete file">
+                  Delete
+                </button>
+              </div>
+            </div>
+            <!-- Info -->
+            <div class="p-2">
+              <p class="text-white text-sm font-medium truncate" :title="file.title || file.fileName">
+                {{ file.title || file.fileName }}
+              </p>
+              <p class="text-blue-400 text-xs truncate" :title="file.artist">
+                {{ file.artist || 'Unknown Artist' }}
+              </p>
+              <p class="text-gray-500 text-xs mt-1">
+                {{ formatSize(file) }}
+              </p>
+            </div>
+          </div>
+        </div>
+
         <!-- View: By Artist -->
-        <div v-else class="grid gap-3">
+        <div v-else-if="viewMode === 'byArtist'" class="grid gap-3">
           <div v-for="artistGroup in filesByArtist" :key="artistGroup.artist" class="border border-gray-700 rounded-lg overflow-hidden">
             <!-- Artist Header -->
             <button @click="toggleArtist(artistGroup.artist)"
@@ -172,8 +240,8 @@
               </div>
             </button>
             
-            <!-- Artist Files -->
-            <div v-if="expandedArtists.has(artistGroup.artist)" class="bg-gray-950 border-t border-gray-700">
+            <!-- Artist Files - List View -->
+            <div v-if="expandedArtists.has(artistGroup.artist) && viewLayout === 'list'" class="bg-gray-950 border-t border-gray-700">
               <div v-for="file in artistGroup.files" :key="file.id"
                 class="flex items-center justify-between p-3 border-b border-gray-800 last:border-b-0 hover:bg-gray-900 transition-colors">
                 <div class="flex items-center gap-3 flex-1 min-w-0 ml-8">
@@ -201,6 +269,48 @@
                     title="Delete file">
                     Delete
                   </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Artist Files - Grid View -->
+            <div v-if="expandedArtists.has(artistGroup.artist) && viewLayout === 'grid'" class="bg-gray-950 border-t border-gray-700 p-3">
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <div v-for="file in artistGroup.files" :key="file.id"
+                  class="bg-gray-900 rounded-lg border border-gray-800 hover:border-blue-500 transition-all overflow-hidden group cursor-pointer">
+                  <!-- Artwork -->
+                  <div class="aspect-square bg-gray-800 relative overflow-hidden">
+                    <img v-if="file.artwork" :src="file.artwork" :alt="file.title || file.fileName" 
+                      class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    <div v-else class="w-full h-full flex items-center justify-center">
+                      <svg class="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                      </svg>
+                    </div>
+                    <!-- Overlay buttons -->
+                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                      <button @click="$emit('select-file', file)"
+                        class="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded text-xs font-semibold text-white transition-colors"
+                        title="Load to track">
+                        Load
+                      </button>
+                      <button @click.stop="confirmDelete(file)"
+                        class="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs font-semibold text-white transition-colors"
+                        title="Delete file">
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Info -->
+                  <div class="p-2">
+                    <p class="text-white text-xs font-medium truncate" :title="file.title || file.fileName">
+                      {{ file.title || file.fileName }}
+                    </p>
+                    <p class="text-gray-500 text-[0.65rem] mt-1">
+                      {{ formatSize(file) }}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -262,6 +372,7 @@ const uploadProgress = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 const searchQuery = ref('')
 const viewMode = ref<'all' | 'byArtist'>('all')
+const viewLayout = ref<'list' | 'grid'>('list')
 const expandedArtists = ref<Set<string>>(new Set())
 
 const sortedFiles = computed(() => {
