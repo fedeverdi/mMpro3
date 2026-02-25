@@ -172,11 +172,12 @@
             </div>
             <div class="flex items-center gap-1">
               <button @click="$emit('select-file', file)"
-                class="p-2 border border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 rounded text-gray-300 hover:text-blue-400 transition-all group"
+                class="p-2 border border-gray-600 hover:border-green-500 hover:bg-green-500/10 rounded text-gray-300 hover:text-green-400 transition-all group"
                 title="Load to track">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </button>
               <!-- Add to Playlist -->
@@ -237,11 +238,12 @@
               <!-- Overlay buttons -->
               <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-70 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                 <button @click="$emit('select-file', file)"
-                  class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-blue-500 hover:bg-blue-500/20 rounded-lg text-gray-300 hover:text-blue-400 transition-all"
+                  class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-green-500 hover:bg-green-500/20 rounded-lg text-gray-300 hover:text-green-400 transition-all"
                   title="Load to track">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </button>
                 <!-- Add to Playlist -->
@@ -344,11 +346,12 @@
                 </div>
                 <div class="flex items-center gap-1">
                   <button @click="$emit('select-file', file)"
-                    class="p-2 border border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 rounded text-gray-300 hover:text-blue-400 transition-all"
+                    class="p-2 border border-gray-600 hover:border-green-500 hover:bg-green-500/10 rounded text-gray-300 hover:text-green-400 transition-all"
                     title="Load to track">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </button>
                   <!-- Add to Playlist -->
@@ -410,11 +413,12 @@
                     <!-- Overlay buttons -->
                     <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-70 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                       <button @click="$emit('select-file', file)"
-                        class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-blue-500 hover:bg-blue-500/20 rounded-lg text-gray-300 hover:text-blue-400 transition-all"
+                        class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-green-500 hover:bg-green-500/20 rounded-lg text-gray-300 hover:text-green-400 transition-all"
                         title="Load to track">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </button>
                       <!-- Add to Playlist -->
