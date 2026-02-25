@@ -21,8 +21,8 @@ const props = defineProps<Props>()
 const detectedBPM = ref<number | null>(null)
 
 // Watch for audio buffer changes and detect BPM
-watch(() => props.audioBuffer, (newBuffer) => {
-  if (newBuffer && props.audioSourceType === 'file') {
+watch(() => [props.audioBuffer, props.audioLoaded, props.audioSourceType] as const, ([newBuffer, loaded, sourceType]) => {
+  if (newBuffer && loaded && sourceType === 'file') {
     detectBPM(newBuffer)
   } else {
     detectedBPM.value = null
@@ -31,13 +31,12 @@ watch(() => props.audioBuffer, (newBuffer) => {
 
 // Detect BPM from audio buffer using web-audio-beat-detector
 async function detectBPM(audioBuffer: AudioBuffer) {
-  if (!audioBuffer) {
+  if (!audioBuffer || !audioBuffer.duration || audioBuffer.duration <= 0) {
     detectedBPM.value = null
     return
   }
 
   try {
-    console.log('🎵 Detecting BPM with web-audio-beat-detector...')
     const tempo = await BeatDetector.analyze(audioBuffer)
     
     if (tempo && typeof tempo === 'number') {
@@ -60,18 +59,12 @@ async function detectBPM(audioBuffer: AudioBuffer) {
         correctedTempo = tempo * 2
       }
       
-      if (correctedTempo !== tempo) {
-        console.log(`🎯 Corrected: ${tempo.toFixed(1)} BPM -> ${correctedTempo.toFixed(1)} BPM`)
-      }
-      
       detectedBPM.value = correctedTempo
-      console.log(`✅ Final BPM: ${correctedTempo.toFixed(1)}`)
     } else {
       detectedBPM.value = null
-      console.log('❌ Could not detect BPM')
     }
   } catch (error) {
-    console.error('Error detecting BPM:', error)
+    // Silently handle BPM detection failures (e.g., tracks without detectable beats)
     detectedBPM.value = null
   }
 }

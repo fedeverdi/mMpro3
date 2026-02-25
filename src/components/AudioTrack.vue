@@ -1229,9 +1229,7 @@ async function loadFileFromLibrary(storedFile: any, preservePlaylist = false) {
         loop: nextTrack ? false : true, // Don't loop if there's a next track
         playbackRate: 1.0,
         onstop: () => {
-          console.log('⏹️ Player stopped, manualStop:', manualStop, 'nextTrack:', nextTrack?.title || nextTrack?.fileName)
           if (!manualStop && nextTrack) {
-            console.log('🎵 Auto-loading and starting next track')
             loadFileFromLibrary(nextTrack, true).then(() => {
               if (player) {
                 manualStop = false
@@ -1265,10 +1263,8 @@ async function loadFileFromLibrary(storedFile: any, preservePlaylist = false) {
     if (currentPlaylist.value && playlistFiles.length > 0) {
       const nextIndex = (currentPlaylistIndex + 1) % playlistFiles.length
       nextTrack = playlistFiles[nextIndex]
-      console.log('✅ Next track set:', nextTrack.title || nextTrack.fileName, `(${nextIndex + 1}/${playlistFiles.length})`)
     } else {
       nextTrack = null
-      console.log('✅ Single file mode, no next track')
     }
     
     await nextTick()
@@ -1287,14 +1283,12 @@ async function handlePlaylistTrackEnd() {
   
   // Check if we reached the end of the playlist
   if (currentPlaylistIndex >= playlistFiles.length) {
-    console.log(`✓ Playlist "${currentPlaylist.value.name}" finished`)
     // Loop back to start
     currentPlaylistIndex = 0
   }
   
   // Auto-load next track
   const nextFile = playlistFiles[currentPlaylistIndex]
-  console.log(`→ Loading next track: ${nextFile.title || nextFile.fileName} (${currentPlaylistIndex + 1}/${playlistFiles.length})`)
   
   await loadFileFromLibrary(nextFile, true) // preserve playlist state
   const trackName = nextFile.title || nextFile.fileName
@@ -1319,6 +1313,10 @@ async function loadPlaylistFromLibrary(playlist: any) {
   }
 
   try {
+    // Reset state to avoid BPM detection on old data
+    audioLoaded.value = false
+    currentAudioBuffer = null
+    
     // Import usePlaylist to get files
     const { usePlaylist } = await import('~/composables/usePlaylist')
     const { getPlaylistFiles } = usePlaylist()
@@ -1337,8 +1335,6 @@ async function loadPlaylistFromLibrary(playlist: any) {
     // Load first file (preserve playlist state)
     await loadFileFromLibrary(files[0], true)
     
-    // Show notification that playlist was loaded
-    console.log(`✓ Loaded playlist "${playlist.name}" (${files.length} tracks) - playing first track`)
     const trackName = files[0].title || files[0].fileName
     const trackDisplay = files[0].artist ? `${files[0].artist} - ${trackName}` : trackName
     fileName.value = `${playlist.name} (1/${files.length}) - ${trackDisplay}`
@@ -1472,7 +1468,6 @@ async function loadAudioFile(file: File, name: string) {
         loop: nextTrack ? false : true,
         playbackRate: 1.0,
         onstop: () => {
-          console.log('⏹️ Player stopped (loadAudioFile), manualStop:', manualStop, 'nextTrack:', !!nextTrack)
           if (!manualStop && nextTrack) {
             loadFileFromLibrary(nextTrack, true).then(() => {
               if (player) {
@@ -1602,7 +1597,6 @@ async function loadFileFromIndexedDB(savedFileId: string, silent: boolean = fals
         fadeIn: 0.01,   // Prevent resampling artifacts
         fadeOut: 0.01,   // Prevent clicks on stop
         onstop: () => {
-          console.log('⏹️ Player stopped (loadFromIndexedDB), manualStop:', manualStop, 'nextTrack:', !!nextTrack)
           if (!manualStop && nextTrack) {
             loadFileFromLibrary(nextTrack, true).then(() => {
               if (player) {
@@ -1933,7 +1927,6 @@ async function togglePlay() {
         fadeIn: 0.01,
         fadeOut: 0.01,
         onstop: () => {
-          console.log('⏹️ Player stopped (togglePlay), manualStop:', manualStop, 'nextTrack:', !!nextTrack)
           if (!manualStop && nextTrack) {
             loadFileFromLibrary(nextTrack, true).then(() => {
               if (player) {
@@ -1982,7 +1975,6 @@ async function togglePlay() {
       
       // Load and play next track
       const nextFile = playlistFiles[currentPlaylistIndex]
-      console.log(`⏭️ Skipping to next track: ${nextFile.title || nextFile.fileName} (${currentPlaylistIndex + 1}/${playlistFiles.length})`)
       
       await loadFileFromLibrary(nextFile, true) // preserve playlist state
       const trackName = nextFile.title || nextFile.fileName
@@ -2274,7 +2266,6 @@ defineExpose({
         fadeIn: 0.01,
         fadeOut: 0.01,
         onstop: () => {
-          console.log('⏹️ Player stopped (startPlayback), manualStop:', manualStop, 'nextTrack:', !!nextTrack)
           if (!manualStop && nextTrack) {
             loadFileFromLibrary(nextTrack, true).then(() => {
               if (player) {
