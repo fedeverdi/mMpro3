@@ -43,6 +43,23 @@
         </div>
       </div>
 
+      <!-- Search Bar -->
+      <div class="px-4 pb-3 border-b border-gray-700">
+        <div class="relative">
+          <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input v-model="searchQuery" type="text" placeholder="Search files..."
+            class="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" />
+          <button v-if="searchQuery" @click="searchQuery = ''"
+            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <!-- Files List -->
       <div class="flex-1 overflow-y-auto p-4">
         <div v-if="isLoading" class="flex items-center justify-center h-32">
@@ -52,6 +69,15 @@
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
             </path>
           </svg>
+        </div>
+
+        <div v-else-if="filteredFiles.length === 0 && files.length > 0" class="text-center py-12">
+          <svg class="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <p class="text-gray-400 text-lg">No files match your search</p>
+          <p class="text-gray-500 text-sm mt-2">Try a different search term</p>
         </div>
 
         <div v-else-if="files.length === 0" class="text-center py-12">
@@ -64,7 +90,7 @@
         </div>
 
         <div v-else class="grid gap-2">
-          <div v-for="file in sortedFiles" :key="file.id"
+          <div v-for="file in filteredFiles" :key="file.id"
             class="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors group">
             <div class="flex items-center gap-3 flex-1 min-w-0">
               <svg class="w-8 h-8 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -95,7 +121,12 @@
       <!-- Footer -->
       <div class="p-4 border-t border-gray-700 flex items-center justify-between">
         <div class="text-sm text-gray-400">
-          {{ files.length }} file{{ files.length !== 1 ? 's' : '' }} in library
+          <span v-if="searchQuery && filteredFiles.length !== files.length">
+            {{ filteredFiles.length }} of {{ files.length }} file{{ files.length !== 1 ? 's' : '' }}
+          </span>
+          <span v-else>
+            {{ files.length }} file{{ files.length !== 1 ? 's' : '' }} in library
+          </span>
         </div>
         <button @click="close"
           class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white font-semibold transition-colors">
@@ -136,9 +167,21 @@ const isLoading = ref(false)
 const isUploading = ref(false)
 const uploadProgress = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
+const searchQuery = ref('')
 
 const sortedFiles = computed(() => {
   return [...files.value].sort((a, b) => b.timestamp - a.timestamp)
+})
+
+const filteredFiles = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return sortedFiles.value
+  }
+  
+  const query = searchQuery.value.toLowerCase()
+  return sortedFiles.value.filter(file => 
+    file.fileName.toLowerCase().includes(query)
+  )
 })
 
 async function loadFiles() {
