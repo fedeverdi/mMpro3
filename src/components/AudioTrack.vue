@@ -580,6 +580,8 @@ let audioContextStarted: boolean = false // Track if Tone.start() has been calle
 const currentPlaylist = ref<any>(null)
 let playlistFiles: any[] = []
 let currentPlaylistIndex = 0
+let nextTrack: any = null // Next track to play (null for single files, set for playlists)
+let manualStop = false // Flag to distinguish manual stop from natural track end
 
 // Aux sends: Map of aux bus ID to { node, preFader }
 const auxSendNodes = new Map<string, { node: any, preFader: boolean }>()
@@ -1224,9 +1226,25 @@ async function loadFileFromLibrary(storedFile: any, preservePlaylist = false) {
 
       player = new Tone.Player({
         url: audioBuffer,
-        loop: currentPlaylist.value ? false : true, // Don't loop when playing playlist
+        loop: nextTrack ? false : true, // Don't loop if there's a next track
         playbackRate: 1.0,
-        onended: currentPlaylist.value ? handlePlaylistTrackEnd : undefined,
+        onstop: () => {
+          console.log('⏹️ Player stopped, manualStop:', manualStop, 'nextTrack:', nextTrack?.title || nextTrack?.fileName)
+          if (!manualStop && nextTrack) {
+            console.log('🎵 Auto-loading and starting next track')
+            loadFileFromLibrary(nextTrack, true).then(() => {
+              if (player) {
+                manualStop = false
+                player.start()
+                isPlaying.value = true
+                waveformDisplayRef.value?.start()
+                startPlaybackTimeTracking()
+              }
+            })
+          } else {
+            manualStop = false // Reset flag
+          }
+        },
       })
       player.connect(padNode)
     }
@@ -1242,6 +1260,17 @@ async function loadFileFromLibrary(storedFile: any, preservePlaylist = false) {
 
     audioLoaded.value = true
     isLoading.value = false
+    
+    // Set next track if in playlist mode
+    if (currentPlaylist.value && playlistFiles.length > 0) {
+      const nextIndex = (currentPlaylistIndex + 1) % playlistFiles.length
+      nextTrack = playlistFiles[nextIndex]
+      console.log('✅ Next track set:', nextTrack.title || nextTrack.fileName, `(${nextIndex + 1}/${playlistFiles.length})`)
+    } else {
+      nextTrack = null
+      console.log('✅ Single file mode, no next track')
+    }
+    
     await nextTick()
   } catch (error) {
     console.error('❌ Error loading audio from library:', error)
@@ -1276,6 +1305,7 @@ async function handlePlaylistTrackEnd() {
   if (isPlaying.value) {
     await nextTick()
     if (player && typeof player.start === 'function') {
+      manualStop = false
       player.start()
     }
   }
@@ -1439,9 +1469,24 @@ async function loadAudioFile(file: File, name: string) {
       // Create new Tone.Player
       player = new Tone.Player({
         url: audioBuffer,
-        loop: currentPlaylist.value ? false : true, // Don't loop when playing playlist
+        loop: nextTrack ? false : true,
         playbackRate: 1.0,
-        onended: currentPlaylist.value ? handlePlaylistTrackEnd : undefined,
+        onstop: () => {
+          console.log('⏹️ Player stopped (loadAudioFile), manualStop:', manualStop, 'nextTrack:', !!nextTrack)
+          if (!manualStop && nextTrack) {
+            loadFileFromLibrary(nextTrack, true).then(() => {
+              if (player) {
+                manualStop = false
+                player.start()
+                isPlaying.value = true
+                waveformDisplayRef.value?.start()
+                startPlaybackTimeTracking()
+              }
+            })
+          } else {
+            manualStop = false
+          }
+        },
       })
       player.connect(padNode)
     }
@@ -1552,11 +1597,26 @@ async function loadFileFromIndexedDB(savedFileId: string, silent: boolean = fals
       // Create new Tone.Player
       player = new Tone.Player({
         url: audioBuffer,
-        loop: currentPlaylist.value ? false : true, // Don't loop when playing playlist
+        loop: nextTrack ? false : true,
         playbackRate: 1.0,
         fadeIn: 0.01,   // Prevent resampling artifacts
         fadeOut: 0.01,   // Prevent clicks on stop
-        onended: currentPlaylist.value ? handlePlaylistTrackEnd : undefined,
+        onstop: () => {
+          console.log('⏹️ Player stopped (loadFromIndexedDB), manualStop:', manualStop, 'nextTrack:', !!nextTrack)
+          if (!manualStop && nextTrack) {
+            loadFileFromLibrary(nextTrack, true).then(() => {
+              if (player) {
+                manualStop = false
+                player.start()
+                isPlaying.value = true
+                waveformDisplayRef.value?.start()
+                startPlaybackTimeTracking()
+              }
+            })
+          } else {
+            manualStop = false
+          }
+        },
       })
       player.connect(padNode)
     }
@@ -1868,11 +1928,26 @@ async function togglePlay() {
       // Recreate player with same buffer
       player = new Tone.Player({
         url: currentAudioBuffer,
-        loop: currentPlaylist.value ? false : true, // Don't loop when playing playlist
+        loop: nextTrack ? false : true,
         playbackRate: 1.0,
         fadeIn: 0.01,
         fadeOut: 0.01,
-        onended: currentPlaylist.value ? handlePlaylistTrackEnd : undefined,
+        onstop: () => {
+          console.log('⏹️ Player stopped (togglePlay), manualStop:', manualStop, 'nextTrack:', !!nextTrack)
+          if (!manualStop && nextTrack) {
+            loadFileFromLibrary(nextTrack, true).then(() => {
+              if (player) {
+                manualStop = false
+                player.start()
+                isPlaying.value = true
+                waveformDisplayRef.value?.start()
+                startPlaybackTimeTracking()
+              }
+            })
+          } else {
+            manualStop = false
+          }
+        },
       })
 
       // Reconnect to audio chain
@@ -1881,6 +1956,7 @@ async function togglePlay() {
 
     // Start with future time for more stable playback
     const startTime = Tone.now() + 0.05  // 50ms in future
+    manualStop = false
     player.start(startTime)
     isPlaying.value = true
 
@@ -1893,6 +1969,7 @@ async function togglePlay() {
     // If playlist is playing, skip to next track instead of stopping
     if (currentPlaylist.value && playlistFiles.length > 0) {
       // Stop current track
+      manualStop = true
       player.stop()
       isPlaying.value = false
       stopPlaybackTimeTracking()
@@ -1916,6 +1993,7 @@ async function togglePlay() {
       await nextTick()
       if (player && typeof player.start === 'function') {
         const startTime = Tone.now() + 0.05
+        manualStop = false
         player.start(startTime)
         isPlaying.value = true
         waveformDisplayRef.value?.start()
@@ -1923,6 +2001,7 @@ async function togglePlay() {
       }
     } else {
       // No playlist: stop playback normally
+      manualStop = true
       player.stop()
       isPlaying.value = false
 
@@ -1948,6 +2027,7 @@ function stopAudio() {
   if (!player || !audioLoaded.value) return
 
   // Stop player
+  manualStop = true
   player.stop()
   isPlaying.value = false
 
@@ -2189,17 +2269,33 @@ defineExpose({
 
       player = new Tone.Player({
         url: currentAudioBuffer,
-        loop: currentPlaylist.value ? false : true, // Don't loop when playing playlist
+        loop: nextTrack ? false : true,
         playbackRate: 1.0,
         fadeIn: 0.01,
         fadeOut: 0.01,
-        onended: currentPlaylist.value ? handlePlaylistTrackEnd : undefined,
+        onstop: () => {
+          console.log('⏹️ Player stopped (startPlayback), manualStop:', manualStop, 'nextTrack:', !!nextTrack)
+          if (!manualStop && nextTrack) {
+            loadFileFromLibrary(nextTrack, true).then(() => {
+              if (player) {
+                manualStop = false
+                player.start()
+                isPlaying.value = true
+                waveformDisplayRef.value?.start()
+                startPlaybackTimeTracking()
+              }
+            })
+          } else {
+            manualStop = false
+          }
+        },
       })
 
       player.connect(padNode)
     }
 
     const startTime = Tone.now() + 0.05
+    manualStop = false
     player.start(startTime)
     isPlaying.value = true
 
@@ -2221,6 +2317,7 @@ defineExpose({
     // For file playback
     if (!player || !audioLoaded.value) return
 
+    manualStop = true
     player.stop()
     isPlaying.value = false
     waveformDisplayRef.value?.stop()
@@ -2239,6 +2336,7 @@ defineExpose({
     // For file playback
     if (!player || !audioLoaded.value) return
 
+    manualStop = true
     player.stop()
     isPlaying.value = false
     currentPlaybackTime.value = 0
