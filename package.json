@@ -7,6 +7,7 @@
   "private": true,
   "scripts": {
     "start": "electron-forge start",
+    "dev:browser": "vite --config vite.renderer.config.mjs",
     "package": "electron-forge package",
     "pack": "sh ./build-and-sign.sh",
     "make": "electron-forge make",

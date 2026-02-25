@@ -1783,7 +1783,11 @@ onMounted(async () => {
     }
 
     // Enumerate audio devices ONCE for all tracks
-    await enumerateAudioInputs()
+    // Don't await - let it run in background and don't block app startup
+    enumerateAudioInputs().catch((error) => {
+        console.warn('[Index] Failed to enumerate audio inputs (likely permission denied):', error)
+        // App will still work, but audio input selection might be limited
+    })
 
     // Wait for next tick to ensure all components are ready
     await nextTick()

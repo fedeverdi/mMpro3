@@ -16,10 +16,21 @@
         <!-- Logo -->
         <h1 class="logo">mMpro3</h1>
         
-        <!-- Loading Animation -->
-        <div class="loading-container">
+        <!-- Loading Animation or Start Button -->
+        <div v-if="!readyToStart" class="loading-container">
           <div class="spinner"></div>
-          <p class="loading-text">Please wait...</p>
+          <p class="loading-text">Initializing...</p>
+        </div>
+        
+        <!-- Start Button (shown when ready) -->
+        <div v-else class="start-container">
+          <button @click="handleStart" class="start-button">
+            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+            </svg>
+            <span>Click to Start</span>
+          </button>
+          <p class="text-xs text-gray-500 mt-3">Audio will be enabled after you click</p>
         </div>
       </div>
     </div>
@@ -27,13 +38,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
 const visible = ref(true)
+const readyToStart = ref(false)
+
+const emit = defineEmits<{
+  start: []
+}>()
 
 const hide = () => {
   visible.value = false
 }
+
+const handleStart = () => {
+  emit('start')
+  hide()
+}
+
+// Show start button after a short delay
+onMounted(() => {
+  setTimeout(() => {
+    readyToStart.value = true
+  }, 1500)
+})
 
 // Generate random styles for particles
 const getParticleStyle = (index: number) => {
@@ -142,11 +170,44 @@ defineExpose({ hide })
   animation: pulse 2s ease-in-out infinite;
 }
 
-.loading-container {
+.loading-container,
+.start-container {
+  margin-top: 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+}
+
+.start-button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  color: white;
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(96, 165, 250, 0.3);
+}
+
+.start-button:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 0 30px rgba(96, 165, 250, 0.5);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.start-button:active {
+  transform: translateY(0) scale(1);
+}
+
+.start-button svg {
+  width: 2rem;
+  height: 2rem;
 }
 
 .spinner {

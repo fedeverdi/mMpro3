@@ -21,6 +21,13 @@ export function useAudioDevices() {
     if (devicesEnumerated) {
       return
     }
+
+    // Check if mediaDevices API is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      console.warn('[useAudioDevices] mediaDevices API not available')
+      devicesEnumerated = true
+      return
+    }
     
     // Start enumeration
     enumerationPromise = (async () => {
@@ -30,7 +37,8 @@ export function useAudioDevices() {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
           stream.getTracks().forEach(track => track.stop())
         } catch (permError) {
-          console.warn('[useAudioDevices] Permission denied for device labels')
+          console.warn('[useAudioDevices] Permission denied for device labels, continuing with limited info')
+          // Continue anyway - we can still list devices without labels
         }
         
         const devices = await navigator.mediaDevices.enumerateDevices()
@@ -99,6 +107,13 @@ export function useAudioDevices() {
     
     // If already enumerated, return immediately
     if (outputDevicesEnumerated) {
+      return
+    }
+
+    // Check if mediaDevices API is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      console.warn('[useAudioDevices] mediaDevices API not available')
+      outputDevicesEnumerated = true
       return
     }
     
