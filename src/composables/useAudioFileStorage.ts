@@ -15,6 +15,7 @@ interface StoredAudioFile {
   timestamp: number
   artist?: string
   title?: string
+  artwork?: string // base64 encoded image
 }
 
 export function useAudioFileStorage() {
@@ -43,12 +44,24 @@ export function useAudioFileStorage() {
   }
 
   // Extract metadata from audio file using music-metadata
-  async function extractMetadata(file: File): Promise<{ artist: string; title: string }> {
+  async function extractMetadata(file: File): Promise<{ artist: string; title: string; artwork?: string }> {
     try {
       const metadata = await parseBlob(file)
       const artist = metadata.common.artist || 'Unknown Artist'
       const title = metadata.common.title || file.name.replace(/\.[^/.]+$/, '')
-      return { artist, title }
+      
+      // Extract artwork if available
+      let artwork: string | undefined
+      if (metadata.common.picture && metadata.common.picture.length > 0) {
+        const picture = metadata.common.picture[0]
+        // Convert Buffer to base64
+        const base64 = btoa(
+          new Uint8Array(picture.data).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        )
+        artwork = `data:${picture.format};base64,${base64}`
+      }
+      
+      return { artist, title, artwork }
     } catch (error) {
       // Fallback to filename parsing if tags are not available
       const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '')
@@ -84,7 +97,8 @@ export function useAudioFileStorage() {
       mimeType: file.type,
       timestamp: Date.now(),
       artist: metadata.artist,
-      title: metadata.title
+      title: metadata.title,
+      artwork: metadata.artwork
     }
 
     return new Promise((resolve, reject) => {

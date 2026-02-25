@@ -114,7 +114,11 @@
           <div v-for="file in filteredFiles" :key="file.id"
             class="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors group">
             <div class="flex items-center gap-3 flex-1 min-w-0">
-              <svg class="w-8 h-8 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <!-- Artwork or default icon -->
+              <div v-if="file.artwork" class="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+                <img :src="file.artwork" :alt="file.title || file.fileName" class="w-full h-full object-cover" />
+              </div>
+              <svg v-else class="w-12 h-12 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
@@ -172,13 +176,17 @@
             <div v-if="expandedArtists.has(artistGroup.artist)" class="bg-gray-950 border-t border-gray-700">
               <div v-for="file in artistGroup.files" :key="file.id"
                 class="flex items-center justify-between p-3 border-b border-gray-800 last:border-b-0 hover:bg-gray-900 transition-colors">
-                <div class="flex items-center gap-3 flex-1 min-w-0">
-                  <svg class="w-6 h-6 text-blue-400 flex-shrink-0 ml-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="flex items-center gap-3 flex-1 min-w-0 ml-8">
+                  <!-- Artwork or default icon -->
+                  <div v-if="file.artwork" class="w-10 h-10 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+                    <img :src="file.artwork" :alt="file.title || file.fileName" class="w-full h-full object-cover" />
+                  </div>
+                  <svg v-else class="w-10 h-10 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                   </svg>
                   <div class="flex-1 min-w-0">
-                      <p class="text-white text-sm truncate">{{ file.title || file.fileName }}</p>
+                    <p class="text-white text-sm truncate">{{ file.title || file.fileName }}</p>
                     <p class="text-gray-500 text-xs">{{ formatDate(file.timestamp) }} • {{ formatSize(file) }}</p>
                   </div>
                 </div>
@@ -231,6 +239,7 @@ interface StoredAudioFile {
   timestamp: number
   artist?: string
   title?: string
+  artwork?: string
 }
 
 interface Props {
