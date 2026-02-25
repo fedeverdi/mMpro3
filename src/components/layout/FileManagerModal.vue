@@ -22,7 +22,7 @@
       <!-- Upload Section -->
       <div class="p-4 border-b border-gray-700">
         <div class="flex items-center gap-3">
-          <input type="file" ref="fileInput" @change="handleFileUpload" accept="audio/*" class="hidden" />
+          <input type="file" ref="fileInput" @change="handleFileUpload" accept="audio/*" multiple class="hidden" />
           <button @click="fileInput?.click()" :disabled="isUploading"
             class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white font-semibold transition-colors">
             <svg v-if="!isUploading" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,7 +35,7 @@
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
               </path>
             </svg>
-            <span>{{ isUploading ? 'Uploading...' : 'Upload Audio File' }}</span>
+            <span>{{ isUploading ? 'Uploading...' : 'Upload Audio Files' }}</span>
           </button>
           <div v-if="uploadProgress" class="text-sm text-gray-400">
             {{ uploadProgress }}
@@ -197,38 +197,53 @@ async function loadFiles() {
 
 async function handleFileUpload(event: Event) {
   const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (!file) return
+  const selectedFiles = target.files
+  if (!selectedFiles || selectedFiles.length === 0) return
 
   isUploading.value = true
-  uploadProgress.value = `Checking ${file.name}...`
+  const totalFiles = selectedFiles.length
+  let uploadedCount = 0
+  let skippedCount = 0
+  let failedCount = 0
 
   try {
-    // Check for duplicates
-    const fileArrayBuffer = await file.arrayBuffer()
-    const isDuplicate = await checkIfDuplicate(fileArrayBuffer, file.name, file.size)
-    
-    if (isDuplicate) {
-      uploadProgress.value = 'File already exists in library!'
-      
-      // Clear input
-      if (fileInput.value) {
-        fileInput.value.value = ''
+    // Process each file
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i]
+      uploadProgress.value = `Checking ${file.name} (${i + 1}/${totalFiles})...`
+
+      try {
+        // Check for duplicates
+        const fileArrayBuffer = await file.arrayBuffer()
+        const isDuplicate = await checkIfDuplicate(fileArrayBuffer, file.name, file.size)
+        
+        if (isDuplicate) {
+          uploadProgress.value = `Skipped: ${file.name} (already exists)`
+          skippedCount++
+          await new Promise(resolve => setTimeout(resolve, 500))
+          continue
+        }
+
+        uploadProgress.value = `Uploading ${file.name} (${i + 1}/${totalFiles})...`
+        
+        // Need to re-create File object from ArrayBuffer since we consumed it
+        const newFile = new File([fileArrayBuffer], file.name, { type: file.type })
+        await saveAudioFile(newFile)
+        uploadedCount++
+        
+      } catch (error) {
+        console.error(`Failed to upload ${file.name}:`, error)
+        failedCount++
       }
-
-      setTimeout(() => {
-        uploadProgress.value = ''
-        isUploading.value = false
-      }, 3000)
-      return
     }
-
-    uploadProgress.value = `Uploading ${file.name}...`
     
-    // Need to re-create File object from ArrayBuffer since we consumed it
-    const newFile = new File([fileArrayBuffer], file.name, { type: file.type })
-    const fileId = await saveAudioFile(newFile)
-    uploadProgress.value = 'File uploaded successfully!'
+    // Show summary
+    const summaryParts = []
+    if (uploadedCount > 0) summaryParts.push(`${uploadedCount} uploaded`)
+    if (skippedCount > 0) summaryParts.push(`${skippedCount} skipped`)
+    if (failedCount > 0) summaryParts.push(`${failedCount} failed`)
+    
+    uploadProgress.value = summaryParts.join(', ') + '!'
     
     // Reload files list
     await loadFiles()
@@ -240,9 +255,9 @@ async function handleFileUpload(event: Event) {
 
     setTimeout(() => {
       uploadProgress.value = ''
-    }, 2000)
+    }, 3000)
   } catch (error) {
-    console.error('Failed to upload file:', error)
+    console.error('Failed to upload files:', error)
     uploadProgress.value = 'Upload failed!'
     setTimeout(() => {
       uploadProgress.value = ''
