@@ -60,8 +60,8 @@
           class="flex-1 px-2 truncate py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 transition-colors">
           {{ fileName || 'Load Audio' }}
         </button>
-        <!-- Library button (Electron only) - Small square icon button -->
-        <button v-if="fileManagerAPI?.isAvailable" @click="openLibrary"
+        <!-- Library button - Small square icon button -->
+        <button v-if="fileManagerAPI" @click="openLibrary"
           class="w-7 h-7 flex-shrink-0 bg-blue-700 hover:bg-blue-600 rounded border border-blue-600 transition-colors flex items-center justify-center"
           title="Open Audio Library">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

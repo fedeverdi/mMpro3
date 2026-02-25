@@ -46,8 +46,8 @@
                         Scenes
                     </button>
 
-                    <!-- File Manager Button (Electron only) -->
-                    <button v-if="isElectron" @click="showFileManager = true"
+                    <!-- File Manager Button -->
+                    <button @click="showFileManager = true"
                         class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs font-semibold transition-colors flex items-center gap-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -451,11 +451,6 @@ let Tone: any = null
 const toneReady = ref(false)
 const masterChannel = ref<any>(null)
 
-// Check if running in Electron
-const isElectron = computed(() => {
-  return navigator.userAgent.toLowerCase().includes('electron')
-})
-
 // Subgroups system
 interface Subgroup {
     id: number
@@ -573,8 +568,7 @@ function findFirstFreeAudioTrack(): number | null {
 
 // Provide file manager API to child components
 provide('fileManager', {
-    openFileManager: openFileManagerForTrack,
-    isAvailable: isElectron
+    openFileManager: openFileManagerForTrack
 })
 
 // Tracks management
