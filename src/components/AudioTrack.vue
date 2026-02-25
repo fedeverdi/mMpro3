@@ -346,7 +346,7 @@ const automation = inject<any>('automation', null)
 // Inject file manager (Electron only)
 const fileManagerAPI = inject<any>('fileManager', null)
 
-const { saveAudioFile, getAudioFile } = useAudioFileStorage()
+const { saveAudioFile, getAudioFile, getAllAudioFiles } = useAudioFileStorage()
 
 interface Props {
   trackNumber: number
@@ -1218,6 +1218,45 @@ async function loadFileFromLibrary(storedFile: any) {
   }
 }
 
+// Compare two Uint8Arrays for equality
+function areArrayBuffersEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false
+  
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false
+  }
+  
+  return true
+}
+
+// Check if file already exists in library
+async function checkIfDuplicate(newBuffer: ArrayBuffer, fileName: string, fileSize: number): Promise<string | null> {
+  const allFiles = await getAllAudioFiles()
+  
+  // First check by file name and size for quick rejection
+  const potentialDuplicates = allFiles.filter(
+    f => f.fileName === fileName && f.arrayBuffer.byteLength === fileSize
+  )
+  
+  if (potentialDuplicates.length === 0) {
+    return null
+  }
+  
+  // If name and size match, compare ArrayBuffers byte by byte
+  const newBytes = new Uint8Array(newBuffer)
+  
+  for (const existingFile of potentialDuplicates) {
+    const existingBytes = new Uint8Array(existingFile.arrayBuffer)
+    
+    // Compare buffers
+    if (areArrayBuffersEqual(newBytes, existingBytes)) {
+      return existingFile.id // Return the ID of the existing file
+    }
+  }
+  
+  return null
+}
+
 // Shared function to load audio file
 async function loadAudioFile(file: File, name: string) {
   // Initialize audio nodes on first use
@@ -1227,12 +1266,20 @@ async function loadAudioFile(file: File, name: string) {
   isLoading.value = true
 
   try {
-    // Save file to IndexedDB for scene persistence
-    const savedFileId = await saveAudioFile(file)
-    fileId.value = savedFileId
-
     // Create buffer from file
     const arrayBuffer = await file.arrayBuffer()
+    
+    // Check if file already exists in library
+    const existingFileId = await checkIfDuplicate(arrayBuffer, file.name, file.size)
+    
+    if (existingFileId) {
+      // File already exists, use existing ID
+      fileId.value = existingFileId
+    } else {
+      // New file, save to IndexedDB
+      const savedFileId = await saveAudioFile(file)
+      fileId.value = savedFileId
+    }
     const audioBuffer = await Tone.context.decodeAudioData(arrayBuffer)
 
     // Check if we need to create a new player or just swap buffer
