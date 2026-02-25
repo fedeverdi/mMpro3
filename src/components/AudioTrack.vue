@@ -1172,7 +1172,8 @@ async function loadFileFromLibrary(storedFile: any, preservePlaylist = false) {
 
   // The file is already in IndexedDB, just use its ID
   fileId.value = storedFile.id
-  fileName.value = storedFile.fileName
+  const displayName = storedFile.title || storedFile.fileName
+  fileName.value = storedFile.artist ? `${storedFile.artist} - ${displayName}` : displayName
   isLoading.value = true
 
   try {
@@ -1267,7 +1268,9 @@ async function handlePlaylistTrackEnd() {
   console.log(`→ Loading next track: ${nextFile.title || nextFile.fileName} (${currentPlaylistIndex + 1}/${playlistFiles.length})`)
   
   await loadFileFromLibrary(nextFile, true) // preserve playlist state
-  fileName.value = `${currentPlaylist.value.name} (${currentPlaylistIndex + 1}/${playlistFiles.length}) - ${nextFile.title || nextFile.fileName}`
+  const trackName = nextFile.title || nextFile.fileName
+  const trackDisplay = nextFile.artist ? `${nextFile.artist} - ${trackName}` : trackName
+  fileName.value = `${currentPlaylist.value.name} (${currentPlaylistIndex + 1}/${playlistFiles.length}) - ${trackDisplay}`
   
   // Auto-play next track if currently playing
   if (isPlaying.value) {
@@ -1306,7 +1309,9 @@ async function loadPlaylistFromLibrary(playlist: any) {
     
     // Show notification that playlist was loaded
     console.log(`✓ Loaded playlist "${playlist.name}" (${files.length} tracks) - playing first track`)
-    fileName.value = `${playlist.name} (1/${files.length}) - ${files[0].title || files[0].fileName}`
+    const trackName = files[0].title || files[0].fileName
+    const trackDisplay = files[0].artist ? `${files[0].artist} - ${trackName}` : trackName
+    fileName.value = `${playlist.name} (1/${files.length}) - ${trackDisplay}`
     
   } catch (error) {
     console.error('❌ Error loading playlist:', error)
@@ -1903,7 +1908,9 @@ async function togglePlay() {
       console.log(`⏭️ Skipping to next track: ${nextFile.title || nextFile.fileName} (${currentPlaylistIndex + 1}/${playlistFiles.length})`)
       
       await loadFileFromLibrary(nextFile, true) // preserve playlist state
-      fileName.value = `${currentPlaylist.value.name} (${currentPlaylistIndex + 1}/${playlistFiles.length}) - ${nextFile.title || nextFile.fileName}`
+      const trackName = nextFile.title || nextFile.fileName
+      const trackDisplay = nextFile.artist ? `${nextFile.artist} - ${trackName}` : trackName
+      fileName.value = `${currentPlaylist.value.name} (${currentPlaylistIndex + 1}/${playlistFiles.length}) - ${trackDisplay}`
       
       // Auto-start playback
       await nextTick()
