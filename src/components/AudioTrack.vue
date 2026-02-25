@@ -1938,6 +1938,7 @@ defineExpose({
   isSolo: () => isSolo.value,
   disconnectFromSubgroup, // Expose for cleanup when subgroup is removed
   loadFileFromLibrary, // Expose for file manager integration
+  isAudioLoaded: () => audioLoaded.value && audioSourceType.value === 'file', // Check if track has a file loaded
   
   // Automation control - set values without triggering recording
   setVolume: (value: number, skipRecording = false) => {

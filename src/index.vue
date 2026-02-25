@@ -537,14 +537,38 @@ function openFileManagerForTrack(trackId: number) {
 }
 
 function handleFileManagerSelect(file: any) {
-    if (fileManagerTargetTrackId.value !== null) {
-        const trackRef = trackRefs.value.get(fileManagerTargetTrackId.value)
-        if (trackRef && trackRef.loadFileFromLibrary) {
-            trackRef.loadFileFromLibrary(file)
+    let targetTrackId = fileManagerTargetTrackId.value
+    
+    // If no specific track was selected (opened from top bar), find first free audio track
+    if (targetTrackId === null) {
+        targetTrackId = findFirstFreeAudioTrack()
+        if (targetTrackId === null) {
+            alert('No free audio tracks available. All tracks have files loaded.')
+            showFileManager.value = false
+            return
         }
-        fileManagerTargetTrackId.value = null
     }
+    
+    const trackRef = trackRefs.value.get(targetTrackId)
+    if (trackRef && trackRef.loadFileFromLibrary) {
+        trackRef.loadFileFromLibrary(file)
+    }
+    
+    fileManagerTargetTrackId.value = null
     showFileManager.value = false
+}
+
+// Find first audio track without a file loaded
+function findFirstFreeAudioTrack(): number | null {
+    for (const track of sortedTracks.value) {
+        if (track.type === 'audio') {
+            const trackRef = trackRefs.value.get(track.id)
+            if (trackRef && trackRef.isAudioLoaded && !trackRef.isAudioLoaded()) {
+                return track.id
+            }
+        }
+    }
+    return null
 }
 
 // Provide file manager API to child components
