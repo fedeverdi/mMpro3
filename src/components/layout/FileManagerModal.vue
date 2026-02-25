@@ -1,7 +1,8 @@
 <template>
   <div v-if="modelValue" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
     @click.self="close">
-    <div class="bg-gray-800 rounded-lg shadow-2xl w-[1200px] max-w-[95vw] max-h-[85vh] flex flex-col border border-gray-700">
+    <div class="bg-gray-800 rounded-lg shadow-2xl w-[1200px] max-w-[95vw] max-h-[85vh] flex flex-col border border-gray-700"
+      @click="showAddToPlaylistMenu = null">
       <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b border-gray-700">
         <div class="flex items-center gap-2">
@@ -63,6 +64,19 @@
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             ]">
             By Artist
+          </button>
+          <button @click="viewMode = 'playlists'"
+            :class="[
+              'flex-1 px-3 py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-2',
+              viewMode === 'playlists' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            ]">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+            </svg>
+            Playlists
           </button>
         </div>
         <div class="flex gap-2">
@@ -165,6 +179,35 @@
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
               </button>
+              <!-- Add to Playlist -->
+              <div class="relative">
+                <button @click.stop="showAddToPlaylistMenu = showAddToPlaylistMenu === file.id ? null : file.id"
+                  class="p-2 border border-gray-600 hover:border-purple-500 hover:bg-purple-500/10 rounded text-gray-300 hover:text-purple-400 transition-all group"
+                  title="Add to playlist">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+                <!-- Playlist dropdown menu -->
+                <div v-if="showAddToPlaylistMenu === file.id" 
+                  @click.stop
+                  class="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 min-w-[200px] max-h-[300px] overflow-y-auto">
+                  <div v-if="playlists.length === 0" class="p-3 text-gray-500 text-sm text-center">
+                    No playlists yet
+                  </div>
+                  <button v-for="playlist in playlists" :key="playlist.id"
+                    @click="handleAddToPlaylist(file.id, playlist.id); showAddToPlaylistMenu = null"
+                    class="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-sm text-gray-300 hover:text-white flex items-center gap-2">
+                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    </svg>
+                    <span class="truncate">{{ playlist.name }}</span>
+                    <span class="text-xs text-gray-500 ml-auto">({{ playlist.fileIds.length }})</span>
+                  </button>
+                </div>
+              </div>
               <button @click="confirmDelete(file)"
                 class="p-2 border border-gray-600 hover:border-red-500 hover:bg-red-500/10 rounded text-gray-300 hover:text-red-400 transition-all group"
                 title="Delete file">
@@ -201,6 +244,35 @@
                       d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                 </button>
+                <!-- Add to Playlist -->
+                <div class="relative" @click.stop>
+                  <button @click.stop="showAddToPlaylistMenu = showAddToPlaylistMenu === file.id ? null : file.id"
+                    class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-purple-500 hover:bg-purple-500/20 rounded-lg text-gray-300 hover:text-purple-400 transition-all"
+                    title="Add to playlist">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                  <!-- Playlist dropdown menu -->
+                  <div v-if="showAddToPlaylistMenu === file.id" 
+                    @click.stop
+                    class="absolute left-1/2 -translate-x-1/2 top-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 min-w-[200px] max-h-[300px] overflow-y-auto">
+                    <div v-if="playlists.length === 0" class="p-3 text-gray-500 text-sm text-center">
+                      No playlists yet
+                    </div>
+                    <button v-for="playlist in playlists" :key="playlist.id"
+                      @click="handleAddToPlaylist(file.id, playlist.id); showAddToPlaylistMenu = null"
+                      class="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-sm text-gray-300 hover:text-white flex items-center gap-2">
+                      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                      </svg>
+                      <span class="truncate">{{ playlist.name }}</span>
+                      <span class="text-xs text-gray-500 ml-auto">({{ playlist.fileIds.length }})</span>
+                    </button>
+                  </div>
+                </div>
                 <button @click.stop="confirmDelete(file)"
                   class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-red-500 hover:bg-red-500/20 rounded-lg text-gray-300 hover:text-red-400 transition-all"
                   title="Delete file">
@@ -279,6 +351,35 @@
                         d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
                   </button>
+                  <!-- Add to Playlist -->
+                  <div class="relative">
+                    <button @click.stop="showAddToPlaylistMenu = showAddToPlaylistMenu === file.id ? null : file.id"
+                      class="p-2 border border-gray-600 hover:border-purple-500 hover:bg-purple-500/10 rounded text-gray-300 hover:text-purple-400 transition-all"
+                      title="Add to playlist">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                    <!-- Playlist dropdown menu -->
+                    <div v-if="showAddToPlaylistMenu === file.id" 
+                      @click.stop
+                      class="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 min-w-[200px] max-h-[300px] overflow-y-auto">
+                      <div v-if="playlists.length === 0" class="p-3 text-gray-500 text-sm text-center">
+                        No playlists yet
+                      </div>
+                      <button v-for="playlist in playlists" :key="playlist.id"
+                        @click="handleAddToPlaylist(file.id, playlist.id); showAddToPlaylistMenu = null"
+                        class="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-sm text-gray-300 hover:text-white flex items-center gap-2">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                        <span class="truncate">{{ playlist.name }}</span>
+                        <span class="text-xs text-gray-500 ml-auto">({{ playlist.fileIds.length }})</span>
+                      </button>
+                    </div>
+                  </div>
                   <button @click="confirmDelete(file)"
                     class="p-2 border border-gray-600 hover:border-red-500 hover:bg-red-500/10 rounded text-gray-300 hover:text-red-400 transition-all"
                     title="Delete file">
@@ -316,6 +417,35 @@
                             d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                       </button>
+                      <!-- Add to Playlist -->
+                      <div class="relative" @click.stop>
+                      <button @click.stop="showAddToPlaylistMenu = showAddToPlaylistMenu === file.id ? null : file.id"
+                        class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-purple-500 hover:bg-purple-500/20 rounded-lg text-gray-300 hover:text-purple-400 transition-all"
+                        title="Add to playlist">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                      <!-- Playlist dropdown menu -->
+                      <div v-if="showAddToPlaylistMenu === file.id" 
+                        @click.stop
+                        class="absolute left-1/2 -translate-x-1/2 top-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 min-w-[200px] max-h-[300px] overflow-y-auto">
+                          <div v-if="playlists.length === 0" class="p-3 text-gray-500 text-sm text-center">
+                            No playlists yet
+                          </div>
+                          <button v-for="playlist in playlists" :key="playlist.id"
+                            @click="handleAddToPlaylist(file.id, playlist.id); showAddToPlaylistMenu = null"
+                            class="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-sm text-gray-300 hover:text-white flex items-center gap-2">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                            </svg>
+                            <span class="truncate">{{ playlist.name }}</span>
+                            <span class="text-xs text-gray-500 ml-auto">({{ playlist.fileIds.length }})</span>
+                          </button>
+                        </div>
+                      </div>
                       <button @click.stop="confirmDelete(file)"
                         class="p-3 bg-gray-900/80 backdrop-blur-sm border border-gray-600 hover:border-red-500 hover:bg-red-500/20 rounded-lg text-gray-300 hover:text-red-400 transition-all"
                         title="Delete file">
@@ -337,6 +467,115 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- View: Playlists -->
+        <div v-else-if="viewMode === 'playlists'" class="space-y-4">
+          <!-- Create New Playlist Button -->
+          <div class="flex gap-2">
+            <input 
+              v-model="newPlaylistName" 
+              @keyup.enter="handleCreatePlaylist"
+              type="text" 
+              placeholder="New playlist name..."
+              class="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" />
+            <button @click="handleCreatePlaylist" :disabled="!newPlaylistName.trim()"
+              class="px-4 py-2 rounded transition-all flex items-center gap-2"
+              :class="newPlaylistName.trim() 
+                ? 'bg-blue-600 hover:bg-blue-500 text-white' 
+                : 'bg-gray-700 text-gray-500 cursor-not-allowed'">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Create Playlist
+            </button>
+          </div>
+
+          <!-- Playlists List -->
+          <div v-if="playlists.length === 0" class="text-center py-12">
+            <svg class="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+            </svg>
+            <p class="text-gray-400 text-lg">No playlists yet</p>
+            <p class="text-gray-500 text-sm mt-2">Create your first playlist above</p>
+          </div>
+
+          <div v-for="playlist in playlists" :key="playlist.id" class="border border-gray-700 rounded-lg overflow-hidden">
+            <!-- Playlist Header -->
+            <div class="flex items-center justify-between p-3 bg-gray-900">
+              <button @click="togglePlaylist(playlist.id)"
+                class="flex-1 flex items-center gap-3 text-left hover:bg-gray-800 transition-colors pr-2 rounded">
+                <svg 
+                  :class="[
+                    'w-5 h-5 text-gray-400 transition-transform flex-shrink-0',
+                    expandedPlaylists.has(playlist.id) ? 'rotate-90' : ''
+                  ]" 
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <svg class="w-6 h-6 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+                <div class="flex-1 min-w-0">
+                  <input v-if="editingPlaylistId === playlist.id" 
+                    v-model="editingPlaylistName" 
+                    @click.stop
+                    @keyup.enter="savePlaylistRename(playlist.id)"
+                    @keyup.esc="cancelPlaylistRename"
+                    type="text"
+                    class="w-full px-2 py-1 bg-gray-800 border border-blue-500 rounded text-white text-sm focus:outline-none" />
+                  <p v-else class="text-white font-semibold truncate">{{ playlist.name }}</p>
+                  <p class="text-gray-500 text-xs">{{ playlist.fileIds.length }} track{{ playlist.fileIds.length !== 1 ? 's' : '' }}</p>
+                </div>
+              </button>
+              <div class="flex gap-1 flex-shrink-0">
+                <button @click="$emit('select-playlist', playlist)"
+                  class="p-2 border border-gray-600 hover:border-green-500 hover:bg-green-500/10 rounded text-gray-300 hover:text-green-400 transition-all"
+                  title="Load playlist to track">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+                <button v-if="editingPlaylistId !== playlist.id" 
+                  @click="startPlaylistRename(playlist.id, playlist.name)"
+                  class="p-2 border border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 rounded text-gray-300 hover:text-blue-400 transition-all"
+                  title="Rename playlist">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+                <button v-else 
+                  @click="savePlaylistRename(playlist.id)"
+                  class="p-2 border border-gray-600 hover:border-green-500 hover:bg-green-500/10 rounded text-gray-300 hover:text-green-400 transition-all"
+                  title="Save rename">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+                <button @click="confirmDeletePlaylist(playlist)"
+                  class="p-2 border border-gray-600 hover:border-red-500 hover:bg-red-500/10 rounded text-gray-300 hover:text-red-400 transition-all"
+                  title="Delete playlist">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Playlist Files (when expanded) -->
+            <div v-if="expandedPlaylists.has(playlist.id)" class="bg-gray-950/50 p-3 space-y-2">
+              <PlaylistFilesList 
+                :playlistId="playlist.id" 
+                @load-file="(file: StoredAudioFile) => $emit('select-file', file)"
+                @remove-file="() => loadPlaylists()" />
             </div>
           </div>
         </div>
@@ -363,18 +602,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
-
-interface StoredAudioFile {
-  id: string
-  fileName: string
-  arrayBuffer: ArrayBuffer
-  mimeType: string
-  timestamp: number
-  artist?: string
-  title?: string
-  artwork?: string
-}
+import { useAudioFileStorage, type StoredAudioFile } from '~/composables/useAudioFileStorage'
+import { usePlaylist, type Playlist } from '~/composables/usePlaylist'
+import PlaylistFilesList from './PlaylistFilesList.vue'
 
 interface Props {
   modelValue: boolean
@@ -385,9 +615,21 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'select-file': [file: StoredAudioFile]
+  'select-playlist': [playlist: Playlist]
 }>()
 
 const { saveAudioFile, getAllAudioFiles, deleteAudioFile } = useAudioFileStorage()
+const { 
+  playlists, 
+  createPlaylist, 
+  getAllPlaylists, 
+  getPlaylist,
+  addFilesToPlaylist, 
+  removeFilesFromPlaylist,
+  deletePlaylist,
+  renamePlaylist,
+  getPlaylistFiles 
+} = usePlaylist()
 
 const files = ref<StoredAudioFile[]>([])
 const isLoading = ref(false)
@@ -395,9 +637,16 @@ const isUploading = ref(false)
 const uploadProgress = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 const searchQuery = ref('')
-const viewMode = ref<'all' | 'byArtist'>('all')
+const viewMode = ref<'all' | 'byArtist' | 'playlists'>('all')
 const viewLayout = ref<'list' | 'grid'>('list')
 const expandedArtists = ref<Set<string>>(new Set())
+const expandedPlaylists = ref<Set<string>>(new Set())
+const newPlaylistName = ref('')
+const selectedFiles = ref<Set<string>>(new Set())
+const showCreatePlaylist = ref(false)
+const editingPlaylistId = ref<string | null>(null)
+const editingPlaylistName = ref('')
+const showAddToPlaylistMenu = ref<string | null>(null) // fileId of file with open menu
 
 const sortedFiles = computed(() => {
   return [...files.value].sort((a, b) => b.timestamp - a.timestamp)
@@ -598,10 +847,92 @@ function close() {
   emit('update:modelValue', false)
 }
 
+// Playlist functions
+function togglePlaylist(playlistId: string) {
+  if (expandedPlaylists.value.has(playlistId)) {
+    expandedPlaylists.value.delete(playlistId)
+  } else {
+    expandedPlaylists.value.add(playlistId)
+  }
+}
+
+async function handleCreatePlaylist() {
+  if (!newPlaylistName.value.trim()) return
+
+  try {
+    await createPlaylist(newPlaylistName.value.trim())
+    newPlaylistName.value = ''
+    await loadPlaylists()
+  } catch (error) {
+    console.error('Failed to create playlist:', error)
+    alert('Failed to create playlist')
+  }
+}
+
+function startPlaylistRename(playlistId: string, currentName: string) {
+  editingPlaylistId.value = playlistId
+  editingPlaylistName.value = currentName
+}
+
+function cancelPlaylistRename() {
+  editingPlaylistId.value = null
+  editingPlaylistName.value = ''
+}
+
+async function savePlaylistRename(playlistId: string) {
+  if (!editingPlaylistName.value.trim()) {
+    cancelPlaylistRename()
+    return
+  }
+
+  try {
+    await renamePlaylist(playlistId, editingPlaylistName.value.trim())
+    cancelPlaylistRename()
+    await loadPlaylists()
+  } catch (error) {
+    console.error('Failed to rename playlist:', error)
+    alert('Failed to rename playlist')
+  }
+}
+
+async function confirmDeletePlaylist(playlist: Playlist) {
+  if (!confirm(`Delete playlist "${playlist.name}"? This will not delete the actual audio files.`)) return
+
+  try {
+    await deletePlaylist(playlist.id)
+    await loadPlaylists()
+  } catch (error) {
+    console.error('Failed to delete playlist:', error)
+    alert('Failed to delete playlist')
+  }
+}
+async function handleAddToPlaylist(fileId: string, playlistId: string) {
+  try {
+    await addFilesToPlaylist(playlistId, [fileId])
+    await loadPlaylists()
+    // Show brief success feedback
+    const playlist = playlists.value.find(p => p.id === playlistId)
+    if (playlist) {
+      console.log(`Added to playlist: ${playlist.name}`)
+    }
+  } catch (error) {
+    console.error('Failed to add file to playlist:', error)
+    alert('Failed to add file to playlist')
+  }
+}
+async function loadPlaylists() {
+  try {
+    await getAllPlaylists()
+  } catch (error) {
+    console.error('Failed to load playlists:', error)
+  }
+}
+
 // Load files when modal opens
-watch(() => props.modelValue, (isOpen) => {
+watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
-    loadFiles()
+    await loadFiles()
+    await loadPlaylists()
   }
 })
 

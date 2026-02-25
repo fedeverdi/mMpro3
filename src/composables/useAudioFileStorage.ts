@@ -7,7 +7,7 @@ const DB_NAME = 'MMpro3_AudioFiles'
 const DB_VERSION = 1
 const STORE_NAME = 'audioFiles'
 
-interface StoredAudioFile {
+export interface StoredAudioFile {
   id: string
   fileName: string
   arrayBuffer: ArrayBuffer

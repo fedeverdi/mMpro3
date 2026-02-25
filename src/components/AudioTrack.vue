@@ -558,6 +558,11 @@ let playbackTimeInterval: number | null = null
 let playbackStartTime: number = 0
 let audioContextStarted: boolean = false // Track if Tone.start() has been called
 
+// Playlist queue management
+let currentPlaylist: any = null
+let playlistFiles: any[] = []
+let currentPlaylistIndex = 0
+
 // Aux sends: Map of aux bus ID to { node, preFader }
 const auxSendNodes = new Map<string, { node: any, preFader: boolean }>()
 
@@ -1134,10 +1139,17 @@ function openLibrary() {
 }
 
 // Load file from library (called by parent when file is selected)
-async function loadFileFromLibrary(storedFile: any) {
+async function loadFileFromLibrary(storedFile: any, preservePlaylist = false) {
   if (!Tone || !storedFile) {
     console.error('Cannot load file from library')
     return
+  }
+
+  // Reset playlist state when loading a single file (unless called from playlist)
+  if (!preservePlaylist) {
+    currentPlaylist = null
+    playlistFiles = []
+    currentPlaylistIndex = 0
   }
 
   // The file is already in IndexedDB, just use its ID
@@ -1193,8 +1205,9 @@ async function loadFileFromLibrary(storedFile: any) {
 
       player = new Tone.Player({
         url: audioBuffer,
-        loop: true,
+        loop: currentPlaylist ? false : true, // Don't loop when playing playlist
         playbackRate: 1.0,
+        onended: currentPlaylist ? handlePlaylistTrackEnd : undefined,
       })
       player.connect(padNode)
     }
@@ -1215,6 +1228,71 @@ async function loadFileFromLibrary(storedFile: any) {
     console.error('❌ Error loading audio from library:', error)
     alert('Error loading audio from library: ' + error)
     isLoading.value = false
+  }
+}
+
+// Handle when playlist track ends
+async function handlePlaylistTrackEnd() {
+  if (!currentPlaylist || !playlistFiles.length) return
+  
+  currentPlaylistIndex++
+  
+  // Check if we reached the end of the playlist
+  if (currentPlaylistIndex >= playlistFiles.length) {
+    console.log(`✓ Playlist "${currentPlaylist.name}" finished`)
+    // Loop back to start
+    currentPlaylistIndex = 0
+  }
+  
+  // Auto-load next track
+  const nextFile = playlistFiles[currentPlaylistIndex]
+  console.log(`→ Loading next track: ${nextFile.title || nextFile.fileName} (${currentPlaylistIndex + 1}/${playlistFiles.length})`)
+  
+  await loadFileFromLibrary(nextFile, true) // preserve playlist state
+  fileName.value = `${currentPlaylist.name} (${currentPlaylistIndex + 1}/${playlistFiles.length})`
+  
+  // Auto-play next track if currently playing
+  if (isPlaying.value) {
+    await nextTick()
+    if (player && typeof player.start === 'function') {
+      player.start()
+    }
+  }
+}
+
+// Load playlist from library (loads first file from playlist)
+async function loadPlaylistFromLibrary(playlist: any) {
+  if (!playlist || !playlist.fileIds || playlist.fileIds.length === 0) {
+    alert('Playlist is empty')
+    return
+  }
+
+  try {
+    // Import usePlaylist to get files
+    const { usePlaylist } = await import('~/composables/usePlaylist')
+    const { getPlaylistFiles } = usePlaylist()
+    const files = await getPlaylistFiles(playlist.id)
+    
+    if (files.length === 0) {
+      alert('No files found in playlist')
+      return
+    }
+
+    // Store playlist state
+    currentPlaylist = playlist
+    playlistFiles = files
+    currentPlaylistIndex = 0
+    
+    // Load first file
+    await loadFileFromLibrary(files[0])
+    
+    // Show notification that playlist was loaded
+    console.log(`✓ Loaded playlist "${playlist.name}" (${files.length} tracks) - playing first track`)
+    fileName.value = `${playlist.name} (1/${files.length})`
+    
+  } catch (error) {
+    console.error('❌ Error loading playlist:', error)
+    alert('Error loading playlist: ' + error)
   }
 }
 
@@ -1259,6 +1337,11 @@ async function checkIfDuplicate(newBuffer: ArrayBuffer, fileName: string, fileSi
 
 // Shared function to load audio file
 async function loadAudioFile(file: File, name: string) {
+  // Reset playlist state when loading a single file
+  currentPlaylist = null
+  playlistFiles = []
+  currentPlaylistIndex = 0
+
   // Initialize audio nodes on first use
   initAudioNodes()
 
@@ -1333,8 +1416,9 @@ async function loadAudioFile(file: File, name: string) {
       // Create new Tone.Player
       player = new Tone.Player({
         url: audioBuffer,
-        loop: true,
+        loop: currentPlaylist ? false : true, // Don't loop when playing playlist
         playbackRate: 1.0,
+        onended: currentPlaylist ? handlePlaylistTrackEnd : undefined,
       })
       player.connect(padNode)
     }
@@ -1445,10 +1529,11 @@ async function loadFileFromIndexedDB(savedFileId: string, silent: boolean = fals
       // Create new Tone.Player
       player = new Tone.Player({
         url: audioBuffer,
-        loop: true,
+        loop: currentPlaylist ? false : true, // Don't loop when playing playlist
         playbackRate: 1.0,
         fadeIn: 0.01,   // Prevent resampling artifacts
-        fadeOut: 0.01   // Prevent clicks on stop
+        fadeOut: 0.01,   // Prevent clicks on stop
+        onended: currentPlaylist ? handlePlaylistTrackEnd : undefined,
       })
       player.connect(padNode)
     }
@@ -1488,6 +1573,11 @@ async function loadFileFromIndexedDB(savedFileId: string, silent: boolean = fals
 
 // Handle source type change
 function handleSourceTypeChange() {
+  // Reset playlist state when changing source type
+  currentPlaylist = null
+  playlistFiles = []
+  currentPlaylistIndex = 0
+
   // Stop any current playback
   stopAudio()
 
@@ -1755,10 +1845,11 @@ async function togglePlay() {
       // Recreate player with same buffer
       player = new Tone.Player({
         url: currentAudioBuffer,
-        loop: true,
+        loop: currentPlaylist ? false : true, // Don't loop when playing playlist
         playbackRate: 1.0,
         fadeIn: 0.01,
-        fadeOut: 0.01
+        fadeOut: 0.01,
+        onended: currentPlaylist ? handlePlaylistTrackEnd : undefined,
       })
 
       // Reconnect to audio chain
@@ -1985,6 +2076,7 @@ defineExpose({
   isSolo: () => isSolo.value,
   disconnectFromSubgroup, // Expose for cleanup when subgroup is removed
   loadFileFromLibrary, // Expose for file manager integration
+  loadPlaylistFromLibrary, // Expose for playlist integration
   isAudioLoaded: () => audioLoaded.value && audioSourceType.value === 'file', // Check if track has a file loaded
   
   // Automation control - set values without triggering recording
@@ -2041,10 +2133,11 @@ defineExpose({
 
       player = new Tone.Player({
         url: currentAudioBuffer,
-        loop: true,
+        loop: currentPlaylist ? false : true, // Don't loop when playing playlist
         playbackRate: 1.0,
         fadeIn: 0.01,
-        fadeOut: 0.01
+        fadeOut: 0.01,
+        onended: currentPlaylist ? handlePlaylistTrackEnd : undefined,
       })
 
       player.connect(padNode)

@@ -393,7 +393,10 @@
             :aux-buses="auxBuses.map(a => ({ id: a.id, name: a.name }))" />
 
         <!-- File Manager Modal -->
-        <FileManagerModal v-model="showFileManager" @select-file="handleFileManagerSelect" />
+        <FileManagerModal 
+          v-model="showFileManager" 
+          @select-file="handleFileManagerSelect"
+          @select-playlist="handlePlaylistSelect" />
 
         <!-- Scenes Modal -->
         <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId"
@@ -548,6 +551,28 @@ function handleFileManagerSelect(file: any) {
     const trackRef = trackRefs.value.get(targetTrackId)
     if (trackRef && trackRef.loadFileFromLibrary) {
         trackRef.loadFileFromLibrary(file)
+    }
+    
+    fileManagerTargetTrackId.value = null
+    showFileManager.value = false
+}
+
+function handlePlaylistSelect(playlist: any) {
+    let targetTrackId = fileManagerTargetTrackId.value
+    
+    // If no specific track was selected (opened from top bar), find first free audio track
+    if (targetTrackId === null) {
+        targetTrackId = findFirstFreeAudioTrack()
+        if (targetTrackId === null) {
+            alert('No free audio tracks available. All tracks have files loaded.')
+            showFileManager.value = false
+            return
+        }
+    }
+    
+    const trackRef = trackRefs.value.get(targetTrackId)
+    if (trackRef && trackRef.loadPlaylistFromLibrary) {
+        trackRef.loadPlaylistFromLibrary(playlist)
     }
     
     fileManagerTargetTrackId.value = null
