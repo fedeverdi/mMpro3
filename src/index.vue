@@ -46,6 +46,16 @@
                         Scenes
                     </button>
 
+                    <!-- File Manager Button (Electron only) -->
+                    <button v-if="isElectron" @click="showFileManager = true"
+                        class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs font-semibold transition-colors flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
+                        Library
+                    </button>
+
                     <button @click="handleClearScene"
                         class="px-3 py-1 bg-orange-600 hover:bg-orange-500 rounded text-xs font-semibold transition-colors"
                         title="Clear mixer - Reload page">
@@ -381,6 +391,9 @@
         <AudioFlowModal v-model="showAudioFlowModal" :subgroups="subgroups.map(s => ({ id: s.id, name: s.name }))"
             :aux-buses="auxBuses.map(a => ({ id: a.id, name: a.name }))" />
 
+        <!-- File Manager Modal -->
+        <FileManagerModal v-model="showFileManager" @select-file="handleFileManagerSelect" />
+
         <!-- Scenes Modal -->
         <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId"
             @save="handleSaveScene" @load="handleLoadScene" @update="handleUpdateScene" @delete="handleDeleteScene"
@@ -420,6 +433,7 @@ import { ref, onMounted, computed, toRaw, nextTick, inject, watch, onUnmounted, 
 import AudioTrack from './components/AudioTrack.vue'
 import SignalTrack from './components/SignalTrack.vue'
 import AudioFlowModal from './components/layout/AudioFlowModal.vue'
+import FileManagerModal from './components/layout/FileManagerModal.vue'
 import RightSection from './components/master/RightSection.vue'
 import MasterSection from './components/MasterSection.vue'
 import SubgroupsSection from './components/SubgroupsSection.vue'
@@ -436,6 +450,11 @@ const ToneRef = inject<any>('Tone')
 let Tone: any = null
 const toneReady = ref(false)
 const masterChannel = ref<any>(null)
+
+// Check if running in Electron
+const isElectron = computed(() => {
+  return navigator.userAgent.toLowerCase().includes('electron')
+})
 
 // Subgroups system
 interface Subgroup {
@@ -487,6 +506,7 @@ const isAppReady = inject<Ref<boolean>>('isAppReady', ref(false))
 // Audio Flow Modal
 const showAudioFlowModal = ref(false)
 const showScenesModal = ref(false)
+const showFileManager = ref(false)
 const isLoadingScene = ref(false)
 
 // Automation System
@@ -507,6 +527,31 @@ let automationPendingHeight: number | null = null
 
 // Provide automation to child components
 provide('automation', automation)
+
+// File Manager for tracks (Electron only)
+const fileManagerTargetTrackId = ref<number | null>(null)
+
+function openFileManagerForTrack(trackId: number) {
+    fileManagerTargetTrackId.value = trackId
+    showFileManager.value = true
+}
+
+function handleFileManagerSelect(file: any) {
+    if (fileManagerTargetTrackId.value !== null) {
+        const trackRef = trackRefs.value.get(fileManagerTargetTrackId.value)
+        if (trackRef && trackRef.loadFileFromLibrary) {
+            trackRef.loadFileFromLibrary(file)
+        }
+        fileManagerTargetTrackId.value = null
+    }
+    showFileManager.value = false
+}
+
+// Provide file manager API to child components
+provide('fileManager', {
+    openFileManager: openFileManagerForTrack,
+    isAvailable: isElectron
+})
 
 // Tracks management
 const tracks = ref<Track[]>([

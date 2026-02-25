@@ -119,10 +119,25 @@ export function useAudioFileStorage() {
     })
   }
 
+  // Get all audio files from IndexedDB
+  async function getAllAudioFiles(): Promise<StoredAudioFile[]> {
+    const database = await initDB()
+
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction([STORE_NAME], 'readonly')
+      const store = transaction.objectStore(STORE_NAME)
+      const request = store.getAll()
+
+      request.onsuccess = () => resolve(request.result || [])
+      request.onerror = () => reject(request.error)
+    })
+  }
+
   return {
     saveAudioFile,
     getAudioFile,
     deleteAudioFile,
-    cleanupOldFiles
+    cleanupOldFiles,
+    getAllAudioFiles
   }
 }

@@ -54,11 +54,20 @@
       </div>
 
       <!-- File Upload (shown when source is 'file') -->
-      <div v-if="audioSourceType === 'file'" class="w-full">
+      <div v-if="audioSourceType === 'file'" class="w-full flex flex-col gap-1">
         <input type="file" accept="audio/*" @change="handleFileUpload" ref="fileInput" class="hidden" />
         <button @click="($refs.fileInput as HTMLInputElement)?.click()"
           class="w-full px-2 truncate py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 transition-colors">
           {{ fileName || 'Load Audio' }}
+        </button>
+        <!-- Library button (Electron only) -->
+        <button v-if="fileManagerAPI?.isAvailable" @click="openLibrary"
+          class="w-full px-2 py-1 text-xs bg-blue-700 hover:bg-blue-600 rounded border border-blue-600 transition-colors flex items-center justify-center gap-1">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+          Library
         </button>
       </div>
 
@@ -333,6 +342,9 @@ let Tone: any = null
 
 // Inject automation system
 const automation = inject<any>('automation', null)
+
+// Inject file manager (Electron only)
+const fileManagerAPI = inject<any>('fileManager', null)
 
 const { saveAudioFile, getAudioFile } = useAudioFileStorage()
 
@@ -1108,10 +1120,110 @@ async function handleFileUpload(event: Event) {
     return
   }
 
+  await loadAudioFile(file, file.name)
+  
+  // CRITICAL: Reset file input to allow reloading the same file
+  target.value = ''
+}
+
+// Open file manager library (Electron only)
+function openLibrary() {
+  if (fileManagerAPI?.openFileManager) {
+    fileManagerAPI.openFileManager(props.trackNumber)
+  }
+}
+
+// Load file from library (called by parent when file is selected)
+async function loadFileFromLibrary(storedFile: any) {
+  if (!Tone || !storedFile) {
+    console.error('Cannot load file from library')
+    return
+  }
+
+  // The file is already in IndexedDB, just use its ID
+  fileId.value = storedFile.id
+  fileName.value = storedFile.fileName
+  isLoading.value = true
+
+  try {
+    // Decode the audio buffer
+    const audioBuffer = await Tone.context.decodeAudioData(storedFile.arrayBuffer.slice(0))
+    
+    // Initialize audio nodes on first use
+    initAudioNodes()
+
+    // Check if we need to create a new player or just swap buffer
+    if (player && typeof player.stop === 'function' && 'buffer' in player) {
+      // It's already a Tone.Player - just swap the buffer
+      try {
+        player.stop()
+      } catch (e) { }
+
+      if (player.buffer && typeof player.buffer.dispose === 'function') {
+        try {
+          player.buffer.dispose()
+        } catch (e) { }
+      }
+
+      if (currentAudioBuffer && currentAudioBuffer !== player.buffer) {
+        try {
+          if (typeof (currentAudioBuffer as any).dispose === 'function') {
+            (currentAudioBuffer as any).dispose()
+          }
+        } catch (e) { }
+      }
+
+      player.buffer = audioBuffer
+    } else {
+      // First time or was audio input - create new Tone.Player
+      if (player) {
+        try {
+          player.disconnect()
+          player.dispose()
+        } catch (e) { }
+      }
+
+      if (currentAudioBuffer) {
+        try {
+          if (typeof (currentAudioBuffer as any).dispose === 'function') {
+            (currentAudioBuffer as any).dispose()
+          }
+        } catch (e) { }
+      }
+
+      player = new Tone.Player({
+        url: audioBuffer,
+        loop: true,
+        playbackRate: 1.0,
+      })
+      player.connect(padNode)
+    }
+
+    currentAudioBuffer = audioBuffer
+    isStereo.value = audioBuffer.numberOfChannels === 2
+
+    if (!gainNode || !eq3 || !volumeMerge) {
+      alert('Audio system not ready. Please refresh the page.')
+      isLoading.value = false
+      return
+    }
+
+    audioLoaded.value = true
+    isLoading.value = false
+    await nextTick()
+  } catch (error) {
+    console.error('❌ Error loading audio from library:', error)
+    alert('Error loading audio from library: ' + error)
+    isLoading.value = false
+  }
+}
+
+// Shared function to load audio file
+async function loadAudioFile(file: File, name: string) {
   // Initialize audio nodes on first use
   initAudioNodes()
 
-  fileName.value = file.name
+  fileName.value = name
   isLoading.value = true
 
   try {
@@ -1198,16 +1310,10 @@ async function handleFileUpload(event: Event) {
 
     // Force DOM update
     await nextTick()
-
-    // CRITICAL: Reset file input to allow reloading the same file
-    // Without this, selecting the same file again won't trigger onChange
-    target.value = ''
   } catch (error) {
     console.error('❌ Error loading audio file:', error)
     alert('Error loading audio file: ' + error)
     isLoading.value = false
-    // Reset input even on error
-    target.value = ''
   }
 }
 
@@ -1831,6 +1937,7 @@ defineExpose({
   },
   isSolo: () => isSolo.value,
   disconnectFromSubgroup, // Expose for cleanup when subgroup is removed
+  loadFileFromLibrary, // Expose for file manager integration
   
   // Automation control - set values without triggering recording
   setVolume: (value: number, skipRecording = false) => {
