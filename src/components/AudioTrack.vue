@@ -56,10 +56,16 @@
       <!-- File Upload (shown when source is 'file') -->
       <div v-if="audioSourceType === 'file'" class="w-full flex gap-1">
         <input type="file" accept="audio/*" @change="handleFileUpload" ref="fileInput" class="hidden" />
-        <button @click="($refs.fileInput as HTMLInputElement)?.click()"
-          class="flex-1 px-2 truncate py-0.5 text-xs bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 transition-colors">
-          {{ fileName || 'Load Audio' }}
-        </button>
+        <div 
+          @click="($refs.fileInput as HTMLInputElement)?.click()"
+          class="flex-1 px-2 py-0.5 text-xs bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 transition-colors overflow-hidden cursor-pointer relative">
+          <div v-if="isPlaying && fileName" class="animate-marquee whitespace-nowrap inline-block">
+            {{ fileName }}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ fileName }}
+          </div>
+          <div v-else class="truncate">
+            {{ fileName || 'Load Audio' }}
+          </div>
+        </div>
         <!-- Library button - Small square icon button -->
         <button v-if="fileManagerAPI" @click="openLibrary"
           class="w-[1.6rem] h-[1.6rem] flex-shrink-0 bg-blue-700 hover:bg-blue-600 rounded border border-blue-600 transition-colors flex items-center justify-center"
@@ -1261,7 +1267,7 @@ async function handlePlaylistTrackEnd() {
   console.log(`→ Loading next track: ${nextFile.title || nextFile.fileName} (${currentPlaylistIndex + 1}/${playlistFiles.length})`)
   
   await loadFileFromLibrary(nextFile, true) // preserve playlist state
-  fileName.value = `${currentPlaylist.value.name} (${currentPlaylistIndex + 1}/${playlistFiles.length})`
+  fileName.value = `${currentPlaylist.value.name} (${currentPlaylistIndex + 1}/${playlistFiles.length}) - ${nextFile.title || nextFile.fileName}`
   
   // Auto-play next track if currently playing
   if (isPlaying.value) {
@@ -1300,7 +1306,7 @@ async function loadPlaylistFromLibrary(playlist: any) {
     
     // Show notification that playlist was loaded
     console.log(`✓ Loaded playlist "${playlist.name}" (${files.length} tracks) - playing first track`)
-    fileName.value = `${playlist.name} (1/${files.length})`
+    fileName.value = `${playlist.name} (1/${files.length}) - ${files[0].title || files[0].fileName}`
     
   } catch (error) {
     console.error('❌ Error loading playlist:', error)
@@ -1897,7 +1903,7 @@ async function togglePlay() {
       console.log(`⏭️ Skipping to next track: ${nextFile.title || nextFile.fileName} (${currentPlaylistIndex + 1}/${playlistFiles.length})`)
       
       await loadFileFromLibrary(nextFile, true) // preserve playlist state
-      fileName.value = `${currentPlaylist.value.name} (${currentPlaylistIndex + 1}/${playlistFiles.length})`
+      fileName.value = `${currentPlaylist.value.name} (${currentPlaylistIndex + 1}/${playlistFiles.length}) - ${nextFile.title || nextFile.fileName}`
       
       // Auto-start playback
       await nextTick()
@@ -2767,5 +2773,19 @@ function stopGateMonitoring() {
 
 .aux-panel-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(20, 184, 166, 0.5);
+}
+
+/* Marquee animation for scrolling text */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 20s linear infinite;
 }
 </style>
