@@ -57,12 +57,12 @@
       <div v-if="audioSourceType === 'file'" class="w-full flex gap-1">
         <input type="file" accept="audio/*" @change="handleFileUpload" ref="fileInput" class="hidden" />
         <button @click="($refs.fileInput as HTMLInputElement)?.click()"
-          class="flex-1 px-2 truncate py-0 text-xs bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 transition-colors">
+          class="flex-1 px-2 truncate py-0.5 text-xs bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 transition-colors">
           {{ fileName || 'Load Audio' }}
         </button>
         <!-- Library button - Small square icon button -->
         <button v-if="fileManagerAPI" @click="openLibrary"
-          class="w-6 h-6 flex-shrink-0 bg-blue-700 hover:bg-blue-600 rounded border border-blue-600 transition-colors flex items-center justify-center"
+          class="w-[1.6rem] h-[1.6rem] flex-shrink-0 bg-blue-700 hover:bg-blue-600 rounded border border-blue-600 transition-colors flex items-center justify-center"
           title="Open Audio Library">
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -72,7 +72,7 @@
       </div>
 
       <!-- Audio Input Device Selector (shown when source is 'input') -->
-      <div v-if="audioSourceType === 'input'" class="w-full bg-gray-900 rounded p-1 border border-gray-700">
+      <div v-if="audioSourceType === 'input'" class="w-full">
         <InputSelector
           icon="🎤"
           title="Select Audio Input"
