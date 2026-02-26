@@ -245,12 +245,12 @@
           
           <!-- Routing Buttons -->
           <div class="flex flex-col gap-2 absolute left-[0.2rem] top-1/2 transform -translate-y-1/2 z-50">
-            <button @click="toggleRouteToMaster" :title="'Route to Master'"
+            <button @click="routing.toggleRouteToMaster" :title="'Route to Master'"
               class="w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
               :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
               M
             </button>
-            <button v-for="subgroup in props.subgroups" :key="subgroup.id" @click="toggleRouteToSubgroup(subgroup.id)"
+            <button v-for="subgroup in props.subgroups" :key="subgroup.id" @click="routing.toggleRouteToSubgroup(subgroup.id)"
               :title="`Route to ${subgroup.name}`"
               class="w-5 h-7 text-[6px] font-bold rounded transition-all flex items-center justify-center"
               :class="routedSubgroups.has(subgroup.id) ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
@@ -331,6 +331,7 @@ import { ref, watch, onMounted, onUnmounted, nextTick, computed, toRaw, inject }
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import { useTrackDrag } from '~/composables/track/useTrackDrag'
+import { useTrackRouting } from '~/composables/track/useTrackRouting'
 import TrackFader from './audioTrack/TrackFader.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
 import PhaseCorrelationMeter from './audioTrack/PhaseCorrelationMeter.vue'
@@ -398,6 +399,17 @@ const { trackElement, handleDragStart } = useTrackDrag({
   onDragStart: () => emit('drag-start')
 })
 
+// Initialize routing composable
+const routing = useTrackRouting({
+  getVolumeMerge: () => volumeMerge,
+  getMasterChannel: () => props.masterChannel,
+  getSubgroups: () => props.subgroups,
+  getTone: () => Tone,
+  getTrackNumber: () => props.trackNumber
+})
+
+const { routeToMaster, routedSubgroups } = routing
+
 // Audio state
 const fileInput = ref<HTMLInputElement | null>(null)
 const fileName = ref<string>('')
@@ -421,10 +433,6 @@ const auxSendsData = ref<Record<string, { level: number, preFader: boolean, mute
 
 // Audio source selection
 const audioSourceType = ref<'file' | 'input'>('file')
-
-// Output routing selection (can route to both simultaneously)
-const routeToMaster = ref(true)
-const routedSubgroups = ref<Set<number>>(new Set()) // Set of subgroup IDs
 
 // Audio inputs from shared composable
 const { audioInputDevices, refreshAudioInputs } = useAudioDevices()
@@ -748,7 +756,7 @@ function initAudioNodes() {
   volumeNodeR.connect(volumeMerge, 0, 1)   // To right output
 
   // Volume to output (master or destination)
-  connectToOutput()
+  routing.connectToOutput()
 
   // Restore aux sends if they were configured before nodes were created
   // (happens when restoring from scene)
@@ -829,74 +837,6 @@ function applyParametricEQ() {
   } else {
     // No parametric EQ: connect eq3 directly to next node
     eq3.connect(nextNode)
-  }
-}
-
-// Connect to output (can connect to master and/or multiple subgroups)
-function connectToOutput() {
-  if (!volumeMerge || !Tone) return false
-
-  // Disconnect only from master and subgroups (preserve aux sends)
-  if (props.masterChannel) {
-    try {
-      volumeMerge.disconnect(toRaw(props.masterChannel))
-    } catch (e) {
-      // Ignore if not connected
-    }
-  }
-
-  // Disconnect from all subgroups
-  props.subgroups?.forEach(subgroup => {
-    if (subgroup?.channel) {
-      try {
-        volumeMerge.disconnect(toRaw(subgroup.channel))
-      } catch (e) {
-        // Ignore if not connected
-      }
-    }
-  })
-
-  // Connect to master if enabled
-  if (routeToMaster.value && props.masterChannel) {
-    volumeMerge.connect(toRaw(props.masterChannel))
-  }
-
-  // Connect to each enabled subgroup
-  routedSubgroups.value.forEach(subgroupId => {
-    const subgroup = props.subgroups?.find(s => s.id === subgroupId)
-    if (subgroup?.channel) {
-      volumeMerge.connect(toRaw(subgroup.channel))
-    }
-  })
-
-  // Warn if no output is selected
-  if (!routeToMaster.value && routedSubgroups.value.size === 0) {
-    console.warn(`[Track ${props.trackNumber}] No output destination selected`)
-  }
-}
-
-// Toggle routing buttons
-function toggleRouteToMaster() {
-  routeToMaster.value = !routeToMaster.value
-  connectToOutput()
-}
-
-function toggleRouteToSubgroup(subgroupId: number) {
-  if (routedSubgroups.value.has(subgroupId)) {
-    routedSubgroups.value.delete(subgroupId)
-  } else {
-    routedSubgroups.value.add(subgroupId)
-  }
-  routedSubgroups.value = new Set(routedSubgroups.value) // Trigger reactivity
-  connectToOutput()
-}
-
-// Disconnect from a specific subgroup (called when subgroup is removed)
-function disconnectFromSubgroup(subgroupId: number) {
-  if (routedSubgroups.value.has(subgroupId)) {
-    routedSubgroups.value.delete(subgroupId)
-    routedSubgroups.value = new Set(routedSubgroups.value)
-    connectToOutput()
   }
 }
 
@@ -1809,7 +1749,7 @@ async function handleAudioInputChange() {
     }
 
     // CRITICAL: Ensure volume node is connected to master output
-    connectToOutput()
+    routing.connectToOutput()
 
     // Find device name for display
     const device = audioInputs.value.find(d => d.deviceId === selectedAudioInput.value)
@@ -2172,7 +2112,7 @@ defineExpose({
     updateVolume()
   },
   isSolo: () => isSolo.value,
-  disconnectFromSubgroup, // Expose for cleanup when subgroup is removed
+  disconnectFromSubgroup: routing.disconnectFromSubgroup, // Expose for cleanup when subgroup is removed
   loadFileFromLibrary, // Expose for file manager integration
   loadPlaylistFromLibrary, // Expose for playlist integration
   isAudioLoaded: () => audioLoaded.value && audioSourceType.value === 'file', // Check if track has a file loaded
@@ -2392,7 +2332,7 @@ defineExpose({
 
     // Reconnect to correct destination(s)
     nextTick(() => {
-      connectToOutput()
+      routing.connectToOutput()
     })
 
     // Restore aux sends
