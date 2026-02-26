@@ -20,9 +20,9 @@
     "build:medium": "VITE_BUILD_MODE=medium ./build-and-sign.sh",
     "build:full": "VITE_BUILD_MODE=full ./build-and-sign.sh",
     "build:web": "vite build --config vite.web.config.mjs",
-    "build:web:demo": "VITE_BUILD_MODE=demo vite build --config vite.web.config.mjs",
-    "build:web:medium": "VITE_BUILD_MODE=medium vite build --config vite.web.config.mjs",
-    "build:web:full": "VITE_BUILD_MODE=full vite build --config vite.web.config.mjs",
+    "build:web:demo": "vite build --config vite.web.config.mjs",
+    "build:web:medium": "vite build --config vite.web.config.mjs",
+    "build:web:full": "vite build --config vite.web.config.mjs",
     "preview:web": "vite preview --config vite.web.config.mjs",
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\""
