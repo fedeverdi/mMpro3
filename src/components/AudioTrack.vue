@@ -332,6 +332,7 @@ import { useTrackAuxSends } from '~/composables/track/useTrackAuxSends'
 import { useTrackDrag } from '~/composables/track/useTrackDrag'
 import { useTrackLevelMonitoring } from '~/composables/track/useTrackLevelMonitoring'
 import { useTrackParametricEQ } from '~/composables/track/useTrackParametricEQ'
+import { useTrackPlaybackTime } from '~/composables/track/useTrackPlaybackTime'
 import { useTrackRouting } from '~/composables/track/useTrackRouting'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
@@ -446,6 +447,16 @@ const levelMonitoring = useTrackLevelMonitoring({
 
 const { trackLevelL, trackLevelR, phaseCorrelation, analyserBufferSize, analyserDataL, analyserDataR } = levelMonitoring
 
+// Initialize playback time tracking composable
+const playbackTime = useTrackPlaybackTime({
+  getTone: () => Tone,
+  getPlayer: () => player,
+  getIsPlaying: () => isPlaying.value,
+  getCurrentAudioBuffer: () => currentAudioBuffer
+})
+
+const { currentPlaybackTime } = playbackTime
+
 // Audio state
 const fileName = ref<string>('')
 const fileId = ref<string>('') // IndexedDB file ID for scene persistence
@@ -530,7 +541,6 @@ const isRecording = computed(() => {
     (lane.mode === 'write' || lane.mode === 'touch' || lane.mode === 'latch')
   )
 })
-const currentPlaybackTime = ref(0)
 
 // Component refs
 const trackEQRef = ref<InstanceType<typeof TrackEQ> | null>(null)
@@ -571,8 +581,6 @@ let gateMeter: any = null // Pre-gate meter for gate monitoring
 let channelSplit: any = null // Split stereo to L/R for metering
 let waveform: any = null // Waveform analyzer
 let resizeObserver: ResizeObserver | null = null
-let playbackTimeInterval: number | null = null
-let playbackStartTime: number = 0
 let audioContextStarted: boolean = false // Track if Tone.start() has been called
 
 // Playlist queue management (using refs for reactivity in template)
@@ -785,37 +793,6 @@ function initAudioNodes() {
   }
 }
 
-// Playback time tracking
-function startPlaybackTimeTracking() {
-  if (playbackTimeInterval !== null) return
-
-  if (!Tone) return
-
-  // Record start time
-  playbackStartTime = Tone.now()
-
-  playbackTimeInterval = window.setInterval(() => {
-    if (player && isPlaying.value && Tone) {
-      // Calculate elapsed time since start
-      const elapsed = Tone.now() - playbackStartTime
-
-      // For looping player, use modulo of duration
-      if (currentAudioBuffer && currentAudioBuffer.duration) {
-        currentPlaybackTime.value = elapsed % currentAudioBuffer.duration
-      }
-    }
-  }, 50) // Update every 50ms for smooth animation
-}
-
-function stopPlaybackTimeTracking() {
-  if (playbackTimeInterval !== null) {
-    clearInterval(playbackTimeInterval)
-    playbackTimeInterval = null
-  }
-  currentPlaybackTime.value = 0
-  playbackStartTime = 0
-}
-
 // File upload handler
 async function handleFileUpload(event: Event) {
   const target = event.target as HTMLInputElement
@@ -917,7 +894,7 @@ async function loadFileFromLibrary(storedFile: any, preservePlaylist = false) {
                 player.start()
                 isPlaying.value = true
                 waveformDisplayRef.value?.start()
-                startPlaybackTimeTracking()
+                playbackTime.startPlaybackTimeTracking()
               }
             })
           } else {
@@ -1156,7 +1133,7 @@ async function loadAudioFile(file: File, name: string) {
                 player.start()
                 isPlaying.value = true
                 waveformDisplayRef.value?.start()
-                startPlaybackTimeTracking()
+                playbackTime.startPlaybackTimeTracking()
               }
             })
           } else {
@@ -1285,7 +1262,7 @@ async function loadFileFromIndexedDB(savedFileId: string, silent: boolean = fals
                 player.start()
                 isPlaying.value = true
                 waveformDisplayRef.value?.start()
-                startPlaybackTimeTracking()
+                playbackTime.startPlaybackTimeTracking()
               }
             })
           } else {
@@ -1615,7 +1592,7 @@ async function togglePlay() {
                 player.start()
                 isPlaying.value = true
                 waveformDisplayRef.value?.start()
-                startPlaybackTimeTracking()
+                playbackTime.startPlaybackTimeTracking()
               }
             })
           } else {
@@ -1638,7 +1615,7 @@ async function togglePlay() {
     waveformDisplayRef.value?.start()
 
     // Start playback time tracking
-    startPlaybackTimeTracking()
+    playbackTime.startPlaybackTimeTracking()
   } else {
     // If playlist is playing, skip to next track instead of stopping
     if (currentPlaylist.value && playlistFiles.length > 0) {
@@ -1646,7 +1623,7 @@ async function togglePlay() {
       manualStop = true
       player.stop()
       isPlaying.value = false
-      stopPlaybackTimeTracking()
+      playbackTime.stopPlaybackTimeTracking()
       
       // Move to next track
       currentPlaylistIndex++
@@ -1670,7 +1647,7 @@ async function togglePlay() {
         player.start(startTime)
         isPlaying.value = true
         waveformDisplayRef.value?.start()
-        startPlaybackTimeTracking()
+        playbackTime.startPlaybackTimeTracking()
       }
     } else {
       // No playlist: stop playback normally
@@ -1682,7 +1659,7 @@ async function togglePlay() {
       waveformDisplayRef.value?.stop()
 
       // Stop playback time tracking
-      stopPlaybackTimeTracking()
+      playbackTime.stopPlaybackTimeTracking()
     }
   }
 }
@@ -1706,7 +1683,7 @@ function stopAudio() {
 
   // Reset playback position to start
   currentPlaybackTime.value = 0
-  stopPlaybackTimeTracking()
+  playbackTime.stopPlaybackTimeTracking()
 
   // Stop waveform
   waveformDisplayRef.value?.stop()
@@ -1954,7 +1931,7 @@ defineExpose({
                 player.start()
                 isPlaying.value = true
                 waveformDisplayRef.value?.start()
-                startPlaybackTimeTracking()
+                playbackTime.startPlaybackTimeTracking()
               }
             })
           } else {
@@ -1972,7 +1949,7 @@ defineExpose({
     isPlaying.value = true
 
     waveformDisplayRef.value?.start()
-    startPlaybackTimeTracking()
+    playbackTime.startPlaybackTimeTracking()
   },
 
   pausePlayback: () => {
@@ -1993,7 +1970,7 @@ defineExpose({
     player.stop()
     isPlaying.value = false
     waveformDisplayRef.value?.stop()
-    stopPlaybackTimeTracking()
+    playbackTime.stopPlaybackTimeTracking()
   },
 
   stopPlayback: () => {
@@ -2012,7 +1989,7 @@ defineExpose({
     player.stop()
     isPlaying.value = false
     currentPlaybackTime.value = 0
-    stopPlaybackTimeTracking()
+    playbackTime.stopPlaybackTimeTracking()
     waveformDisplayRef.value?.stop()
   },
 
@@ -2315,9 +2292,8 @@ onUnmounted(() => {
   // Cleanup level monitoring
   levelMonitoring.cleanup()
 
-  if (playbackTimeInterval) {
-    clearInterval(playbackTimeInterval)
-  }
+  // Cleanup playback time tracking
+  playbackTime.cleanup()
 
   // Stop waveform drawing
   waveformDisplayRef.value?.stop()
