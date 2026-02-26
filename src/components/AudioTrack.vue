@@ -53,17 +53,14 @@
         </select>
       </div>
 
-      <!-- File Upload (shown when source is 'file') -->
+      <!-- File Display (shown when source is 'file') -->
       <div v-if="audioSourceType === 'file'" class="w-full flex gap-1">
-        <input type="file" accept="audio/*" @change="handleFileUpload" ref="fileInput" class="hidden" />
-        <div 
-          @click="($refs.fileInput as HTMLInputElement)?.click()"
-          class="flex-1 px-2 py-0.5 text-xs bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 transition-colors overflow-hidden cursor-pointer relative">
+        <div class="flex-1 px-2 py-0.5 text-xs bg-gray-700 rounded border border-gray-600 overflow-hidden relative">
           <div v-if="isPlaying && fileName" class="animate-marquee whitespace-nowrap inline-block">
             {{ fileName }}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ fileName }}
           </div>
           <div v-else class="truncate">
-            {{ fileName || 'Load Audio' }}
+            {{ fileName || 'No audio loaded' }}
           </div>
         </div>
         <!-- Library button - Small square icon button -->
@@ -793,22 +790,6 @@ function initAudioNodes() {
   }
 }
 
-// File upload handler
-async function handleFileUpload(event: Event) {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-
-  if (!file || !Tone) {
-    console.error('Cannot load file - missing file or Tone.js')
-    return
-  }
-
-  await loadAudioFile(file, file.name)
-  
-  // CRITICAL: Reset file input to allow reloading the same file
-  target.value = ''
-}
-
 // Open file manager library (Electron only)
 function openLibrary() {
   if (fileManagerAPI?.openFileManager) {
@@ -1040,133 +1021,6 @@ async function checkIfDuplicate(newBuffer: ArrayBuffer, fileName: string, fileSi
   }
   
   return null
-}
-
-// Shared function to load audio file
-async function loadAudioFile(file: File, name: string) {
-  // Reset playlist state when loading a single file
-  currentPlaylist.value = null
-  playlistFiles = []
-  currentPlaylistIndex = 0
-
-  // Initialize audio nodes on first use
-  initAudioNodes()
-
-  fileName.value = name
-  isLoading.value = true
-
-  try {
-    // Create buffer from file
-    const arrayBuffer = await file.arrayBuffer()
-    
-    // Check if file already exists in library
-    const existingFileId = await checkIfDuplicate(arrayBuffer, file.name, file.size)
-    
-    if (existingFileId) {
-      // File already exists, use existing ID
-      fileId.value = existingFileId
-    } else {
-      // New file, save to IndexedDB
-      const savedFileId = await saveAudioFile(file)
-      fileId.value = savedFileId
-    }
-    const audioBuffer = await Tone.context.decodeAudioData(arrayBuffer)
-
-    // Check if we need to create a new player or just swap buffer
-    if (player && typeof player.stop === 'function' && 'buffer' in player) {
-      // It's already a Tone.Player - just swap the buffer
-
-      // CRITICAL: Stop player first to reset internal state
-      try {
-        player.stop()
-      } catch (e) { }
-
-      // Dispose old buffer
-      if (player.buffer && typeof player.buffer.dispose === 'function') {
-        try {
-          player.buffer.dispose()
-        } catch (e) { }
-      }
-
-      // Dispose old currentAudioBuffer if different
-      if (currentAudioBuffer && currentAudioBuffer !== player.buffer) {
-        try {
-          if (typeof (currentAudioBuffer as any).dispose === 'function') {
-            (currentAudioBuffer as any).dispose()
-          }
-        } catch (e) { }
-      }
-
-      // Assign new buffer
-      player.buffer = audioBuffer
-
-    } else {
-      // First time or was audio input - create new Tone.Player
-
-      if (player) {
-        // Cleanup old player (was Gain node for mic input)
-        try {
-          player.disconnect()
-          player.dispose()
-        } catch (e) { }
-      }
-
-      // Dispose old currentAudioBuffer
-      if (currentAudioBuffer) {
-        try {
-          if (typeof (currentAudioBuffer as any).dispose === 'function') {
-            (currentAudioBuffer as any).dispose()
-          }
-        } catch (e) { }
-      }
-
-      // Create new Tone.Player
-      player = new Tone.Player({
-        url: audioBuffer,
-        loop: nextTrack ? false : true,
-        playbackRate: 1.0,
-        onstop: () => {
-          if (!manualStop && nextTrack) {
-            loadFileFromLibrary(nextTrack, true).then(() => {
-              if (player) {
-                manualStop = false
-                player.start()
-                isPlaying.value = true
-                waveformDisplayRef.value?.start()
-                playbackTime.startPlaybackTimeTracking()
-              }
-            })
-          } else {
-            manualStop = false
-          }
-        },
-      })
-      player.connect(padNode)
-    }
-
-    // Update current buffer reference for waveform
-    currentAudioBuffer = audioBuffer
-
-    // Detect if stereo or mono
-    isStereo.value = audioBuffer.numberOfChannels === 2
-
-    // Verify audio chain is connected
-    if (!gainNode || !eq3 || !volumeMerge) {
-      alert('Audio system not ready. Please refresh the page.')
-      isLoading.value = false
-      return
-    }
-
-    audioLoaded.value = true
-    isLoading.value = false
-
-    // Force DOM update
-    await nextTick()
-  } catch (error) {
-    console.error('❌ Error loading audio file:', error)
-    alert('Error loading audio file: ' + error)
-    isLoading.value = false
-  }
 }
 
 // Load audio file from IndexedDB (for restoring from scene)
