@@ -313,7 +313,7 @@
 
   <!-- Parametric EQ Modal -->
   <ParametricEQModal v-model="showParametricEQ" :trackNumber="trackNumber" :eq-filters="eqFiltersData"
-    :system-filters="systemFilters" @update="handleParametricEQUpdate" />
+    :system-filters="systemFilters" @update="parametricEQ.handleParametricEQUpdate" />
 
   <!-- Phase Correlation Modal -->
   <PhaseCorrelationModal 
@@ -332,6 +332,7 @@ import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import { useTrackDrag } from '~/composables/track/useTrackDrag'
 import { useTrackRouting } from '~/composables/track/useTrackRouting'
+import { useTrackParametricEQ } from '~/composables/track/useTrackParametricEQ'
 import TrackFader from './audioTrack/TrackFader.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
 import PhaseCorrelationMeter from './audioTrack/PhaseCorrelationMeter.vue'
@@ -410,6 +411,20 @@ const routing = useTrackRouting({
 
 const { routeToMaster, routedSubgroups } = routing
 
+// Initialize parametric EQ composable
+const parametricEQ = useTrackParametricEQ({
+  getAudioNodes: () => ({
+    eq3,
+    channelSplit,
+    waveform,
+    compressor,
+    balanceSplit
+  }),
+  getCompressorEnabled: () => compressorEnabled.value
+})
+
+const { eqFiltersData } = parametricEQ
+
 // Audio state
 const fileInput = ref<HTMLInputElement | null>(null)
 const fileName = ref<string>('')
@@ -446,9 +461,6 @@ let channelSplitter: ChannelSplitterNode | null = null
 // FX state
 const compressorEnabled = ref(false)
 const gateEnabled = ref(false)
-
-// Store EQ filters data for thumbnail
-const eqFiltersData = ref<any[]>([])
 
 // System filters (HPF) - separate from user filters, only for visualization
 const systemFilters = computed(() => {
@@ -532,7 +544,6 @@ let gateRelease = 0.3 // seconds (300ms)
 let gateRange = -30 // dB attenuation when closed
 let gateIsOpen = false
 let gateMonitoringId: number | null = null
-let parametricEQFilters: any = null // Parametric EQ filter chain
 let compressor: any = null
 // Balance control (stereo-preserving): Split → Gain L/R → Merge
 let balanceSplit: any = null
@@ -764,79 +775,6 @@ function initAudioNodes() {
     nextTick(() => {
       handleAuxSendsUpdate(auxSendsData.value)
     })
-  }
-}
-
-
-// Handle parametric EQ update
-function handleParametricEQUpdate(filters: any) {
-  if (!filters) return
-
-  // Store the latest filter chain
-  const previousFilters = parametricEQFilters
-  parametricEQFilters = filters
-
-  // Store filter data for thumbnail
-  if (filters.filtersData) {
-    // Convert Vue reactive proxy to raw array
-    const rawFiltersData = toRaw(filters.filtersData)
-
-    // Map to plain objects for storage
-    eqFiltersData.value = rawFiltersData.map((f: any) => ({
-      id: f.id,
-      type: f.type,
-      frequency: f.frequency,
-      gain: f.gain,
-      Q: f.Q,
-      color: f.color
-    }))
-  }
-
-  // Only reconnect the audio chain if the filter chain structure changed
-  // (e.g., filters added/removed, or first time initialization)
-  // If it's just parameter updates (dragging), the nodes are already connected
-  const shouldReconnect = !previousFilters ||
-    !previousFilters.input ||
-    !previousFilters.output ||
-    previousFilters.input !== filters.input ||
-    previousFilters.output !== filters.output
-
-  if (shouldReconnect) {
-    applyParametricEQ()
-  }
-}
-
-// Insert or remove parametric EQ from the chain with minimal disconnections
-function applyParametricEQ() {
-  if (!eq3) return
-
-  // Disconnect only eq3 (meters and waveform stay connected)
-  try {
-    eq3.disconnect()
-  } catch (e) {
-    // Ignore disconnection errors
-  }
-
-  // Reconnect meters and waveform to eq3
-  if (channelSplit) eq3.connect(channelSplit)
-  if (waveform) eq3.connect(waveform)
-
-  // Determine next node in chain (compressor if enabled, balanceSplit if not)
-  const nextNode = (compressorEnabled.value && compressor) ? compressor : balanceSplit
-
-  // Insert parametric EQ between eq3 and next node if present
-  if (parametricEQFilters && parametricEQFilters.input && parametricEQFilters.output) {
-    eq3.connect(parametricEQFilters.input)
-
-    // Disconnect old parametric output if needed
-    try {
-      parametricEQFilters.output.disconnect()
-    } catch (e) { }
-
-    parametricEQFilters.output.connect(nextNode)
-  } else {
-    // No parametric EQ: connect eq3 directly to next node
-    eq3.connect(nextNode)
   }
 }
 
@@ -2378,7 +2316,7 @@ defineExpose({
         color: f.color
       }))
       // Apply EQ filters via the update handler
-      handleParametricEQUpdate({ filtersData: eqFiltersData.value })
+      parametricEQ.handleParametricEQUpdate({ filtersData: eqFiltersData.value })
     }
 
     // Restore compressor
@@ -2436,12 +2374,13 @@ defineExpose({
 
     // Clear parametric EQ
     eqFiltersData.value = []
-    if (parametricEQFilters) {
+    const filters = parametricEQ.getParametricEQFilters()
+    if (filters) {
       try {
-        parametricEQFilters.input?.disconnect()
-        parametricEQFilters.output?.disconnect()
+        filters.input?.disconnect()
+        filters.output?.disconnect()
       } catch (e) { }
-      parametricEQFilters = null
+      parametricEQ.setParametricEQFilters(null)
     }
 
     // Disable and reset compressor
@@ -2538,15 +2477,8 @@ onUnmounted(() => {
   if (waveform) waveform.dispose()
   if (compressor) compressor.dispose()
 
-  // Cleanup parametric EQ filters if present
-  if (parametricEQFilters) {
-    try {
-      if (parametricEQFilters.dispose) {
-        parametricEQFilters.dispose()
-      }
-    } catch (e) { }
-    parametricEQFilters = null
-  }
+  // Cleanup parametric EQ
+  parametricEQ.cleanup()
 
   if (resizeObserver) {
     resizeObserver.disconnect()
