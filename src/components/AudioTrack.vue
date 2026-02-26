@@ -327,31 +327,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick, computed, toRaw, inject } from 'vue'
+import { computed, inject, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useTrackAuxSends } from '~/composables/track/useTrackAuxSends'
+import { useTrackDrag } from '~/composables/track/useTrackDrag'
+import { useTrackLevelMonitoring } from '~/composables/track/useTrackLevelMonitoring'
+import { useTrackParametricEQ } from '~/composables/track/useTrackParametricEQ'
+import { useTrackRouting } from '~/composables/track/useTrackRouting'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
-import { useTrackDrag } from '~/composables/track/useTrackDrag'
-import { useTrackRouting } from '~/composables/track/useTrackRouting'
-import { useTrackParametricEQ } from '~/composables/track/useTrackParametricEQ'
-import { useTrackAuxSends } from '~/composables/track/useTrackAuxSends'
-import TrackFader from './audioTrack/TrackFader.vue'
-import TrackMeter from './audioTrack/TrackMeter.vue'
-import PhaseCorrelationModal from './audioTrack/PhaseCorrelationModal.vue'
-import Knob from './core/Knob.vue'
-import PanKnob from './audioTrack/PanKnob.vue'
-import ParametricEQModal from './master/ParametricEQModal.vue'
-import TrackCompressor from './audioTrack/TrackCompressor.vue'
-import TrackGate from './audioTrack/TrackGate.vue'
-import TrackEQ from './audioTrack/TrackEQ.vue'
-import EQThumbnail from './audioTrack/EQThumbnail.vue'
-import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
-import TrackAuxSends from './audioTrack/TrackAuxSends.vue'
 import AuxSendControl from './audioTrack/AuxSendControl.vue'
-import PadButton from './audioTrack/PadButton.vue'
-import HPFButton from './audioTrack/HPFButton.vue'
-import FadeOutButton from './audioTrack/FadeOutButton.vue'
 import BPMDisplay from './audioTrack/BPMDisplay.vue'
+import EQThumbnail from './audioTrack/EQThumbnail.vue'
+import FadeOutButton from './audioTrack/FadeOutButton.vue'
+import HPFButton from './audioTrack/HPFButton.vue'
 import InputSelector from './audioTrack/InputSelector.vue'
+import PadButton from './audioTrack/PadButton.vue'
+import PanKnob from './audioTrack/PanKnob.vue'
+import PhaseCorrelationModal from './audioTrack/PhaseCorrelationModal.vue'
+import TrackAuxSends from './audioTrack/TrackAuxSends.vue'
+import TrackCompressor from './audioTrack/TrackCompressor.vue'
+import TrackEQ from './audioTrack/TrackEQ.vue'
+import TrackFader from './audioTrack/TrackFader.vue'
+import TrackGate from './audioTrack/TrackGate.vue'
+import TrackMeter from './audioTrack/TrackMeter.vue'
+import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
+import Knob from './core/Knob.vue'
+import ParametricEQModal from './master/ParametricEQModal.vue'
 
 defineOptions({
   inheritAttrs: false
@@ -435,6 +436,16 @@ const auxSends = useTrackAuxSends({
 
 const { auxSendsData } = auxSends
 
+// Initialize level monitoring composable
+const levelMonitoring = useTrackLevelMonitoring({
+  getTone: () => Tone,
+  getMeters: () => ({ meterL, meterR }),
+  getAnalysers: () => ({ analyserL, analyserR }),
+  getIsStereo: () => isStereo.value
+})
+
+const { trackLevelL, trackLevelR, phaseCorrelation, analyserBufferSize, analyserDataL, analyserDataR } = levelMonitoring
+
 // Audio state
 const fileName = ref<string>('')
 const fileId = ref<string>('') // IndexedDB file ID for scene persistence
@@ -449,7 +460,6 @@ const isLoading = ref(false)
 const showParametricEQ = ref(false)
 const showAuxPanel = ref(false)
 const showPhaseModal = ref(false)
-const auxSendsRef = ref<any>(null)
 const waveformDisplayRef = ref<any>(null)
 
 // Audio source selection
@@ -498,16 +508,10 @@ const padEnabled = ref(false) // PAD: -20dB attenuation
 const hpfEnabled = ref(false) // HPF: 80Hz highpass filter
 const pan = ref(0) // -1 (left) to +1 (right)
 const isStereo = ref(true) // Track if source is stereo or mono (default stereo)
-const trackLevelL = ref(-60) // Left/Mono level
-const trackLevelR = ref(-60) // Right level (only for stereo)
-const phaseCorrelation = ref(0) // Phase correlation: -1 (out of phase) to +1 (mono)
 
 // Analyser nodes for phase correlation measurement
 let analyserL: any = null
 let analyserR: any = null
-const analyserBufferSize = 2048
-const analyserDataL = new Float32Array(analyserBufferSize)
-const analyserDataR = new Float32Array(analyserBufferSize)
 
 // Automation recording - track last recorded values to avoid redundant points
 const lastRecordedVolume = ref<number | null>(null)
@@ -634,7 +638,7 @@ onMounted(async () => {
   }
 
   // Start level monitoring
-  startLevelMonitoring()
+  levelMonitoring.startLevelMonitoring()
 
   // Listen for device changes and refresh the shared list
   navigator.mediaDevices.addEventListener('devicechange', refreshAudioInputs)
@@ -779,58 +783,6 @@ function initAudioNodes() {
       auxSends.handleAuxSendsUpdate(auxSendsData.value)
     })
   }
-}
-
-// Level monitoring for stereo/mono
-let levelMonitorInterval: number | null = null
-function startLevelMonitoring() {
-  levelMonitorInterval = window.setInterval(() => {
-    if (meterL && Tone) {
-      const levelL = meterL.getValue() as number
-      trackLevelL.value = Math.max(-60, levelL)
-
-      // For stereo, also read right channel
-      if (isStereo.value && meterR) {
-        const levelR = meterR.getValue() as number
-        trackLevelR.value = Math.max(-60, levelR)
-        
-        // Calculate phase correlation for stereo tracks
-        if (analyserL && analyserR) {
-          // Get time-domain data from both channels
-          analyserL.getFloatTimeDomainData(analyserDataL)
-          analyserR.getFloatTimeDomainData(analyserDataR)
-          
-          // Calculate correlation: correlation = sum(L*R) / sqrt(sum(L²) * sum(R²))
-          let sumLR = 0
-          let sumL2 = 0
-          let sumR2 = 0
-          
-          for (let i = 0; i < analyserBufferSize; i++) {
-            const l = analyserDataL[i]
-            const r = analyserDataR[i]
-            sumLR += l * r
-            sumL2 += l * l
-            sumR2 += r * r
-          }
-          
-          // Prevent division by zero and check for valid signal
-          const denominator = Math.sqrt(sumL2 * sumR2)
-          if (denominator > 0.00001) {
-            const newCorrelation = sumLR / denominator
-            // Smooth the correlation value slightly to reduce jitter
-            phaseCorrelation.value = phaseCorrelation.value * 0.7 + newCorrelation * 0.3
-          } else {
-            // Silence: default to neutral correlation
-            phaseCorrelation.value = 0
-          }
-        }
-      } else {
-        // Mono: copy left to right for consistency
-        trackLevelR.value = trackLevelL.value
-        phaseCorrelation.value = 1 // Mono is always perfectly correlated
-      }
-    }
-  }, 50)
 }
 
 // Playback time tracking
@@ -2360,9 +2312,8 @@ onUnmounted(() => {
     resizeObserver.disconnect()
   }
 
-  if (levelMonitorInterval) {
-    clearInterval(levelMonitorInterval)
-  }
+  // Cleanup level monitoring
+  levelMonitoring.cleanup()
 
   if (playbackTimeInterval) {
     clearInterval(playbackTimeInterval)
