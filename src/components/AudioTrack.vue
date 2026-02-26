@@ -200,7 +200,7 @@
 
       <!-- Aux Sends Button -->
       <TrackAuxSends ref="auxSendsRef" :track-number="trackNumber" :aux-buses="auxBuses" :aux-sends-data="auxSendsData"
-        @update-sends="handleAuxSendsUpdate" @toggle-panel="showAuxPanel = !showAuxPanel" />
+        @update-sends="auxSends.handleAuxSendsUpdate" @toggle-panel="showAuxPanel = !showAuxPanel" />
 
       <!-- Mute & Solo Buttons -->
       <div class="flex flex-row gap-1 w-full">
@@ -302,8 +302,8 @@
 
         <div v-else class="flex flex-col gap-2">
           <AuxSendControl v-for="aux in auxBuses" :key="aux.id" :aux="aux" :aux-send-data="auxSendsData[aux.id]"
-            @update-level="(val) => updateLocalAuxSend(aux.id, 'level', val)"
-            @toggle-pre-post="toggleLocalPrePost(aux.id)" @toggle-mute="toggleLocalMute(aux.id)" />
+            @update-level="(val) => auxSends.updateLocalAuxSend(aux.id, 'level', val)"
+            @toggle-pre-post="auxSends.toggleLocalPrePost(aux.id)" @toggle-mute="auxSends.toggleLocalMute(aux.id)" />
         </div>
       </div>
       </div>
@@ -333,9 +333,9 @@ import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import { useTrackDrag } from '~/composables/track/useTrackDrag'
 import { useTrackRouting } from '~/composables/track/useTrackRouting'
 import { useTrackParametricEQ } from '~/composables/track/useTrackParametricEQ'
+import { useTrackAuxSends } from '~/composables/track/useTrackAuxSends'
 import TrackFader from './audioTrack/TrackFader.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
-import PhaseCorrelationMeter from './audioTrack/PhaseCorrelationMeter.vue'
 import PhaseCorrelationModal from './audioTrack/PhaseCorrelationModal.vue'
 import Knob from './core/Knob.vue'
 import PanKnob from './audioTrack/PanKnob.vue'
@@ -425,8 +425,17 @@ const parametricEQ = useTrackParametricEQ({
 
 const { eqFiltersData } = parametricEQ
 
+// Initialize aux sends composable
+const auxSends = useTrackAuxSends({
+  getTone: () => Tone,
+  getAudioNodes: () => ({ volumeMerge, balanceMerge }),
+  getAuxBuses: () => props.auxBuses,
+  getIsMuted: () => isMuted.value
+})
+
+const { auxSendsData } = auxSends
+
 // Audio state
-const fileInput = ref<HTMLInputElement | null>(null)
 const fileName = ref<string>('')
 const fileId = ref<string>('') // IndexedDB file ID for scene persistence
 const audioLoaded = ref(false)
@@ -442,9 +451,6 @@ const showAuxPanel = ref(false)
 const showPhaseModal = ref(false)
 const auxSendsRef = ref<any>(null)
 const waveformDisplayRef = ref<any>(null)
-
-// Local aux sends state
-const auxSendsData = ref<Record<string, { level: number, preFader: boolean, muted: boolean }>>({})
 
 // Audio source selection
 const audioSourceType = ref<'file' | 'input'>('file')
@@ -572,9 +578,6 @@ let currentPlaylistIndex = 0
 let nextTrack: any = null // Next track to play (null for single files, set for playlists)
 let manualStop = false // Flag to distinguish manual stop from natural track end
 
-// Aux sends: Map of aux bus ID to { node, preFader }
-const auxSendNodes = new Map<string, { node: any, preFader: boolean }>()
-
 // Initialize aux sends data when aux buses change
 watch(() => props.auxBuses, (newBuses) => {
   newBuses.forEach(aux => {
@@ -591,7 +594,7 @@ watch(() => props.auxBuses, (newBuses) => {
 // Update aux sends when track mute changes
 watch(isMuted, () => {
   // Re-apply aux sends to update gain based on mute state
-  handleAuxSendsUpdate(auxSendsData.value)
+  auxSends.handleAuxSendsUpdate(auxSendsData.value)
 })
 
 // Calculate fader height based on container
@@ -773,131 +776,9 @@ function initAudioNodes() {
   // (happens when restoring from scene)
   if (Object.keys(auxSendsData.value).length > 0) {
     nextTick(() => {
-      handleAuxSendsUpdate(auxSendsData.value)
+      auxSends.handleAuxSendsUpdate(auxSendsData.value)
     })
   }
-}
-
-// Local aux send control functions
-function updateLocalAuxSend(auxId: string, property: 'level', value: number) {
-  if (!auxSendsData.value[auxId]) {
-    auxSendsData.value[auxId] = {
-      level: -60,
-      preFader: false,
-      muted: true
-    }
-  }
-
-  auxSendsData.value[auxId].level = value
-
-  // If level is increased from minimum, unmute automatically
-  if (value > -60 && auxSendsData.value[auxId].muted) {
-    auxSendsData.value[auxId].muted = false
-  }
-
-  // Trigger audio routing update
-  handleAuxSendsUpdate(auxSendsData.value)
-}
-
-function toggleLocalPrePost(auxId: string) {
-  if (!auxSendsData.value[auxId]) return
-
-  auxSendsData.value[auxId].preFader = !auxSendsData.value[auxId].preFader
-  handleAuxSendsUpdate(auxSendsData.value)
-}
-
-function toggleLocalMute(auxId: string) {
-  if (!auxSendsData.value[auxId]) return
-
-  auxSendsData.value[auxId].muted = !auxSendsData.value[auxId].muted
-  handleAuxSendsUpdate(auxSendsData.value)
-}
-
-// Handle aux sends update
-function handleAuxSendsUpdate(sends: Record<string, any>) {
-  if (!Tone || !volumeMerge || !balanceMerge) return
-
-  // Get all aux IDs from the sends object
-  const sendIds = Object.keys(sends)
-
-  // Remove sends that are no longer in the update or are inactive
-  auxSendNodes.forEach((sendInfo, auxId) => {
-    const send = sends[auxId]
-    const isActive = send && send.level > -60 && !send.muted
-
-    if (!send || !isActive) {
-      // Disconnect and dispose the send node
-      try {
-        sendInfo.node.disconnect()
-        sendInfo.node.dispose()
-      } catch (e) {
-        console.warn('Error disposing aux send node:', e)
-      }
-      auxSendNodes.delete(auxId)
-    }
-  })
-
-  // Update or create active sends
-  sendIds.forEach(auxId => {
-    const send = sends[auxId]
-    const isActive = send && send.level > -60 && !send.muted
-
-    if (!isActive) return
-
-    // Find the corresponding aux bus
-    const auxBus = props.auxBuses?.find(bus => bus.id === auxId)
-    if (!auxBus || !auxBus.node) {
-      console.warn(`Aux bus ${auxId} not found or has no node`)
-      return
-    }
-
-    // Get existing send info
-    let sendInfo = auxSendNodes.get(auxId)
-    let sendNode: any
-    let needsNewNode = false
-
-    // Check if preFader changed - need to recreate node to avoid double connections
-    if (sendInfo && sendInfo.preFader !== send.preFader) {
-      // Dispose old node completely
-      try {
-        sendInfo.node.disconnect()
-        sendInfo.node.dispose()
-      } catch (e) {
-        console.warn('Error disposing old send node:', e)
-      }
-      auxSendNodes.delete(auxId)
-      sendInfo = undefined
-      needsNewNode = true
-    }
-
-    // Create new node if needed
-    if (!sendInfo) {
-      sendNode = new Tone.Gain(0)
-      sendInfo = { node: sendNode, preFader: send.preFader }
-      auxSendNodes.set(auxId, sendInfo)
-      needsNewNode = true
-    } else {
-      sendNode = sendInfo.node
-    }
-
-    // Update send level (convert dB to gain)
-    // If track is muted, force send to 0 regardless of send level
-    const gainValue = isMuted.value ? 0 : Tone.dbToGain(send.level)
-    sendNode.gain.value = gainValue
-
-    // Connect new nodes
-    if (needsNewNode) {
-      try {
-        // Choose source based on pre/post fader
-        const source = send.preFader ? balanceMerge : volumeMerge
-        source.connect(sendNode)
-        sendNode.connect(toRaw(auxBus.node))
-
-      } catch (e) {
-        console.error('Error connecting aux send:', e)
-      }
-    }
-  })
 }
 
 // Level monitoring for stereo/mono
@@ -2278,7 +2159,7 @@ defineExpose({
       auxSendsData.value = { ...snapshot.auxSends }
       // Trigger aux sends update to reconnect nodes
       nextTick(() => {
-        handleAuxSendsUpdate(auxSendsData.value)
+        auxSends.handleAuxSendsUpdate(auxSendsData.value)
       })
     }
 
@@ -2467,13 +2348,8 @@ onUnmounted(() => {
   stopGateMonitoring()
 
   // Cleanup aux send nodes
-  auxSendNodes.forEach((sendInfo) => {
-    try {
-      sendInfo.node.disconnect()
-      sendInfo.node.dispose()
-    } catch (e) { }
-  })
-  auxSendNodes.clear()
+  auxSends.cleanup()
+  
   if (waveform) waveform.dispose()
   if (compressor) compressor.dispose()
 
