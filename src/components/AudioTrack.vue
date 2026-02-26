@@ -330,6 +330,7 @@ import { useTrackDrag } from '~/composables/track/useTrackDrag'
 import { useTrackLevelMonitoring } from '~/composables/track/useTrackLevelMonitoring'
 import { useTrackLibraryLoader } from '~/composables/track/useTrackLibraryLoader'
 import { useTrackAudioInput } from '~/composables/track/useTrackAudioInput'
+import { useTrackCompressor } from '~/composables/track/useTrackCompressor'
 import { useTrackParametricEQ } from '~/composables/track/useTrackParametricEQ'
 import { useTrackPlaybackTime } from '~/composables/track/useTrackPlaybackTime'
 import { useTrackRouting } from '~/composables/track/useTrackRouting'
@@ -567,6 +568,20 @@ const audioInput = useTrackAudioInput({
 })
 
 const { handleSourceTypeChange, handleAudioInputChange, handleInputSelect } = audioInput
+
+// Initialize compressor composable
+const compressorControl = useTrackCompressor({
+  getCompressorEnabled: () => compressorEnabled.value,
+  setCompressorEnabled: (enabled) => { compressorEnabled.value = enabled },
+  getAudioNodes: () => ({
+    eq3,
+    compressor,
+    balanceSplit
+  }),
+  getTrackCompressorRef: () => trackCompressorRef.value
+})
+
+const { toggleCompressor } = compressorControl
 
 // Audio state
 const fileName = ref<string>('')
@@ -1678,49 +1693,6 @@ onUnmounted(() => {
 })
 
 // FX Functions - Physically reconnect chain to preserve stereo
-function toggleCompressor() {
-  compressorEnabled.value = !compressorEnabled.value
-
-  if (!eq3 || !compressor) return
-
-  // Disconnect eq3 from everything
-  try {
-    eq3.disconnect(compressor)
-  } catch (e) { }
-  try {
-    eq3.disconnect(balanceSplit)
-  } catch (e) { }
-
-  // Disconnect compressor from balanceSplit
-  try {
-    compressor.disconnect(balanceSplit)
-  } catch (e) { }
-
-  if (compressorEnabled.value) {
-    // Apply real parameters from component
-    const params = trackCompressorRef.value?.getParams() || {
-      threshold: -20,
-      ratio: 4,
-      attack: 0.1,
-      release: 0.25
-    }
-    
-    // Chain: eq3 → compressor → balanceSplit
-    eq3.connect(compressor)
-    compressor.connect(balanceSplit)
-    
-    // Smooth fade in by ramping ratio from 1:1 (bypass) to target
-    compressor.threshold.value = params.threshold
-    compressor.ratio.value = 1
-    compressor.attack.value = params.attack
-    compressor.release.value = params.release
-    compressor.ratio.rampTo(params.ratio, 0.15)
-  } else {
-    // Bypass compressor completely: eq3 → balanceSplit (skip compressor)
-    eq3.connect(balanceSplit)
-  }
-}
-
 function toggleGate() {
   gateEnabled.value = !gateEnabled.value
 
