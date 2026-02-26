@@ -614,7 +614,7 @@ const gateControl = useTrackGate({
   }
 })
 
-const { toggleGate, handleGateParamsUpdate, startGateMonitoring, stopGateMonitoring } = gateControl
+const { toggleGate, handleGateParamsUpdate, stopGateMonitoring } = gateControl
 
 // Initialize snapshot composable
 const snapshot = useTrackSnapshot({
