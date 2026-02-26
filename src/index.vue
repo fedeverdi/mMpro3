@@ -67,7 +67,7 @@
                     <div class="w-px h-6 bg-gray-600"></div>
 
                     <div class="relative -mt-[3px]">
-                        <button @click="showAddTrackMenu = !showAddTrackMenu"
+                        <button @click="handleAddButtonClick"
                             class="mt-1 px-3 h-full py-1.5 border border-gray-600 hover:border-emerald-500 hover:bg-emerald-500/10 rounded text-xs font-semibold text-gray-300 hover:text-emerald-400 transition-all flex items-center gap-1.5">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -77,7 +77,7 @@
 
                         <!-- Dropdown Menu -->
                         <div v-if="showAddTrackMenu"
-                            class="absolute top-full left-0 mt-1 w-32 bg-gray-800 border border-gray-600 rounded shadow-lg z-50">
+                            class="absolute top-full left-0 mt-1 w-32 bg-gray-800 border border-gray-600 rounded shadow-lg z-[1000]">
                             <button @click="addTrackOfType('audio')"
                                 class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2">
                                 <div class="flex">
@@ -681,6 +681,33 @@ function getNextAvailableId(): number {
     }
     // If all 1-24 are taken, return the next number
     return Math.max(...tracks.value.map(t => t.id)) + 1
+}
+
+function handleAddButtonClick() {
+    // Check if we've reached the total track limit
+    if (tracks.value.length >= buildLimits.value.maxTracks) {
+        const limits = buildLimits.value
+        const mode = buildMode.value
+        limitModalMessage.value = `You've reached the maximum of <strong>${limits.maxTracks} total tracks</strong> in <strong>${mode}</strong> mode.<br/><br/>Upgrade to the full version for unlimited tracks.`
+        showLimitModal.value = true
+        return
+    }
+    
+    // Check if we can add at least one type of track
+    const canAddAudio = canAddTrack(tracks.value, 'audio')
+    const canAddSignal = canAddTrack(tracks.value, 'signal')
+    
+    if (!canAddAudio && !canAddSignal) {
+        // Can't add any type of track
+        const limits = buildLimits.value
+        const mode = buildMode.value
+        limitModalMessage.value = `You've reached the limits for all track types in <strong>${mode}</strong> mode.<br/><br/>Upgrade to the full version for unlimited tracks.`
+        showLimitModal.value = true
+        return
+    }
+    
+    // Open the menu
+    showAddTrackMenu.value = !showAddTrackMenu.value
 }
 
 function addTrackOfType(type: 'audio' | 'signal') {
@@ -1884,11 +1911,15 @@ onMounted(async () => {
         channelInterpretation: 'speakers'
     })
 
-    // Add initial subgroup
-    addSubgroup()
+    // Add initial subgroup (only if allowed by build limits)
+    const limits = getBuildLimits()
+    if (limits.maxSubgroups > 0) {
+        addSubgroup()
+    }
 
-    // Add 6 default aux buses
-    for (let i = 0; i < 6; i++) {
+    // Add default aux buses (up to the build limit)
+    const maxAuxToAdd = Math.min(6, limits.maxAuxBuses)
+    for (let i = 0; i < maxAuxToAdd; i++) {
         addAux()
     }
 
