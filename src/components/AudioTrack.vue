@@ -329,6 +329,7 @@ import { useTrackAuxSends } from '~/composables/track/useTrackAuxSends'
 import { useTrackDrag } from '~/composables/track/useTrackDrag'
 import { useTrackLevelMonitoring } from '~/composables/track/useTrackLevelMonitoring'
 import { useTrackLibraryLoader } from '~/composables/track/useTrackLibraryLoader'
+import { useTrackAudioInput } from '~/composables/track/useTrackAudioInput'
 import { useTrackParametricEQ } from '~/composables/track/useTrackParametricEQ'
 import { useTrackPlaybackTime } from '~/composables/track/useTrackPlaybackTime'
 import { useTrackRouting } from '~/composables/track/useTrackRouting'
@@ -507,6 +508,65 @@ const libraryLoader = useTrackLibraryLoader({
 })
 
 const { loadFileFromLibrary, loadPlaylistFromLibrary, loadFileFromIndexedDB } = libraryLoader
+
+// Initialize audio input composable
+const audioInput = useTrackAudioInput({
+  getTone: () => Tone,
+  getAudioNodes: () => ({
+    player,
+    padNode,
+    currentAudioBuffer
+  }),
+  setAudioNodes: (updates) => {
+    if (updates.player !== undefined) player = updates.player
+    if (updates.currentAudioBuffer !== undefined) currentAudioBuffer = updates.currentAudioBuffer
+    if (updates.audioInputSource !== undefined) audioInputSource = updates.audioInputSource
+    if (updates.channelSplitter !== undefined) channelSplitter = updates.channelSplitter
+    if (updates.audioInputStream !== undefined) audioInputStream = updates.audioInputStream
+  },
+  getAudioInputNodes: () => ({
+    audioInputSource,
+    channelSplitter,
+    audioInputStream
+  }),
+  getState: () => ({
+    selectedAudioInput: selectedAudioInput.value,
+    audioLoaded: audioLoaded.value,
+    isPlaying: isPlaying.value,
+    fileName: fileName.value,
+    fileId: fileId.value,
+    isStereo: isStereo.value,
+    audioContextStarted
+  }),
+  setState: (updates) => {
+    if (updates.selectedAudioInput !== undefined) selectedAudioInput.value = updates.selectedAudioInput
+    if (updates.audioLoaded !== undefined) audioLoaded.value = updates.audioLoaded
+    if (updates.isPlaying !== undefined) isPlaying.value = updates.isPlaying
+    if (updates.fileName !== undefined) fileName.value = updates.fileName
+    if (updates.fileId !== undefined) fileId.value = updates.fileId
+    if (updates.isStereo !== undefined) isStereo.value = updates.isStereo
+    if (updates.audioContextStarted !== undefined) audioContextStarted = updates.audioContextStarted
+  },
+  getPlaylistState: () => ({
+    currentPlaylist: currentPlaylist.value,
+    playlistFiles,
+    currentPlaylistIndex
+  }),
+  setPlaylistState: (updates) => {
+    if (updates.currentPlaylist !== undefined) currentPlaylist.value = updates.currentPlaylist
+    if (updates.playlistFiles !== undefined) playlistFiles = updates.playlistFiles
+    if (updates.currentPlaylistIndex !== undefined) currentPlaylistIndex = updates.currentPlaylistIndex
+  },
+  getAudioInputs: () => audioInputs.value,
+  initAudioNodes: initAudioNodes,
+  stopAudio: stopAudio,
+  getWaveformDisplayRef: () => waveformDisplayRef.value,
+  getRouting: () => routing,
+  getMasterChannel: () => props.masterChannel,
+  getTrackNumber: () => props.trackNumber
+})
+
+const { handleSourceTypeChange, handleAudioInputChange, handleInputSelect } = audioInput
 
 // Audio state
 const fileName = ref<string>('')
@@ -848,266 +908,6 @@ function initAudioNodes() {
 function openLibrary() {
   if (fileManagerAPI?.openFileManager) {
     fileManagerAPI.openFileManager(props.trackNumber)
-  }
-}
-
-// Handle when playlist track ends
-async function handlePlaylistTrackEnd() {
-  if (!currentPlaylist.value || !playlistFiles.length) return
-  
-  currentPlaylistIndex++
-  
-  // Check if we reached the end of the playlist
-  if (currentPlaylistIndex >= playlistFiles.length) {
-    // Loop back to start
-    currentPlaylistIndex = 0
-  }
-  
-  // Auto-load next track
-  const nextFile = playlistFiles[currentPlaylistIndex]
-  
-  await loadFileFromLibrary(nextFile, true) // preserve playlist state
-  const trackName = nextFile.title || nextFile.fileName
-  const trackDisplay = nextFile.artist ? `${nextFile.artist} - ${trackName}` : trackName
-  fileName.value = `${currentPlaylist.value.name} (${currentPlaylistIndex + 1}/${playlistFiles.length}) - ${trackDisplay}`
-  
-  // Auto-play next track if currently playing
-  if (isPlaying.value) {
-    await nextTick()
-    if (player && typeof player.start === 'function') {
-      manualStop = false
-      player.start()
-    }
-  }
-}
-
-// Handle source type change
-function handleSourceTypeChange() {
-  // Reset playlist state when changing source type
-  currentPlaylist.value = null
-  playlistFiles = []
-  currentPlaylistIndex = 0
-
-  // Stop any current playback
-  stopAudio()
-
-  // Stop waveform visualization
-  waveformDisplayRef.value?.stop()
-
-  // Clean up current source before switching
-  if (player) {
-    try {
-      if (typeof player.stop === 'function') {
-        player.stop()
-      }
-
-      // Dispose old buffer to free memory
-      if (player.buffer && typeof player.buffer.dispose === 'function') {
-        try {
-          player.buffer.dispose()
-        } catch (e) { }
-      }
-
-      player.disconnect()
-      player.dispose()
-    } catch (e) { }
-    player = null
-  }
-
-  // Dispose and clear audio buffer reference
-  if (currentAudioBuffer) {
-    try {
-      if (typeof (currentAudioBuffer as any).dispose === 'function') {
-        (currentAudioBuffer as any).dispose()
-      }
-    } catch (e) { }
-  }
-  currentAudioBuffer = null
-
-  // Disconnect and clean up audio input source
-  if (audioInputSource) {
-    try {
-      audioInputSource.disconnect()
-    } catch (e) { }
-    audioInputSource = null
-  }
-  
-  if (channelSplitter) {
-    try {
-      channelSplitter.disconnect()
-    } catch (e) { }
-    channelSplitter = null
-  }
-
-  if (audioInputStream) {
-    audioInputStream.getTracks().forEach(track => track.stop())
-    audioInputStream = null
-  }
-
-  // DON'T destroy audio nodes - they're reusable!
-  // Just reset state
-  audioLoaded.value = false
-  isPlaying.value = false
-  fileName.value = ''
-  fileId.value = ''
-  selectedAudioInput.value = ''
-}
-
-// Handle audio input device change
-async function handleAudioInputChange() {
-  if (!selectedAudioInput.value || !Tone) return
-
-  // Initialize audio nodes if needed
-  initAudioNodes()
-
-  try {
-    // Start audio context once (required by browsers for user interaction)
-    if (!audioContextStarted) {
-      await Tone.start()
-      audioContextStarted = true
-    }
-
-    // Stop previous input stream if any
-    if (audioInputStream) {
-      audioInputStream.getTracks().forEach(track => track.stop())
-    }
-
-    // Disconnect old audio input source
-    if (audioInputSource) {
-      try {
-        audioInputSource.disconnect()
-      } catch (e) { }
-      audioInputSource = null
-    }
-    
-    if (channelSplitter) {
-      try {
-        channelSplitter.disconnect()
-      } catch (e) { }
-      channelSplitter = null
-    }
-
-    // Dispose old player if it exists and is not already a Gain (input wrapper)
-    if (player && typeof player.stop === 'function') {
-      // It's a Tone.Player, dispose it
-      try {
-        player.stop()
-        player.disconnect()
-        player.dispose()
-      } catch (e) { }
-      player = null
-    }
-
-    // Parse composite deviceId (format: "realDeviceId:channelIndex")
-    let realDeviceId = selectedAudioInput.value
-    let targetChannel: number | null = null
-    
-    if (selectedAudioInput.value.includes(':')) {
-      const parts = selectedAudioInput.value.split(':')
-      realDeviceId = parts[0]
-      targetChannel = parseInt(parts[1], 10)
-      console.log(`[Track ${props.trackNumber}] Parsed composite deviceId: device="${realDeviceId}", channel=${targetChannel + 1}`)
-    }
-    
-    // Get audio stream from selected device
-    audioInputStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId: { exact: realDeviceId },
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-        sampleRate: { ideal: 48000 },
-        channelCount: { min: 1, ideal: 8, max: 32 } // Request all available channels
-      }
-    })
-
-    // Create MediaStreamSource from the stream (native Web Audio API node)
-    audioInputSource = Tone.context.createMediaStreamSource(audioInputStream)
-
-    // Get actual channel count from the source
-    if (!audioInputSource) {
-      throw new Error('Failed to create audio input source')
-    }
-    const actualChannelCount = audioInputSource.channelCount
-    console.log(`[Track ${props.trackNumber}] MediaStreamSource has ${actualChannelCount} channels`)
-    
-    // For multi-channel devices with specific channel selected, use channel splitter
-    let sourceNode: AudioNode | null = audioInputSource
-    
-    if (targetChannel !== null && actualChannelCount > 1 && audioInputSource) {
-      // Clean up old splitter
-      if (channelSplitter) {
-        try {
-          (channelSplitter as ChannelSplitterNode).disconnect()
-        } catch (e) {}
-      }
-      
-      // Create channel splitter to separate individual channels
-      channelSplitter = Tone.context.createChannelSplitter(actualChannelCount) as ChannelSplitterNode
-      audioInputSource.connect(channelSplitter)
-      
-      // Create a merger to convert selected channel to mono output
-      const channelMerger = Tone.context.createChannelMerger(1)
-      
-      // Connect selected channel (0-based) to the merger
-      channelSplitter.connect(channelMerger, targetChannel, 0)
-      
-      sourceNode = channelMerger
-      isStereo.value = false // Each track uses one channel
-      
-      console.log(`[Track ${props.trackNumber}] Using input channel ${targetChannel + 1} of ${actualChannelCount}`)
-    } else {
-      isStereo.value = actualChannelCount === 2
-    }
-
-    // Reuse player if it's already a Gain node, otherwise create new
-    if (!player || typeof player.stop === 'function') {
-      player = new Tone.Gain(1)
-      player.connect(padNode!)
-    }
-
-    // Connect the source node (either direct or through channel splitter) to player input
-    if (sourceNode) {
-      sourceNode.connect(player.input)
-    }
-
-    // CRITICAL: Ensure volume node is connected to master output
-    routing.connectToOutput()
-
-    // Find device name for display
-    const device = audioInputs.value.find(d => d.deviceId === selectedAudioInput.value)
-    fileName.value = device?.label || 'Audio Input'
-
-    audioLoaded.value = true
-    isPlaying.value = true // Input is always "playing"
-
-    // Ensure master audio elements are playing (critical for output!)
-    if (props.masterChannel?.ensureAudioPlaying) {
-      props.masterChannel.ensureAudioPlaying()
-    }
-
-    // Start waveform visualization for audio input
-    waveformDisplayRef.value?.start()
-
-    // Note: No playback time tracking for audio input (it's live)
-
-  } catch (error) {
-    console.error(`[Track ${props.trackNumber}] Error connecting audio input:`, error)
-    alert('Error accessing audio input. Please check permissions and try again.')
-    audioLoaded.value = false
-    isPlaying.value = false
-  }
-}
-
-// Handle input device selection from InputSelector
-function handleInputSelect(deviceId: string | null) {
-  if (deviceId === null || deviceId === '') {
-    // Clear input selection
-    selectedAudioInput.value = ''
-    stopAudio()
-  } else {
-    selectedAudioInput.value = deviceId
-    handleAudioInputChange()
   }
 }
 
