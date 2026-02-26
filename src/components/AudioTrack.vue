@@ -330,6 +330,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick, computed, toRaw, inject } from 'vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
+import { useTrackDrag } from '~/composables/track/useTrackDrag'
 import TrackFader from './audioTrack/TrackFader.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
 import PhaseCorrelationMeter from './audioTrack/PhaseCorrelationMeter.vue'
@@ -392,41 +393,10 @@ const emit = defineEmits<{
   (e: 'drag-start'): void
 }>()
 
-// Ref per l'elemento traccia (usato per generare il ghost durante il drag)
-const trackElement = ref<HTMLElement | null>(null)
-
-// Funzione per gestire l'inizio del drag con ghost personalizzato
-const handleDragStart = (event: DragEvent) => {
-  // Crea un ghost personalizzato della traccia
-  if (trackElement.value && event.dataTransfer) {
-    const clone = trackElement.value.cloneNode(true) as HTMLElement
-    
-    // Stile del ghost - forza le dimensioni esatte per evitare espansioni
-    clone.style.position = 'absolute'
-    clone.style.top = '-9999px'
-    clone.style.left = '-9999px'
-    clone.style.width = trackElement.value.offsetWidth + 'px'
-    clone.style.height = trackElement.value.offsetHeight + 'px'
-    clone.style.opacity = '0.5'
-    clone.style.transform = 'rotate(3deg)'
-    clone.style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.5)'
-    clone.style.border = '2px solid rgba(59, 130, 246, 0.5)'
-    clone.style.pointerEvents = 'none'
-    clone.style.overflow = 'hidden'
-    
-    document.body.appendChild(clone)
-    
-    // Imposta il clone come drag image
-    event.dataTransfer.setDragImage(clone, trackElement.value.offsetWidth / 2, 30)
-    
-    // Rimuovi il clone dopo un breve ritardo
-    setTimeout(() => {
-      document.body.removeChild(clone)
-    }, 0)
-  }
-  
-  emit('drag-start')
-}
+// Initialize drag composable
+const { trackElement, handleDragStart } = useTrackDrag({
+  onDragStart: () => emit('drag-start')
+})
 
 // Audio state
 const fileInput = ref<HTMLInputElement | null>(null)
