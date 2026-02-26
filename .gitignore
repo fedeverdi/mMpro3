@@ -93,3 +93,5 @@ out/
 .env.demo
 .env.medium
 .env.production
+# Web build output (Vercel)
+dist/

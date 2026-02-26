@@ -1,0 +1,33 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Build outputs
+.vite
+out
+*.app
+*.dmg
+*.exe
+
+# Electron specific
+build-and-sign.sh
+entitlements.*.plist
+forge.config.js
+
+# Vite electron configs (use web config for Vercel)
+vite.main.config.mjs
+vite.preload.config.mjs
+
+# Development
+.DS_Store
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# Documentation (optional, remove if you want docs deployed)
+BUILD_NOTES.md
+BUILD_MODES.md
+AUTOMATION_GUIDE.md
