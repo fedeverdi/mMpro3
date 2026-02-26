@@ -21,7 +21,6 @@
                         </div>
                     </template>
                 </div>
-
                 <div class="flex gap-2 items-center flex-wrap">
                     <button @click="showAudioFlowModal = true"
                         class="px-3 py-1.5 border border-gray-600 hover:border-purple-500 hover:bg-purple-500/10 rounded text-xs font-semibold text-gray-300 hover:text-purple-400 transition-all flex items-center gap-1.5">
