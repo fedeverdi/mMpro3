@@ -67,8 +67,8 @@
                     <div class="w-px h-6 bg-gray-600"></div>
 
                     <div class="relative -mt-[3px]">
-                        <button @click="showAddTrackMenu = !showAddTrackMenu" :disabled="tracks.length >= 24"
-                            class="mt-1 px-3 h-full py-1.5 border border-gray-600 hover:border-emerald-500 hover:bg-emerald-500/10 disabled:border-gray-700 disabled:bg-gray-800/50 disabled:cursor-not-allowed rounded text-xs font-semibold text-gray-300 hover:text-emerald-400 disabled:text-gray-600 transition-all flex items-center gap-1.5">
+                        <button @click="showAddTrackMenu = !showAddTrackMenu"
+                            class="mt-1 px-3 h-full py-1.5 border border-gray-600 hover:border-emerald-500 hover:bg-emerald-500/10 rounded text-xs font-semibold text-gray-300 hover:text-emerald-400 transition-all flex items-center gap-1.5">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
@@ -100,18 +100,20 @@
                                 </div>
                                 Signal Track
                             </button>
-                            <div class="h-px bg-gray-600 my-1"></div>
-                            <button @click="addSubgroup(); showAddTrackMenu = false"
-                                class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2">
-                                <div class="flex">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="white"
-                                        viewBox="0 0 512 512">
-                                        <path
-                                            d="M12.41 148.02l232.94 105.67c6.8 3.09 14.49 3.09 21.29 0l232.94-105.67c16.55-7.51 16.55-32.52 0-40.03L266.65 2.31a25.607 25.607 0 0 0-21.29 0L12.41 107.98c-16.55 7.51-16.55 32.53 0 40.04zm487.18 88.28l-58.09-26.33-161.64 73.27c-7.56 3.43-15.59 5.17-23.86 5.17s-16.29-1.74-23.86-5.17L70.51 209.97l-58.1 26.33c-16.55 7.5-16.55 32.5 0 40l232.94 105.59c6.8 3.08 14.49 3.08 21.29 0L499.59 276.3c16.55-7.5 16.55-32.5 0-40zm0 127.8l-57.87-26.23-161.86 73.37c-7.56 3.43-15.59 5.17-23.86 5.17s-16.29-1.74-23.86-5.17L70.29 337.87 12.41 364.1c-16.55 7.5-16.55 32.5 0 40l232.94 105.59c6.8 3.08 14.49 3.08 21.29 0L499.59 404.1c16.55-7.5 16.55-32.5 0-40z" />
-                                    </svg>
-                                </div>
-                                Subgroup
-                            </button>
+                            <template v-if="buildLimits.maxSubgroups > 0">
+                                <div class="h-px bg-gray-600 my-1"></div>
+                                <button @click="addSubgroup(); showAddTrackMenu = false"
+                                    class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2">
+                                    <div class="flex">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="white"
+                                            viewBox="0 0 512 512">
+                                            <path
+                                                d="M12.41 148.02l232.94 105.67c6.8 3.09 14.49 3.09 21.29 0l232.94-105.67c16.55-7.51 16.55-32.52 0-40.03L266.65 2.31a25.607 25.607 0 0 0-21.29 0L12.41 107.98c-16.55 7.51-16.55 32.53 0 40.04zm487.18 88.28l-58.09-26.33-161.64 73.27c-7.56 3.43-15.59 5.17-23.86 5.17s-16.29-1.74-23.86-5.17L70.51 209.97l-58.1 26.33c-16.55 7.5-16.55 32.5 0 40l232.94 105.59c6.8 3.08 14.49 3.08 21.29 0L499.59 276.3c16.55-7.5 16.55-32.5 0-40zm0 127.8l-57.87-26.23-161.86 73.37c-7.56 3.43-15.59 5.17-23.86 5.17s-16.29-1.74-23.86-5.17L70.29 337.87 12.41 364.1c-16.55 7.5-16.55 32.5 0 40l232.94 105.59c6.8 3.08 14.49 3.08 21.29 0L499.59 404.1c16.55-7.5 16.55-32.5 0-40z" />
+                                        </svg>
+                                    </div>
+                                    Subgroup
+                                </button>
+                            </template>
                         </div>
                     </div>
 
@@ -124,7 +126,7 @@
                     </button>
 
                     <div class="text-xs text-gray-400">
-                        {{ tracks.length }}/24
+                        {{ tracks.length }}/{{ buildLimits.maxTracks }}
                     </div>
                 </div>
             </div>
@@ -188,6 +190,7 @@
                                     :order="track.order"
                                     :master-channel="masterChannel" 
                                     :subgroups="subgroups"
+                                    :allow-subgroup-routing="buildLimits.allowSubgroupRouting"
                                     :is-dragging="draggedTrackId === track.id"
                                     @soloChange="handleSoloChange" 
                                     @levelUpdate="handleLevelUpdate"
@@ -200,6 +203,7 @@
                                     :master-channel="masterChannel" 
                                     :subgroups="subgroups" 
                                     :aux-buses="auxBuses"
+                                    :allow-subgroup-routing="buildLimits.allowSubgroupRouting"
                                     :is-armed="isTrackArmed(track.id)"
                                     :is-dragging="draggedTrackId === track.id"
                                     @soloChange="handleSoloChange" 
@@ -403,6 +407,40 @@
             @save="handleSaveScene" @load="handleLoadScene" @update="handleUpdateScene" @delete="handleDeleteScene"
             @rename="handleRenameScene" @toggle-pin="handleTogglePin" />
 
+        <!-- Limit Reached Modal -->
+        <Transition enter-from-class="opacity-0" enter-active-class="transition-opacity duration-200"
+            enter-to-class="opacity-100" leave-from-class="opacity-100" leave-active-class="transition-opacity duration-200"
+            leave-to-class="opacity-0">
+            <div v-if="showLimitModal" @click="showLimitModal = false"
+                class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+                <div @click.stop
+                    class="bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-orange-500/70 rounded-lg shadow-2xl max-w-md w-full p-6">
+                    <div class="flex items-start gap-3 mb-4">
+                        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-bold text-orange-400 mb-2">Limit Reached</h3>
+                            <p class="text-gray-300 text-sm leading-relaxed" v-html="limitModalMessage"></p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 mt-6">
+                        <a href="https://your-website.com/download" target="_blank"
+                            class="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-lg text-white font-semibold text-sm transition-all text-center">
+                            Download Full Version
+                        </a>
+                        <button @click="showLimitModal = false"
+                            class="px-4 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 font-semibold text-sm transition-all">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+
         <!-- Scene Loading Overlay -->
         <Transition enter-from-class="opacity-0 scale-90 -translate-y-12"
             enter-active-class="transition-all duration-500 ease-out"
@@ -448,6 +486,7 @@ import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useScenes, type Scene, type TrackSnapshot, type SubgroupSnapshot, type AuxSnapshot } from '~/composables/useScenes'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import { useAutomation } from '~/composables/useAutomation'
+import { getBuildLimits, canAddTrack, getTrackCounts, getBuildMode } from '~/config/buildLimits'
 import { channel } from 'diagnostics_channel'
 
 const ToneRef = inject<any>('Tone')
@@ -465,6 +504,10 @@ interface Subgroup {
 
 const subgroups = ref<Subgroup[]>([])
 let nextSubgroupId = 1
+
+// Build limits
+const buildLimits = computed(() => getBuildLimits())
+const buildMode = computed(() => getBuildMode())
 
 // Aux buses system
 interface AuxBus {
@@ -507,6 +550,8 @@ const showAudioFlowModal = ref(false)
 const showScenesModal = ref(false)
 const showFileManager = ref(false)
 const isLoadingScene = ref(false)
+const showLimitModal = ref(false)
+const limitModalMessage = ref('')
 
 // Automation System
 const automation = useAutomation()
@@ -598,15 +643,27 @@ provide('fileManager', {
 })
 
 // Tracks management
-const tracks = ref<Track[]>([
-    { id: 1, type: 'audio', order: 1 },
-    { id: 2, type: 'audio', order: 2 },
-    { id: 3, type: 'audio', order: 3 },
-    { id: 4, type: 'audio', order: 4 },
-    { id: 5, type: 'audio', order: 5 },
-    { id: 6, type: 'audio', order: 6 },
-    { id: 7, type: 'signal', order: 7 }
-])
+// Initialize with tracks based on build mode
+function initializeTracks(): Track[] {
+    const limits = getBuildLimits()
+    const tracks: Track[] = []
+    let id = 1
+    let order = 1
+    
+    // Add audio tracks
+    for (let i = 0; i < limits.defaultAudioTracks; i++) {
+        tracks.push({ id: id++, type: 'audio', order: order++ })
+    }
+    
+    // Add signal tracks
+    for (let i = 0; i < limits.defaultSignalTracks; i++) {
+        tracks.push({ id: id++, type: 'signal', order: order++ })
+    }
+    
+    return tracks
+}
+
+const tracks = ref<Track[]>(initializeTracks())
 
 // Computed per ordinare le tracce per order
 const sortedTracks = computed(() => {
@@ -627,7 +684,24 @@ function getNextAvailableId(): number {
 }
 
 function addTrackOfType(type: 'audio' | 'signal') {
-    if (tracks.value.length >= 24) return
+    // Check if we can add this track type
+    if (!canAddTrack(tracks.value, type)) {
+        const limits = buildLimits.value
+        const counts = getTrackCounts(tracks.value)
+        const mode = buildMode.value
+        
+        if (type === 'audio' && counts.audio >= limits.maxAudioTracks) {
+            limitModalMessage.value = `You've reached the maximum of <strong>${limits.maxAudioTracks} audio track${limits.maxAudioTracks > 1 ? 's' : ''}</strong> in <strong>${mode}</strong> mode.<br/><br/>Upgrade to the full version for unlimited tracks.`
+        } else if (type === 'signal' && counts.signal >= limits.maxSignalTracks) {
+            limitModalMessage.value = `You've reached the maximum of <strong>${limits.maxSignalTracks} signal track${limits.maxSignalTracks > 1 ? 's' : ''}</strong> in <strong>${mode}</strong> mode.<br/><br/>Upgrade to the full version for unlimited tracks.`
+        } else {
+            limitModalMessage.value = `You've reached the maximum of <strong>${limits.maxTracks} total tracks</strong> in <strong>${mode}</strong> mode.<br/><br/>Upgrade to the full version for unlimited tracks.`
+        }
+        showLimitModal.value = true
+        showAddTrackMenu.value = false
+        return
+    }
+    
     const newId = getNextAvailableId()
     const maxOrder = tracks.value.length > 0 ? Math.max(...tracks.value.map(t => t.order)) : 0
     tracks.value.push({ id: newId, type, order: maxOrder + 1 })
@@ -772,6 +846,15 @@ function setSubgroupRef(subgroupId: number, el: any | null) {
 function addSubgroup() {
     if (!Tone) return
 
+    // Check build limits
+    if (subgroups.value.length >= buildLimits.value.maxSubgroups) {
+        const limits = buildLimits.value
+        const mode = buildMode.value
+        limitModalMessage.value = `You've reached the maximum of <strong>${limits.maxSubgroups} subgroup${limits.maxSubgroups > 1 ? 's' : ''}</strong> in <strong>${mode}</strong> mode.<br/><br/>Upgrade to the full version for more subgroups.`
+        showLimitModal.value = true
+        return
+    }
+
     const id = nextSubgroupId++
     const name = `SUB ${id}`
 
@@ -818,6 +901,15 @@ function removeSubgroup(subgroupId: number) {
 // Aux buses management
 function addAux() {
     if (!Tone) return
+
+    // Check build limits
+    if (auxBuses.value.length >= buildLimits.value.maxAuxBuses) {
+        const limits = buildLimits.value
+        const mode = buildMode.value
+        limitModalMessage.value = `You've reached the maximum of <strong>${limits.maxAuxBuses} aux bus${limits.maxAuxBuses > 1 ? 'es' : ''}</strong> in <strong>${mode}</strong> mode.<br/><br/>Upgrade to the full version for more aux buses.`
+        showLimitModal.value = true
+        return
+    }
 
     const id = `aux-${nextAuxId++}`
     const name = `AUX ${nextAuxId - 1}`

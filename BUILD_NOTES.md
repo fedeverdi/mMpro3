@@ -1,5 +1,74 @@
 # MMpro3 - Build Notes
 
+## Build Modes
+
+MMpro3 supporta tre diverse modalità di build con limiti differenti di tracce e funzionalità:
+
+### 🎯 Demo Mode
+Versione limitata per demo e test:
+- **1 traccia audio** + **1 traccia signal**
+- **1 Aux bus**
+- **Nessun subgroup** (routing ai subgroup disabilitato)
+- Ideale per demo veloci e test di base
+
+**Comandi:**
+```bash
+# Development
+npm run dev:demo
+
+# Build
+npm run build:demo
+```
+
+### 🎵 Medium Mode
+Versione intermedia con funzionalità complete:
+- **4 tracce audio** + **1 traccia signal**
+- **6 Aux buses** (massimo)
+- **4 Subgroups** (massimo)
+- Routing ai subgroup abilitato
+- Tutte le features audio abilitate
+
+**Comandi:**
+```bash
+# Development
+npm run dev:medium
+
+# Build
+npm run build:medium
+```
+
+### 🚀 Full Mode
+Versione completa senza limitazioni:
+- **24 tracce** totali (audio + signal)
+- **6 Aux buses** (massimo)
+- **4 Subgroups** (massimo)
+- Routing ai subgroup abilitato
+- Tutte le features audio abilitate
+
+**Comandi:**
+```bash
+# Development
+npm run dev
+npm run dev:browser
+npm run dev:full
+
+# Build
+npm run build
+npm run build:full
+```
+
+### Configurazione
+
+Le modalità di build sono controllate dalla variabile d'ambiente `VITE_BUILD_MODE`:
+- `.env` - Configurazione default (full)
+- `.env.demo` - Configurazione demo
+- `.env.medium` - Configurazione medium
+- `.env.production` - Configurazione per build di produzione (full)
+
+La configurazione è definita in `src/config/buildLimits.ts`.
+
+---
+
 ## Microphone Access on macOS
 
 L'applicazione richiede l'accesso al microfono per funzionare. Su macOS, questo richiede configurazioni specifiche:

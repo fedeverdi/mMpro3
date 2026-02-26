@@ -7,11 +7,18 @@
   "private": true,
   "scripts": {
     "start": "electron-forge start",
+    "dev": "vite --config vite.renderer.config.mjs",
     "dev:browser": "vite --config vite.renderer.config.mjs",
+    "dev:demo": "VITE_BUILD_MODE=demo vite --config vite.renderer.config.mjs",
+    "dev:medium": "VITE_BUILD_MODE=medium vite --config vite.renderer.config.mjs",
+    "dev:full": "VITE_BUILD_MODE=full vite --config vite.renderer.config.mjs",
     "package": "electron-forge package",
     "pack": "sh ./build-and-sign.sh",
     "make": "electron-forge make",
     "build": "./build-and-sign.sh",
+    "build:demo": "VITE_BUILD_MODE=demo ./build-and-sign.sh",
+    "build:medium": "VITE_BUILD_MODE=medium ./build-and-sign.sh",
+    "build:full": "VITE_BUILD_MODE=full ./build-and-sign.sh",
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\""
   },

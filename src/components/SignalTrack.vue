@@ -118,6 +118,7 @@
             M
           </button>
           <button 
+            v-if="props.allowSubgroupRouting"
             v-for="subgroup in props.subgroups" 
             :key="subgroup.id"
             @click="toggleRouteToSubgroup(subgroup.id)" 
@@ -153,11 +154,13 @@ interface Props {
   order: number
   masterChannel?: any
   subgroups?: Array<{ id: number, name: string, channel: any, ref: any }>
+  allowSubgroupRouting?: boolean
   isDragging?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   subgroups: () => [],
+  allowSubgroupRouting: true,
   isDragging: false,
   order: 0
 })

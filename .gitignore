@@ -90,3 +90,6 @@ typings/
 
 # Electron-Forge
 out/
+.env.demo
+.env.medium
+.env.production

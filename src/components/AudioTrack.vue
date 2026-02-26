@@ -247,7 +247,7 @@
               :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
               M
             </button>
-            <button v-for="subgroup in props.subgroups" :key="subgroup.id" @click="routing.toggleRouteToSubgroup(subgroup.id)"
+            <button v-if="props.allowSubgroupRouting" v-for="subgroup in props.subgroups" :key="subgroup.id" @click="routing.toggleRouteToSubgroup(subgroup.id)"
               :title="`Route to ${subgroup.name}`"
               class="w-5 h-7 text-[6px] font-bold rounded transition-all flex items-center justify-center"
               :class="routedSubgroups.has(subgroup.id) ? 'bg-orange-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
@@ -380,6 +380,7 @@ interface Props {
   masterChannel?: any
   subgroups?: Array<{ id: number, name: string, channel: any, ref: any }>
   auxBuses?: Array<{ id: string, name: string, volume: number, muted: boolean, soloed: boolean, routeToMaster: boolean, node?: any }>
+  allowSubgroupRouting?: boolean
   isArmed?: boolean
   isDragging?: boolean
 }
@@ -387,6 +388,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   subgroups: () => [],
   auxBuses: () => [],
+  allowSubgroupRouting: true,
   isArmed: false,
   isDragging: false,
   order: 0
