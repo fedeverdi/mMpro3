@@ -328,6 +328,7 @@ import { computed, inject, nextTick, onMounted, onUnmounted, ref, watch } from '
 import { useTrackAuxSends } from '~/composables/track/useTrackAuxSends'
 import { useTrackDrag } from '~/composables/track/useTrackDrag'
 import { useTrackLevelMonitoring } from '~/composables/track/useTrackLevelMonitoring'
+import { useTrackLibraryLoader } from '~/composables/track/useTrackLibraryLoader'
 import { useTrackParametricEQ } from '~/composables/track/useTrackParametricEQ'
 import { useTrackPlaybackTime } from '~/composables/track/useTrackPlaybackTime'
 import { useTrackRouting } from '~/composables/track/useTrackRouting'
@@ -453,6 +454,59 @@ const playbackTime = useTrackPlaybackTime({
 })
 
 const { currentPlaybackTime } = playbackTime
+
+// Initialize library loader composable
+const libraryLoader = useTrackLibraryLoader({
+  getTone: () => Tone,
+  getAudioNodes: () => ({
+    player,
+    padNode,
+    currentAudioBuffer,
+    gainNode,
+    eq3,
+    volumeMerge
+  }),
+  setAudioNodes: (updates) => {
+    if (updates.player !== undefined) player = updates.player
+    if (updates.currentAudioBuffer !== undefined) currentAudioBuffer = updates.currentAudioBuffer
+  },
+  getState: () => ({
+    fileName: fileName.value,
+    fileId: fileId.value,
+    isLoading: isLoading.value,
+    audioLoaded: audioLoaded.value,
+    isStereo: isStereo.value,
+    isPlaying: isPlaying.value
+  }),
+  setState: (updates) => {
+    if (updates.fileName !== undefined) fileName.value = updates.fileName
+    if (updates.fileId !== undefined) fileId.value = updates.fileId
+    if (updates.isLoading !== undefined) isLoading.value = updates.isLoading
+    if (updates.audioLoaded !== undefined) audioLoaded.value = updates.audioLoaded
+    if (updates.isStereo !== undefined) isStereo.value = updates.isStereo
+    if (updates.isPlaying !== undefined) isPlaying.value = updates.isPlaying
+  },
+  getPlaylistState: () => ({
+    currentPlaylist: currentPlaylist.value,
+    playlistFiles,
+    currentPlaylistIndex,
+    nextTrack,
+    manualStop
+  }),
+  setPlaylistState: (updates) => {
+    if (updates.currentPlaylist !== undefined) currentPlaylist.value = updates.currentPlaylist
+    if (updates.playlistFiles !== undefined) playlistFiles = updates.playlistFiles
+    if (updates.currentPlaylistIndex !== undefined) currentPlaylistIndex = updates.currentPlaylistIndex
+    if (updates.nextTrack !== undefined) nextTrack = updates.nextTrack
+    if (updates.manualStop !== undefined) manualStop = updates.manualStop
+  },
+  getAudioFile: getAudioFile,
+  initAudioNodes: initAudioNodes,
+  getWaveformDisplayRef: () => waveformDisplayRef.value,
+  getPlaybackTime: () => playbackTime
+})
+
+const { loadFileFromLibrary, loadPlaylistFromLibrary, loadFileFromIndexedDB } = libraryLoader
 
 // Audio state
 const fileName = ref<string>('')
@@ -797,123 +851,6 @@ function openLibrary() {
   }
 }
 
-// Load file from library (called by parent when file is selected)
-async function loadFileFromLibrary(storedFile: any, preservePlaylist = false) {
-  if (!Tone || !storedFile) {
-    console.error('Cannot load file from library')
-    return
-  }
-
-  // Reset playlist state when loading a single file (unless called from playlist)
-  if (!preservePlaylist) {
-    currentPlaylist.value = null
-    playlistFiles = []
-    currentPlaylistIndex = 0
-  }
-
-  // The file is already in IndexedDB, just use its ID
-  fileId.value = storedFile.id
-  const displayName = storedFile.title || storedFile.fileName
-  fileName.value = storedFile.artist ? `${storedFile.artist} - ${displayName}` : displayName
-  isLoading.value = true
-
-  try {
-    // Decode the audio buffer
-    const audioBuffer = await Tone.context.decodeAudioData(storedFile.arrayBuffer.slice(0))
-    
-    // Initialize audio nodes on first use
-    initAudioNodes()
-
-    // Check if we need to create a new player or just swap buffer
-    if (player && typeof player.stop === 'function' && 'buffer' in player) {
-      // It's already a Tone.Player - just swap the buffer
-      try {
-        player.stop()
-      } catch (e) { }
-
-      if (player.buffer && typeof player.buffer.dispose === 'function') {
-        try {
-          player.buffer.dispose()
-        } catch (e) { }
-      }
-
-      if (currentAudioBuffer && currentAudioBuffer !== player.buffer) {
-        try {
-          if (typeof (currentAudioBuffer as any).dispose === 'function') {
-            (currentAudioBuffer as any).dispose()
-          }
-        } catch (e) { }
-      }
-
-      player.buffer = audioBuffer
-    } else {
-      // First time or was audio input - create new Tone.Player
-      if (player) {
-        try {
-          player.disconnect()
-          player.dispose()
-        } catch (e) { }
-      }
-
-      if (currentAudioBuffer) {
-        try {
-          if (typeof (currentAudioBuffer as any).dispose === 'function') {
-            (currentAudioBuffer as any).dispose()
-          }
-        } catch (e) { }
-      }
-
-      player = new Tone.Player({
-        url: audioBuffer,
-        loop: nextTrack ? false : true, // Don't loop if there's a next track
-        playbackRate: 1.0,
-        onstop: () => {
-          if (!manualStop && nextTrack) {
-            loadFileFromLibrary(nextTrack, true).then(() => {
-              if (player) {
-                manualStop = false
-                player.start()
-                isPlaying.value = true
-                waveformDisplayRef.value?.start()
-                playbackTime.startPlaybackTimeTracking()
-              }
-            })
-          } else {
-            manualStop = false // Reset flag
-          }
-        },
-      })
-      player.connect(padNode)
-    }
-
-    currentAudioBuffer = audioBuffer
-    isStereo.value = audioBuffer.numberOfChannels === 2
-
-    if (!gainNode || !eq3 || !volumeMerge) {
-      alert('Audio system not ready. Please refresh the page.')
-      isLoading.value = false
-      return
-    }
-
-    audioLoaded.value = true
-    isLoading.value = false
-    
-    // Set next track if in playlist mode
-    if (currentPlaylist.value && playlistFiles.length > 0) {
-      const nextIndex = (currentPlaylistIndex + 1) % playlistFiles.length
-      nextTrack = playlistFiles[nextIndex]
-    } else {
-      nextTrack = null
-    }
-    
-    await nextTick()
-  } catch (error) {
-    console.error('❌ Error loading audio from library:', error)
-    alert('Error loading audio from library: ' + error)
-    isLoading.value = false
-  }
-}
-
 // Handle when playlist track ends
 async function handlePlaylistTrackEnd() {
   if (!currentPlaylist.value || !playlistFiles.length) return
@@ -943,183 +880,6 @@ async function handlePlaylistTrackEnd() {
     }
   }
 }
-
-// Load playlist from library (loads first file from playlist)
-async function loadPlaylistFromLibrary(playlist: any) {
-  if (!playlist || !playlist.fileIds || playlist.fileIds.length === 0) {
-    alert('Playlist is empty')
-    return
-  }
-
-  try {
-    // Reset state to avoid BPM detection on old data
-    audioLoaded.value = false
-    currentAudioBuffer = null
-    
-    // Import usePlaylist to get files
-    const { usePlaylist } = await import('~/composables/usePlaylist')
-    const { getPlaylistFiles } = usePlaylist()
-    const files = await getPlaylistFiles(playlist.id)
-    
-    if (files.length === 0) {
-      alert('No files found in playlist')
-      return
-    }
-
-    // Store playlist state
-    currentPlaylist.value = playlist
-    playlistFiles = files
-    currentPlaylistIndex = 0
-    
-    // Load first file (preserve playlist state)
-    await loadFileFromLibrary(files[0], true)
-    
-    const trackName = files[0].title || files[0].fileName
-    const trackDisplay = files[0].artist ? `${files[0].artist} - ${trackName}` : trackName
-    fileName.value = `${playlist.name} (1/${files.length}) - ${trackDisplay}`
-    
-  } catch (error) {
-    console.error('❌ Error loading playlist:', error)
-    alert('Error loading playlist: ' + error)
-  }
-}
-
-// Load audio file from IndexedDB (for restoring from scene)
-async function loadFileFromIndexedDB(savedFileId: string, silent: boolean = false) {
-  if (!Tone) {
-    console.error('Tone.js not loaded')
-    return
-  }
-
-  // Initialize audio nodes on first use
-  initAudioNodes()
-
-  // Don't show spinner when restoring from scene (silent mode)
-  if (!silent) {
-    isLoading.value = true
-  }
-
-  try {
-    // Retrieve file from IndexedDB
-    const storedFile = await getAudioFile(savedFileId)
-
-    if (!storedFile) {
-      console.error('File not found in IndexedDB')
-      alert('Could not restore audio file from scene. File may have been deleted.')
-      if (!silent) {
-        isLoading.value = false
-      }
-      return
-    }
-
-    // Decode audio buffer
-    const audioBuffer = await Tone.context.decodeAudioData(storedFile.arrayBuffer)
-
-    // Check if we need to create a new player or just swap buffer
-    if (player && typeof player.stop === 'function' && 'buffer' in player) {
-      // It's already a Tone.Player - just swap the buffer
-
-      // CRITICAL: Stop player first to reset internal state
-      try {
-        player.stop()
-      } catch (e) { }
-
-      if (player.buffer && typeof player.buffer.dispose === 'function') {
-        try {
-          player.buffer.dispose()
-        } catch (e) { }
-      }
-
-      if (currentAudioBuffer && currentAudioBuffer !== player.buffer) {
-        try {
-          if (typeof (currentAudioBuffer as any).dispose === 'function') {
-            (currentAudioBuffer as any).dispose()
-          }
-        } catch (e) { }
-      }
-
-      // Assign new buffer
-      player.buffer = audioBuffer
-
-      // CRITICAL: Reset playback rate to 1.0
-      player.playbackRate = 1.0
-
-    } else {
-      // First time or was audio input - create new Tone.Player
-
-      if (player) {
-        try {
-          player.disconnect()
-          player.dispose()
-        } catch (e) { }
-      }
-
-      if (currentAudioBuffer) {
-        try {
-          if (typeof (currentAudioBuffer as any).dispose === 'function') {
-            (currentAudioBuffer as any).dispose()
-          }
-        } catch (e) { }
-      }
-
-      // Create new Tone.Player
-      player = new Tone.Player({
-        url: audioBuffer,
-        loop: nextTrack ? false : true,
-        playbackRate: 1.0,
-        fadeIn: 0.01,   // Prevent resampling artifacts
-        fadeOut: 0.01,   // Prevent clicks on stop
-        onstop: () => {
-          if (!manualStop && nextTrack) {
-            loadFileFromLibrary(nextTrack, true).then(() => {
-              if (player) {
-                manualStop = false
-                player.start()
-                isPlaying.value = true
-                waveformDisplayRef.value?.start()
-                playbackTime.startPlaybackTimeTracking()
-              }
-            })
-          } else {
-            manualStop = false
-          }
-        },
-      })
-      player.connect(padNode)
-    }
-
-    // Update current buffer reference for waveform
-    currentAudioBuffer = audioBuffer
-
-    // Detect if stereo or mono
-    isStereo.value = audioBuffer.numberOfChannels === 2
-
-    // Verify audio chain is connected
-    if (!gainNode || !eq3 || !volumeMerge) {
-      alert('Audio system not ready. Please refresh the page.')
-      if (!silent) {
-        isLoading.value = false
-      }
-      return
-    }
-
-    audioLoaded.value = true
-    if (!silent) {
-      isLoading.value = false
-    }
-
-    // Force DOM update
-    await nextTick()
-  } catch (error) {
-    console.error('❌ Error loading audio file from IndexedDB:', error)
-    alert('Error loading audio file from scene: ' + error)
-    if (!silent) {
-      isLoading.value = false
-    }
-  }
-}
-
-
 
 // Handle source type change
 function handleSourceTypeChange() {
