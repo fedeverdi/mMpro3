@@ -15,7 +15,7 @@
     "package": "electron-forge package",
     "pack": "sh ./build-and-sign.sh",
     "make": "electron-forge make",
-    "build": "./build-and-sign.sh",
+    "build": "vite build --config vite.web.config.mjs",
     "build:demo": "VITE_BUILD_MODE=demo ./build-and-sign.sh",
     "build:medium": "VITE_BUILD_MODE=medium ./build-and-sign.sh",
     "build:full": "VITE_BUILD_MODE=full ./build-and-sign.sh",
