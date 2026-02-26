@@ -14,7 +14,7 @@
       
       <div class="splash-content">
         <!-- Logo -->
-        <h1 class="logo">mMpro3</h1>
+        <img src="../../assets/logo.svg" alt="mMpro3" class="logo-img" />
         
         <!-- Loading Animation or Start Button -->
         <div v-if="!readyToStart" class="loading-container">
@@ -167,6 +167,12 @@ defineExpose({ hide })
   background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: 0.05em;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.logo-img {
+  height: 12rem;
+  width: auto;
   animation: pulse 2s ease-in-out infinite;
 }
 

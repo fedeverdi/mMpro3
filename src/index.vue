@@ -4,10 +4,7 @@
         <header class="bg-black/50 backdrop-blur-sm border-b border-gray-700 px-4 py-2">
             <div class="flex items-center justify-between gap-4 flex-wrap">
                 <div class="flex items-center gap-2">
-                    <h1
-                        class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                        mMpro3
-                    </h1>
+                    <img src="./assets/logo.svg" alt="mMpro3" class="h-8" />
 
                     <!-- Quick Scene Access -->
                     <template v-if="pinnedScenes.length > 0">
