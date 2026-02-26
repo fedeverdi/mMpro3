@@ -331,6 +331,7 @@ import { useTrackLevelMonitoring } from '~/composables/track/useTrackLevelMonito
 import { useTrackLibraryLoader } from '~/composables/track/useTrackLibraryLoader'
 import { useTrackAudioInput } from '~/composables/track/useTrackAudioInput'
 import { useTrackCompressor } from '~/composables/track/useTrackCompressor'
+import { useTrackGate } from '~/composables/track/useTrackGate'
 import { useTrackParametricEQ } from '~/composables/track/useTrackParametricEQ'
 import { useTrackPlaybackTime } from '~/composables/track/useTrackPlaybackTime'
 import { useTrackRouting } from '~/composables/track/useTrackRouting'
@@ -582,6 +583,37 @@ const compressorControl = useTrackCompressor({
 })
 
 const { toggleCompressor } = compressorControl
+
+// Initialize gate composable
+const gateControl = useTrackGate({
+  getGateEnabled: () => gateEnabled.value,
+  setGateEnabled: (enabled) => { gateEnabled.value = enabled },
+  getAudioNodes: () => ({
+    gainNode,
+    gate,
+    eq3,
+    gateMeter
+  }),
+  getTrackGateRef: () => trackGateRef.value,
+  getGateState: () => ({
+    gateThreshold,
+    gateAttack,
+    gateRelease,
+    gateRange,
+    gateIsOpen,
+    gateMonitoringId
+  }),
+  setGateState: (updates) => {
+    if (updates.gateThreshold !== undefined) gateThreshold = updates.gateThreshold
+    if (updates.gateAttack !== undefined) gateAttack = updates.gateAttack
+    if (updates.gateRelease !== undefined) gateRelease = updates.gateRelease
+    if (updates.gateRange !== undefined) gateRange = updates.gateRange
+    if (updates.gateIsOpen !== undefined) gateIsOpen = updates.gateIsOpen
+    if (updates.gateMonitoringId !== undefined) gateMonitoringId = updates.gateMonitoringId
+  }
+})
+
+const { toggleGate, handleGateParamsUpdate, startGateMonitoring, stopGateMonitoring } = gateControl
 
 // Audio state
 const fileName = ref<string>('')
@@ -1691,130 +1723,6 @@ onUnmounted(() => {
   // Remove device change listener
   navigator.mediaDevices.removeEventListener('devicechange', refreshAudioInputs)
 })
-
-// FX Functions - Physically reconnect chain to preserve stereo
-function toggleGate() {
-  gateEnabled.value = !gateEnabled.value
-
-  if (!gainNode || !gate || !eq3) return
-
-  // Disconnect gainNode from eq3 and gate
-  try {
-    gainNode.disconnect(eq3)
-  } catch (e) { }
-  try {
-    gainNode.disconnect(gate)
-  } catch (e) { }
-
-  // Disconnect gate from eq3
-  try {
-    gate.disconnect(eq3)
-  } catch (e) { }
-
-  if (gateEnabled.value) {
-    // Apply real parameters from component
-    const params = trackGateRef.value?.getParams() || {
-      threshold: -45,
-      attack: 0.005,
-      release: 0.3,
-      range: -30
-    }
-    gateThreshold = params.threshold
-    gateAttack = params.attack
-    gateRelease = params.release
-    gateRange = params.range
-
-    // Reset gate to open state
-    gate.gain.value = 1
-    gateIsOpen = true
-
-    // Chain: gainNode → gate → eq3
-    gainNode.connect(gate)
-    gate.connect(eq3)
-
-    // Ensure gateMeter stays connected for monitoring
-    try {
-      gainNode.connect(gateMeter)
-    } catch (e) { }
-
-    // Start gate monitoring
-    startGateMonitoring()
-  } else {
-    // Stop gate monitoring
-    stopGateMonitoring()
-
-    // Bypass gate: gainNode → eq3 (skip gate)
-    gainNode.connect(eq3)
-
-    // Ensure gateMeter stays connected for monitoring
-    try {
-      gainNode.connect(gateMeter)
-    } catch (e) { }
-  }
-}
-
-function handleGateParamsUpdate(params: { threshold: number, attack: number, release: number, range: number }) {
-  if (!gate) return
-
-  // Update custom gate parameters
-  gateThreshold = params.threshold
-  gateAttack = params.attack
-  gateRelease = params.release
-  gateRange = params.range
-}
-
-// Custom gate monitoring functions
-function startGateMonitoring() {
-  if (gateMonitoringId || !gateMeter || !gate) return
-
-  function updateGate() {
-    if (!gateEnabled.value || !gateMeter || !gate) {
-      gateMonitoringId = null
-      return
-    }
-
-    try {
-      // Get current level from gateMeter (already in dB)
-      const currentLevel = gateMeter.getValue()
-
-      // Determine if gate should be open
-      const shouldBeOpen = currentLevel > gateThreshold
-
-      if (shouldBeOpen !== gateIsOpen) {
-        gateIsOpen = shouldBeOpen
-
-        if (shouldBeOpen) {
-          // Open gate: ramp to unity gain (0dB = 1)
-          gate.gain.rampTo(1, gateAttack)
-        } else {
-          // Close gate: ramp to range attenuation
-          // Convert dB to linear gain: gain = 10^(dB/20)
-          const targetGain = Math.pow(10, gateRange / 20)
-          gate.gain.rampTo(targetGain, gateRelease)
-        }
-      }
-    } catch (error) {
-      console.error('[Gate] Monitoring error:', error)
-    }
-
-    gateMonitoringId = requestAnimationFrame(updateGate)
-  }
-
-  updateGate()
-}
-
-function stopGateMonitoring() {
-  if (gateMonitoringId) {
-    cancelAnimationFrame(gateMonitoringId)
-    gateMonitoringId = null
-  }
-
-  // Reset gate to unity gain when stopping
-  if (gate && gate.gain) {
-    gate.gain.rampTo(1, 0.05)
-  }
-  gateIsOpen = false
-}
 
 </script>
 
