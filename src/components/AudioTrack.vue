@@ -326,6 +326,7 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useTrackAuxSends } from '~/composables/track/useTrackAuxSends'
+import { useTrackCleanup } from '~/composables/track/useTrackCleanup'
 import { useTrackDrag } from '~/composables/track/useTrackDrag'
 import { useTrackLevelMonitoring } from '~/composables/track/useTrackLevelMonitoring'
 import { useTrackLibraryLoader } from '~/composables/track/useTrackLibraryLoader'
@@ -622,7 +623,7 @@ const gateControl = useTrackGate({
   }
 })
 
-const { toggleGate, handleGateParamsUpdate, stopGateMonitoring } = gateControl
+const { toggleGate, handleGateParamsUpdate } = gateControl
 
 // Initialize snapshot composable
 const snapshot = useTrackSnapshot({
@@ -839,6 +840,62 @@ let currentPlaylistIndex = 0
 let nextTrack: any = null // Next track to play (null for single files, set for playlists)
 let manualStop = false // Flag to distinguish manual stop from natural track end
 let isPreloading = false // Flag to track if next track is being pre-loaded
+
+// Cleanup composable
+const cleanup = useTrackCleanup({
+  // Automation
+  getAutomationRecordingInterval: () => automationRecordingInterval,
+  setAutomationRecordingInterval: (v: any) => { automationRecordingInterval = v },
+  
+  // Audio input
+  getAudioInputSource: () => audioInputSource,
+  setAudioInputSource: (v: any) => { audioInputSource = v },
+  getChannelSplitter: () => channelSplitter,
+  setChannelSplitter: (v: any) => { channelSplitter = v },
+  getAudioInputStream: () => audioInputStream,
+  setAudioInputStream: (v: any) => { audioInputStream = v },
+  
+  // Players and buffers
+  getPlayer: () => player,
+  getNextPlayer: () => nextPlayer,
+  getCurrentAudioBuffer: () => currentAudioBuffer,
+  setCurrentAudioBuffer: (v: any) => { currentAudioBuffer = v },
+  getNextBuffer: () => nextBuffer,
+  setNextBuffer: (v: any) => { nextBuffer = v },
+  
+  // Audio nodes
+  getCrossFade: () => crossFade,
+  getGainNode: () => gainNode,
+  getEq3: () => eq3,
+  getBalanceSplit: () => balanceSplit,
+  getBalanceLeft: () => balanceLeft,
+  getBalanceRight: () => balanceRight,
+  getBalanceMerge: () => balanceMerge,
+  getVolumeSplit: () => volumeSplit,
+  getVolumeNodeL: () => volumeNodeL,
+  getVolumeNodeR: () => volumeNodeR,
+  getVolumeMerge: () => volumeMerge,
+  getMeterL: () => meterL,
+  getMeterR: () => meterR,
+  getGateMeter: () => gateMeter,
+  getChannelSplit: () => channelSplit,
+  getWaveform: () => waveform,
+  getCompressor: () => compressor,
+  
+  // Composable cleanups
+  stopGateMonitoring: () => gateControl.stopGateMonitoring(),
+  auxSendsCleanup: () => auxSends.cleanup(),
+  parametricEQCleanup: () => parametricEQ.cleanup(),
+  levelMonitoringCleanup: () => levelMonitoring.cleanup(),
+  playbackTimeCleanup: () => playbackTime.cleanup(),
+  
+  // UI
+  getResizeObserver: () => resizeObserver,
+  getWaveformDisplayRef: () => waveformDisplayRef.value,
+  
+  // Functions
+  refreshAudioInputs
+})
 
 // Initialize aux sends data when aux buses change
 watch(() => props.auxBuses, (newBuses) => {
@@ -1519,119 +1576,7 @@ defineExpose({
 
 // Cleanup
 onUnmounted(() => {
-  // Clear automation recording interval
-  if (automationRecordingInterval) {
-    clearInterval(automationRecordingInterval)
-    automationRecordingInterval = null
-  }
-
-  // Disconnect audio input source if active
-  if (audioInputSource) {
-    try {
-      audioInputSource.disconnect()
-    } catch (e) { }
-    audioInputSource = null
-  }
-  
-  if (channelSplitter) {
-    try {
-      channelSplitter.disconnect()
-    } catch (e) { }
-    channelSplitter = null
-  }
-
-  // Stop audio input stream if active
-  if (audioInputStream) {
-    audioInputStream.getTracks().forEach(track => track.stop())
-    audioInputStream = null
-  }
-
-  // Cleanup player and free buffer memory
-  if (player) {
-    // Dispose buffer first to free memory
-    if (player.buffer && typeof player.buffer.dispose === 'function') {
-      try {
-        player.buffer.dispose()
-      } catch (e) { }
-    }
-    player.dispose()
-  }
-
-  // Cleanup next player if pre-loaded
-  if (nextPlayer) {
-    if (nextPlayer.buffer && typeof nextPlayer.buffer.dispose === 'function') {
-      try {
-        nextPlayer.buffer.dispose()
-      } catch (e) { }
-    }
-    nextPlayer.dispose()
-  }
-
-  // Dispose and clear audio buffer reference
-  if (currentAudioBuffer) {
-    try {
-      if (typeof (currentAudioBuffer as any).dispose === 'function') {
-        (currentAudioBuffer as any).dispose()
-      }
-    } catch (e) { }
-  }
-  currentAudioBuffer = null
-
-  // Dispose next buffer if pre-loaded
-  if (nextBuffer) {
-    try {
-      if (typeof (nextBuffer as any).dispose === 'function') {
-        (nextBuffer as any).dispose()
-      }
-    } catch (e) { }
-  }
-  nextBuffer = null
-
-  // Dispose crossfade node
-  if (crossFade) crossFade.dispose()
-
-  if (gainNode) gainNode.dispose()
-  if (eq3) eq3.dispose()
-  if (balanceSplit) balanceSplit.dispose()
-  if (balanceLeft) balanceLeft.dispose()
-  if (balanceRight) balanceRight.dispose()
-  if (balanceMerge) balanceMerge.dispose()
-  if (volumeSplit) volumeSplit.dispose()
-  if (volumeNodeL) volumeNodeL.dispose()
-  if (volumeNodeR) volumeNodeR.dispose()
-  if (volumeMerge) volumeMerge.dispose()
-  if (meterL) meterL.dispose()
-  if (meterR) meterR.dispose()
-  if (gateMeter) gateMeter.dispose()
-  if (channelSplit) channelSplit.dispose()
-
-  // Stop gate monitoring
-  stopGateMonitoring()
-
-  // Cleanup aux send nodes
-  auxSends.cleanup()
-  
-  if (waveform) waveform.dispose()
-  if (compressor) compressor.dispose()
-
-  // Cleanup parametric EQ
-  parametricEQ.cleanup()
-
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-  }
-
-  // Cleanup level monitoring
-  levelMonitoring.cleanup()
-
-  // Cleanup playback time tracking
-  playbackTime.cleanup()
-
-  // Stop waveform drawing
-  waveformDisplayRef.value?.stop()
-
-  // Remove device change listener
-  navigator.mediaDevices.removeEventListener('devicechange', refreshAudioInputs)
+  cleanup.cleanup()
 })
 
 </script>
