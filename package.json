@@ -2,7 +2,7 @@
   "name": "mmpro3",
   "productName": "mMpro3",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "mMpro3 is a modern, modular audio mixer application built with Electron and Vue.js. It offers a flexible and intuitive interface for managing audio sources, effects, and routing, making it ideal for musicians, podcasters, and audio engineers.",
   "main": ".vite/build/main.js",
   "private": true,
   "scripts": {

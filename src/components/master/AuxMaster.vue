@@ -94,13 +94,14 @@
                     </button>
                 </div>
             </div>
-        </div>
 
-        <!-- Add Aux button -->
-        <button v-if="auxBuses.length < 6" @click="addAux"
-            class="w-full py-2 border-2 border-dashed border-teal-600/50 rounded-lg hover:border-teal-500 hover:bg-teal-900/20 transition-colors text-teal-400 text-sm font-bold">
-            + ADD AUX
-        </button>
+            <!-- Add Aux button inside grid -->
+            <button v-if="auxBuses.length < 6" @click="addAux"
+                class="flex flex-col items-center justify-center border-2 border-dashed border-teal-600/50 rounded-lg hover:border-teal-500 hover:bg-teal-900/20 transition-colors text-teal-400 font-bold">
+                <span class="text-2xl leading-none">+</span>
+                <span class="text-[0.6rem] mt-1">ADD</span>
+            </button>
+        </div>
 
         <!-- Output Modal -->
         <Teleport to="body">
