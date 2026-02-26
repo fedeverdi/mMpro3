@@ -335,6 +335,7 @@ import { useTrackGate } from '~/composables/track/useTrackGate'
 import { useTrackParametricEQ } from '~/composables/track/useTrackParametricEQ'
 import { useTrackPlaybackTime } from '~/composables/track/useTrackPlaybackTime'
 import { useTrackRouting } from '~/composables/track/useTrackRouting'
+import { useTrackSnapshot } from '~/composables/track/useTrackSnapshot'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import AuxSendControl from './audioTrack/AuxSendControl.vue'
@@ -614,6 +615,81 @@ const gateControl = useTrackGate({
 })
 
 const { toggleGate, handleGateParamsUpdate, startGateMonitoring, stopGateMonitoring } = gateControl
+
+// Initialize snapshot composable
+const snapshot = useTrackSnapshot({
+  // Props
+  getTrackNumber: () => props.trackNumber,
+  getOrder: () => props.order,
+  getSubgroups: () => props.subgroups || [],
+  
+  // State getters
+  getVolume: () => volume.value,
+  getGain: () => gain.value,
+  getPadEnabled: () => padEnabled.value,
+  getHpfEnabled: () => hpfEnabled.value,
+  getPhaseInverted: () => phaseInverted.value,
+  getPan: () => pan.value,
+  getIsMuted: () => isMuted.value,
+  getIsSolo: () => isSolo.value,
+  getRouteToMaster: () => routeToMaster.value,
+  getRoutedSubgroups: () => routedSubgroups.value,
+  getAudioSourceType: () => audioSourceType.value,
+  getSelectedAudioInput: () => selectedAudioInput.value,
+  getFileName: () => fileName.value,
+  getFileId: () => fileId.value,
+  getIsPlaying: () => isPlaying.value,
+  getCurrentPlaybackTime: () => currentPlaybackTime.value,
+  getCurrentAudioBuffer: () => currentAudioBuffer,
+  getEqFiltersData: () => eqFiltersData.value,
+  getCompressorEnabled: () => compressorEnabled.value,
+  getGateEnabled: () => gateEnabled.value,
+  getAuxSendsData: () => auxSendsData.value,
+  
+  // State setters
+  setVolume: (value) => { volume.value = value },
+  setGain: (value) => { gain.value = value },
+  setPadEnabled: (value) => { padEnabled.value = value },
+  setHpfEnabled: (value) => { hpfEnabled.value = value },
+  setPhaseInverted: (value) => { phaseInverted.value = value },
+  setPan: (value) => { pan.value = value },
+  setIsMuted: (value) => { isMuted.value = value },
+  setIsSolo: (value) => { isSolo.value = value },
+  setRouteToMaster: (value) => { routeToMaster.value = value },
+  setRoutedSubgroups: (value) => { routedSubgroups.value = value },
+  setAudioSourceType: (value) => { audioSourceType.value = value },
+  setSelectedAudioInput: (value) => { selectedAudioInput.value = value },
+  setFileName: (value) => { fileName.value = value },
+  setFileId: (value) => { fileId.value = value },
+  setEqFiltersData: (value) => { eqFiltersData.value = value },
+  setCompressorEnabled: (value) => { compressorEnabled.value = value },
+  setGateEnabled: (value) => { gateEnabled.value = value },
+  setAuxSendsData: (value) => { auxSendsData.value = value },
+  
+  // Component refs
+  getTrackEQRef: () => trackEQRef.value,
+  getTrackCompressorRef: () => trackCompressorRef.value,
+  getTrackGateRef: () => trackGateRef.value,
+  
+  // Audio nodes
+  getPhaseInvertNode: () => phaseInvertNode,
+  
+  // Functions
+  initAudioNodes,
+  updatePad,
+  updateHPF,
+  handleAudioInputChange,
+  loadFileFromIndexedDB,
+  toggleCompressor,
+  toggleGate,
+  
+  // Composables
+  routingConnectToOutput: () => routing.connectToOutput(),
+  auxSendsHandleUpdate: (data) => auxSends.handleAuxSendsUpdate(data),
+  parametricEQHandleUpdate: (data) => parametricEQ.handleParametricEQUpdate(data)
+})
+
+const { getSnapshot, restoreFromSnapshot } = snapshot
 
 // Audio state
 const fileName = ref<string>('')
@@ -1415,160 +1491,8 @@ defineExpose({
     waveformDisplayRef.value?.stop()
   },
 
-  getSnapshot: () => {
-    return {
-      trackNumber: props.trackNumber,
-      order: props.order,
-      volume: volume.value,
-      gain: gain.value,
-      padEnabled: padEnabled.value,
-      hpfEnabled: hpfEnabled.value,
-      phaseInverted: phaseInverted.value,
-      pan: pan.value,
-      muted: isMuted.value,
-      soloed: isSolo.value,
-      routeToMaster: routeToMaster.value,
-      routedSubgroups: Array.from(routedSubgroups.value), // Convert Set to Array for serialization
-      sourceType: audioSourceType.value,
-      selectedInputDevice: audioSourceType.value === 'input' ? selectedAudioInput.value : undefined,
-      fileName: audioSourceType.value === 'file' ? fileName.value : undefined,
-      fileId: audioSourceType.value === 'file' ? fileId.value : undefined,
-      isPlaying: isPlaying.value,
-      currentTime: currentPlaybackTime.value,
-      duration: currentAudioBuffer?.duration || 0,
-      eq3: trackEQRef.value?.getParams(),
-      parametricEQFilters: eqFiltersData.value.map(f => ({
-        id: f.id,
-        type: f.type,
-        frequency: f.frequency,
-        gain: f.gain,
-        Q: f.Q,
-        color: f.color
-      })),
-      compressorEnabled: compressorEnabled.value,
-      compressor: trackCompressorRef.value?.getParams(),
-      gateEnabled: gateEnabled.value,
-      gate: trackGateRef.value?.getParams(),
-      auxSends: { ...auxSendsData.value }
-    }
-  },
-
-  restoreFromSnapshot: (snapshot: any) => {
-    // Initialize audio nodes if not already done
-    initAudioNodes()
-
-    // Restore volume, gain, pad, hpf, and pan
-    volume.value = snapshot.volume
-    if (snapshot.gain !== undefined) {
-      gain.value = snapshot.gain
-    }
-    if (snapshot.padEnabled !== undefined) {
-      padEnabled.value = snapshot.padEnabled
-    }
-    if (snapshot.hpfEnabled !== undefined) {
-      hpfEnabled.value = snapshot.hpfEnabled
-    }
-    if (snapshot.phaseInverted !== undefined) {
-      phaseInverted.value = snapshot.phaseInverted
-      // Apply phase inversion with ramp to avoid clicks
-      if (phaseInvertNode) {
-        phaseInvertNode.gain.rampTo(phaseInverted.value ? -1 : 1, 0.01)
-      }
-    }
-    pan.value = snapshot.pan
-    isMuted.value = snapshot.muted
-    isSolo.value = snapshot.soloed
-
-    // Ensure PAD and HPF audio nodes are properly connected after restore
-    nextTick(() => {
-      updatePad()
-      updateHPF()
-    })
-
-    // Restore output routing
-    if (snapshot.routeToMaster !== undefined) {
-      routeToMaster.value = snapshot.routeToMaster
-    }
-
-    // Restore routed subgroups (support both old and new format)
-    if (snapshot.routedSubgroups && Array.isArray(snapshot.routedSubgroups)) {
-      routedSubgroups.value = new Set(snapshot.routedSubgroups)
-    } else if (snapshot.routeToSubgroup) {
-      // Legacy format - assume routing to first subgroup if exists
-      if (props.subgroups && props.subgroups.length > 0) {
-        routedSubgroups.value = new Set([props.subgroups[0].id])
-      }
-    }
-
-    // Reconnect to correct destination(s)
-    nextTick(() => {
-      routing.connectToOutput()
-    })
-
-    // Restore aux sends
-    if (snapshot.auxSends) {
-      auxSendsData.value = { ...snapshot.auxSends }
-      // Trigger aux sends update to reconnect nodes
-      nextTick(() => {
-        auxSends.handleAuxSendsUpdate(auxSendsData.value)
-      })
-    }
-
-    // Restore source type and related data
-    audioSourceType.value = snapshot.sourceType || 'file'
-    if (snapshot.selectedInputDevice) {
-      selectedAudioInput.value = snapshot.selectedInputDevice
-      nextTick(() => {
-        handleAudioInputChange()
-      })
-    }
-    if (snapshot.fileName && snapshot.fileId) {
-      // Restore audio file from IndexedDB
-      fileName.value = snapshot.fileName
-      fileId.value = snapshot.fileId
-      nextTick(async () => {
-        // silent=true to avoid showing spinner during scene animation
-        await loadFileFromIndexedDB(snapshot.fileId!, true)
-      })
-    }
-
-    // Restore 3-band EQ
-    if (snapshot.eq3) {
-      trackEQRef.value?.setParams(snapshot.eq3)
-    }
-
-    // Restore parametric EQ
-    if (snapshot.parametricEQFilters && snapshot.parametricEQFilters.length > 0) {
-      eqFiltersData.value = snapshot.parametricEQFilters.map((f: any) => ({
-        id: f.id,
-        type: f.type,
-        frequency: f.frequency,
-        gain: f.gain,
-        Q: f.Q,
-        color: f.color
-      }))
-      // Apply EQ filters via the update handler
-      parametricEQ.handleParametricEQUpdate({ filtersData: eqFiltersData.value })
-    }
-
-    // Restore compressor
-    const shouldEnableCompressor = snapshot.compressorEnabled || false
-    if (snapshot.compressor) {
-      trackCompressorRef.value?.setParams(snapshot.compressor)
-    }
-    if (shouldEnableCompressor !== compressorEnabled.value) {
-      toggleCompressor()
-    }
-
-    // Restore gate
-    const shouldEnableGate = snapshot.gateEnabled || false
-    if (snapshot.gate) {
-      trackGateRef.value?.setParams(snapshot.gate)
-    }
-    if (shouldEnableGate !== gateEnabled.value) {
-      toggleGate()
-    }
-  },
+  getSnapshot,
+  restoreFromSnapshot,
 
   resetToDefaults: () => {
     // Reset volume and pan
