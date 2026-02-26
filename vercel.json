@@ -1,7 +1,6 @@
 {
-  "buildCommand": "npm run build:web:demo",
+  "buildCommand": "vite build --config vite.web.config.mjs",
   "outputDirectory": "dist",
-  "framework": "vite",
   "installCommand": "npm install",
   "devCommand": "npm run dev",
   "env": {

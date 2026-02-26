@@ -9,10 +9,12 @@ out
 *.dmg
 *.exe
 
-# Electron specific
+# Electron specific files (CRITICAL - don't let Vercel build as Electron)
 build-and-sign.sh
 entitlements.*.plist
 forge.config.js
+src/main.ts
+src/preload.ts
 
 # Vite electron configs (use web config for Vercel)
 vite.main.config.mjs
