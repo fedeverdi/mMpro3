@@ -464,6 +464,9 @@ const libraryLoader = useTrackLibraryLoader({
   getTone: () => Tone,
   getAudioNodes: () => ({
     player,
+    nextPlayer,
+    nextBuffer,
+    crossFade,
     padNode,
     currentAudioBuffer,
     gainNode,
@@ -472,6 +475,9 @@ const libraryLoader = useTrackLibraryLoader({
   }),
   setAudioNodes: (updates) => {
     if (updates.player !== undefined) player = updates.player
+    if (updates.nextPlayer !== undefined) nextPlayer = updates.nextPlayer
+    if (updates.nextBuffer !== undefined) nextBuffer = updates.nextBuffer
+    if (updates.crossFade !== undefined) crossFade = updates.crossFade
     if (updates.currentAudioBuffer !== undefined) currentAudioBuffer = updates.currentAudioBuffer
   },
   getState: () => ({
@@ -495,7 +501,8 @@ const libraryLoader = useTrackLibraryLoader({
     playlistFiles,
     currentPlaylistIndex,
     nextTrack,
-    manualStop
+    manualStop,
+    isPreloading
   }),
   setPlaylistState: (updates) => {
     if (updates.currentPlaylist !== undefined) currentPlaylist.value = updates.currentPlaylist
@@ -503,6 +510,7 @@ const libraryLoader = useTrackLibraryLoader({
     if (updates.currentPlaylistIndex !== undefined) currentPlaylistIndex = updates.currentPlaylistIndex
     if (updates.nextTrack !== undefined) nextTrack = updates.nextTrack
     if (updates.manualStop !== undefined) manualStop = updates.manualStop
+    if (updates.isPreloading !== undefined) isPreloading = updates.isPreloading
   },
   getAudioFile: getAudioFile,
   initAudioNodes: initAudioNodes,
@@ -787,6 +795,9 @@ const trackGateRef = ref<InstanceType<typeof TrackGate> | null>(null)
 
 // Tone.js nodes
 let player: any = null // Can be Tone.Player or Tone.UserMedia
+let nextPlayer: any = null // Pre-loaded next player for seamless playback
+let nextBuffer: AudioBuffer | null = null // Pre-loaded next track buffer
+let crossFade: any = null // Tone.CrossFade for seamless transitions
 let currentAudioBuffer: AudioBuffer | null = null // Store current audio buffer for player recreation
 let padNode: any = null // PAD attenuation (-26dB when enabled) - PRE-GAIN
 let phaseInvertNode: any = null // Phase invert (polarity flip) - PRE-GAIN
@@ -827,6 +838,7 @@ let playlistFiles: any[] = []
 let currentPlaylistIndex = 0
 let nextTrack: any = null // Next track to play (null for single files, set for playlists)
 let manualStop = false // Flag to distinguish manual stop from natural track end
+let isPreloading = false // Flag to track if next track is being pre-loaded
 
 // Initialize aux sends data when aux buses change
 watch(() => props.auxBuses, (newBuses) => {
@@ -971,7 +983,12 @@ function initAudioNodes() {
     release: 0.25
   })
 
-  // Connect chain: pad -> phaseInvert -> hpf -> gain -> gate -> eq3 -> balance -> volume
+  // Create CrossFade node for seamless playlist transitions
+  // Input A (0): current player, Input B (1): next player
+  crossFade = new Tone.CrossFade(0) // Start with input A (current player)
+  crossFade.connect(padNode) // CrossFade output goes to PAD input
+
+  // Connect chain: player -> crossFade -> pad -> phaseInvert -> hpf -> gain -> gate -> eq3 -> balance -> volume
   // PAD is pre-gain (professional mixer architecture)
   // Phase invert is pre-gain (inverts polarity before amplification)
   // HPF is pre-gain (removes rumble before amplification)
@@ -1540,6 +1557,16 @@ onUnmounted(() => {
     player.dispose()
   }
 
+  // Cleanup next player if pre-loaded
+  if (nextPlayer) {
+    if (nextPlayer.buffer && typeof nextPlayer.buffer.dispose === 'function') {
+      try {
+        nextPlayer.buffer.dispose()
+      } catch (e) { }
+    }
+    nextPlayer.dispose()
+  }
+
   // Dispose and clear audio buffer reference
   if (currentAudioBuffer) {
     try {
@@ -1549,6 +1576,19 @@ onUnmounted(() => {
     } catch (e) { }
   }
   currentAudioBuffer = null
+
+  // Dispose next buffer if pre-loaded
+  if (nextBuffer) {
+    try {
+      if (typeof (nextBuffer as any).dispose === 'function') {
+        (nextBuffer as any).dispose()
+      }
+    } catch (e) { }
+  }
+  nextBuffer = null
+
+  // Dispose crossfade node
+  if (crossFade) crossFade.dispose()
 
   if (gainNode) gainNode.dispose()
   if (eq3) eq3.dispose()
