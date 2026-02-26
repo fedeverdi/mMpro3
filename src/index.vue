@@ -557,7 +557,7 @@ const armedTracks = ref<Set<number>>(new Set()) // Tracks armed for recording
 
 // Automation panel resize/collapse
 const automationHeight = ref(220) // Default height in pixels
-const automationCollapsed = ref(false)
+const automationCollapsed = ref(true)
 const automationSavedHeight = ref(300)
 let automationResizing = false
 let automationStartY = 0
@@ -2207,6 +2207,8 @@ function loadAutomationHeight() {
         if (collapsed === 'true') {
             automationCollapsed.value = true
             automationHeight.value = 12
+        } else if (collapsed === 'false') {
+            automationCollapsed.value = false
         }
         
         if (savedHeightStr) {
