@@ -665,6 +665,7 @@ const snapshot = useTrackSnapshot({
   setCompressorEnabled: (value) => { compressorEnabled.value = value },
   setGateEnabled: (value) => { gateEnabled.value = value },
   setAuxSendsData: (value) => { auxSendsData.value = value },
+  setAudioLoaded: (value) => { audioLoaded.value = value },
   
   // Component refs
   getTrackEQRef: () => trackEQRef.value,
@@ -673,6 +674,7 @@ const snapshot = useTrackSnapshot({
   
   // Audio nodes
   getPhaseInvertNode: () => phaseInvertNode,
+  getPlayer: () => player,
   
   // Functions
   initAudioNodes,
@@ -686,10 +688,12 @@ const snapshot = useTrackSnapshot({
   // Composables
   routingConnectToOutput: () => routing.connectToOutput(),
   auxSendsHandleUpdate: (data) => auxSends.handleAuxSendsUpdate(data),
-  parametricEQHandleUpdate: (data) => parametricEQ.handleParametricEQUpdate(data)
+  parametricEQHandleUpdate: (data) => parametricEQ.handleParametricEQUpdate(data),
+  parametricEQGetFilters: () => parametricEQ.getParametricEQFilters(),
+  parametricEQSetFilters: (filters) => parametricEQ.setParametricEQFilters(filters)
 })
 
-const { getSnapshot, restoreFromSnapshot } = snapshot
+const { getSnapshot, restoreFromSnapshot, resetToDefaults } = snapshot
 
 // Audio state
 const fileName = ref<string>('')
@@ -1493,65 +1497,7 @@ defineExpose({
 
   getSnapshot,
   restoreFromSnapshot,
-
-  resetToDefaults: () => {
-    // Reset volume and pan
-    volume.value = 0
-    pan.value = 0
-    isMuted.value = false
-    isSolo.value = false
-
-    // Reset routing
-    routeToMaster.value = true
-    routedSubgroups.value = new Set()
-
-    // Reset audio source
-    audioSourceType.value = 'file'
-    selectedAudioInput.value = ''
-    fileName.value = ''
-    fileId.value = ''
-    audioLoaded.value = false
-
-    // Stop player if active
-    if (player && typeof player.stop === 'function') {
-      try {
-        player.stop()
-      } catch (e) { }
-    }
-
-    // Reset 3-band EQ to defaults
-    if (trackEQRef.value?.setParams) {
-      trackEQRef.value.setParams({
-        low: 0,
-        mid: 0,
-        high: 0
-      })
-    }
-
-    // Clear parametric EQ
-    eqFiltersData.value = []
-    const filters = parametricEQ.getParametricEQFilters()
-    if (filters) {
-      try {
-        filters.input?.disconnect()
-        filters.output?.disconnect()
-      } catch (e) { }
-      parametricEQ.setParametricEQFilters(null)
-    }
-
-    // Disable and reset compressor
-    if (compressorEnabled.value) {
-      toggleCompressor()
-    }
-    if (trackCompressorRef.value?.setParams) {
-      trackCompressorRef.value.setParams({
-        threshold: -24,
-        ratio: 4,
-        attack: 0.003,
-        release: 0.25
-      })
-    }
-  }
+  resetToDefaults
 })
 
 // Cleanup

@@ -59,6 +59,7 @@ export function useTrackSnapshot(callbacks: {
   setCompressorEnabled: (value: boolean) => void
   setGateEnabled: (value: boolean) => void
   setAuxSendsData: (value: any) => void
+  setAudioLoaded: (value: boolean) => void
   
   // Component refs
   getTrackEQRef: () => any
@@ -67,6 +68,7 @@ export function useTrackSnapshot(callbacks: {
   
   // Audio nodes
   getPhaseInvertNode: () => any
+  getPlayer: () => any
   
   // Functions
   initAudioNodes: () => void
@@ -81,6 +83,8 @@ export function useTrackSnapshot(callbacks: {
   routingConnectToOutput: () => void
   auxSendsHandleUpdate: (auxSendsData: any) => void
   parametricEQHandleUpdate: (data: { filtersData: any[] }) => void
+  parametricEQGetFilters: () => any
+  parametricEQSetFilters: (filters: any) => void
 }) {
   /**
    * Create a snapshot of current track state
@@ -255,8 +259,74 @@ export function useTrackSnapshot(callbacks: {
     }
   }
 
+  /**
+   * Reset track to default values
+   */
+  function resetToDefaults() {
+    // Reset volume and pan
+    callbacks.setVolume(0)
+    callbacks.setPan(0)
+    callbacks.setIsMuted(false)
+    callbacks.setIsSolo(false)
+
+    // Reset routing
+    callbacks.setRouteToMaster(true)
+    callbacks.setRoutedSubgroups(new Set())
+
+    // Reset audio source
+    callbacks.setAudioSourceType('file')
+    callbacks.setSelectedAudioInput('')
+    callbacks.setFileName('')
+    callbacks.setFileId('')
+    callbacks.setAudioLoaded(false)
+
+    // Stop player if active
+    const player = callbacks.getPlayer()
+    if (player && typeof player.stop === 'function') {
+      try {
+        player.stop()
+      } catch (e) { }
+    }
+
+    // Reset 3-band EQ to defaults
+    const trackEQRef = callbacks.getTrackEQRef()
+    if (trackEQRef?.setParams) {
+      trackEQRef.setParams({
+        low: 0,
+        mid: 0,
+        high: 0
+      })
+    }
+
+    // Clear parametric EQ
+    callbacks.setEqFiltersData([])
+    const filters = callbacks.parametricEQGetFilters()
+    if (filters) {
+      try {
+        filters.input?.disconnect()
+        filters.output?.disconnect()
+      } catch (e) { }
+      callbacks.parametricEQSetFilters(null)
+    }
+
+    // Disable and reset compressor
+    if (callbacks.getCompressorEnabled()) {
+      callbacks.toggleCompressor()
+    }
+    const trackCompressorRef = callbacks.getTrackCompressorRef()
+    if (trackCompressorRef?.setParams) {
+      trackCompressorRef.setParams({
+        threshold: -24,
+        ratio: 4,
+        attack: 0.003,
+        release: 0.25
+      })
+    }
+  }
+
   return {
     getSnapshot,
-    restoreFromSnapshot
+    restoreFromSnapshot,
+    resetToDefaults
   }
 }
