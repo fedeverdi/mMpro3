@@ -444,6 +444,7 @@ dependencies = [
  "hound",
  "ringbuf",
  "rubato",
+ "rustfft",
  "serde",
  "serde_json",
  "symphonia",

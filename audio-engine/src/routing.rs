@@ -3,6 +3,7 @@ use crate::audio_io::ChannelSelection;
 use crate::equalizer::{Equalizer, ParametricEqualizer, EQBand, FilterType};
 use crate::file_player::AudioFilePlayer;
 use crate::signal_gen::{SignalGenerator, WaveformType};
+use rustfft::{FftPlanner, num_complex::Complex};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TrackSource {
@@ -14,6 +15,88 @@ pub enum TrackSource {
 
 // Ring buffer size for waveform display (2048 samples = ~42ms @ 48kHz)
 const WAVEFORM_BUFFER_SIZE: usize = 2048;
+
+// FFT size for spectrum analysis (2048 samples = ~42ms @ 48kHz)
+const FFT_SIZE: usize = 2048;
+
+pub struct FFTAnalyzer {
+    buffer_left: Vec<f32>,
+    buffer_right: Vec<f32>,
+    position: usize,
+    planner: FftPlanner<f32>,
+    fft_ready: bool,
+}
+
+impl FFTAnalyzer {
+    pub fn new() -> Self {
+        Self {
+            buffer_left: vec![0.0; FFT_SIZE],
+            buffer_right: vec![0.0; FFT_SIZE],
+            position: 0,
+            planner: FftPlanner::new(),
+            fft_ready: false,
+        }
+    }
+
+    /// Add samples to the FFT buffer
+    pub fn push_samples(&mut self, left: f32, right: f32) {
+        self.buffer_left[self.position] = left;
+        self.buffer_right[self.position] = right;
+        self.position += 1;
+
+        if self.position >= FFT_SIZE {
+            self.position = 0;
+            self.fft_ready = true;
+        }
+    }
+
+    /// Perform FFT analysis and return magnitude spectrum (half of FFT_SIZE due to symmetry)
+    pub fn analyze(&mut self) -> Option<(Vec<f32>, Vec<f32>)> {
+        if !self.fft_ready {
+            return None;
+        }
+
+        self.fft_ready = false;
+
+        // Apply Hann window to reduce spectral leakage
+        let window: Vec<f32> = (0..FFT_SIZE)
+            .map(|i| 0.5 * (1.0 - f32::cos(2.0 * std::f32::consts::PI * i as f32 / (FFT_SIZE - 1) as f32)))
+            .collect();
+
+        // Process left channel
+        let mut left_complex: Vec<Complex<f32>> = self.buffer_left
+            .iter()
+            .zip(window.iter())
+            .map(|(sample, win)| Complex::new(sample * win, 0.0))
+            .collect();
+
+        // Process right channel
+        let mut right_complex: Vec<Complex<f32>> = self.buffer_right
+            .iter()
+            .zip(window.iter())
+            .map(|(sample, win)| Complex::new(sample * win, 0.0))
+            .collect();
+
+        // Perform FFT
+        let fft = self.planner.plan_fft_forward(FFT_SIZE);
+        fft.process(&mut left_complex);
+        fft.process(&mut right_complex);
+
+        // Calculate magnitude spectrum (only first half due to symmetry)
+        let bins_count = FFT_SIZE / 2;
+        let left_magnitudes: Vec<f32> = left_complex[..bins_count]
+            .iter()
+            .map(|c| (c.re * c.re + c.im * c.im).sqrt() / FFT_SIZE as f32)
+            .collect();
+
+        let right_magnitudes: Vec<f32> = right_complex[..bins_count]
+            .iter()
+            .map(|c| (c.re * c.re + c.im * c.im).sqrt() / FFT_SIZE as f32)
+            .collect();
+
+        Some((left_magnitudes, right_magnitudes))
+    }
+}
 
 pub struct Track {
     pub id: usize,
@@ -398,6 +481,7 @@ pub struct Router {
     pub tracks: Vec<Track>,
     pub subgroups: Vec<SubgroupBus>,
     pub master: MasterBus,
+    pub fft_analyzer: FFTAnalyzer,
 }
 
 impl Router {
@@ -408,6 +492,7 @@ impl Router {
             tracks,
             subgroups: Vec::new(),
             master: MasterBus::new(),
+            fft_analyzer: FFTAnalyzer::new(),
         }
     }
 

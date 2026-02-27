@@ -189,6 +189,12 @@ enum Response {
         master_l: f32,
         master_r: f32,
     },
+    #[serde(rename = "fft")]
+    FFTData {
+        bins_left: Vec<f32>,
+        bins_right: Vec<f32>,
+        sample_rate: u32,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -406,7 +412,7 @@ impl AudioEngine {
                 let frames = data.len() / output_channels;
 
                 // Acquire lock, process audio, release lock quickly
-                let levels_to_send = {
+                let (levels_to_send, fft_data) = {
                     let mut router = router_output.lock().unwrap();
                     
                     // Process all frames
@@ -422,6 +428,9 @@ impl AudioEngine {
 
                         // Process one frame through router
                         let (left, right) = router.process_frame(input_frame.as_deref());
+
+                        // Push samples to FFT analyzer
+                        router.fft_analyzer.push_samples(left, right);
 
                         // Write to output
                         let out_frame_start = frame_idx * output_channels;
@@ -442,7 +451,7 @@ impl AudioEngine {
                     let mut counter = meter_update_frames.lock().unwrap();
                     *counter += frames;
                     
-                    if *counter >= meter_interval {
+                    let levels_to_send = if *counter >= meter_interval {
                         *counter = 0;
                         
                         // Copy levels data while we have the lock
@@ -482,7 +491,12 @@ impl AudioEngine {
                         Some((track_levels, subgroup_levels, master_l, master_r))
                     } else {
                         None
-                    }
+                    };
+
+                    // Check for FFT data
+                    let fft_data = router.fft_analyzer.analyze();
+                    
+                    (levels_to_send, fft_data)
                 }; // Lock is released here
                 
                 drop(input_buf); // Release input buffer lock
@@ -494,6 +508,19 @@ impl AudioEngine {
                         subgroups: subgroup_levels,
                         master_l,
                         master_r,
+                    };
+                    
+                    if let Ok(json) = serde_json::to_string(&response) {
+                        println!("{}", json);
+                    }
+                }
+
+                // Send FFT data if available
+                if let Some((bins_left, bins_right)) = fft_data {
+                    let response = Response::FFTData {
+                        bins_left,
+                        bins_right,
+                        sample_rate: sample_rate_for_perf,
                     };
                     
                     if let Ok(json) = serde_json::to_string(&response) {

@@ -81,7 +81,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, inject } from 'vue'
+import type { Ref } from 'vue'
 
 interface Props {
   masterFxOutputNode?: any
@@ -89,13 +90,32 @@ interface Props {
 
 const props = defineProps<Props>()
 
+// Inject audio engine
+const audioEngine = inject<any>('audioEngine')
+
 const canvas = ref<HTMLCanvasElement | null>(null)
 const bars = ref(128)
 const barOptions = [16, 24, 48, 96, 128]
 const displayMode = ref<'bars' | 'curve' | 'mirror' | 'dots'>('bars')
 
-// FFT analysis will be implemented in Rust backend in future
-// For now, we just show the UI without live data
+// FFT data from backend
+const currentFFTLeft = ref<Float32Array | null>(null)
+const currentFFTRight = ref<Float32Array | null>(null)
+const currentSampleRate = ref<number>(48000)
+
+// Watch for FFT data updates from audio engine
+watch(
+  () => audioEngine?.state?.value?.fftData,
+  (fftData) => {
+    if (fftData) {
+      currentFFTLeft.value = fftData.binsLeft
+      currentFFTRight.value = fftData.binsRight
+      currentSampleRate.value = fftData.sampleRate
+    }
+  },
+  { immediate: true }
+)
+
 let animationId: number | null = null
 let resizeObserver: ResizeObserver | null = null
 
@@ -105,31 +125,6 @@ let peakValuesRight: number[] = []
 let peakTimestamps: number[] = []
 const PEAK_HOLD_TIME = 1500 // ms
 const PEAK_DECAY_RATE = 0.002
-
-// Placeholder analyzer initialization
-// TODO: Implement FFT in Rust backend and receive spectrum data via IPC
-const initAnalyser = async () => {
-  // No longer using Tone.js
-  // Spectrum analysis will be done in Rust backend
-  return
-}
-
-// Placeholder functions for future FFT implementation
-const getMasterNode = () => null
-const connectAnalyser = async () => {
-  // No longer connecting Web Audio nodes
-  // FFT analysis will be done in Rust backend
-  return
-}
-
-// Watch masterFxOutputNode changes (placeholder)
-watch(
-  () => props.masterFxOutputNode,
-  () => {
-    // Will be implemented when FFT backend is ready
-  },
-  { immediate: true }
-)
 
 // Converti frequenza in posizione X logaritmica (0-1)
 const freqToPosition = (freq: number): number => {
@@ -255,22 +250,30 @@ const render = () => {
     ctx.fillText(label, x, height - 5)
   })
 
-  // TODO: FFT data will come from Rust backend via IPC
-  // For now, draw empty spectrum with placeholder message
-  ctx.font = '12px monospace'
-  ctx.fillStyle = 'rgba(147, 197, 253, 0.6)'
-  ctx.textAlign = 'center'
-  ctx.fillText('Spectrum Analyzer - FFT implementation pending', width / 2, height / 2)
-  
-  return // Skip FFT rendering until backend implementation is ready
-  
-  /* Future implementation will receive FFT data via IPC:
-  const fftDataLeft = await window.audioEngine.getFFTData('left')
-  const fftDataRight = await window.audioEngine.getFFTData('right')
-  */
+  // Check if FFT data is available
+  if (!currentFFTLeft.value || !currentFFTRight.value) {
+    // No FFT data yet, show message
+    ctx.font = '12px monospace'
+    ctx.fillStyle = 'rgba(147, 197, 253, 0.6)'
+    ctx.textAlign = 'center'
+    ctx.fillText('Waiting for FFT data...', width / 2, height / 2)
+    return
+  }
 
-  // Calcola bande con lunghezza reale dei bin
-  const sampleRate = Tone.context.sampleRate
+  const fftDataLeft = currentFFTLeft.value
+  const fftDataRight = currentFFTRight.value
+
+  // Convert magnitude bins to dB
+  const convertToDb = (magnitude: number): number => {
+    if (magnitude <= 0) return -140
+    return 20 * Math.log10(magnitude)
+  }
+
+  const fftDbLeft = Array.from(fftDataLeft).map(convertToDb)
+  const fftDbRight = Array.from(fftDataRight).map(convertToDb)
+
+  // Calculate bands with real FFT bin length
+  const sampleRate = currentSampleRate.value
   const bands = getLogBands(bars.value, sampleRate, fftDataLeft.length)
 
   // Inizializza array peak se necessario
@@ -290,15 +293,15 @@ const render = () => {
       
       // Canale LEFT
       let maxDbLeft = -140
-      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataLeft.length; bin++) {
-        maxDbLeft = Math.max(maxDbLeft, fftDataLeft[bin])
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbLeft.length; bin++) {
+        maxDbLeft = Math.max(maxDbLeft, fftDbLeft[bin])
       }
       const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
 
       // Canale RIGHT
       let maxDbRight = -140
-      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataRight.length; bin++) {
-        maxDbRight = Math.max(maxDbRight, fftDataRight[bin])
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbRight.length; bin++) {
+        maxDbRight = Math.max(maxDbRight, fftDbRight[bin])
       }
       const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
 
@@ -391,15 +394,15 @@ const render = () => {
       
       // Canale LEFT
       let maxDbLeft = -140
-      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataLeft.length; bin++) {
-        maxDbLeft = Math.max(maxDbLeft, fftDataLeft[bin])
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbLeft.length; bin++) {
+        maxDbLeft = Math.max(maxDbLeft, fftDbLeft[bin])
       }
       const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
 
       // Canale RIGHT
       let maxDbRight = -140
-      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataRight.length; bin++) {
-        maxDbRight = Math.max(maxDbRight, fftDataRight[bin])
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbRight.length; bin++) {
+        maxDbRight = Math.max(maxDbRight, fftDbRight[bin])
       }
       const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
 
@@ -570,15 +573,15 @@ const render = () => {
       
       // Canale LEFT
       let maxDbLeft = -140
-      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataLeft.length; bin++) {
-        maxDbLeft = Math.max(maxDbLeft, fftDataLeft[bin])
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbLeft.length; bin++) {
+        maxDbLeft = Math.max(maxDbLeft, fftDbLeft[bin])
       }
       const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
 
       // Canale RIGHT
       let maxDbRight = -140
-      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataRight.length; bin++) {
-        maxDbRight = Math.max(maxDbRight, fftDataRight[bin])
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbRight.length; bin++) {
+        maxDbRight = Math.max(maxDbRight, fftDbRight[bin])
       }
       const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
 
@@ -672,15 +675,15 @@ const render = () => {
       
       // Canale LEFT
       let maxDbLeft = -140
-      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataLeft.length; bin++) {
-        maxDbLeft = Math.max(maxDbLeft, fftDataLeft[bin])
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbLeft.length; bin++) {
+        maxDbLeft = Math.max(maxDbLeft, fftDbLeft[bin])
       }
       const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
 
       // Canale RIGHT
       let maxDbRight = -140
-      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDataRight.length; bin++) {
-        maxDbRight = Math.max(maxDbRight, fftDataRight[bin])
+      for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbRight.length; bin++) {
+        maxDbRight = Math.max(maxDbRight, fftDbRight[bin])
       }
       const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
 
@@ -751,7 +754,7 @@ const render = () => {
 
 // Lifecycle
 onMounted(() => {
-  connectAnalyser().then(() => render())
+  render()
   
   // Add ResizeObserver to detect container size changes
   if (canvas.value) {

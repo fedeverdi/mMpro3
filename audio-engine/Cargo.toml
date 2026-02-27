@@ -25,3 +25,6 @@ rubato = "0.15"
 
 # WAV file support (lightweight alternative)
 hound = "3.5"
+
+# FFT for spectrum analysis
+rustfft = "6.2"

@@ -16,6 +16,7 @@ export interface AudioEngineState {
   trackWaveforms: Map<number, number[]>
   subgroupLevels: Map<number, { left: number, right: number }>
   masterLevels: { left: number, right: number }
+  fftData: { binsLeft: Float32Array, binsRight: Float32Array, sampleRate: number } | null
 }
 
 const state = ref<AudioEngineState>({
@@ -26,7 +27,8 @@ const state = ref<AudioEngineState>({
   trackLevels: new Map(),
   trackWaveforms: new Map(),
   subgroupLevels: new Map(),
-  masterLevels: { left: 0, right: 0 }
+  masterLevels: { left: 0, right: 0 },
+  fftData: null
 })
 
 let isListening = false
@@ -98,6 +100,17 @@ export const useAudioEngine = () => {
             state.value.masterLevels = {
               left: response.master_l,
               right: response.master_r
+            }
+          }
+          break
+
+        case 'fft':
+          // Update FFT data for spectrum analyzer
+          if (response.bins_left && response.bins_right && response.sample_rate) {
+            state.value.fftData = {
+              binsLeft: new Float32Array(response.bins_left),
+              binsRight: new Float32Array(response.bins_right),
+              sampleRate: response.sample_rate
             }
           }
           break
