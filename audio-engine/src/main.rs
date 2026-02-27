@@ -125,6 +125,30 @@ enum Command {
         right_channel: u16,
     },
 
+    // Subgroup controls
+    #[serde(rename = "add_subgroup")]
+    AddSubgroup,
+    #[serde(rename = "remove_subgroup")]
+    RemoveSubgroup { subgroup: usize },
+    #[serde(rename = "set_subgroup_gain")]
+    SetSubgroupGain { subgroup: usize, gain: f32 },
+    #[serde(rename = "set_subgroup_mute")]
+    SetSubgroupMute { subgroup: usize, mute: bool },
+    #[serde(rename = "set_subgroup_route_to_master")]
+    SetSubgroupRouteToMaster { subgroup: usize, route: bool },
+    #[serde(rename = "set_subgroup_output_channels")]
+    SetSubgroupOutputChannels {
+        subgroup: usize,
+        left_channel: u16,
+        right_channel: u16,
+    },
+    #[serde(rename = "set_track_route_to_subgroup")]
+    SetTrackRouteToSubgroup {
+        track: usize,
+        subgroup: usize,
+        route: bool, // true = add to routing, false = remove from routing
+    },
+
     // Device management
     #[serde(rename = "list_devices")]
     ListDevices,
@@ -144,9 +168,12 @@ enum Response {
     Started,
     #[serde(rename = "stopped")]
     Stopped,
+    #[serde(rename = "subgroup_created")]
+    SubgroupCreated { id: usize },
     #[serde(rename = "levels")]
     Levels {
         tracks: Vec<TrackLevels>,
+        subgroups: Vec<SubgroupLevels>,
         master_l: f32,
         master_r: f32,
     },
@@ -158,6 +185,13 @@ struct TrackLevels {
     level_l: f32,
     level_r: f32,
     waveform: Vec<f32>, // Waveform samples (downsampled to ~128 samples)
+}
+
+#[derive(Debug, Serialize)]
+struct SubgroupLevels {
+    subgroup: usize,
+    level_l: f32,
+    level_r: f32,
 }
 
 /// Performance statistics for audio processing
@@ -412,14 +446,28 @@ impl AudioEngine {
                         let master_l = router.master.level_l;
                         let master_r = router.master.level_r;
                         
+                        // Collect subgroup levels
+                        let subgroup_levels: Vec<SubgroupLevels> = router
+                            .subgroups
+                            .iter()
+                            .map(|sg| SubgroupLevels {
+                                subgroup: sg.id,
+                                level_l: sg.level_l,
+                                level_r: sg.level_r,
+                            })
+                            .collect();
+                        
                         // Reset peak levels after reading
                         router.master.reset_levels();
                         for track in router.tracks.iter_mut() {
                             track.reset_levels();
                         }
+                        for subgroup in router.subgroups.iter_mut() {
+                            subgroup.reset_levels();
+                        }
                         
                         // Return data to serialize outside the lock
-                        Some((track_levels, master_l, master_r))
+                        Some((track_levels, subgroup_levels, master_l, master_r))
                     } else {
                         None
                     }
@@ -428,9 +476,10 @@ impl AudioEngine {
                 drop(input_buf); // Release input buffer lock
                 
                 // Send meter updates outside the lock
-                if let Some((track_levels, master_l, master_r)) = levels_to_send {
+                if let Some((track_levels, subgroup_levels, master_l, master_r)) = levels_to_send {
                     let response = Response::Levels {
                         tracks: track_levels,
+                        subgroups: subgroup_levels,
                         master_l,
                         master_r,
                     };
@@ -647,6 +696,63 @@ impl AudioEngine {
         router.master.output_channel_selection = ChannelSelection::new(left_ch, right_ch);
     }
 
+    // Subgroup methods
+    fn add_subgroup(&self) -> usize {
+        let mut router = self.router.lock().unwrap();
+        router.add_subgroup()
+    }
+
+    fn remove_subgroup(&self, subgroup: usize) {
+        let mut router = self.router.lock().unwrap();
+        router.remove_subgroup(subgroup);
+    }
+
+    fn set_subgroup_gain(&self, subgroup: usize, gain: f32) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(sg) = router.get_subgroup_mut(subgroup) {
+            sg.gain = gain.max(0.0);
+        }
+    }
+
+    fn set_subgroup_mute(&self, subgroup: usize, mute: bool) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(sg) = router.get_subgroup_mut(subgroup) {
+            sg.mute = mute;
+        }
+    }
+
+    fn set_subgroup_route_to_master(&self, subgroup: usize, route: bool) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(sg) = router.get_subgroup_mut(subgroup) {
+            sg.route_to_master = route;
+            eprintln!("[Subgroup {}] Route to master: {}", subgroup, route);
+        }
+    }
+
+    fn set_subgroup_output_channels(&self, subgroup: usize, left_ch: u16, right_ch: u16) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(sg) = router.get_subgroup_mut(subgroup) {
+            sg.output_channel_selection = ChannelSelection::new(left_ch, right_ch);
+        }
+    }
+
+    fn set_track_route_to_subgroup(&self, track: usize, subgroup: usize, route: bool) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            if route {
+                // Add subgroup to routing if not already present
+                if !t.route_to_subgroups.contains(&subgroup) {
+                    t.route_to_subgroups.push(subgroup);
+                    eprintln!("[Track {}] Added routing to subgroup {}", track, subgroup);
+                }
+            } else {
+                // Remove subgroup from routing
+                t.route_to_subgroups.retain(|&sg| sg != subgroup);
+                eprintln!("[Track {}] Removed routing to subgroup {}", track, subgroup);
+            }
+        }
+    }
+
     /// Handle a command and return an optional response (only for critical operations)
     fn handle_command(&mut self, command: Command) -> Option<Response> {
         match command {
@@ -787,6 +893,42 @@ impl AudioEngine {
                 right_channel,
             } => {
                 self.set_master_output_channels(left_channel, right_channel);
+                None
+            }
+            Command::AddSubgroup => {
+                let id = self.add_subgroup();
+                Some(Response::SubgroupCreated { id })
+            }
+            Command::RemoveSubgroup { subgroup } => {
+                self.remove_subgroup(subgroup);
+                None
+            }
+            Command::SetSubgroupGain { subgroup, gain } => {
+                self.set_subgroup_gain(subgroup, gain);
+                None
+            }
+            Command::SetSubgroupMute { subgroup, mute } => {
+                self.set_subgroup_mute(subgroup, mute);
+                None
+            }
+            Command::SetSubgroupRouteToMaster { subgroup, route } => {
+                self.set_subgroup_route_to_master(subgroup, route);
+                None
+            }
+            Command::SetSubgroupOutputChannels {
+                subgroup,
+                left_channel,
+                right_channel,
+            } => {
+                self.set_subgroup_output_channels(subgroup, left_channel, right_channel);
+                None
+            }
+            Command::SetTrackRouteToSubgroup {
+                track,
+                subgroup,
+                route,
+            } => {
+                self.set_track_route_to_subgroup(track, subgroup, route);
                 None
             }
             Command::ListDevices => match self.list_devices() {

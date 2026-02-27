@@ -473,11 +473,15 @@ import ScenesModal from './components/layout/ScenesModal.vue'
 import Timeline from './components/automation/Timeline.vue'
 import AutomationLane from './components/automation/AutomationLane.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
+import { useAudioEngine } from '~/composables/useAudioEngine'
 import { useScenes, type Scene, type TrackSnapshot, type SubgroupSnapshot, type AuxSnapshot } from '~/composables/useScenes'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import { useAutomation } from '~/composables/useAutomation'
 import { getBuildLimits, canAddTrack, getTrackCounts, getBuildMode } from '~/config/buildLimits'
 import { channel } from 'diagnostics_channel'
+
+const { audioOutputDevices, audioInputDevices, refreshAudioOutputs, refreshAudioInputs } = useAudioDevices()
+const audioEngine = useAudioEngine()
 
 const masterChannel = ref<any>(null)
 
@@ -866,7 +870,7 @@ function setSubgroupRef(subgroupId: number, el: any | null) {
     }
 }
 
-function addSubgroup() {
+async function addSubgroup() {
     // Check build limits
     if (subgroups.value.length >= buildLimits.value.maxSubgroups) {
         const limits = buildLimits.value
@@ -876,19 +880,27 @@ function addSubgroup() {
         return
     }
 
-    const id = nextSubgroupId++
-    const name = `SUB ${id}`
+    // Create subgroup in Rust backend
+    const id = await audioEngine.addSubgroup()
+    if (id === null) {
+        console.error('[addSubgroup] Failed to create subgroup in backend')
+        return
+    }
 
-    // Subgroups now managed by Rust backend
+    const name = `SUB ${subgroups.value.length + 1}`
+
+    // Add to frontend state
     subgroups.value.push({
         id,
         name,
         channel: null,
         ref: null
     })
+    
+    console.log(`[Subgroup ${id}] Created: ${name}`)
 }
 
-function removeSubgroup(subgroupId: number) {
+async function removeSubgroup(subgroupId: number) {
     const index = subgroups.value.findIndex(s => s.id === subgroupId)
     if (index !== -1) {
         const subgroup = subgroups.value[index]
@@ -906,8 +918,13 @@ function removeSubgroup(subgroupId: number) {
             }
         })
 
+        // Remove from backend
+        await audioEngine.removeSubgroup(subgroupId)
+
         // Remove from array - Vue will handle unmounting and cleanup via onUnmounted
         subgroups.value.splice(index, 1)
+        
+        console.log(`[Subgroup ${subgroupId}] Removed`)
     }
 }
 

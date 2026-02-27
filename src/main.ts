@@ -297,6 +297,41 @@ ipcMain.handle('audio-engine:set-master-output-channels', async (_, leftChannel:
   await sendCommandToEngine({ type: 'set_master_output_channels', left_channel: leftChannel, right_channel: rightChannel })
 })
 
+// Subgroup handlers
+ipcMain.handle('audio-engine:add-subgroup', async () => {
+  try {
+    const response = await sendCommandAndWaitForResponse({ type: 'add_subgroup' }, 'subgroup_created')
+    return response.id
+  } catch (error) {
+    console.error('[Main] Failed to add subgroup:', error)
+    return null
+  }
+})
+
+ipcMain.handle('audio-engine:remove-subgroup', async (_, subgroup: number) => {
+  await sendCommandToEngine({ type: 'remove_subgroup', subgroup })
+})
+
+ipcMain.handle('audio-engine:set-subgroup-gain', async (_, subgroup: number, gain: number) => {
+  await sendCommandToEngine({ type: 'set_subgroup_gain', subgroup, gain })
+})
+
+ipcMain.handle('audio-engine:set-subgroup-mute', async (_, subgroup: number, mute: boolean) => {
+  await sendCommandToEngine({ type: 'set_subgroup_mute', subgroup, mute })
+})
+
+ipcMain.handle('audio-engine:set-subgroup-route-to-master', async (_, subgroup: number, route: boolean) => {
+  await sendCommandToEngine({ type: 'set_subgroup_route_to_master', subgroup, route })
+})
+
+ipcMain.handle('audio-engine:set-subgroup-output-channels', async (_, subgroup: number, leftChannel: number, rightChannel: number) => {
+  await sendCommandToEngine({ type: 'set_subgroup_output_channels', subgroup, left_channel: leftChannel, right_channel: rightChannel })
+})
+
+ipcMain.handle('audio-engine:set-track-route-to-subgroup', async (_, track: number, subgroup: number, route: boolean) => {
+  await sendCommandToEngine({ type: 'set_track_route_to_subgroup', track, subgroup, route })
+})
+
 ipcMain.handle('audio-engine:list-devices', async () => {
   const response = await sendCommandAndWaitForResponse({ type: 'list_devices' }, 'devices')
   return response.devices

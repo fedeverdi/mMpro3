@@ -14,6 +14,7 @@ export interface AudioEngineState {
   selectedOutputDevice: string | null
   trackLevels: Map<number, { left: number, right: number }>
   trackWaveforms: Map<number, number[]>
+  subgroupLevels: Map<number, { left: number, right: number }>
   masterLevels: { left: number, right: number }
 }
 
@@ -24,6 +25,7 @@ const state = ref<AudioEngineState>({
   selectedOutputDevice: null,
   trackLevels: new Map(),
   trackWaveforms: new Map(),
+  subgroupLevels: new Map(),
   masterLevels: { left: 0, right: 0 }
 })
 
@@ -70,6 +72,15 @@ export const useAudioEngine = () => {
               if (trackLevel.waveform) {
                 state.value.trackWaveforms.set(trackLevel.track, trackLevel.waveform)
               }
+            })
+          }
+          // Update subgroup levels
+          if (response.subgroups) {
+            response.subgroups.forEach((subgroupLevel: any) => {
+              state.value.subgroupLevels.set(subgroupLevel.subgroup, {
+                left: subgroupLevel.level_l,
+                right: subgroupLevel.level_r
+              })
             })
           }
           // Update master levels
@@ -270,7 +281,54 @@ export const useAudioEngine = () => {
 
     await window.audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
   }
+  // Subgroup methods
+  const addSubgroup = async (): Promise<number | null> => {
+    if (!window.audioEngine) return null
 
+    try {
+      const id = await window.audioEngine.addSubgroup()
+      return id
+    } catch (error) {
+      console.error('[useAudioEngine] Failed to add subgroup:', error)
+      return null
+    }
+  }
+
+  const removeSubgroup = async (subgroup: number) => {
+    if (!window.audioEngine) return
+
+    await window.audioEngine.removeSubgroup(subgroup)
+  }
+
+  const setSubgroupGain = async (subgroup: number, gain: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setSubgroupGain(subgroup, gain)
+  }
+
+  const setSubgroupMute = async (subgroup: number, mute: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setSubgroupMute(subgroup, mute)
+  }
+
+  const setSubgroupRouteToMaster = async (subgroup: number, route: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setSubgroupRouteToMaster(subgroup, route)
+  }
+
+  const setSubgroupOutputChannels = async (subgroup: number, leftChannel: number, rightChannel: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setSubgroupOutputChannels(subgroup, leftChannel, rightChannel)
+  }
+
+  const setTrackRouteToSubgroup = async (track: number, subgroup: number, route: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setTrackRouteToSubgroup(track, subgroup, route)
+  }
   const getInputDevices = () => {
     return state.value.devices.filter(d => d.input_channels > 0)
   }
@@ -314,6 +372,13 @@ export const useAudioEngine = () => {
     setMasterGain,
     setMasterMute,
     setMasterOutputChannels,
+    addSubgroup,
+    removeSubgroup,
+    setSubgroupGain,
+    setSubgroupMute,
+    setSubgroupRouteToMaster,
+    setSubgroupOutputChannels,
+    setTrackRouteToSubgroup,
     getInputDevices,
     getOutputDevices
   }

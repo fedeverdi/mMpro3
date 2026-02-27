@@ -110,8 +110,18 @@ function updateMetersHeight() {
 function handleOutputSelect(deviceId: string | null) {
     selectedOutput.value = deviceId
     console.log(`[Subgroup ${props.subgroupId}] Output selected:`, deviceId)
-    // TODO: Send to Rust engine
-    // audioEngine.setSubgroupOutput(props.subgroupId, deviceId)
+    
+    // Parse device ID and extract channel selection
+    if (deviceId && deviceId !== 'no-output') {
+        const parts = deviceId.split(':')
+        const realDeviceId = parts[0]
+        const leftChannel = parts.length > 1 ? parseInt(parts[1], 10) : 0
+        const rightChannel = leftChannel + 1 // Stereo pair
+        
+        if (audioEngine?.state.value.isRunning && props.subgroupId !== undefined) {
+            audioEngine.setSubgroupOutputChannels(props.subgroupId, leftChannel, rightChannel)
+        }
+    }
 }
 
 // Toggle route to master
@@ -121,20 +131,37 @@ function toggleRouteToMaster() {
 
 // Watchers - Send changes to Rust engine
 watch(volume, (newVolume) => {
-    if (audioEngine?.state.value.isRunning) {
-        // TODO: Send to Rust engine
-        // audioEngine.setSubgroupVolume(props.subgroupId, newVolume)
-        console.log(`[Subgroup ${props.subgroupId}] Volume changed:`, newVolume)
+    if (audioEngine?.state.value.isRunning && props.subgroupId !== undefined) {
+        // Convert dB to linear gain: gain = 10^(dB/20)
+        let gainValue: number
+        if (newVolume <= -90) {
+            gainValue = 0.0 // Mute
+        } else {
+            gainValue = Math.pow(10, newVolume / 20)
+        }
+        
+        audioEngine.setSubgroupGain(props.subgroupId, gainValue)
+        console.log(`[Subgroup ${props.subgroupId}] Volume changed:`, newVolume, 'dB →', gainValue, 'linear')
     }
 })
 
 watch(routeToMaster, (route) => {
-    if (audioEngine?.state.value.isRunning) {
-        // TODO: Send to Rust engine
-        // audioEngine.setSubgroupRoute(props.subgroupId, route)
+    if (audioEngine?.state.value.isRunning && props.subgroupId !== undefined) {
+        audioEngine.setSubgroupRouteToMaster(props.subgroupId, route)
         console.log(`[Subgroup ${props.subgroupId}] Route to master:`, route)
     }
 })
+
+// Watch for meter level updates from audio engine
+watch(
+  () => audioEngine?.state.value.subgroupLevels.get(props.subgroupId || 0),
+  (levels) => {
+    if (levels) {
+      leftLevel.value = levels.left
+      rightLevel.value = levels.right
+    }
+  }
+)
 
 // Initialize
 onMounted(async () => {

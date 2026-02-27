@@ -50,6 +50,15 @@ interface AudioEngine {
   setMasterGain: (gain: number) => Promise<void>
   setMasterMute: (mute: boolean) => Promise<void>
   setMasterOutputChannels: (leftChannel: number, rightChannel: number) => Promise<void>
+  
+  // Subgroup Controls
+  addSubgroup: () => Promise<number>
+  removeSubgroup: (subgroup: number) => Promise<void>
+  setSubgroupGain: (subgroup: number, gain: number) => Promise<void>
+  setSubgroupMute: (subgroup: number, mute: boolean) => Promise<void>
+  setSubgroupRouteToMaster: (subgroup: number, route: boolean) => Promise<void>
+  setSubgroupOutputChannels: (subgroup: number, leftChannel: number, rightChannel: number) => Promise<void>
+  setTrackRouteToSubgroup: (track: number, subgroup: number, route: boolean) => Promise<void>
 }
 
 interface Window {

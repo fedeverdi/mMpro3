@@ -23,6 +23,7 @@ pub struct Track {
     pub mute: bool,
     pub pan: f32, // -1.0 (left) to 1.0 (right)
     pub route_to_master: bool, // Whether to send output to master bus
+    pub route_to_subgroups: Vec<usize>, // List of subgroup IDs to route to
     pub pad_enabled: bool, // -24dB attenuation before gain
     pub hpf_enabled: bool, // High-pass filter @ 80Hz (between PAD and gain)
     
@@ -64,6 +65,7 @@ impl Track {
             mute: false,
             pan: 0.0,
             route_to_master: true, // Route to master by default
+            route_to_subgroups: Vec::new(), // No subgroups by default
             pad_enabled: false, // PAD off by default
             hpf_enabled: false, // HPF off by default
             input_channel_selection: ChannelSelection::stereo(),
@@ -329,8 +331,68 @@ impl Default for MasterBus {
     }
 }
 
+pub struct SubgroupBus {
+    pub id: usize,
+    pub gain: f32,
+    pub mute: bool,
+    pub route_to_master: bool,
+    pub output_channel_selection: ChannelSelection,
+    pub level_l: f32,
+    pub level_r: f32,
+}
+
+impl SubgroupBus {
+    pub fn new(id: usize) -> Self {
+        Self {
+            id,
+            gain: 1.0,
+            mute: false,
+            route_to_master: false, // Direct output by default
+            output_channel_selection: ChannelSelection::stereo(),
+            level_l: 0.0,
+            level_r: 0.0,
+        }
+    }
+
+    /// Process all tracks routed to this subgroup
+    pub fn process(&mut self, tracks: &mut [Track], input_frame: Option<&[f32]>) -> (f32, f32) {
+        if self.mute {
+            return (0.0, 0.0);
+        }
+
+        let mut mix_l = 0.0;
+        let mut mix_r = 0.0;
+
+        // Sum all tracks routed to this subgroup
+        for track in tracks.iter_mut() {
+            if track.route_to_subgroups.contains(&self.id) {
+                let (l, r) = track.process(input_frame);
+                mix_l += l;
+                mix_r += r;
+            }
+        }
+
+        // Apply subgroup gain
+        mix_l *= self.gain;
+        mix_r *= self.gain;
+
+        // Update levels (peak hold)
+        self.level_l = self.level_l.max(mix_l.abs());
+        self.level_r = self.level_r.max(mix_r.abs());
+
+        (mix_l, mix_r)
+    }
+
+    /// Reset peak levels for metering
+    pub fn reset_levels(&mut self) {
+        self.level_l = 0.0;
+        self.level_r = 0.0;
+    }
+}
+
 pub struct Router {
     pub tracks: Vec<Track>,
+    pub subgroups: Vec<SubgroupBus>,
     pub master: MasterBus,
 }
 
@@ -340,13 +402,69 @@ impl Router {
         
         Self {
             tracks,
+            subgroups: Vec::new(),
             master: MasterBus::new(),
         }
     }
 
+    /// Add a new subgroup
+    pub fn add_subgroup(&mut self) -> usize {
+        let id = self.subgroups.len();
+        self.subgroups.push(SubgroupBus::new(id));
+        eprintln!("[Router] Subgroup {} created", id);
+        id
+    }
+
+    /// Remove a subgroup
+    pub fn remove_subgroup(&mut self, id: usize) {
+        if id < self.subgroups.len() {
+            self.subgroups.remove(id);
+            // Re-index remaining subgroups
+            for (new_id, subgroup) in self.subgroups.iter_mut().enumerate() {
+                subgroup.id = new_id;
+            }
+            // Remove this subgroup from all track routings
+            for track in self.tracks.iter_mut() {
+                track.route_to_subgroups.retain(|&sg_id| sg_id != id);
+                // Update IDs greater than removed one
+                for sg_id in track.route_to_subgroups.iter_mut() {
+                    if *sg_id > id {
+                        *sg_id -= 1;
+                    }
+                }
+            }
+            eprintln!("[Router] Subgroup {} removed and re-indexed", id);
+        }
+    }
+
+    /// Get subgroup by id
+    pub fn get_subgroup_mut(&mut self, id: usize) -> Option<&mut SubgroupBus> {
+        self.subgroups.get_mut(id)
+    }
+
     /// Process one frame of audio
     pub fn process_frame(&mut self, input_frame: Option<&[f32]>) -> (f32, f32) {
-        self.master.process(&mut self.tracks, input_frame)
+        // Process all subgroups first (they consume track outputs)
+        let mut subgroup_outputs: Vec<(f32, f32)> = Vec::new();
+        for subgroup in self.subgroups.iter_mut() {
+            let output = subgroup.process(&mut self.tracks, input_frame);
+            subgroup_outputs.push(output);
+        }
+
+        // Process master bus (direct tracks + subgroups routed to master)
+        let master_output = self.master.process(&mut self.tracks, input_frame);
+
+        // Add subgroups routed to master
+        let mut final_l = master_output.0;
+        let mut final_r = master_output.1;
+        for (i, subgroup) in self.subgroups.iter().enumerate() {
+            if subgroup.route_to_master {
+                final_l += subgroup_outputs[i].0;
+                final_r += subgroup_outputs[i].1;
+            }
+        }
+
+        (final_l, final_r)
     }
 
     /// Get track by id

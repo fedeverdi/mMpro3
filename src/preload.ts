@@ -54,6 +54,18 @@ contextBridge.exposeInMainWorld('audioEngine', {
   setMasterOutputChannels: (leftChannel: number, rightChannel: number) => 
     ipcRenderer.invoke('audio-engine:set-master-output-channels', leftChannel, rightChannel),
   
+  // Subgroup controls
+  addSubgroup: () => ipcRenderer.invoke('audio-engine:add-subgroup'),
+  removeSubgroup: (subgroup: number) => ipcRenderer.invoke('audio-engine:remove-subgroup', subgroup),
+  setSubgroupGain: (subgroup: number, gain: number) => ipcRenderer.invoke('audio-engine:set-subgroup-gain', subgroup, gain),
+  setSubgroupMute: (subgroup: number, mute: boolean) => ipcRenderer.invoke('audio-engine:set-subgroup-mute', subgroup, mute),
+  setSubgroupRouteToMaster: (subgroup: number, route: boolean) => 
+    ipcRenderer.invoke('audio-engine:set-subgroup-route-to-master', subgroup, route),
+  setSubgroupOutputChannels: (subgroup: number, leftChannel: number, rightChannel: number) => 
+    ipcRenderer.invoke('audio-engine:set-subgroup-output-channels', subgroup, leftChannel, rightChannel),
+  setTrackRouteToSubgroup: (track: number, subgroup: number, route: boolean) => 
+    ipcRenderer.invoke('audio-engine:set-track-route-to-subgroup', track, subgroup, route),
+  
   // Device management
   listDevices: () => ipcRenderer.invoke('audio-engine:list-devices'),
   

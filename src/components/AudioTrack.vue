@@ -151,11 +151,21 @@
           </button>
 
           <!-- Routing Buttons -->
-          <div class="flex flex-col gap-2 absolute left-[0.2rem] top-1/2 transform -translate-y-1/2 z-50">
+          <div class="flex flex-col gap-1 absolute left-[0.2rem] top-1/2 transform -translate-y-1/2 z-50">
             <button @click="toggleRouteToMaster" title="Route to Master"
-              class="w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+              class="w-5 h-7 text-[7px] font-bold rounded transition-all flex items-center justify-center"
               :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
               M
+            </button>
+            <!-- Subgroup routing buttons -->
+            <button
+              v-for="subgroup in props.subgroups"
+              :key="subgroup.id"
+              @click="toggleSubgroupRoute(subgroup.id)"
+              :title="`Route to ${subgroup.name}`"
+              class="w-5 h-6 text-[7px] font-bold rounded transition-all flex items-center justify-center"
+              :class="routedSubgroups.has(subgroup.id) ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
+              {{ subgroup.id + 1 }}
             </button>
           </div>
 
@@ -233,6 +243,7 @@ const isMuted = ref(false)
 const isSolo = ref(false)
 const phaseInverted = ref(false)
 const routeToMaster = ref(true)
+const routedSubgroups = ref<Set<number>>(new Set()) // Track which subgroups this track is routed to
 
 // Effects state
 const gateEnabled = ref(false)
@@ -388,6 +399,22 @@ function togglePhaseInvert() {
 
 function toggleRouteToMaster() {
   routeToMaster.value = !routeToMaster.value
+}
+
+function toggleSubgroupRoute(subgroupId: number) {
+  if (routedSubgroups.value.has(subgroupId)) {
+    routedSubgroups.value.delete(subgroupId)
+    // Send to backend
+    if (audioEngine?.state.value.isRunning) {
+      audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, false)
+    }
+  } else {
+    routedSubgroups.value.add(subgroupId)
+    // Send to backend
+    if (audioEngine?.state.value.isRunning) {
+      audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, true)
+    }
+  }
 }
 
 function toggleGate() {
