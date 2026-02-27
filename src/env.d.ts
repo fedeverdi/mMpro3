@@ -14,7 +14,7 @@ declare module 'electron-squirrel-startup'
 
 // Audio Engine API
 interface AudioEngine {
-  start: () => Promise<void>
+  start: (inputDevice?: string, outputDevice?: string) => Promise<void>
   stop: () => Promise<void>
   setGain: (track: number, gain: number) => Promise<void>
   setVolume: (track: number, volume: number) => Promise<void>

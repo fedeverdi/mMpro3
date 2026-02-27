@@ -38,7 +38,15 @@ const startAudioEngine = () => {
     for (const line of lines) {
       // Try to parse as JSON
       try {
-        const response = JSON.parse(line)      
+        const response = JSON.parse(line)
+        
+        // Check if there's a pending handler for this response type
+        for (const [responseType, handler] of responseHandlers.entries()) {
+          if (response[responseType] !== undefined) {
+            handler(response)
+            // Don't break - multiple handlers might be waiting
+          }
+        }
         
         // Forward to renderer
         BrowserWindow.getAllWindows().forEach(win => {
@@ -85,9 +93,45 @@ const sendCommandToEngine = (command: any): Promise<void> => {
   })
 }
 
+// Store pending response handlers
+const responseHandlers: Map<string, (response: any) => void> = new Map()
+
+// Send command and wait for specific response type
+const sendCommandAndWaitForResponse = (command: any, responseType: string, timeout = 5000): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    if (!audioEngineProcess || !audioEngineProcess.stdin) {
+      reject(new Error('Audio engine not running'))
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      responseHandlers.delete(responseType)
+      reject(new Error(`Timeout waiting for ${responseType} response`))
+    }, timeout)
+
+    // Register response handler
+    responseHandlers.set(responseType, (response: any) => {
+      clearTimeout(timeoutId)
+      responseHandlers.delete(responseType)
+      resolve(response)
+    })
+
+    try {
+      audioEngineProcess.stdin.write(JSON.stringify(command) + '\n')
+    } catch (err) {
+      clearTimeout(timeoutId)
+      responseHandlers.delete(responseType)
+      reject(err)
+    }
+  })
+}
+
 // IPC Handlers
-ipcMain.handle('audio-engine:start', async () => {
-  await sendCommandToEngine({ type: 'start' })
+ipcMain.handle('audio-engine:start', async (_, inputDevice?: string, outputDevice?: string) => {
+  const command: any = { type: 'start' }
+  if (inputDevice) command.input_device = inputDevice
+  if (outputDevice) command.output_device = outputDevice
+  await sendCommandToEngine(command)
 })
 
 ipcMain.handle('audio-engine:stop', async () => {
@@ -194,7 +238,8 @@ ipcMain.handle('audio-engine:set-master-output-channels', async (_, leftChannel:
 })
 
 ipcMain.handle('audio-engine:list-devices', async () => {
-  await sendCommandToEngine({ type: 'list_devices' })
+  const response = await sendCommandAndWaitForResponse({ type: 'list_devices' }, 'devices')
+  return response.devices
 })
 
 // Window state management

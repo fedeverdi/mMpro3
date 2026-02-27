@@ -100,20 +100,29 @@ export const useAudioEngine = () => {
     await window.audioEngine.listDevices()
   }
   
-  const start = async () => {
+  const start = async (inputDevice?: string, outputDevice?: string) => {
     if (!window.audioEngine) {
       console.warn('[useAudioEngine] Audio engine API not available')
       return
     }
     
     startListening()
-    await window.audioEngine.start()
+    await window.audioEngine.start(inputDevice, outputDevice)
   }
   
   const stop = async () => {
     if (!window.audioEngine) return
     
     await window.audioEngine.stop()
+  }
+  
+  const restartWithDevices = async (inputDevice?: string, outputDevice?: string) => {
+    if (!window.audioEngine) return
+    
+    await stop()
+    // Small delay to ensure streams are closed
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await start(inputDevice, outputDevice)
   }
   
   const setTrackGain = async (track: number, gain: number) => {
@@ -234,6 +243,7 @@ export const useAudioEngine = () => {
     loadDevices,
     start,
     stop,
+    restartWithDevices,
     setTrackGain,
     setTrackVolume,
     setTrackMute,

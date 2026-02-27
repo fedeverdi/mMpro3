@@ -109,60 +109,27 @@ export function useAudioDevices() {
     if (outputDevicesEnumerated) {
       return
     }
-
-    // Check if mediaDevices API is available
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-      console.warn('[useAudioDevices] mediaDevices API not available')
-      outputDevicesEnumerated = true
-      return
-    }
     
     // Start enumeration
     outputEnumerationPromise = (async () => {
       try {
-        const devices = await navigator.mediaDevices.enumerateDevices()
-        const outputDevices = devices.filter(device => device.kind === 'audiooutput')
+        // Get devices from Rust audio engine instead of Web Audio API
+        const devices = await window.audioEngine.listDevices()
         
-        // Expand multi-channel devices into separate channel entries
-        const expandedDevices: MediaDeviceInfo[] = []
+        // Filter only output devices and convert to MediaDeviceInfo-like structure
+        const outputDevices = devices
+          .filter((device: any) => device.output_channels > 0)
+          .map((device: any) => ({
+            deviceId: device.id,
+            groupId: '',
+            kind: 'audiooutput',
+            label: device.name,
+            toJSON: () => ({})
+          } as MediaDeviceInfo))
         
-        for (const device of outputDevices) {
-          const label = device.label.toLowerCase()
-          let channelCount = 2 // Default stereo
-          
-          // Detect multi-channel devices by name
-          if (label.includes('rubix') || label.includes('4x4') || label.includes('quad')) {
-            channelCount = 4
-          } else if (label.includes('8x8') || label.includes('octo')) {
-            channelCount = 8
-          } else if (label.includes('audio interface') && label.includes('usb')) {
-            // Some USB audio interfaces might be multi-channel
-            channelCount = 4
-          }
-          
-          if (channelCount > 2) {
-            // Create a virtual device entry for each channel
-            for (let ch = 0; ch < channelCount; ch++) {
-              // Create a virtual MediaDeviceInfo-like object
-              const virtualDevice = {
-                deviceId: `${device.deviceId}:${ch}`, // Composite ID: realId:channelIndex
-                groupId: device.groupId,
-                kind: device.kind,
-                label: `${device.label} - Channel ${ch + 1}`,
-                toJSON: device.toJSON
-              } as MediaDeviceInfo
-              
-              expandedDevices.push(virtualDevice)
-            }
-            console.log(`[useAudioDevices] Expanded ${device.label} into ${channelCount} channels`)
-          } else {
-            // Regular stereo/mono device, add as-is
-            expandedDevices.push(device)
-          }
-        }
-        
-        audioOutputDevices.value = expandedDevices
+        audioOutputDevices.value = outputDevices
         outputDevicesEnumerated = true
+        console.log(`[useAudioDevices] Loaded ${outputDevices.length} output devices from Rust engine`)
       } catch (error) {
         console.error('[useAudioDevices] Error enumerating audio outputs:', error)
       } finally {

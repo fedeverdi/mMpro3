@@ -137,13 +137,28 @@ function updateMetersHeight() {
 }
 
 // Handle master output selection
-function onMasterOutputSelect(deviceId: string | null) {
+async function onMasterOutputSelect(deviceId: string | null) {
   selectedMasterOutput.value = deviceId
   console.log('[Master Output] Selected:', deviceId)
   
-  // Send to Rust engine to set output device with default stereo channels (0, 1)
-  if (audioEngine?.state.value.isRunning && deviceId) {
-    audioEngine.setMasterOutputChannels(0, 1)
+  // Restart audio engine with new output device
+  if (audioEngine) {
+    // '' or null means default device (undefined in Rust)
+    if (!deviceId || deviceId === '') {
+      console.log('[Master Output] Restarting engine with default output device')
+      await audioEngine.restartWithDevices(undefined, undefined)
+      console.log('[Master Output] Engine restarted with default output device')
+    } else {
+      const device = audioOutputDevices.value.find(d => d.deviceId === deviceId)
+      if (device) {
+        const deviceLabel = device.label || `Device ${deviceId.substring(0, 8)}`
+        console.log('[Master Output] Restarting engine with:', deviceLabel)
+        await audioEngine.restartWithDevices(undefined, deviceLabel)
+        console.log('[Master Output] Engine restarted with new output device')
+      } else {
+        console.warn('[Master Output] Device not found:', deviceId)
+      }
+    }
   }
 }
 

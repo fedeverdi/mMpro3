@@ -5,7 +5,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 // Audio Engine API
 contextBridge.exposeInMainWorld('audioEngine', {
-  start: () => ipcRenderer.invoke('audio-engine:start'),
+  start: (inputDevice?: string, outputDevice?: string) => ipcRenderer.invoke('audio-engine:start', inputDevice, outputDevice),
   stop: () => ipcRenderer.invoke('audio-engine:stop'),
   
   // Track controls
