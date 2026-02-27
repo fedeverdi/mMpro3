@@ -4,6 +4,12 @@ import path from 'node:path'
 import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
 
+// Disable Electron security warnings in development
+// (unsafe-eval is required for Vite HMR)
+if (process.env.NODE_ENV !== 'production') {
+  process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
+}
+
 if (started) {
   app.quit()
 }
