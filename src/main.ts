@@ -184,6 +184,10 @@ ipcMain.handle('audio-engine:set-mute', async (_, track: number, mute: boolean) 
   await sendCommandToEngine({ type: 'set_mute', track, mute })
 })
 
+ipcMain.handle('audio-engine:set-route-to-master', async (_, track: number, route: boolean) => {
+  await sendCommandToEngine({ type: 'set_route_to_master', track, route })
+})
+
 ipcMain.handle('audio-engine:set-compressor', async (_, track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
   await sendCommandToEngine({ type: 'set_compressor', track, enabled, threshold, ratio, attack, release })
 })

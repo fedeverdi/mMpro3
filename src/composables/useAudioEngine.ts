@@ -147,6 +147,12 @@ export const useAudioEngine = () => {
     await window.audioEngine.setMute(track, mute)
   }
 
+  const setTrackRouteToMaster = async (track: number, route: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setRouteToMaster(track, route)
+  }
+
   const setTrackCompressor = async (track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
@@ -288,6 +294,7 @@ export const useAudioEngine = () => {
     setTrackGain,
     setTrackVolume,
     setTrackMute,
+    setTrackRouteToMaster,
     setTrackEQ,
     setTrackEQEnabled,
     setParametricEQFilters,

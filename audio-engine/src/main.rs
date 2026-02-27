@@ -74,6 +74,8 @@ enum Command {
     SetVolume { track: usize, volume: f32 },
     #[serde(rename = "set_mute")]
     SetMute { track: usize, mute: bool },
+    #[serde(rename = "set_route_to_master")]
+    SetRouteToMaster { track: usize, route: bool },
     #[serde(rename = "set_pan")]
     SetPan { track: usize, pan: f32 },
     #[serde(rename = "set_track_pad")]
@@ -549,6 +551,11 @@ impl AudioEngine {
         track::set_mute(&mut router, track, mute);
     }
 
+    fn set_route_to_master(&self, track: usize, route: bool) {
+        let mut router = self.router.lock().unwrap();
+        track::set_route_to_master(&mut router, track, route);
+    }
+
     fn set_pan(&self, track: usize, pan: f32) {
         let mut router = self.router.lock().unwrap();
         track::set_pan(&mut router, track, pan);
@@ -723,6 +730,10 @@ impl AudioEngine {
             }
             Command::SetMute { track, mute } => {
                 self.set_mute(track, mute);
+                None
+            }
+            Command::SetRouteToMaster { track, route } => {
+                self.set_route_to_master(track, route);
                 None
             }
             Command::SetPan { track, pan } => {

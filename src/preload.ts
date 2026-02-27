@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('audioEngine', {
   setGain: (track: number, gain: number) => ipcRenderer.invoke('audio-engine:set-gain', track, gain),
   setVolume: (track: number, volume: number) => ipcRenderer.invoke('audio-engine:set-volume', track, volume),
   setMute: (track: number, mute: boolean) => ipcRenderer.invoke('audio-engine:set-mute', track, mute),
+  setRouteToMaster: (track: number, route: boolean) => ipcRenderer.invoke('audio-engine:set-route-to-master', track, route),
   setPan: (track: number, pan: number) => ipcRenderer.invoke('audio-engine:set-pan', track, pan),
   setTrackPad: (track: number, enabled: boolean) => ipcRenderer.invoke('audio-engine:set-track-pad', track, enabled),
   setTrackHPF: (track: number, enabled: boolean) => ipcRenderer.invoke('audio-engine:set-track-hpf', track, enabled),

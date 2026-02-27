@@ -506,6 +506,12 @@ watch(isMuted, (muted) => {
   }
 })
 
+watch(routeToMaster, (route) => {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setTrackRouteToMaster(props.trackNumber - 1, route)
+  }
+})
+
 watch(compressorEnabled, (enabled) => {
   if (audioEngine?.state.value.isRunning) {
     const params = trackCompressorRef.value?.getParams()

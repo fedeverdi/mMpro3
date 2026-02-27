@@ -22,6 +22,7 @@ pub struct Track {
     pub volume: f32,    // Fader volume (linear, 0.0 to ~4.0 for -∞ to +12dB)
     pub mute: bool,
     pub pan: f32, // -1.0 (left) to 1.0 (right)
+    pub route_to_master: bool, // Whether to send output to master bus
     pub pad_enabled: bool, // -24dB attenuation before gain
     pub hpf_enabled: bool, // High-pass filter @ 80Hz (between PAD and gain)
     
@@ -62,6 +63,7 @@ impl Track {
             volume: 1.0,    // Unity volume (0dB)
             mute: false,
             pan: 0.0,
+            route_to_master: true, // Route to master by default
             pad_enabled: false, // PAD off by default
             hpf_enabled: false, // HPF off by default
             input_channel_selection: ChannelSelection::stereo(),
@@ -291,11 +293,16 @@ impl MasterBus {
         let mut mix_l = 0.0;
         let mut mix_r = 0.0;
 
-        // Sum all tracks
+        // Sum all tracks (only those routed to master)
         for track in tracks.iter_mut() {
-            let (l, r) = track.process(input_frame);
-            mix_l += l;
-            mix_r += r;
+            if track.route_to_master {
+                let (l, r) = track.process(input_frame);
+                mix_l += l;
+                mix_r += r;
+            } else {
+                // Still process the track to update meters, but don't add to mix
+                track.process(input_frame);
+            }
         }
 
         // Apply master gain

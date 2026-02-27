@@ -159,6 +159,14 @@ pub fn set_mute(router: &mut Router, track: usize, mute: bool) {
     }
 }
 
+/// Set track routing to master bus
+pub fn set_route_to_master(router: &mut Router, track: usize, route: bool) {
+    if let Some(t) = router.get_track_mut(track) {
+        t.route_to_master = route;
+        eprintln!("[Track {}] Route to Master: {}", track, if route { "ON" } else { "OFF" });
+    }
+}
+
 /// Set track pan (-1.0 left, 0.0 center, 1.0 right)
 pub fn set_pan(router: &mut Router, track: usize, pan: f32) {
     if let Some(t) = router.get_track_mut(track) {
