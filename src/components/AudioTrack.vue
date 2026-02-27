@@ -152,7 +152,7 @@
             v-if="faderHeight > 0" 
             :levelL="trackLevelL" 
             :levelR="trackLevelR" 
-            :isStereo="false"
+            :isStereo="audioSourceType === 'file'"
             :height="faderHeight + 20" />
         </div>
       </div>
