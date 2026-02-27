@@ -118,25 +118,68 @@ import { useAudioEngine } from '../../composables/useAudioEngine'
 interface Props {
   trackNumber: number
   show?: boolean
+  modelLow?: number
+  modelLowMid?: number
+  modelHighMid?: number
+  modelHigh?: number
+  modelEnabled?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  show: false
+  show: false,
+  modelLow: 0,
+  modelLowMid: 0,
+  modelHighMid: 0,
+  modelHigh: 0,
+  modelEnabled: true
 })
+
+const emit = defineEmits<{
+  'update:modelLow': [value: number]
+  'update:modelLowMid': [value: number]
+  'update:modelHighMid': [value: number]
+  'update:modelHigh': [value: number]
+  'update:modelEnabled': [value: boolean]
+}>()
 
 const audioEngine = useAudioEngine()
 
-const enabled = ref(true)
-const low = ref(0)       // -24 to +24 dB
-const lowMid = ref(0)    // -24 to +24 dB
-const highMid = ref(0)   // -24 to +24 dB
-const high = ref(0)      // -24 to +24 dB
+const enabled = ref(props.modelEnabled)
+const low = ref(props.modelLow)       // -24 to +24 dB
+const lowMid = ref(props.modelLowMid)    // -24 to +24 dB
+const highMid = ref(props.modelHighMid)   // -24 to +24 dB
+const high = ref(props.modelHigh)      // -24 to +24 dB
+
+// Watch props changes
+watch(() => props.modelLow, (val) => { low.value = val })
+watch(() => props.modelLowMid, (val) => { lowMid.value = val })
+watch(() => props.modelHighMid, (val) => { highMid.value = val })
+watch(() => props.modelHigh, (val) => { high.value = val })
+watch(() => props.modelEnabled, (val) => { enabled.value = val })
 
 function toggleEnabled() {
   enabled.value = !enabled.value
+  emit('update:modelEnabled', enabled.value)
 }
 
-// Watch for changes and send to engine
+// Watch for changes and emit to parent
+watch(low, (val) => {
+  emit('update:modelLow', val)
+})
+
+watch(lowMid, (val) => {
+  emit('update:modelLowMid', val)
+})
+
+watch(highMid, (val) => {
+  emit('update:modelHighMid', val)
+})
+
+watch(high, (val) => {
+  emit('update:modelHigh', val)
+})
+
+// Watch for changes and send to engine (kept for backward compatibility)
 watch([low, lowMid, highMid, high], () => {
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackEQ(

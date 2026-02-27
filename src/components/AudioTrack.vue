@@ -129,9 +129,20 @@
           </button>
         </div>
         
+        <!-- EQ Thumbnail (Frequency Response Curve) -->
+        <EQThumbnail :system-filters="eq4BandFilters" :filters="parametricEQFilters" />
+        
         <!-- 4-Band Parametric EQ - Absolute positioned -->
         <div class="absolute top-full left-0 right-0 z-[1000] mt-1">
-          <TrackEQ :track-number="trackNumber" :show="showEQ3Bands" />
+          <TrackEQ 
+            :track-number="trackNumber" 
+            :show="showEQ3Bands" 
+            v-model:model-low="eqLow"
+            v-model:model-low-mid="eqLowMid"
+            v-model:model-high-mid="eqHighMid"
+            v-model:model-high="eqHigh"
+            v-model:model-enabled="eqEnabled"
+          />
         </div>
       </div>
 
@@ -214,6 +225,7 @@ import TrackMeter from './audioTrack/TrackMeter.vue'
 import Knob from './core/Knob.vue'
 import ParametricEQModal from './master/ParametricEQModal.vue'
 import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
+import EQThumbnail from './audioTrack/EQThumbnail.vue'
 
 // Props
 const props = defineProps<{
@@ -263,6 +275,48 @@ const gateEnabled = ref(false)
 const compressorEnabled = ref(false)
 const showEQ3Bands = ref(false)
 const showParametricEQ = ref(false)
+
+// EQ values (4-band parametric EQ)
+const eqLow = ref(0)       // -24 to +24 dB (80Hz Low Shelf)
+const eqLowMid = ref(0)    // -24 to +24 dB (400Hz Peaking)
+const eqHighMid = ref(0)   // -24 to +24 dB (2500Hz Peaking)
+const eqHigh = ref(0)      // -24 to +24 dB (8000Hz High Shelf)
+const eqEnabled = ref(true)
+
+// Parametric EQ filters from modal
+const parametricEQFilters = ref<any[]>([])
+
+// Computed: Convert 4-band EQ values to filter format for EQThumbnail (system filters)
+const eq4BandFilters = computed(() => {
+  if (!eqEnabled.value) return []
+  
+  return [
+    {
+      type: 'lowshelf',
+      frequency: 80,
+      gain: eqLow.value,
+      Q: 0.707
+    },
+    {
+      type: 'peaking',
+      frequency: 400,
+      gain: eqLowMid.value,
+      Q: 0.707
+    },
+    {
+      type: 'peaking',
+      frequency: 2500,
+      gain: eqHighMid.value,
+      Q: 0.707
+    },
+    {
+      type: 'highshelf',
+      frequency: 8000,
+      gain: eqHigh.value,
+      Q: 0.707
+    }
+  ].filter(f => Math.abs(f.gain) > 0.1) // Only show bands with significant gain
+})
 
 // Watch when parametric EQ modal opens
 watch(showParametricEQ, (isOpen) => {
@@ -404,6 +458,16 @@ function handleGateParamsUpdate(params: { threshold: number; attack: number; rel
 }
 
 function handleParametricEQUpdate(filters: any) {
+  // Save filters for EQThumbnail display
+  if (filters.filtersData) {
+    parametricEQFilters.value = filters.filtersData.map((f: any) => ({
+      type: f.type,
+      frequency: f.frequency,
+      gain: f.gain,
+      Q: f.Q
+    }))
+  }
+  
   // Convert filtersData to the format expected by Rust engine
   if (filters.filtersData && audioEngine?.state.value.isRunning) {
     const rustFilters = filters.filtersData.map((f: any) => ({
