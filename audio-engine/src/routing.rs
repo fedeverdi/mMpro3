@@ -22,6 +22,7 @@ pub struct Track {
     pub volume: f32,    // Fader volume (linear, 0.0 to ~4.0 for -∞ to +12dB)
     pub mute: bool,
     pub pan: f32, // -1.0 (left) to 1.0 (right)
+    pub pad_enabled: bool, // -24dB attenuation before gain
     
     // Audio input
     pub input_channel_selection: ChannelSelection,
@@ -57,6 +58,7 @@ impl Track {
             volume: 1.0,    // Unity volume (0dB)
             mute: false,
             pan: 0.0,
+            pad_enabled: false, // PAD off by default
             input_channel_selection: ChannelSelection::stereo(),
             signal_generator: None,
             file_player: None,
@@ -183,7 +185,15 @@ impl Track {
         // Apply parametric EQ processing
         let (mut left, mut right) = self.parametric_eq.process(left, right);
 
-        // Apply input gain/trim first
+        // Apply PAD attenuation (-24dB) if enabled (before gain)
+        // -24dB = 10^(-24/20) ≈ 0.063095734
+        if self.pad_enabled {
+            const PAD_ATTENUATION: f32 = 0.063095734;
+            left *= PAD_ATTENUATION;
+            right *= PAD_ATTENUATION;
+        }
+
+        // Apply input gain/trim
         left *= self.gain;
         right *= self.gain;
 

@@ -507,6 +507,12 @@ watch(gain, (newGain) => {
   }
 })
 
+watch(padEnabled, (enabled) => {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setTrackPad(props.trackNumber - 1, enabled)
+  }
+})
+
 watch(isMuted, (muted) => {
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackMute(props.trackNumber - 1, muted)

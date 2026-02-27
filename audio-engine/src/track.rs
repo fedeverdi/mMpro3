@@ -165,3 +165,11 @@ pub fn set_pan(router: &mut Router, track: usize, pan: f32) {
         t.pan = pan.clamp(-1.0, 1.0);
     }
 }
+
+/// Set track PAD (-24dB attenuation before gain)
+pub fn set_pad(router: &mut Router, track: usize, enabled: bool) {
+    if let Some(t) = router.get_track_mut(track) {
+        t.pad_enabled = enabled;
+        eprintln!("[Track {}] PAD: {}", track, if enabled { "ON (-24dB)" } else { "OFF" });
+    }
+}
