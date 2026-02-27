@@ -141,6 +141,7 @@ impl AudioIO {
         device: &Device,
         is_input: bool,
         sample_rate: Option<u32>,
+        buffer_size: Option<u32>,
     ) -> Result<StreamConfig> {
         let config = if is_input {
             device.default_input_config()?
@@ -153,6 +154,11 @@ impl AudioIO {
         // Override sample rate if specified
         if let Some(rate) = sample_rate {
             stream_config.sample_rate = cpal::SampleRate(rate);
+        }
+
+        // Override buffer size if specified
+        if let Some(size) = buffer_size {
+            stream_config.buffer_size = cpal::BufferSize::Fixed(size);
         }
 
         Ok(stream_config)

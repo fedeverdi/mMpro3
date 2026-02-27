@@ -4,6 +4,7 @@ use cpal::Stream;
 use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 // Import our modules
 mod audio_io;
@@ -152,6 +153,57 @@ struct TrackLevels {
     level_r: f32,
 }
 
+/// Performance statistics for audio processing
+#[derive(Debug, Clone)]
+struct PerformanceStats {
+    buffer_count: usize,
+    total_process_time_us: u128,
+    min_process_time_us: u128,
+    max_process_time_us: u128,
+    last_log_time: Option<Instant>,
+}
+
+impl PerformanceStats {
+    fn new() -> Self {
+        Self {
+            buffer_count: 0,
+            total_process_time_us: 0,
+            min_process_time_us: u128::MAX,
+            max_process_time_us: 0,
+            last_log_time: None,
+        }
+    }
+
+    fn record(&mut self, duration_us: u128) {
+        self.buffer_count += 1;
+        self.total_process_time_us += duration_us;
+        self.min_process_time_us = self.min_process_time_us.min(duration_us);
+        self.max_process_time_us = self.max_process_time_us.max(duration_us);
+    }
+
+    fn should_log(&mut self) -> bool {
+        let now = Instant::now();
+        if let Some(last) = self.last_log_time {
+            if now.duration_since(last).as_secs() >= 2 {
+                self.last_log_time = Some(now);
+                true
+            } else {
+                false
+            }
+        } else {
+            self.last_log_time = Some(now);
+            false // Don't log on first call
+        }
+    }
+
+    fn reset(&mut self) {
+        self.buffer_count = 0;
+        self.total_process_time_us = 0;
+        self.min_process_time_us = u128::MAX;
+        self.max_process_time_us = 0;
+    }
+}
+
 /// Engine audio principale
 struct AudioEngine {
     audio_io: AudioIO,
@@ -202,11 +254,46 @@ impl AudioEngine {
             self.audio_io.default_output_device()?
         };
 
-        // Get configs
-        let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate)?;
-        let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate)?;
+        // Get configs with 256 frame buffer for low latency
+        let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate, Some(256))?;
+        let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate, Some(256))?;
 
         self.sample_rate = output_config.sample_rate.0;
+        
+        // Log buffer configuration
+        let buffer_size = output_config.buffer_size;
+        match buffer_size {
+            cpal::BufferSize::Fixed(size) => {
+                let latency_ms = (size as f32 / self.sample_rate as f32) * 1000.0;
+                eprintln!("[Engine] ═══════════════════════════════════════════════════");
+                eprintln!("[Engine] CURRENT: {} frames → {:.2}ms latency @ {}Hz", 
+                    size, latency_ms, self.sample_rate);
+                eprintln!("[Engine] ───────────────────────────────────────────────────");
+                eprintln!("[Engine] Buffer size options (@ {}Hz):", self.sample_rate);
+                
+                let options = [(128, "ultra-low, può causare glitch"), 
+                               (256, "bassa, raccomandato per live"), 
+                               (512, "default, bilanciato"), 
+                               (1024, "alta, più stabile")];
+                
+                for (frames, desc) in options.iter() {
+                    let ms = (*frames as f32 / self.sample_rate as f32) * 1000.0;
+                    let marker = if *frames == size { " ← YOU ARE HERE" } else { "" };
+                    eprintln!("[Engine]   {} frames → {:5.2}ms ({}){}", 
+                        frames, ms, desc, marker);
+                }
+                
+                eprintln!("[Engine] ───────────────────────────────────────────────────");
+                eprintln!("[Engine] Buffer impostato dall'applicazione a 256 frames");
+                eprintln!("[Engine] ═══════════════════════════════════════════════════");
+            },
+            cpal::BufferSize::Default => {
+                eprintln!("[Engine] ═══════════════════════════════════════════════════");
+                eprintln!("[Engine] Buffer size: DEFAULT (system controlled)");
+                eprintln!("[Engine] To optimize latency: macOS → Audio MIDI Setup");
+                eprintln!("[Engine] ═══════════════════════════════════════════════════");
+            },
+        }
                 
         // Update sample rate for all active file players and equalizers
         {
@@ -234,6 +321,11 @@ impl AudioEngine {
         let meter_update_frames = Arc::new(Mutex::new(0_usize));
         let meter_interval = 2400_usize;
 
+        // Performance tracking
+        let perf_stats = Arc::new(Mutex::new(PerformanceStats::new()));
+        let perf_stats_clone = Arc::clone(&perf_stats);
+        let sample_rate_for_perf = self.sample_rate; // Save sample rate for performance calculation
+
         // === INPUT STREAM: capture audio ===
         // For now, we capture but don't use it directly (tracks may use it later)
         let input_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
@@ -254,6 +346,9 @@ impl AudioEngine {
         let output_stream = output_device.build_output_stream(
             &output_config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                // Start performance measurement
+                let start_time = Instant::now();
+                
                 let input_buf = input_buffer.lock().unwrap();
                 let frames = data.len() / output_channels;
 
@@ -335,6 +430,40 @@ impl AudioEngine {
                     if let Ok(json) = serde_json::to_string(&response) {
                         println!("{}", json);
                     }
+                }
+
+                // End performance measurement and log statistics
+                let process_time = start_time.elapsed();
+                let process_time_us = process_time.as_micros();
+                
+                // Calculate buffer duration (theoretical time available for processing)
+                let buffer_duration_us = (frames as u128 * 1_000_000) / (sample_rate_for_perf as u128);
+                let buffer_latency_ms = (frames as f32 / sample_rate_for_perf as f32) * 1000.0;
+                let cpu_usage = (process_time_us as f32 / buffer_duration_us as f32) * 100.0;
+                
+                // Record performance stats
+                let mut stats = perf_stats_clone.lock().unwrap();
+                stats.record(process_time_us);
+                
+                // Log every 2-3 seconds
+                if stats.should_log() && stats.buffer_count > 0 {
+                    let avg_us = stats.total_process_time_us / stats.buffer_count as u128;
+                    let avg_ms = avg_us as f32 / 1000.0;
+                    let avg_cpu = (avg_us as f32 / buffer_duration_us as f32) * 100.0;
+                    let min_ms = stats.min_process_time_us as f32 / 1000.0;
+                    let max_ms = stats.max_process_time_us as f32 / 1000.0;
+                    
+                    eprintln!("[Perf] Buffer: {} frames ({:.2}ms latency) | Processing: Avg {:.3}ms ({:.1}% CPU) | Min {:.3}ms | Max {:.3}ms | Buffers: {}",
+                        frames,
+                        buffer_latency_ms,
+                        avg_ms,
+                        avg_cpu,
+                        min_ms,
+                        max_ms,
+                        stats.buffer_count
+                    );
+                    
+                    stats.reset();
                 }
             },
             err_fn,
