@@ -209,6 +209,12 @@ export const useAudioEngine = () => {
     await window.audioEngine.setTrackPad(track, enabled)
   }
 
+  const setTrackHPF = async (track: number, enabled: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setTrackHPF(track, enabled)
+  }
+
   const setTrackEQ = async (track: number, low: number, lowMid: number, highMid: number, high: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
     
@@ -315,6 +321,7 @@ export const useAudioEngine = () => {
     stopFile,
     setTrackPan,
     setTrackPad,
+    setTrackHPF,
     setMasterGain,
     setMasterMute,
     setMasterOutputChannels,

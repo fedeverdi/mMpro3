@@ -256,6 +256,9 @@ ipcMain.handle('audio-engine:set-pan', async (_, track: number, pan: number) => 
 ipcMain.handle('audio-engine:set-track-pad', async (_, track: number, enabled: boolean) => {
   await sendCommandToEngine({ type: 'set_track_pad', track, enabled })
 })
+ipcMain.handle('audio-engine:set-track-hpf', async (_, track: number, enabled: boolean) => {
+  await sendCommandToEngine({ type: 'set_track_hpf', track, enabled })
+})
 ipcMain.handle('audio-engine:set-eq', async (_, track: number, low: number, low_mid: number, high_mid: number, high: number) => {
   await sendCommandToEngine({ type: 'set_eq', track, low, low_mid, high_mid, high })
 })

@@ -513,6 +513,12 @@ watch(padEnabled, (enabled) => {
   }
 })
 
+watch(hpfEnabled, (enabled) => {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setTrackHPF(props.trackNumber - 1, enabled)
+  }
+})
+
 watch(isMuted, (muted) => {
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackMute(props.trackNumber - 1, muted)

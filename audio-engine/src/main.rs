@@ -78,6 +78,8 @@ enum Command {
     SetPan { track: usize, pan: f32 },
     #[serde(rename = "set_track_pad")]
     SetTrackPad { track: usize, enabled: bool },
+    #[serde(rename = "set_track_hpf")]
+    SetTrackHPF { track: usize, enabled: bool },
     
     // Track EQ controls
     #[serde(rename = "set_eq")]
@@ -567,6 +569,11 @@ impl AudioEngine {
         track::set_pad(&mut router, track, enabled);
     }
 
+    fn set_hpf(&self, track: usize, enabled: bool) {
+        let mut router = self.router.lock().unwrap();
+        track::set_hpf(&mut router, track, enabled);
+    }
+
     // Track EQ controls
     fn set_eq(&self, track: usize, low: f32, low_mid: f32, high_mid: f32, high: f32) {
         let mut router = self.router.lock().unwrap();
@@ -747,6 +754,10 @@ impl AudioEngine {
             }
             Command::SetTrackPad { track, enabled } => {
                 self.set_pad(track, enabled);
+                None
+            }
+            Command::SetTrackHPF { track, enabled } => {
+                self.set_hpf(track, enabled);
                 None
             }
             Command::SetEQ {

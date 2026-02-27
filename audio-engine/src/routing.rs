@@ -1,6 +1,6 @@
 /// Audio routing engine
 use crate::audio_io::ChannelSelection;
-use crate::equalizer::{Equalizer, ParametricEqualizer};
+use crate::equalizer::{Equalizer, ParametricEqualizer, EQBand, FilterType};
 use crate::file_player::AudioFilePlayer;
 use crate::signal_gen::{SignalGenerator, WaveformType};
 
@@ -23,6 +23,7 @@ pub struct Track {
     pub mute: bool,
     pub pan: f32, // -1.0 (left) to 1.0 (right)
     pub pad_enabled: bool, // -24dB attenuation before gain
+    pub hpf_enabled: bool, // High-pass filter @ 80Hz (between PAD and gain)
     
     // Audio input
     pub input_channel_selection: ChannelSelection,
@@ -38,6 +39,9 @@ pub struct Track {
     
     // Parametric EQ (dynamic filters)
     pub parametric_eq: ParametricEqualizer,
+    
+    // HPF filter (80Hz high-pass)
+    hpf_filter: EQBand,
     
     // Processing state
     pub level_l: f32,
@@ -59,11 +63,13 @@ impl Track {
             mute: false,
             pan: 0.0,
             pad_enabled: false, // PAD off by default
+            hpf_enabled: false, // HPF off by default
             input_channel_selection: ChannelSelection::stereo(),
             signal_generator: None,
             file_player: None,
             equalizer: Equalizer::new(48000.0),
             parametric_eq: ParametricEqualizer::new(48000.0),
+            hpf_filter: EQBand::new(FilterType::HighPass, 80.0, 48000.0),
             level_l: 0.0,
             level_r: 0.0,
             waveform_buffer_l: vec![0.0; WAVEFORM_BUFFER_SIZE],
@@ -193,9 +199,15 @@ impl Track {
             right *= PAD_ATTENUATION;
         }
 
+        // Apply HPF (80Hz high-pass filter) if enabled (between PAD and gain)
+        let (left, right) = if self.hpf_enabled {
+            self.hpf_filter.process(left, right)
+        } else {
+            (left, right)
+        };
+
         // Apply input gain/trim
-        left *= self.gain;
-        right *= self.gain;
+        let (mut left, mut right) = (left * self.gain, right * self.gain);
 
         // Apply fader volume
         left *= self.volume;

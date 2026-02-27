@@ -173,3 +173,11 @@ pub fn set_pad(router: &mut Router, track: usize, enabled: bool) {
         eprintln!("[Track {}] PAD: {}", track, if enabled { "ON (-24dB)" } else { "OFF" });
     }
 }
+
+/// Set track HPF (80Hz high-pass filter between PAD and gain)
+pub fn set_hpf(router: &mut Router, track: usize, enabled: bool) {
+    if let Some(t) = router.get_track_mut(track) {
+        t.hpf_enabled = enabled;
+        eprintln!("[Track {}] HPF: {}", track, if enabled { "ON (80Hz)" } else { "OFF" });
+    }
+}
