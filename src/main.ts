@@ -479,6 +479,41 @@ const createWindow = () => {
     return true
   })
 
+  // Set Content Security Policy
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL
+    
+    // Different CSP for development and production
+    const csp = isDev
+      ? [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-eval'", // unsafe-eval needed for Vite HMR
+          "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for Vue style blocks
+          "img-src 'self' data: blob:",
+          "font-src 'self' data:",
+          "connect-src 'self' ws://localhost:* http://localhost:*", // Vite dev server WebSocket
+          "media-src 'self' blob:",
+          "worker-src 'self' blob:"
+        ].join('; ')
+      : [
+          "default-src 'self'",
+          "script-src 'self'",
+          "style-src 'self' 'unsafe-inline'", // Still needed for Vue in production
+          "img-src 'self' data: blob:",
+          "font-src 'self' data:",
+          "connect-src 'self'",
+          "media-src 'self' blob:",
+          "worker-src 'self' blob:"
+        ].join('; ')
+
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [csp]
+      }
+    })
+  })
+
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL)
   } else {
