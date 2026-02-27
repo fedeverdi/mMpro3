@@ -1,7 +1,7 @@
 <template>
     <div class="mixer-app min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex flex-col">
-        <!-- Header -->
-        <header class="bg-black/50 backdrop-blur-sm border-b border-gray-700 px-4 py-2">
+        <!-- Header - NASCOSTO -->
+        <header v-if="false" class="bg-black/50 backdrop-blur-sm border-b border-gray-700 px-4 py-2">
             <div class="flex items-center justify-between gap-4 flex-wrap">
                 <div class="flex items-center gap-2">
                     <img src="./assets/logo_no_scritta.svg" alt="mMpro3" class="h-8" />
@@ -170,7 +170,7 @@
 
                         <!-- Audio Tracks -->
                         <template v-else>
-                            <div v-for="track in sortedTracks" :key="track.id" 
+                            <div v-for="track in visibleTracks" :key="track.id" 
                                 class="w-[8.5rem] h-full mixer-fade-in track-wrapper"
                                 :class="{
                                     'dragging': draggedTrackId === track.id,
@@ -251,9 +251,9 @@
                     </div>
                 </template>
 
-                <!-- Master EQ Display, Spectrum & FX (Draggable) -->
+                <!-- Master EQ Display, Spectrum & FX (Draggable) - NASCOSTO -->
                 <template v-else>
-                    <RightSection ref="rightSectionRef" :master-channel="masterChannel"
+                    <RightSection v-if="false" ref="rightSectionRef" :master-channel="masterChannel"
                         :master-section-ref="masterSectionRef" :master-eq-output-node="masterEqOutputNode"
                         :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses"
                         @master-eq-output-node="handleMasterEqOutputNode"
@@ -261,8 +261,8 @@
                         @update:master-eq-filters="handleMasterEQFiltersUpdate" @add-aux="addAux"
                         @remove-aux="removeAux" @update-aux="updateAux" />
 
-                    <!-- Subgroups Section -->
-                    <template v-for="subgroup in subgroups" :key="subgroup.id">
+                    <!-- Subgroups Section - NASCOSTO -->
+                    <template v-if="false" v-for="subgroup in subgroups" :key="subgroup.id">
                         <div class="flex-shrink-0 h-full mixer-fade-in">
                             <SubgroupsSection :ref="el => setSubgroupRef(subgroup.id, el)"
                                 :master-channel="masterChannel" :subgroup-id="subgroup.id"
@@ -279,8 +279,8 @@
             </div>
         </main>
 
-        <!-- Footer Info -->
-        <footer class="bg-black/50 backdrop-blur-sm border-t border-gray-700 px-6 py-2 fixed bottom-0 left-0 right-0 z-[100]">
+        <!-- Footer Info - NASCOSTO -->
+        <footer v-if="false" class="bg-black/50 backdrop-blur-sm border-t border-gray-700 px-6 py-2 fixed bottom-0 left-0 right-0 z-[100]">
             <div class="flex justify-between items-center text-xs text-gray-500">
                 <div>
                     Built with Nuxt 3, Tone.js & Tailwind CSS
@@ -291,8 +291,8 @@
             </div>
         </footer>
 
-        <!-- Automation Section (Resizable/Collapsible) - Fixed position overlay -->
-        <div v-if="isReady" 
+        <!-- Automation Section (Resizable/Collapsible) - Fixed position overlay - NASCOSTO -->
+        <div v-if="false" 
             class="automation-section fixed left-0 right-0 transition-all duration-300 ease-out border-t border-gray-700 z-[90] bg-gray-900"
             :style="{ height: automationCollapsed ? '17px' : automationHeight + 'px', bottom: '34px' }">
             
@@ -534,6 +534,14 @@ interface Track {
 const isReady = ref(false)
 const isAppReady = inject<Ref<boolean>>('isAppReady', ref(false))
 
+// Watch for engine to be ready and remove skeletons
+watch(isAppReady, (ready) => {
+    if (ready) {
+        console.log('[Index] Rust engine ready - showing tracks')
+        isReady.value = true
+    }
+})
+
 // Audio Flow Modal
 const showAudioFlowModal = ref(false)
 const showScenesModal = ref(false)
@@ -657,6 +665,12 @@ const tracks = ref<Track[]>(initializeTracks())
 // Computed per ordinare le tracce per order
 const sortedTracks = computed(() => {
     return [...tracks.value].sort((a, b) => a.order - b.order)
+})
+
+// Computed per mostrare solo 1 traccia audio
+const visibleTracks = computed(() => {
+    const audioTracks = sortedTracks.value.filter(t => t.type === 'audio')
+    return audioTracks.slice(0, 1) // Solo la prima traccia audio
 })
 
 const showAddTrackMenu = ref(false)
@@ -1914,10 +1928,10 @@ onMounted(async () => {
 
     // Don't start connection here - wait for component to mount
 
-    // Ensure audio context is running
-    if (Tone.context.state !== 'running') {
-        await Tone.context.resume()
-    }
+    // Ensure audio context is running (REMOVED - using Rust engine now)
+    // if (Tone.context.state !== 'running') {
+    //     await Tone.context.resume()
+    // }
 
     // Enumerate audio devices ONCE for all tracks
     // Don't await - let it run in background and don't block app startup
@@ -1928,12 +1942,6 @@ onMounted(async () => {
 
     // Wait for next tick to ensure all components are ready
     await nextTick()
-
-    // Delay to ensure all components are fully mounted and initialized
-    setTimeout(() => {
-        isReady.value = true
-        isAppReady.value = true // Notify App.vue that everything is ready
-    }, 100)
 
     // Close add track menu when clicking outside
     document.addEventListener('click', (e) => {
