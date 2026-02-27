@@ -198,7 +198,6 @@ watch([leftVolume, rightVolume], ([left, right]) => {
     }
     
     audioEngine.setMasterGain(gainValue)
-    console.log('[Master] Gain changed:', gainValue, `(${avgDb.toFixed(1)} dB)`)
   }
 })
 
@@ -213,7 +212,6 @@ watch(headphonesVolume, (volume) => {
 watch(masterMuted, (muted) => {
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setMasterMute(muted)
-    console.log('[Master] Mute changed:', muted)
   }
 })
 

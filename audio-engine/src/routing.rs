@@ -461,11 +461,11 @@ impl Router {
         // Master only processes tracks NOT routed to any subgroup
         let mut master_output = self.master.process_cached(&self.tracks, &track_outputs);
 
-        // Add subgroups routed to master INTO the master (before final output)
+        // Add subgroups routed to master INTO the master (apply master gain)
         for (i, subgroup) in self.subgroups.iter().enumerate() {
             if subgroup.route_to_master {
-                master_output.0 += subgroup_outputs[i].0;
-                master_output.1 += subgroup_outputs[i].1;
+                master_output.0 += subgroup_outputs[i].0 * self.master.gain;
+                master_output.1 += subgroup_outputs[i].1 * self.master.gain;
             }
         }
         
