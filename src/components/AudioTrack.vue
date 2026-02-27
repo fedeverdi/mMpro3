@@ -46,7 +46,7 @@
       <!-- Audio File Selector -->
       <div v-if="audioSourceType === 'file'" class="w-full flex flex-col gap-1">
         <button @click="openLibrary" 
-          class="w-full text-xs bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 rounded px-2 py-0.5 transition-all flex items-center gap-1 overflow-hidden">
+          class="w-full text-xs bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 rounded px-2 py-1 transition-all flex items-center gap-1 overflow-hidden">
           <span class="flex-shrink-0">📚</span>
           <span class="flex-1 min-w-0 overflow-hidden">
             <span class="block whitespace-nowrap animate-marquee">

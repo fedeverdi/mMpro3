@@ -121,11 +121,24 @@ impl AudioFilePlayer {
         self.samples = all_samples;
         self.position = 0;
         
+        // Calculate peak level in the file
+        let peak = self.samples.iter()
+            .map(|s| s.abs())
+            .fold(0.0_f32, |max, val| max.max(val));
+        
+        let peak_db = if peak > 0.0 {
+            20.0 * peak.log10()
+        } else {
+            -90.0
+        };
+        
         eprintln!(
-            "[FilePlayer] Loaded: {} samples, {} channels, {} Hz",
+            "[FilePlayer] Loaded: {} samples, {} channels, {} Hz, peak level: {:.2} dB ({:.3} linear)",
             self.samples.len() / self.channels as usize,
             self.channels,
-            self.sample_rate
+            self.sample_rate,
+            peak_db,
+            peak
         );
 
         Ok(())
