@@ -74,14 +74,24 @@ export const useAudioEngine = () => {
               }
             })
           }
-          // Update subgroup levels
+          // Update subgroup levels - Create new Map to trigger reactivity
           if (response.subgroups) {
+            const newSubgroupLevels = new Map(state.value.subgroupLevels)
             response.subgroups.forEach((subgroupLevel: any) => {
-              state.value.subgroupLevels.set(subgroupLevel.subgroup, {
-                left: subgroupLevel.level_l,
-                right: subgroupLevel.level_r
+              // Convert linear levels (0.0-1.0) to dB (-90 to 0)
+              const leftDb = subgroupLevel.level_l > 0.0 
+                ? 20 * Math.log10(subgroupLevel.level_l) 
+                : -90
+              const rightDb = subgroupLevel.level_r > 0.0 
+                ? 20 * Math.log10(subgroupLevel.level_r) 
+                : -90
+              
+              newSubgroupLevels.set(subgroupLevel.subgroup, {
+                left: leftDb,
+                right: rightDb
               })
             })
+            state.value.subgroupLevels = newSubgroupLevels
           }
           // Update master levels
           if (response.master_l !== undefined && response.master_r !== undefined) {
@@ -312,6 +322,12 @@ export const useAudioEngine = () => {
     await window.audioEngine.setSubgroupMute(subgroup, mute)
   }
 
+  const setSubgroupOutputEnabled = async (subgroup: number, enabled: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setSubgroupOutputEnabled(subgroup, enabled)
+  }
+
   const setSubgroupRouteToMaster = async (subgroup: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
@@ -376,6 +392,7 @@ export const useAudioEngine = () => {
     removeSubgroup,
     setSubgroupGain,
     setSubgroupMute,
+    setSubgroupOutputEnabled,
     setSubgroupRouteToMaster,
     setSubgroupOutputChannels,
     setTrackRouteToSubgroup,

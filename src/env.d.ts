@@ -55,8 +55,7 @@ interface AudioEngine {
   addSubgroup: () => Promise<number>
   removeSubgroup: (subgroup: number) => Promise<void>
   setSubgroupGain: (subgroup: number, gain: number) => Promise<void>
-  setSubgroupMute: (subgroup: number, mute: boolean) => Promise<void>
-  setSubgroupRouteToMaster: (subgroup: number, route: boolean) => Promise<void>
+  setSubgroupMute: (subgroup: number, mute: boolean) => Promise<void>  setSubgroupOutputEnabled: (subgroup: number, enabled: boolean) => Promise<void>  setSubgroupRouteToMaster: (subgroup: number, route: boolean) => Promise<void>
   setSubgroupOutputChannels: (subgroup: number, leftChannel: number, rightChannel: number) => Promise<void>
   setTrackRouteToSubgroup: (track: number, subgroup: number, route: boolean) => Promise<void>
 }

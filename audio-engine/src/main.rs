@@ -134,6 +134,8 @@ enum Command {
     SetSubgroupGain { subgroup: usize, gain: f32 },
     #[serde(rename = "set_subgroup_mute")]
     SetSubgroupMute { subgroup: usize, mute: bool },
+    #[serde(rename = "set_subgroup_output_enabled")]
+    SetSubgroupOutputEnabled { subgroup: usize, enabled: bool },
     #[serde(rename = "set_subgroup_route_to_master")]
     SetSubgroupRouteToMaster { subgroup: usize, route: bool },
     #[serde(rename = "set_subgroup_output_channels")]
@@ -721,6 +723,14 @@ impl AudioEngine {
         }
     }
 
+    fn set_subgroup_output_enabled(&self, subgroup: usize, enabled: bool) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(sg) = router.get_subgroup_mut(subgroup) {
+            sg.output_enabled = enabled;
+            eprintln!("[Subgroup {}] Output enabled: {}", subgroup, enabled);
+        }
+    }
+
     fn set_subgroup_route_to_master(&self, subgroup: usize, route: bool) {
         let mut router = self.router.lock().unwrap();
         if let Some(sg) = router.get_subgroup_mut(subgroup) {
@@ -909,6 +919,10 @@ impl AudioEngine {
             }
             Command::SetSubgroupMute { subgroup, mute } => {
                 self.set_subgroup_mute(subgroup, mute);
+                None
+            }
+            Command::SetSubgroupOutputEnabled { subgroup, enabled } => {
+                self.set_subgroup_output_enabled(subgroup, enabled);
                 None
             }
             Command::SetSubgroupRouteToMaster { subgroup, route } => {

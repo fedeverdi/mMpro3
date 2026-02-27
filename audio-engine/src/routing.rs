@@ -286,8 +286,8 @@ impl MasterBus {
         }
     }
 
-    /// Mix all tracks and apply master processing
-    pub fn process(&mut self, tracks: &mut [Track], input_frame: Option<&[f32]>) -> (f32, f32) {
+    /// Mix all tracks and apply master processing (using cached track outputs)
+    pub fn process_cached(&mut self, tracks: &[Track], track_outputs: &[(f32, f32)]) -> (f32, f32) {
         if self.mute {
             return (0.0, 0.0);
         }
@@ -295,15 +295,12 @@ impl MasterBus {
         let mut mix_l = 0.0;
         let mut mix_r = 0.0;
 
-        // Sum all tracks (only those routed to master)
-        for track in tracks.iter_mut() {
-            if track.route_to_master {
-                let (l, r) = track.process(input_frame);
+        // Sum only tracks routed to master AND NOT routed to any subgroup
+        for (i, track) in tracks.iter().enumerate() {
+            if track.route_to_master && track.route_to_subgroups.is_empty() {
+                let (l, r) = track_outputs[i];
                 mix_l += l;
                 mix_r += r;
-            } else {
-                // Still process the track to update meters, but don't add to mix
-                track.process(input_frame);
             }
         }
 
@@ -336,6 +333,7 @@ pub struct SubgroupBus {
     pub gain: f32,
     pub mute: bool,
     pub route_to_master: bool,
+    pub output_enabled: bool, // Controls direct output (independent from route_to_master)
     pub output_channel_selection: ChannelSelection,
     pub level_l: f32,
     pub level_r: f32,
@@ -347,15 +345,16 @@ impl SubgroupBus {
             id,
             gain: 1.0,
             mute: false,
-            route_to_master: false, // Direct output by default
+            route_to_master: false,
+            output_enabled: true, // Direct output enabled by default
             output_channel_selection: ChannelSelection::stereo(),
             level_l: 0.0,
             level_r: 0.0,
         }
     }
 
-    /// Process all tracks routed to this subgroup
-    pub fn process(&mut self, tracks: &mut [Track], input_frame: Option<&[f32]>) -> (f32, f32) {
+    /// Process all tracks routed to this subgroup (using cached track outputs)
+    pub fn process_cached(&mut self, tracks: &[Track], track_outputs: &[(f32, f32)]) -> (f32, f32) {
         if self.mute {
             return (0.0, 0.0);
         }
@@ -364,9 +363,9 @@ impl SubgroupBus {
         let mut mix_r = 0.0;
 
         // Sum all tracks routed to this subgroup
-        for track in tracks.iter_mut() {
+        for (i, track) in tracks.iter().enumerate() {
             if track.route_to_subgroups.contains(&self.id) {
-                let (l, r) = track.process(input_frame);
+                let (l, r) = track_outputs[i];
                 mix_l += l;
                 mix_r += r;
             }
@@ -444,21 +443,43 @@ impl Router {
 
     /// Process one frame of audio
     pub fn process_frame(&mut self, input_frame: Option<&[f32]>) -> (f32, f32) {
-        // Process all subgroups first (they consume track outputs)
+        // Process all tracks once and cache their outputs
+        let mut track_outputs: Vec<(f32, f32)> = Vec::new();
+        for track in self.tracks.iter_mut() {
+            let output = track.process(input_frame);
+            track_outputs.push(output);
+        }
+
+        // Process all subgroups (using cached track outputs)
         let mut subgroup_outputs: Vec<(f32, f32)> = Vec::new();
         for subgroup in self.subgroups.iter_mut() {
-            let output = subgroup.process(&mut self.tracks, input_frame);
+            let output = subgroup.process_cached(&self.tracks, &track_outputs);
             subgroup_outputs.push(output);
         }
 
-        // Process master bus (direct tracks + subgroups routed to master)
-        let master_output = self.master.process(&mut self.tracks, input_frame);
+        // Process master bus (using cached track outputs)
+        // Master only processes tracks NOT routed to any subgroup
+        let mut master_output = self.master.process_cached(&self.tracks, &track_outputs);
 
-        // Add subgroups routed to master
-        let mut final_l = master_output.0;
-        let mut final_r = master_output.1;
+        // Add subgroups routed to master INTO the master (before final output)
         for (i, subgroup) in self.subgroups.iter().enumerate() {
             if subgroup.route_to_master {
+                master_output.0 += subgroup_outputs[i].0;
+                master_output.1 += subgroup_outputs[i].1;
+            }
+        }
+        
+        // Update master levels to include routed subgroups
+        self.master.level_l = self.master.level_l.max(master_output.0.abs());
+        self.master.level_r = self.master.level_r.max(master_output.1.abs());
+
+        // Start with master output (includes routed subgroups)
+        let mut final_l = master_output.0;
+        let mut final_r = master_output.1;
+        
+        // Add subgroups with direct output enabled (regardless of route_to_master)
+        for (i, subgroup) in self.subgroups.iter().enumerate() {
+            if subgroup.output_enabled {
                 final_l += subgroup_outputs[i].0;
                 final_r += subgroup_outputs[i].1;
             }

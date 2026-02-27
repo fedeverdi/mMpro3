@@ -320,6 +320,10 @@ ipcMain.handle('audio-engine:set-subgroup-mute', async (_, subgroup: number, mut
   await sendCommandToEngine({ type: 'set_subgroup_mute', subgroup, mute })
 })
 
+ipcMain.handle('audio-engine:set-subgroup-output-enabled', async (_, subgroup: number, enabled: boolean) => {
+  await sendCommandToEngine({ type: 'set_subgroup_output_enabled', subgroup, enabled })
+})
+
 ipcMain.handle('audio-engine:set-subgroup-route-to-master', async (_, subgroup: number, route: boolean) => {
   await sendCommandToEngine({ type: 'set_subgroup_route_to_master', subgroup, route })
 })
