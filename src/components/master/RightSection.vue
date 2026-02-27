@@ -71,8 +71,7 @@
           </div>
         </div>
         <MasterEQDisplay :filters-data="masterEqFiltersData" :master-channel="masterChannel"
-          @update:filters-data="handleMasterEQFiltersUpdate"
-          @output-node="(node) => emit('master-eq-output-node', node)" />
+          @update:filters-data="handleMasterEQFiltersUpdate" />
       </div>
 
       <!-- Spectrum Meter -->
@@ -150,7 +149,7 @@
             <span>{{ component.name }}</span>
           </div>
         </div>
-        <MasterFX :master-eq-output-node="masterEqOutputNode" :master-section="masterSectionRef"
+        <MasterFX :master-section="masterSectionRef"
           @output-node="(node) => emit('master-fx-output-node', node)" 
           @component="(component) => emit('master-fx-component', component)" />
       </div>
@@ -190,7 +189,6 @@ interface AuxBus {
 interface Props {
   masterChannel?: any
   masterSectionRef?: any
-  masterEqOutputNode?: any
   masterFxOutputNode?: any
   auxBuses?: AuxBus[]
 }
@@ -198,7 +196,6 @@ interface Props {
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  'master-eq-output-node': [node: any]
   'master-fx-output-node': [node: any]
   'master-fx-component': [component: any]
   'update:master-eq-filters': [filters: any[]]

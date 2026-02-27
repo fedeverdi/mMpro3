@@ -235,9 +235,8 @@
         <!-- Master EQ Display, Spectrum & FX (Draggable) - NASCOSTO -->
         <template v-else>
           <RightSection ref="rightSectionRef" :master-channel="masterChannel"
-            :master-section-ref="masterSectionRef" :master-eq-output-node="masterEqOutputNode"
-            :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses"
-            @master-eq-output-node="handleMasterEqOutputNode" @master-fx-output-node="handleMasterFxOutputNode"
+            :master-section-ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses"
+            @master-fx-output-node="handleMasterFxOutputNode"
             @master-fx-component="handleMasterFxComponent" @update:master-eq-filters="handleMasterEQFiltersUpdate"
             @add-aux="addAux" @remove-aux="removeAux" @update-aux="updateAux" />
 
@@ -778,15 +777,10 @@ const masterSectionRef = ref<any>(null) // Keep only for getSnapshot/restoreSnap
 const rightSectionRef = ref<any>(null) // Ref to RightSection component
 
 // Audio nodes received from components via emit
-const masterEqOutputNode = ref<any>(null)
 const masterFxOutputNode = ref<any>(null)
 const masterFxComponent = ref<any>(null) // For getSnapshot only
 
 // Handlers for output node updates
-function handleMasterEqOutputNode(node: any) {
-  masterEqOutputNode.value = node
-}
-
 function handleMasterFxOutputNode(node: any) {
   masterFxOutputNode.value = node
 }

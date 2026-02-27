@@ -143,7 +143,6 @@ import DelayEffect from '../fx/DelayEffect.vue'
 import LimiterEffect from '../fx/LimiterEffect.vue'
 
 interface Props {
-  masterEqOutputNode?: any  // Output node from MasterEQDisplay
   masterSection?: any       // For meter visualization in CompressorEffect and LimiterEffect
 }
 
@@ -319,29 +318,9 @@ onMounted(async () => {
       rebuildFXChain()
     }
   })
-
-  // Wait for MasterEQDisplay output node to be ready
-  if (props.masterEqOutputNode) {
-    inputNode = toRaw(props.masterEqOutputNode)
-    // Initial connection: input -> output (no FX)
-    if (inputNode) {
-      inputNode.connect(outputNode)
-    }
-  }
 })
 
 // Watch for MasterEQ output node to become available
-watch(() => props.masterEqOutputNode, (newVal) => {
-  if (newVal && Tone && outputNode) {
-    // Get input node
-    inputNode = toRaw(newVal)
-    
-    if (inputNode) {
-      // Rebuild chain with new input
-      rebuildFXChain()
-    }
-  }
-}, { immediate: true })
 
 // Cleanup
 onUnmounted(() => {
