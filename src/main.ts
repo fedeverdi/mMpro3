@@ -150,10 +150,6 @@ ipcMain.handle('audio-engine:set-mute', async (_, track: number, mute: boolean) 
   await sendCommandToEngine({ type: 'set_mute', track, mute })
 })
 
-ipcMain.handle('audio-engine:set-eq', async (_, track: number, low: number, mid: number, high: number) => {
-  await sendCommandToEngine({ type: 'set_eq', track, low, mid, high })
-})
-
 ipcMain.handle('audio-engine:set-compressor', async (_, track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
   await sendCommandToEngine({ type: 'set_compressor', track, enabled, threshold, ratio, attack, release })
 })
@@ -222,6 +218,14 @@ ipcMain.handle('audio-engine:stop-file', async (_, track: number) => {
 
 ipcMain.handle('audio-engine:set-pan', async (_, track: number, pan: number) => {
   await sendCommandToEngine({ type: 'set_pan', track, pan })
+})
+
+ipcMain.handle('audio-engine:set-eq', async (_, track: number, low: number, low_mid: number, high_mid: number, high: number) => {
+  await sendCommandToEngine({ type: 'set_eq', track, low, low_mid, high_mid, high })
+})
+
+ipcMain.handle('audio-engine:set-eq-enabled', async (_, track: number, enabled: boolean) => {
+  await sendCommandToEngine({ type: 'set_eq_enabled', track, enabled })
 })
 
 // Master controls

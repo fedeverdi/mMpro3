@@ -103,7 +103,7 @@
       </div>
 
       <!-- EQ Section -->
-      <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
+      <div class="w-full bg-gray-900 rounded p-1 border border-gray-700 relative">
         <div class="flex items-center justify-between px-2">
           <button @click="showEQ3Bands = !showEQ3Bands"
             class="flex items-center gap-1 hover:text-gray-200 transition-colors">
@@ -117,8 +117,10 @@
           </button>
         </div>
         
-        <!-- 3-Band EQ Knobs -->
-        <TrackEQ ref="trackEQRef" :show="showEQ3Bands" @params-changed="handleEQParamsChanged" />
+        <!-- 4-Band Parametric EQ - Absolute positioned -->
+        <div class="absolute top-full left-0 right-0 z-[1000] mt-1">
+          <TrackEQ :track-number="trackNumber" :show="showEQ3Bands" />
+        </div>
       </div>
 
       <!-- Mute & Solo Buttons -->

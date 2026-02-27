@@ -7,11 +7,13 @@ use std::sync::{Arc, Mutex};
 
 // Import our modules
 mod audio_io;
+mod equalizer;
 mod file_player;
 mod routing;
 mod signal_gen;
 
 use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
+use equalizer::Equalizer;
 use file_player::AudioFilePlayer;
 use routing::Router;
 use signal_gen::WaveformType;
@@ -63,6 +65,21 @@ enum Command {
     SetMute { track: usize, mute: bool },
     #[serde(rename = "set_pan")]
     SetPan { track: usize, pan: f32 },
+    
+    // Track EQ controls
+    #[serde(rename = "set_eq")]
+    SetEQ {
+        track: usize,
+        low: f32,
+        low_mid: f32,
+        high_mid: f32,
+        high: f32,
+    },
+    #[serde(rename = "set_eq_enabled")]
+    SetEQEnabled {
+        track: usize,
+        enabled: bool,
+    },
 
     // Master controls
     #[serde(rename = "set_master_gain")]
@@ -172,16 +189,19 @@ impl AudioEngine {
         
         eprintln!("[Engine] New sample rate: {}", self.sample_rate);
         
-        // Update sample rate for all active file players
+        // Update sample rate for all active file players and equalizers
         {
             let mut router = self.router.lock().unwrap();
             for track in router.tracks.iter_mut() {
+                // Update file player sample rate
                 if let Some(ref mut player) = track.file_player {
                     let old_rate = player.output_sample_rate;
                     player.set_output_sample_rate(self.sample_rate);
                     eprintln!("[Engine] Track {} file player: updated output_sample_rate {} → {} (file_rate={})", 
                         track.id, old_rate, player.output_sample_rate, player.sample_rate);
                 }
+                // Update equalizer sample rate
+                track.equalizer.set_sample_rate(self.sample_rate as f32);
             }
         }
 
@@ -489,6 +509,27 @@ impl AudioEngine {
         }
     }
 
+    // Track EQ controls
+    fn set_eq(&self, track: usize, low: f32, low_mid: f32, high_mid: f32, high: f32) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            t.equalizer.set_low_shelf(low);
+            t.equalizer.set_low_mid(low_mid);
+            t.equalizer.set_high_mid(high_mid);
+            t.equalizer.set_high_shelf(high);
+            eprintln!("[Track {}] EQ: Low={:.1}dB, LowMid={:.1}dB, HighMid={:.1}dB, High={:.1}dB", 
+                track, low, low_mid, high_mid, high);
+        }
+    }
+
+    fn set_eq_enabled(&self, track: usize, enabled: bool) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            t.equalizer.set_enabled(enabled);
+            eprintln!("[Track {}] EQ Enabled: {}", track, enabled);
+        }
+    }
+
     // Master controls
     fn set_master_gain(&self, gain: f32) {
         let mut router = self.router.lock().unwrap();
@@ -654,6 +695,18 @@ fn main() -> Result<()> {
                 engine.set_pan(track, pan);
                 send_response(&Response::Ok {
                     message: format!("Track {} pan: {}", track, pan),
+                });
+            }
+            Ok(Command::SetEQ { track, low, low_mid, high_mid, high }) => {
+                engine.set_eq(track, low, low_mid, high_mid, high);
+                send_response(&Response::Ok {
+                    message: format!("Track {} EQ set", track),
+                });
+            }
+            Ok(Command::SetEQEnabled { track, enabled }) => {
+                engine.set_eq_enabled(track, enabled);
+                send_response(&Response::Ok {
+                    message: format!("Track {} EQ enabled: {}", track, enabled),
                 });
             }
             Ok(Command::SetMasterGain { gain }) => {

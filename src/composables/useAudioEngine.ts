@@ -143,12 +143,6 @@ export const useAudioEngine = () => {
     await window.audioEngine.setMute(track, mute)
   }
   
-  const setTrackEQ = async (track: number, low: number, mid: number, high: number) => {
-    if (!window.audioEngine || !state.value.isRunning) return
-    
-    await window.audioEngine.setEQ(track, low, mid, high)
-  }
-  
   const setTrackCompressor = async (track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
     
@@ -205,6 +199,18 @@ export const useAudioEngine = () => {
     await window.audioEngine.setPan(track, pan)
   }
 
+  const setTrackEQ = async (track: number, low: number, lowMid: number, highMid: number, high: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setEQ(track, low, lowMid, highMid, high)
+  }
+
+  const setTrackEQEnabled = async (track: number, enabled: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setEQEnabled(track, enabled)
+  }
+
   // Master controls
   const setMasterGain = async (gain: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
@@ -248,6 +254,7 @@ export const useAudioEngine = () => {
     setTrackVolume,
     setTrackMute,
     setTrackEQ,
+    setTrackEQEnabled,
     setTrackCompressor,
     setTrackGate,
     setTrackSourceInput,

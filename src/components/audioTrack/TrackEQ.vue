@@ -7,21 +7,103 @@
     leave-from-class="opacity-100 translate-y-0 scale-100"
     leave-to-class="opacity-0 -translate-y-2 scale-95"
   >
-    <div v-show="show" class="grid grid-cols-2 gap-2 items-center max-h-[10.5rem] -mt-4">
-      <!-- Left column: Mid -->
-      <div class="flex justify-center">
-        <div class="scale-[0.75]">
-          <Knob v-model="eqMid" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Mid" unit="dB" color="#f59e0b" />
-        </div>
+    <div v-show="show" class="track-eq bg-gray-900 rounded border border-gray-700 p-2 mb-2">
+      <!-- EQ Header -->
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-[10px] font-bold text-gray-400">EQUALIZER</span>
+        <button 
+          @click="toggleEnabled"
+          class="px-2 py-0.5 text-[9px] font-bold rounded transition-colors"
+          :class="enabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'"
+        >
+          {{ enabled ? 'ON' : 'OFF' }}
+        </button>
       </div>
-      
-      <!-- Right column: High and Low stacked -->
-      <div class="flex flex-col -space-y-6">
-        <div class="scale-[0.75]">
-          <Knob v-model="eqHigh" :min="-12" :max="12" :step="0.5" :centerValue="0" label="High" unit="dB" color="#ef4444" />
+
+      <!-- EQ Bands - Vertical Layout -->
+      <div class="flex flex-col gap-3">
+        <!-- Low Shelf (80Hz) -->
+        <div class="flex items-center gap-2">
+          <div class="flex-shrink-0" style="transform: scale(0.8)">
+            <Knob 
+              v-model="low"
+              :min="-24"
+              :max="24"
+              :step="0.5"
+              :centerValue="0"
+              label="LOW"
+              unit="dB"
+              color="#10b981"
+              :disabled="!enabled"
+            />
+          </div>
+          <div class="flex-1 text-[9px]">
+            <div class="font-mono text-blue-400">80Hz</div>
+            <div class="text-gray-500">Low Shelf</div>
+          </div>
         </div>
-        <div class="scale-[0.75]">
-          <Knob v-model="eqLow" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Low" unit="dB" color="#10b981" />
+
+        <!-- Low Mid (400Hz) -->
+        <div class="flex items-center gap-2">
+          <div class="flex-shrink-0" style="transform: scale(0.8)">
+            <Knob 
+              v-model="lowMid"
+              :min="-24"
+              :max="24"
+              :step="0.5"
+              :centerValue="0"
+              label="L-MID"
+              unit="dB"
+              color="#f59e0b"
+              :disabled="!enabled"
+            />
+          </div>
+          <div class="flex-1 text-[9px]">
+            <div class="font-mono text-blue-400">400Hz</div>
+            <div class="text-gray-500">Peaking</div>
+          </div>
+        </div>
+
+        <!-- High Mid (2.5kHz) -->
+        <div class="flex items-center gap-2">
+          <div class="flex-shrink-0" style="transform: scale(0.8)">
+            <Knob 
+              v-model="highMid"
+              :min="-24"
+              :max="24"
+              :step="0.5"
+              :centerValue="0"
+              label="H-MID"
+              unit="dB"
+              color="#f59e0b"
+              :disabled="!enabled"
+            />
+          </div>
+          <div class="flex-1 text-[9px]">
+            <div class="font-mono text-blue-400">2.5kHz</div>
+            <div class="text-gray-500">Peaking</div>
+          </div>
+        </div>
+
+        <!-- High Shelf (8kHz) -->
+        <div class="flex items-center gap-2">
+          <div class="flex-shrink-0" style="transform: scale(0.8)">
+            <Knob 
+              v-model="high"
+              :min="-24"
+              :max="24"
+              :step="0.5"
+              :centerValue="0"
+              label="HIGH"
+              unit="dB"
+              color="#ef4444"
+              :disabled="!enabled"
+            />
+          </div>
+          <div class="flex-1 text-[9px]">
+            <div class="font-mono text-blue-400">8kHz</div>
+            <div class="text-gray-500">High Shelf</div>
+          </div>
         </div>
       </div>
     </div>
@@ -29,11 +111,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watchEffect, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
 import Knob from '../core/Knob.vue'
+import { useAudioEngine } from '../../composables/useAudioEngine'
 
 interface Props {
-  eq3Node?: any
+  trackNumber: number
   show?: boolean
 }
 
@@ -41,80 +124,34 @@ const props = withDefaults(defineProps<Props>(), {
   show: false
 })
 
-const emit = defineEmits<{
-  (e: 'params-changed', params: { low: number, mid: number, high: number }): void
-}>()
+const audioEngine = useAudioEngine()
 
-// Internal state
-const eqLow = ref(0)
-const eqMid = ref(0)
-const eqHigh = ref(0)
+const enabled = ref(true)
+const low = ref(0)       // -24 to +24 dB
+const lowMid = ref(0)    // -24 to +24 dB
+const highMid = ref(0)   // -24 to +24 dB
+const high = ref(0)      // -24 to +24 dB
 
-let rafId: number | null = null
-
-// Update EQ3 node when values change - throttled with requestAnimationFrame
-function updateEQ() {
-  if (!props.eq3Node) return
-  
-  // Ensure values are not undefined before setting
-  const lowVal = eqLow.value ?? 0
-  const midVal = eqMid.value ?? 0
-  const highVal = eqHigh.value ?? 0
-  
-  props.eq3Node.low.value = lowVal
-  props.eq3Node.mid.value = midVal
-  props.eq3Node.high.value = highVal
+function toggleEnabled() {
+  enabled.value = !enabled.value
 }
 
-// Watch for changes with throttling
-watchEffect(() => {
-  // Track dependencies
-  const low = eqLow.value
-  const mid = eqMid.value
-  const high = eqHigh.value
-  
-  // Throttle updates with requestAnimationFrame
-  if (rafId !== null) {
-    cancelAnimationFrame(rafId)
-  }
-  
-  rafId = requestAnimationFrame(() => {
-    updateEQ()
-    
-    // Emit params changed for Rust engine
-    emit('params-changed', {
-      low,
-      mid,
-      high
-    })
-    
-    rafId = null
-  })
-})
-
-onUnmounted(() => {
-  if (rafId !== null) {
-    cancelAnimationFrame(rafId)
+// Watch for changes and send to engine
+watch([low, lowMid, highMid, high], () => {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setTrackEQ(
+      props.trackNumber - 1,
+      low.value,
+      lowMid.value,
+      highMid.value,
+      high.value
+    )
   }
 })
 
-// Expose methods for snapshot system
-function getParams() {
-  return {
-    low: eqLow.value,
-    mid: eqMid.value,
-    high: eqHigh.value
+watch(enabled, (newEnabled) => {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setTrackEQEnabled(props.trackNumber - 1, newEnabled)
   }
-}
-
-function setParams(params: { low: number, mid: number, high: number }) {
-  eqLow.value = params.low ?? 0
-  eqMid.value = params.mid ?? 0
-  eqHigh.value = params.high ?? 0
-}
-
-defineExpose({
-  getParams,
-  setParams
 })
 </script>

@@ -13,7 +13,9 @@ contextBridge.exposeInMainWorld('audioEngine', {
   setVolume: (track: number, volume: number) => ipcRenderer.invoke('audio-engine:set-volume', track, volume),
   setMute: (track: number, mute: boolean) => ipcRenderer.invoke('audio-engine:set-mute', track, mute),
   setPan: (track: number, pan: number) => ipcRenderer.invoke('audio-engine:set-pan', track, pan),
-  setEQ: (track: number, low: number, mid: number, high: number) => ipcRenderer.invoke('audio-engine:set-eq', track, low, mid, high),
+  setEQ: (track: number, low: number, low_mid: number, high_mid: number, high: number) => 
+    ipcRenderer.invoke('audio-engine:set-eq', track, low, low_mid, high_mid, high),
+  setEQEnabled: (track: number, enabled: boolean) => ipcRenderer.invoke('audio-engine:set-eq-enabled', track, enabled),
   setCompressor: (track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => 
     ipcRenderer.invoke('audio-engine:set-compressor', track, enabled, threshold, ratio, attack, release),
   setGate: (track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => 
