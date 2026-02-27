@@ -195,18 +195,11 @@
                                 <AudioTrack v-else 
                                     :ref="el => setTrackRef(track.id, el)" 
                                     :trackNumber="track.id"
-                                    :order="track.order"
                                     :master-channel="masterChannel" 
                                     :subgroups="subgroups" 
-                                    :aux-buses="auxBuses"
                                     :allow-subgroup-routing="buildLimits.allowSubgroupRouting"
-                                    :is-armed="isTrackArmed(track.id)"
-                                    :is-dragging="draggedTrackId === track.id"
-                                    @soloChange="handleSoloChange" 
-                                    @levelUpdate="handleLevelUpdate"
                                     @toggle-arm="toggleTrackArm(track.id)"
-                                    @remove="removeTrack(track.id)"
-                                    @drag-start="handleTrackDragStart(track.id)" />
+                                    @remove="removeTrack(track.id)" />
                             </div>
                         </template>
                     </div>

@@ -24,11 +24,11 @@ const state = ref<AudioEngineState>({
 let isListening = false
 
 export const useAudioEngine = () => {
+  // Start listening immediately
   const startListening = () => {
     if (isListening || !window.audioEngine) return
     
     window.audioEngine.onResponse((response: any) => {
-      console.log('[useAudioEngine] Response:', response.type)
       
       switch (response.type) {
         case 'devices':
@@ -38,21 +38,33 @@ export const useAudioEngine = () => {
           
         case 'started':
           state.value.isRunning = true
-          console.log('[useAudioEngine] Engine started')
+          console.log('[useAudioEngine] Engine started - state updated to RUNNING')
           break
           
         case 'stopped':
           state.value.isRunning = false
-          console.log('[useAudioEngine] Engine stopped')
+          console.log('[useAudioEngine] Engine stopped - state updated to STOPPED')
+          break
+          
+        case 'ok':
+          // Command acknowledged successfully (silent)
           break
           
         case 'error':
           console.error('[useAudioEngine] Engine error:', response.message)
           break
+        
+        default:
+          console.log('[useAudioEngine] Unhandled response type:', response.type)
       }
     })
     
     isListening = true
+  }
+  
+  // Start listening as soon as the composable is created
+  if (window.audioEngine && !isListening) {
+    startListening()
   }
   
   const loadDevices = async () => {
@@ -71,14 +83,13 @@ export const useAudioEngine = () => {
       return
     }
     
-    console.log('[useAudioEngine] Starting audio engine...')
+    startListening()
     await window.audioEngine.start()
   }
   
   const stop = async () => {
     if (!window.audioEngine) return
     
-    console.log('[useAudioEngine] Stopping audio engine...')
     await window.audioEngine.stop()
   }
   
@@ -92,6 +103,24 @@ export const useAudioEngine = () => {
     if (!window.audioEngine || !state.value.isRunning) return
     
     await window.audioEngine.setMute(track, mute)
+  }
+  
+  const setTrackEQ = async (track: number, low: number, mid: number, high: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setEQ(track, low, mid, high)
+  }
+  
+  const setTrackCompressor = async (track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setCompressor(track, enabled, threshold, ratio, attack, release)
+  }
+  
+  const setTrackGate = async (track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setGate(track, enabled, threshold, range, attack, release)
   }
   
   const getInputDevices = () => {
@@ -115,6 +144,9 @@ export const useAudioEngine = () => {
     stop,
     setTrackGain,
     setTrackMute,
+    setTrackEQ,
+    setTrackCompressor,
+    setTrackGate,
     getInputDevices,
     getOutputDevices
   }

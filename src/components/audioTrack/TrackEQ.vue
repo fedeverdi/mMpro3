@@ -41,6 +41,10 @@ const props = withDefaults(defineProps<Props>(), {
   show: false
 })
 
+const emit = defineEmits<{
+  (e: 'params-changed', params: { low: number, mid: number, high: number }): void
+}>()
+
 // Internal state
 const eqLow = ref(0)
 const eqMid = ref(0)
@@ -76,6 +80,14 @@ watchEffect(() => {
   
   rafId = requestAnimationFrame(() => {
     updateEQ()
+    
+    // Emit params changed for Rust engine
+    emit('params-changed', {
+      low,
+      mid,
+      high
+    })
+    
     rafId = null
   })
 })

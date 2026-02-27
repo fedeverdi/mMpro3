@@ -58,6 +58,7 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'toggle'): void
+  (e: 'params-changed', params: { threshold: number, ratio: number, attack: number, release: number }): void
 }>()
 
 const showModal = ref(false)
@@ -93,10 +94,10 @@ function updateCompressorNode() {
 // Watch for parameter changes with throttling
 watchEffect(() => {
   // Track dependencies
-  threshold.value
-  ratio.value
-  attack.value
-  release.value
+  const t = threshold.value
+  const r = ratio.value
+  const a = attack.value
+  const rel = release.value
   
   // Throttle updates with requestAnimationFrame
   if (rafId !== null) {
@@ -105,6 +106,15 @@ watchEffect(() => {
   
   rafId = requestAnimationFrame(() => {
     updateCompressorNode()
+    
+    // Emit params changed for Rust engine
+    emit('params-changed', {
+      threshold: t,
+      ratio: r,
+      attack: a,
+      release: rel
+    })
+    
     rafId = null
   })
 })

@@ -17,6 +17,9 @@ interface AudioEngine {
   stop: () => Promise<void>
   setGain: (track: number, gain: number) => Promise<void>
   setMute: (track: number, mute: boolean) => Promise<void>
+  setEQ: (track: number, low: number, mid: number, high: number) => Promise<void>
+  setCompressor: (track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => Promise<void>
+  setGate: (track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => Promise<void>
   listDevices: () => Promise<void>
   onResponse: (callback: (response: any) => void) => void
 }

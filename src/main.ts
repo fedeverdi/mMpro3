@@ -31,16 +31,24 @@ const startAudioEngine = () => {
 
   audioEngineProcess.stdout?.on('data', (data) => {
     const output = data.toString().trim()
-    console.log('[Engine]', output)
     
-    // Parse JSON responses and forward to renderer
-    try {
-      const response = JSON.parse(output)
-      BrowserWindow.getAllWindows().forEach(win => {
-        win.webContents.send('audio-engine-response', response)
-      })
-    } catch (err) {
-      // Not JSON, just log
+    // Process each line separately (engine may send multiple JSON responses)
+    const lines = output.split('\n').filter(line => line.trim())
+    
+    for (const line of lines) {
+      // Try to parse as JSON
+      try {
+        const response = JSON.parse(line)
+        console.log('[Engine Response]', response.type, response)
+        
+        // Forward to renderer
+        BrowserWindow.getAllWindows().forEach(win => {
+          win.webContents.send('audio-engine-response', response)
+        })
+      } catch (err) {
+        // Not JSON, just log as plain text
+        console.log('[Engine Output]', line)
+      }
     }
   })
 
@@ -93,6 +101,18 @@ ipcMain.handle('audio-engine:set-gain', async (_, track: number, gain: number) =
 
 ipcMain.handle('audio-engine:set-mute', async (_, track: number, mute: boolean) => {
   await sendCommandToEngine({ type: 'set_mute', track, mute })
+})
+
+ipcMain.handle('audio-engine:set-eq', async (_, track: number, low: number, mid: number, high: number) => {
+  await sendCommandToEngine({ type: 'set_eq', track, low, mid, high })
+})
+
+ipcMain.handle('audio-engine:set-compressor', async (_, track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
+  await sendCommandToEngine({ type: 'set_compressor', track, enabled, threshold, ratio, attack, release })
+})
+
+ipcMain.handle('audio-engine:set-gate', async (_, track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => {
+  await sendCommandToEngine({ type: 'set_gate', track, enabled, threshold, range, attack, release })
 })
 
 ipcMain.handle('audio-engine:list-devices', async () => {

@@ -4,10 +4,7 @@
     class="track-channel relative bg-gray-700 rounded-lg border border-gray-900 p-1 flex flex-col items-center gap-1 h-full">
     
     <!-- Track Header -->
-    <div class="w-full flex items-center justify-between gap-1 track-header cursor-move"
-      draggable="true"
-      @dragstart="handleDragStart"
-      title="Drag to reorder">
+    <div class="w-full flex items-center justify-between gap-1">
       <div class="text-xs font-bold text-gray-300 flex-1 text-center">Track {{ trackNumber }}</div>
       <button 
         @click="$emit('remove')" 
@@ -67,12 +64,11 @@
       <button v-if="isOscillator" @click="toggleFrequencySweep"
         class="px-2 py-1 w-full text-xs rounded transition-colors flex items-center justify-center"
         :class="isSweeping ? 'bg-orange-600 hover:bg-orange-500 animate-pulse' : 'bg-gray-500 hover:bg-gray-600'">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="w-3 h-3" fill="currentColor"><path d="M216 288h-48c-8.84 0-16 7.16-16 16v192c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V304c0-8.84-7.16-16-16-16zM88 384H40c-8.84 0-16 7.16-16 16v96c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16v-96c0-8.84-7.16-16-16-16zm256-192h-48c-8.84 0-16 7.16-16 16v288c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V208c0-8.84-7.16-16-16-16zm128-96h-48c-8.84 0-16 7.16-16 16v384c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V112c0-8.84-7.16-16-16-16zM600 0h-48c-8.84 0-16 7.16-16 16v480c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V16c0-8.84-7.16-16-16-16z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="w-3 h-3" fill="currentColor">
+          <path d="M216 288h-48c-8.84 0-16 7.16-16 16v192c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V304c0-8.84-7.16-16-16-16zM88 384H40c-8.84 0-16 7.16-16 16v96c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16v-96c0-8.84-7.16-16-16-16zm256-192h-48c-8.84 0-16 7.16-16 16v288c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V208c0-8.84-7.16-16-16-16zm128-96h-48c-8.84 0-16 7.16-16 16v384c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V112c0-8.84-7.16-16-16-16zM600 0h-48c-8.84 0-16 7.16-16 16v480c0 8.84 7.16 16 16 16h48c8.84 0 16-7.16 16-16V16c0-8.84-7.16-16-16-16z"/>
+        </svg>
       </button>
     </div>
-
-    <!-- Waveform Display -->
-    <WaveformDisplay ref="waveformDisplayRef" :showModeButtons="false" :waveform-node="waveform" :is-playing="isPlaying" />
 
     <!-- Display - Signal Controls -->
     <div v-if="isOscillator" class="w-full bg-gray-900 rounded p-2 border border-gray-700">
@@ -110,484 +106,110 @@
     <div class="flex flex-col h-full">
       <div class="text-[0.455rem] uppercase text-center">Volume</div>
       <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
-        <!-- Routing Buttons -->
-        <div class="flex flex-col gap-2 absolute -left-[1.7rem] top-1/2 transform -translate-y-1/2 z-50">
-          <button @click="toggleRouteToMaster" :title="'Route to Master'"
-            class="w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
-            :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
-            M
-          </button>
-          <button 
-            v-if="props.allowSubgroupRouting"
-            v-for="subgroup in props.subgroups" 
-            :key="subgroup.id"
-            @click="toggleRouteToSubgroup(subgroup.id)" 
-            :title="`Route to ${subgroup.name}`"
-            class="w-5 h-7 text-[6px] font-bold rounded transition-all flex items-center justify-center"
-            :class="routedSubgroups.has(subgroup.id) ? 'bg-orange-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-gray-400'"
-          >
-            S{{ subgroup.id }}
-          </button>
-        </div>
+        <!-- Routing Button -->
+        <button 
+          @click="toggleRouteToMaster" 
+          :title="'Route to Master'"
+          class="absolute left-[0.2rem] top-1/2 transform -translate-y-1/2 z-50 w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+          :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
+          M
+        </button>
+        
         <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
-        <TrackMeter class="absolute -right-[1.6rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3" v-if="faderHeight > 0" :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
+        
+        <TrackMeter 
+          class="absolute right-[0.4rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3"
+          v-if="faderHeight > 0" 
+          :levelL="trackLevelL" 
+          :levelR="trackLevelR" 
+          :isStereo="false"
           :height="faderHeight + 20" />
       </div>
     </div>
-
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, inject, nextTick, computed, toRaw } from 'vue'
+import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue'
 import FrequencyKnob from './core/FrequencyKnob.vue'
+import PanKnob from './audioTrack/PanKnob.vue'
 import TrackFader from './audioTrack/TrackFader.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
-import PanKnob from './audioTrack/PanKnob.vue'
-import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
 
-const ToneRef = inject<any>('Tone')
-let Tone: any = null
-
-interface Props {
+// Props
+const props = defineProps<{
   trackNumber: number
-  order: number
   masterChannel?: any
-  subgroups?: Array<{ id: number, name: string, channel: any, ref: any }>
-  allowSubgroupRouting?: boolean
-  isDragging?: boolean
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  subgroups: () => [],
-  allowSubgroupRouting: true,
-  isDragging: false,
-  order: 0
-})
-
-const emit = defineEmits<{
-  (e: 'soloChange', value: { trackNumber: number, isSolo: boolean }): void
-  (e: 'levelUpdate', value: { trackNumber: number, level: number }): void
-  (e: 'remove'): void
-  (e: 'drag-start'): void
+  subgroups?: Array<{ id: number; name: string; channel: any }>
 }>()
 
-// Ref per l'elemento traccia (usato per generare il ghost durante il drag)
+// Emits
+const emit = defineEmits<{
+  remove: []
+  soloChange: [value: { trackNumber: number; isSolo: boolean }]
+}>()
+
+// Inject Rust audio engine
+const audioEngine = inject<any>('audioEngine', null)
+
+// Reactive state
 const trackElement = ref<HTMLElement | null>(null)
+const faderContainer = ref<HTMLElement | null>(null)
+const faderHeight = ref(0)
 
-// Funzione per gestire l'inizio del drag con ghost personalizzato
-const handleDragStart = (event: DragEvent) => {
-  // Crea un ghost personalizzato della traccia
-  if (trackElement.value && event.dataTransfer) {
-    const clone = trackElement.value.cloneNode(true) as HTMLElement
-    
-    // Stile del ghost (usa colore viola per segnali) - forza le dimensioni esatte
-    clone.style.position = 'absolute'
-    clone.style.top = '-9999px'
-    clone.style.left = '-9999px'
-    clone.style.width = trackElement.value.offsetWidth + 'px'
-    clone.style.height = trackElement.value.offsetHeight + 'px'
-    clone.style.opacity = '0.7'
-    clone.style.transform = 'rotate(3deg)'
-    clone.style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.5)'
-    clone.style.border = '2px solid rgba(168, 85, 247, 0.5)'
-    clone.style.pointerEvents = 'none'
-    clone.style.overflow = 'hidden'
-    
-    document.body.appendChild(clone)
-    
-    // Imposta il clone come drag image
-    event.dataTransfer.setDragImage(clone, trackElement.value.offsetWidth / 2, 30)
-    
-    // Rimuovi il clone dopo un breve ritardo
-    setTimeout(() => {
-      document.body.removeChild(clone)
-    }, 0)
-  }
-  
-  emit('drag-start')
-}
-
-type SignalType = 'sine' | 'square' | 'sawtooth' | 'triangle' | 'whiteNoise' | 'pinkNoise'
-
-// Output routing (can route to both simultaneously)
-const routeToMaster = ref(true)
-const routedSubgroups = ref<Set<number>>(new Set()) // Set of subgroup IDs
-
-// Signal-specific state
-const selectedSignal = ref<SignalType>('sine')
+const selectedSignal = ref<'sine' | 'square' | 'sawtooth' | 'triangle' | 'whiteNoise' | 'pinkNoise'>('sine')
 const isPlaying = ref(false)
-const signalVolume = ref(0) // Generator output level (0 dB = unity gain)
-const frequency = ref(1000)
-
-// Frequency sweep state
 const isSweeping = ref(false)
-let sweepInterval: number | null = null
-let sweepDirection = 1 // 1 = up, -1 = down
+const frequency = ref(1000) // Hz
+const volume = ref(0.5) // 0-1 range
+const pan = ref(0) // -1 to 1
+const isMuted = ref(false)
+const isSolo = ref(false)
+const routeToMaster = ref(true)
 
+// Meter levels (simulated for now)
+const trackLevelL = ref(0)
+const trackLevelR = ref(0)
+
+// Computed
 const isOscillator = computed(() => 
   ['sine', 'square', 'sawtooth', 'triangle'].includes(selectedSignal.value)
 )
 
 const signalTypeLabel = computed(() => {
-  const labels: Record<SignalType, string> = {
-    'sine': 'Sine Wave',
-    'square': 'Square Wave',
-    'sawtooth': 'Sawtooth Wave',
-    'triangle': 'Triangle Wave',
-    'whiteNoise': 'White Noise',
-    'pinkNoise': 'Pink Noise'
+  const labels: Record<typeof selectedSignal.value, string> = {
+    sine: 'Sine Wave',
+    square: 'Square Wave',
+    sawtooth: 'Sawtooth Wave',
+    triangle: 'Triangle Wave',
+    whiteNoise: 'White Noise',
+    pinkNoise: 'Pink Noise'
   }
   return labels[selectedSignal.value]
 })
 
-// Track state (from Track.vue)
-const faderContainer = ref<HTMLElement | null>(null)
-const waveformDisplayRef = ref<any>(null)
-const faderHeight = ref(0)
-const isMuted = ref(false)
-const isSolo = ref(false)
-
-// Audio controls
-const volume = ref(0)
-const pan = ref(0)
-const isStereo = ref(true)
-const trackLevelL = ref(-60)
-const trackLevelR = ref(-60)
-
-// Tone.js nodes - Signal
-let signalNode: any = null
-let signalVolumeNode: any = null
-let signalToStereo: any = null
-
-// Tone.js nodes - Track routing
-let gainNode: any = null
-let waveform: any = null // Waveform analyzer
-let balanceSplit: any = null
-let balanceLeft: any = null
-let balanceRight: any = null
-let balanceMerge: any = null
-let volumeSplit: any = null
-let volumeNodeL: any = null
-let volumeNodeR: any = null
-let volumeMerge: any = null
-let meterL: any = null
-let meterR: any = null
-let channelSplit: any = null
-let resizeObserver: ResizeObserver | null = null
-let levelMonitorInterval: number | null = null
-
-// Calculate fader height
-function updateFaderHeight() {
-  if (faderContainer.value) {
-    const height = faderContainer.value.clientHeight
-    faderHeight.value = Math.max(100, height - 60)
-  }
+// Handlers
+function selectSignal(signal: typeof selectedSignal.value) {
+  selectedSignal.value = signal
+  console.log(`[Signal Track ${props.trackNumber}] Selected signal:`, signal)
+  // TODO: Send to Rust engine
 }
 
-// Initialize audio nodes
-function initAudioNodes() {
-  if (gainNode || !Tone) return
-
-  // Create main gain node
-  gainNode = new Tone.Gain(1)
-
-  // Waveform analyzer (for visualization)
-  waveform = new Tone.Waveform(512) // 512 samples for waveform display
-
-  // Stereo-preserving balance control
-  balanceSplit = new Tone.Split()
-  balanceLeft = new Tone.Gain(1)
-  balanceRight = new Tone.Gain(1)
-  balanceMerge = new Tone.Merge()
-
-  // Stereo-preserving volume control
-  volumeSplit = new Tone.Split()
-  volumeNodeL = new Tone.Gain(1)
-  volumeNodeR = new Tone.Gain(1)
-  volumeMerge = new Tone.Merge()
-
-  // Stereo metering
-  channelSplit = new Tone.Split()
-  meterL = new Tone.Meter()
-  meterR = new Tone.Meter()
-
-  // Connect chain: gain -> balance -> volume
-  gainNode.connect(balanceSplit)
-  balanceSplit.connect(balanceLeft, 0)
-  balanceSplit.connect(balanceRight, 1)
-  balanceLeft.connect(balanceMerge, 0, 0)
-  balanceRight.connect(balanceMerge, 0, 1)
-
-  balanceMerge.connect(volumeSplit)
-  volumeSplit.connect(volumeNodeL, 0)
-  volumeSplit.connect(volumeNodeR, 1)
-  volumeNodeL.connect(volumeMerge, 0, 0)
-  volumeNodeR.connect(volumeMerge, 0, 1)
-
-  // Connect waveform analyzer
-  gainNode.connect(waveform)
-
-  // Connect metering to gainNode (pre-volume)
-  gainNode.connect(channelSplit)
-  channelSplit.connect(meterL, 0)
-  channelSplit.connect(meterR, 1)
-
-  // Connect to master
-  connectToOutput()
-}
-
-// Initialize signal nodes
-function initSignalNodes() {
-  if (signalVolumeNode || !Tone) return
-
-  // Create volume node
-  signalVolumeNode = new Tone.Volume(signalVolume.value)
-  
-  // Create mono-to-stereo converter
-  // Connect the mono source to both L and R inputs of Merge
-  signalToStereo = new Tone.Merge()
-  
-  if (gainNode) {
-    // Connect mono output to both L (channel 0) and R (channel 1) inputs
-    signalVolumeNode.connect(signalToStereo, 0, 0) // to left input
-    signalVolumeNode.connect(signalToStereo, 0, 1) // to right input
-    // Connect stereo output to gain node
-    signalToStereo.connect(gainNode)
-  }
-}
-
-// Create signal source
-function createSignalSource() {
-  // Dispose old signal node
-  if (signalNode) {
-    if (isPlaying.value && signalNode.stop) {
-      try {
-        signalNode.stop()
-      } catch (e) {}
-    }
-    try {
-      signalNode.disconnect()
-      signalNode.dispose()
-    } catch (e) {}
-    signalNode = null
-  }
-
-  if (!Tone || !signalVolumeNode) return
-
-  // Create new signal based on type
-  switch (selectedSignal.value) {
-    case 'sine':
-    case 'square':
-    case 'sawtooth':
-    case 'triangle':
-      signalNode = new Tone.Oscillator({
-        type: selectedSignal.value,
-        frequency: frequency.value
-      })
-      break
-    case 'whiteNoise':
-      signalNode = new Tone.Noise('white')
-      break
-    case 'pinkNoise':
-      signalNode = new Tone.Noise('pink')
-      break
-  }
-
-  if (signalNode) {
-    signalNode.connect(signalVolumeNode)
-    
-    // If was playing, restart new signal
-    if (isPlaying.value) {
-      signalNode.start()
-    }
-  }
-}
-
-function selectSignal(type: SignalType) {
-  selectedSignal.value = type
-  handleSignalChange()
-}
-
-function handleSignalChange() {
-  createSignalSource()
-}
-
-async function toggleSignal() {
-  if (!signalNode || !Tone) return
-
-  if (!isPlaying.value) {
-    // Warning per segnali diversi da rumore
-    const isNoise = selectedSignal.value === 'whiteNoise' || selectedSignal.value === 'pinkNoise'
-    
-    if (!isNoise) {
-      const signalWarnings = {
-        'square': '⚠️ ATTENZIONE: Le onde quadre contengono armoniche molto intense che possono DANNEGGIARE gli altoparlanti e l\'udito!',
-        'sawtooth': '⚠️ ATTENZIONE: Le onde a dente di sega contengono molte armoniche che possono essere pericolose!',
-        'triangle': '⚠️ ATTENZIONE: Le onde triangolari possono raggiungere livelli elevati!',
-        'sine': '⚠️ ATTENZIONE: Controlla sempre i livelli prima di riprodurre!'
-      }
-      
-      const warning = signalWarnings[selectedSignal.value as keyof typeof signalWarnings] || '⚠️ ATTENZIONE!'
-      
-      const confirmed = confirm(
-        `${warning}\n\n` +
-        `VERIFICA CHE:\n` +
-        `• Il fader della traccia sia al minimo\n` +
-        `• Il volume master sia al minimo\n` +
-        `• Le cuffie siano scollegate o a volume basso\n\n` +
-        `Alza gradualmente il volume SOLO dopo aver verificato i livelli.\n\n` +
-        `Vuoi continuare?`
-      )
-      
-      if (!confirmed) return
-    }
-    
-    await Tone.start()
-    signalNode.start()
-    isPlaying.value = true
-  } else {
-    signalNode.stop()
-    isPlaying.value = false
-    // Ricrea il nodo per poterlo riavviare
-    createSignalSource()
-  }
+function toggleSignal() {
+  isPlaying.value = !isPlaying.value
+  console.log(`[Signal Track ${props.trackNumber}] ${isPlaying.value ? 'Started' : 'Stopped'}`)
+  // TODO: Send to Rust engine to start/stop signal generation
 }
 
 function toggleFrequencySweep() {
-  if (isSweeping.value) {
-    // Stop sweep
-    if (sweepInterval) clearInterval(sweepInterval)
-    sweepInterval = null
-    isSweeping.value = false
-  } else {
-    // Start sweep
-    isSweeping.value = true
-    const logMin = Math.log(20)
-    const logMax = Math.log(20000)
-    const step = (logMax - logMin) / 200 // 200 steps for smooth sweep
-    
-    sweepInterval = window.setInterval(() => {
-      const currentLog = Math.log(frequency.value)
-      const newLog = currentLog + (step * sweepDirection)
-      
-      // Reverse direction at boundaries
-      if (newLog >= logMax) {
-        sweepDirection = -1
-        frequency.value = 20000
-      } else if (newLog <= logMin) {
-        sweepDirection = 1
-        frequency.value = 20
-      } else {
-        frequency.value = Math.round(Math.exp(newLog))
-      }
-    }, 50) // 50ms = 20fps, total sweep ~10 seconds per direction
-  }
-}
-
-// Connect to output (can connect to master and/or multiple subgroups)
-function connectToOutput() {
-  if (!volumeMerge || !Tone) return
-  
-  // Disconnect from all destinations first
-  try {
-    volumeMerge.disconnect()
-  } catch (e) {
-    // Ignore if not connected
-  }
-  
-  // Connect to master if enabled
-  if (routeToMaster.value && props.masterChannel) {
-    volumeMerge.connect(toRaw(props.masterChannel))
-  }
-  
-  // Connect to each enabled subgroup
-  routedSubgroups.value.forEach(subgroupId => {
-    const subgroup = props.subgroups?.find(s => s.id === subgroupId)
-    if (subgroup?.channel) {
-      volumeMerge.connect(toRaw(subgroup.channel))
-    }
-  })
-  
-  // Warn if no output is selected
-  if (!routeToMaster.value && routedSubgroups.value.size === 0) {
-    console.warn(`[SignalTrack ${props.trackNumber}] No output destination selected`)
-  }
-}
-
-// Toggle routing buttons
-function toggleRouteToMaster() {
-  routeToMaster.value = !routeToMaster.value
-  connectToOutput()
-}
-
-function toggleRouteToSubgroup(subgroupId: number) {
-  if (routedSubgroups.value.has(subgroupId)) {
-    routedSubgroups.value.delete(subgroupId)
-  } else {
-    routedSubgroups.value.add(subgroupId)
-  }
-  routedSubgroups.value = new Set(routedSubgroups.value) // Trigger reactivity
-  connectToOutput()
-}
-
-// Disconnect from a specific subgroup (called when subgroup is removed)
-function disconnectFromSubgroup(subgroupId: number) {
-  if (routedSubgroups.value.has(subgroupId)) {
-    routedSubgroups.value.delete(subgroupId)
-    routedSubgroups.value = new Set(routedSubgroups.value)
-    connectToOutput()
-  }
-}
-
-// Level monitoring
-function startLevelMonitoring() {
-  levelMonitorInterval = window.setInterval(() => {
-    if (meterL && Tone) {
-      const levelL = meterL.getValue() as number
-      trackLevelL.value = Math.max(-60, levelL)
-
-      if (isStereo.value && meterR) {
-        const levelR = meterR.getValue() as number
-        trackLevelR.value = Math.max(-60, levelR)
-      } else {
-        trackLevelR.value = trackLevelL.value
-      }
-    }
-  }, 50)
-}
-
-// Update volume
-function updateVolume() {
-  if (!volumeNodeL || !volumeNodeR || !Tone) return
-
-  if (isMuted.value) {
-    volumeNodeL.gain.value = 0
-    volumeNodeR.gain.value = 0
-  } else {
-    const gainValue = Tone.dbToGain(volume.value)
-    volumeNodeL.gain.value = gainValue
-    volumeNodeR.gain.value = gainValue
-  }
-}
-
-// Update pan
-function updatePan() {
-  if (!balanceLeft || !balanceRight || !Tone) return
-  
-  // Linear pan for signal generators (better for testing/calibration)
-  // Pan range: -1 (full left) to +1 (full right)
-  // Center (0): both channels at 1.0 for unity gain
-  const leftGain = 1 - Math.max(0, pan.value)
-  const rightGain = 1 + Math.min(0, pan.value)
-  
-  balanceLeft.gain.value = leftGain
-  balanceRight.gain.value = rightGain
+  if (!isOscillator.value) return
+  isSweeping.value = !isSweeping.value
+  console.log(`[Signal Track ${props.trackNumber}] Sweep ${isSweeping.value ? 'enabled' : 'disabled'}`)
+  // TODO: Send to Rust engine
 }
 
 function toggleMute() {
   isMuted.value = !isMuted.value
-  updateVolume()
 }
 
 function toggleSolo() {
@@ -595,231 +217,60 @@ function toggleSolo() {
   emit('soloChange', { trackNumber: props.trackNumber, isSolo: isSolo.value })
 }
 
-// Update frequency for oscillators
-watch(frequency, (newFreq) => {
-  if (signalNode && typeof signalNode.frequency !== 'undefined') {
-    signalNode.frequency.value = newFreq
+function toggleRouteToMaster() {
+  routeToMaster.value = !routeToMaster.value
+}
+
+// Watchers - Send changes to Rust engine
+watch(selectedSignal, (signal) => {
+  if (audioEngine?.state.value.isRunning && isPlaying.value) {
+    // TODO: Send to Rust engine
+    console.log(`[Signal Track ${props.trackNumber}] Signal changed to:`, signal)
   }
 })
 
-// Update signal volume
-watch(signalVolume, (newVolume) => {
-  if (signalVolumeNode) {
-    signalVolumeNode.volume.value = newVolume
+watch(frequency, (freq) => {
+  if (audioEngine?.state.value.isRunning && isPlaying.value && isOscillator.value) {
+    // TODO: Send to Rust engine
+    console.log(`[Signal Track ${props.trackNumber}] Frequency changed to:`, freq, 'Hz')
   }
 })
 
-// Watch for changes
-watch(volume, updateVolume)
-watch(pan, updatePan)
-watch(() => props.masterChannel, connectToOutput)
-
-onMounted(async () => {
-  if (ToneRef?.value) {
-    Tone = ToneRef.value
+watch(volume, (newVolume) => {
+  if (audioEngine?.state.value.isRunning) {
+    // TODO: Send to Rust engine
+    console.log(`[Signal Track ${props.trackNumber}] Volume changed to:`, newVolume)
   }
+})
 
-  await nextTick()
-  updateFaderHeight()
+watch(isMuted, (muted) => {
+  if (audioEngine?.state.value.isRunning) {
+    // TODO: Send to Rust engine
+    console.log(`[Signal Track ${props.trackNumber}] Mute:`, muted)
+  }
+})
 
+// Fader height calculation
+function updateFaderHeight() {
   if (faderContainer.value) {
-    resizeObserver = new ResizeObserver(() => {
-      updateFaderHeight()
-    })
+    faderHeight.value = faderContainer.value.clientHeight
+  }
+}
+
+// Lifecycle
+onMounted(() => {
+  const resizeObserver = new ResizeObserver(updateFaderHeight)
+  if (faderContainer.value) {
     resizeObserver.observe(faderContainer.value)
   }
-
-  initAudioNodes()
-  initSignalNodes()
-  createSignalSource()
-  startLevelMonitoring()
+  updateFaderHeight()
 })
 
 onUnmounted(() => {
-  // Clean up sweep interval
-  if (sweepInterval) {
-    clearInterval(sweepInterval)
-    sweepInterval = null
-  }
-  
-  // Dispose signal nodes
-  if (signalNode) {
-    if (isPlaying.value && signalNode.stop) {
-      try {
-        signalNode.stop()
-      } catch (e) {}
-    }
-    try {
-      signalNode.disconnect()
-      signalNode.dispose()
-    } catch (e) {}
-  }
-  
-  if (signalVolumeNode) {
-    signalVolumeNode.dispose()
-  }
-  
-  if (signalToStereo) {
-    signalToStereo.dispose()
-  }
-
-  // Dispose track nodes
-  if (gainNode) gainNode.dispose()
-  if (waveform) waveform.dispose()
-  if (balanceSplit) balanceSplit.dispose()
-  if (balanceLeft) balanceLeft.dispose()
-  if (balanceRight) balanceRight.dispose()
-  if (balanceMerge) balanceMerge.dispose()
-  if (volumeSplit) volumeSplit.dispose()
-  if (volumeNodeL) volumeNodeL.dispose()
-  if (volumeNodeR) volumeNodeR.dispose()
-  if (volumeMerge) volumeMerge.dispose()
-  if (meterL) meterL.dispose()
-  if (meterR) meterR.dispose()
-  if (channelSplit) channelSplit.dispose()
-
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-  }
-
-  if (levelMonitorInterval) {
-    clearInterval(levelMonitorInterval)
-  }
-})
-
-// Expose methods for scene management
-defineExpose({
-  disconnectFromSubgroup, // Expose for cleanup when subgroup is removed
-  
-  getSnapshot: () => {
-    return {
-      trackNumber: props.trackNumber,
-      order: props.order,
-      trackType: 'signal' as const,
-      selectedSignal: selectedSignal.value,
-      signalVolume: signalVolume.value,
-      frequency: frequency.value,
-      isPlaying: isPlaying.value,
-      volume: volume.value,
-      pan: pan.value,
-      isMuted: isMuted.value,
-      isSolo: isSolo.value,
-      routeToMaster: routeToMaster.value,
-      routedSubgroups: Array.from(routedSubgroups.value) // Convert Set to Array for serialization
-    }
-  },
-
-  restoreFromSnapshot: (snapshot: any) => {
-    // Restore output routing
-    if (snapshot.routeToMaster !== undefined) {
-      routeToMaster.value = snapshot.routeToMaster
-    }
-    
-    // Restore routed subgroups (support both old and new format)
-    if (snapshot.routedSubgroups && Array.isArray(snapshot.routedSubgroups)) {
-      routedSubgroups.value = new Set(snapshot.routedSubgroups)
-    } else if (snapshot.routeToSubgroup) {
-      // Legacy format - assume routing to first subgroup if exists
-      if (props.subgroups && props.subgroups.length > 0) {
-        routedSubgroups.value = new Set([props.subgroups[0].id])
-      }
-    }
-    
-    nextTick(() => {
-      connectToOutput()
-    })
-    if (snapshot.selectedSignal) {
-      selectedSignal.value = snapshot.selectedSignal
-      handleSignalChange()
-    }
-    if (snapshot.signalVolume !== undefined) {
-      signalVolume.value = snapshot.signalVolume
-    }
-    if (snapshot.frequency !== undefined) {
-      frequency.value = snapshot.frequency
-    }
-    if (snapshot.volume !== undefined) {
-      volume.value = snapshot.volume
-    }
-    if (snapshot.pan !== undefined) {
-      pan.value = snapshot.pan
-    }
-    if (snapshot.isMuted !== undefined) {
-      isMuted.value = snapshot.isMuted
-      updateVolume()
-    }
-    if (snapshot.isSolo !== undefined) {
-      isSolo.value = snapshot.isSolo
-    }
-    if (snapshot.isPlaying && !isPlaying.value) {
-      toggleSignal()
-    }
-  },
-
-  getInputNode: () => gainNode,
-  setMuted: (muted: boolean) => {
-    isMuted.value = muted
-    updateVolume()
-  },
-  isSolo: () => isSolo.value,
-  getVolume: () => volume.value,
-  setVolume: (val: number) => volume.value = val,
-  getPan: () => pan.value,
-  setPan: (val: number) => pan.value = val,
-  getMute: () => isMuted.value,
-  getSolo: () => isSolo.value,
-  
-  // Frequency control methods
-  getFrequency: () => frequency.value,
-  setFrequency: (val: number) => {
-    frequency.value = val
-  },
-  isOscillator: () => isOscillator.value,
-  randomizeFrequency: () => {
-    // Random frequency between 20Hz and 20kHz on logarithmic scale
-    const logMin = Math.log(20)
-    const logMax = Math.log(20000)
-    const randomLog = logMin + Math.random() * (logMax - logMin)
-    frequency.value = Math.round(Math.exp(randomLog))
-  },
-  
-  resetToDefaults: () => {
-    // Reset volume and pan
-    volume.value = 0
-    pan.value = 0
-    isMuted.value = false
-    isSolo.value = false
-
-    // Reset routing
-    routeToMaster.value = true
-    routedSubgroups.value = new Set()
-
-    // Reset signal
-    selectedSignal.value = 'sine'
-    signalVolume.value = -12
-    frequency.value = 1000
-    
-    // Stop playing if active
-    if (isPlaying.value) {
-      toggleSignal()
-    }
-  }
+  // Cleanup if needed
 })
 </script>
 
 <style scoped>
-/* Drag and drop header */
-.track-header {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.track-header:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-radius: 4px;
-}
-
-.track-header:active {
-  cursor: grabbing !important;
-}
+/* Add any component-specific styles here */
 </style>
