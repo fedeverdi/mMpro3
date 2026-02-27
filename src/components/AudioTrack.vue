@@ -44,12 +44,29 @@
       </div>
 
       <!-- Audio File Selector -->
-      <div v-if="audioSourceType === 'file'" class="w-full">
+      <div v-if="audioSourceType === 'file'" class="w-full flex flex-col gap-1">
         <button @click="openLibrary" 
-          class="w-full text-xs bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 rounded px-2 py-1.5 transition-all flex items-center justify-center gap-1">
-          <span>📚</span>
-          <span>{{ selectedFileName || 'Load from Library' }}</span>
+          class="w-full text-xs bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 rounded px-2 py-0.5 transition-all flex items-center gap-1 overflow-hidden">
+          <span class="flex-shrink-0">📚</span>
+          <span class="flex-1 min-w-0 overflow-hidden">
+            <span class="block whitespace-nowrap animate-marquee">
+              {{ selectedFileName || 'Load from Library' }}
+            </span>
+          </span>
         </button>
+        
+        <!-- Play/Stop Controls -->
+        <div v-if="selectedFileName" class="flex gap-1">
+          <button @click="handlePlayFile"
+            class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all flex items-center justify-center gap-1"
+            :class="isPlaying ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+            ▶ PLAY
+          </button>
+          <button @click="handleStopFile"
+            class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all flex items-center justify-center gap-1 bg-gray-700 hover:bg-gray-600 text-gray-300">
+            ■ STOP
+          </button>
+        </div>
       </div>
     </div>
 
@@ -226,6 +243,9 @@ const showEQ3Bands = ref(false)
 const trackLevelL = ref(-60)
 const trackLevelR = ref(-60)
 
+// File playback state
+const isPlaying = ref(false)
+
 // Refs to child components
 const trackEQRef = ref<InstanceType<typeof TrackEQ> | null>(null)
 const trackCompressorRef = ref<InstanceType<typeof TrackCompressor> | null>(null)
@@ -246,6 +266,23 @@ function handleInputSelect(deviceId: string | null) {
 
 function openLibrary() {
   emit('open-library', props.trackNumber)
+}
+
+// File playback controls
+function handlePlayFile() {
+  if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
+    audioEngine.playFile(props.trackNumber - 1)
+    isPlaying.value = true
+    console.log(`[Track ${props.trackNumber}] Play file`)
+  }
+}
+
+function handleStopFile() {
+  if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
+    audioEngine.stopFile(props.trackNumber - 1)
+    isPlaying.value = false
+    console.log(`[Track ${props.trackNumber}] Stop file`)
+  }
 }
 
 // Method to load file from library (called from parent)
@@ -270,6 +307,7 @@ async function loadFileFromLibrary(storedFile: any) {
       await audioEngine.setTrackSourceFile(props.trackNumber - 1, tempFilePath)
       // Auto-play the file
       await audioEngine.playFile(props.trackNumber - 1)
+      isPlaying.value = true
     }
     
     console.log(`[Track ${props.trackNumber}] Audio file loaded and playing:`, storedFile.fileName)
@@ -457,5 +495,23 @@ defineExpose({
 </script>
 
 <style scoped>
-/* Add any component-specific styles here */
+/* Marquee animation for long file names */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: inline-block;
+  padding-right: 100%;
+  animation: marquee 10s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
 </style>
