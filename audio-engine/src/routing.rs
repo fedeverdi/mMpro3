@@ -12,6 +12,9 @@ pub enum TrackSource {
     FilePlayer,
 }
 
+// Ring buffer size for waveform display (2048 samples = ~42ms @ 48kHz)
+const WAVEFORM_BUFFER_SIZE: usize = 2048;
+
 pub struct Track {
     pub id: usize,
     pub source: TrackSource,
@@ -38,6 +41,11 @@ pub struct Track {
     // Processing state
     pub level_l: f32,
     pub level_r: f32,
+    
+    // Waveform ring buffer (for visualization)
+    waveform_buffer_l: Vec<f32>,
+    waveform_buffer_r: Vec<f32>,
+    waveform_write_index: usize,
 }
 
 impl Track {
@@ -56,6 +64,9 @@ impl Track {
             parametric_eq: ParametricEqualizer::new(48000.0),
             level_l: 0.0,
             level_r: 0.0,
+            waveform_buffer_l: vec![0.0; WAVEFORM_BUFFER_SIZE],
+            waveform_buffer_r: vec![0.0; WAVEFORM_BUFFER_SIZE],
+            waveform_write_index: 0,
         }
     }
 
@@ -87,14 +98,11 @@ impl Track {
         self.equalizer.set_low_mid(low_mid);
         self.equalizer.set_high_mid(high_mid);
         self.equalizer.set_high_shelf(high);
-        eprintln!("[Track {}] EQ: Low={:.1}dB, LowMid={:.1}dB, HighMid={:.1}dB, High={:.1}dB", 
-            self.id, low, low_mid, high_mid, high);
     }
 
     /// Enable or disable EQ
     pub fn set_eq_enabled(&mut self, enabled: bool) {
         self.equalizer.set_enabled(enabled);
-        eprintln!("[Track {}] EQ Enabled: {}", self.id, enabled);
     }
 
     /// Play file
@@ -102,9 +110,6 @@ impl Track {
         if let Some(player) = &mut self.file_player {
             player.set_output_sample_rate(output_sample_rate);
             player.play();
-            eprintln!("[Track {}] File playback started (playing={}, file_rate={}, output_rate={}, ratio={:.4})", 
-                self.id, player.playing, player.sample_rate, player.output_sample_rate,
-                player.sample_rate as f64 / player.output_sample_rate as f64);
             Ok(())
         } else {
             Err(anyhow::anyhow!("Track {} has no file loaded", self.id))
@@ -115,7 +120,6 @@ impl Track {
     pub fn pause_file(&mut self) -> anyhow::Result<()> {
         if let Some(player) = &mut self.file_player {
             player.pause();
-            eprintln!("[Track {}] File playback paused", self.id);
             Ok(())
         } else {
             Err(anyhow::anyhow!("Track {} has no file loaded", self.id))
@@ -126,7 +130,6 @@ impl Track {
     pub fn stop_file(&mut self) -> anyhow::Result<()> {
         if let Some(player) = &mut self.file_player {
             player.stop();
-            eprintln!("[Track {}] File playback stopped", self.id);
             Ok(())
         } else {
             Err(anyhow::anyhow!("Track {} has no file loaded", self.id))
@@ -201,7 +204,33 @@ impl Track {
         self.level_l = self.level_l.max(left.abs());
         self.level_r = self.level_r.max(right.abs());
 
+        // Capture samples in waveform ring buffer
+        self.waveform_buffer_l[self.waveform_write_index] = left;
+        self.waveform_buffer_r[self.waveform_write_index] = right;
+        self.waveform_write_index = (self.waveform_write_index + 1) % WAVEFORM_BUFFER_SIZE;
+
         (left, right)
+    }
+
+    /// Get waveform buffer for visualization (returns samples in chronological order)
+    pub fn get_waveform_buffer(&self, max_samples: usize) -> Vec<f32> {
+        let count = max_samples.min(WAVEFORM_BUFFER_SIZE);
+        let mut result = Vec::with_capacity(count);
+        
+        // Calculate start position (oldest sample in ring buffer)
+        let start_index = self.waveform_write_index;
+        
+        // Copy samples in chronological order, downsampling if needed
+        let step = WAVEFORM_BUFFER_SIZE / count;
+        
+        for i in 0..count {
+            let buffer_index = (start_index + i * step) % WAVEFORM_BUFFER_SIZE;
+            // Mix left and right channels for mono display
+            let sample = (self.waveform_buffer_l[buffer_index] + self.waveform_buffer_r[buffer_index]) * 0.5;
+            result.push(sample);
+        }
+        
+        result
     }
 
     /// Reset peak levels for metering

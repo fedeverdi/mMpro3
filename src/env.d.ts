@@ -47,6 +47,9 @@ interface AudioEngine {
   setMasterGain: (gain: number) => Promise<void>
   setMasterMute: (mute: boolean) => Promise<void>
   setMasterOutputChannels: (leftChannel: number, rightChannel: number) => Promise<void>
+  
+  // Waveform Data
+  getTrackWaveform: (track: number, maxSamples: number) => Promise<number[]>
 }
 
 interface Window {

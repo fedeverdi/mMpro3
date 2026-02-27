@@ -68,6 +68,14 @@
           </button>
         </div>
       </div>
+
+      <!-- Waveform Display - Always visible -->
+      <WaveformDisplay 
+        :track-number="trackNumber - 1"
+        :show-mode-buttons="false"
+        mode="signal"
+        :is-active="(audioSourceType === 'file' && isPlaying) || (audioSourceType === 'input' && selectedAudioInput !== '')"
+      />
     </div>
 
     <!-- Main Content -->
@@ -205,6 +213,7 @@ import TrackGate from './audioTrack/TrackGate.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
 import Knob from './core/Knob.vue'
 import ParametricEQModal from './master/ParametricEQModal.vue'
+import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
 
 // Props
 const props = defineProps<{

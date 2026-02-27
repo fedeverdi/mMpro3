@@ -54,6 +54,10 @@ contextBridge.exposeInMainWorld('audioEngine', {
   // Device management
   listDevices: () => ipcRenderer.invoke('audio-engine:list-devices'),
   
+  // Waveform data
+  getTrackWaveform: (track: number, maxSamples: number) => 
+    ipcRenderer.invoke('audio-engine:get-track-waveform', track, maxSamples),
+  
   // Response listener
   onResponse: (callback: (response: any) => void) => {
     ipcRenderer.on('audio-engine-response', (_, data) => callback(data))

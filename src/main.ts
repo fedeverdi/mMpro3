@@ -57,10 +57,11 @@ const startAudioEngineInternal = () => {
         const response = JSON.parse(line)
         
         // Check if there's a pending handler for this response type
-        for (const [responseType, handler] of responseHandlers.entries()) {
-          if (response[responseType] !== undefined) {
+        const responseType = response.type
+        if (responseType && responseHandlers.has(responseType)) {
+          const handler = responseHandlers.get(responseType)
+          if (handler) {
             handler(response)
-            // Don't break - multiple handlers might be waiting
           }
         }
         
@@ -290,6 +291,15 @@ ipcMain.handle('audio-engine:set-master-output-channels', async (_, leftChannel:
 ipcMain.handle('audio-engine:list-devices', async () => {
   const response = await sendCommandAndWaitForResponse({ type: 'list_devices' }, 'devices')
   return response.devices
+})
+
+ipcMain.handle('audio-engine:get-track-waveform', async (_, track: number, maxSamples: number) => {
+  const response = await sendCommandAndWaitForResponse(
+    { type: 'get_track_waveform', track, max_samples: maxSamples },
+    'waveform',
+    1000  // 1 second timeout - waveform requests should be fast
+  )
+  return response.samples
 })
 
 // Window state management

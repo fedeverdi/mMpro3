@@ -119,6 +119,13 @@ enum Command {
         right_channel: u16,
     },
 
+    // Waveform data
+    #[serde(rename = "get_track_waveform")]
+    GetTrackWaveform {
+        track: usize,
+        max_samples: usize,
+    },
+
     // Device management
     #[serde(rename = "list_devices")]
     ListDevices,
@@ -143,6 +150,11 @@ enum Response {
         tracks: Vec<TrackLevels>,
         master_l: f32,
         master_r: f32,
+    },
+    #[serde(rename = "waveform")]
+    Waveform {
+        track: usize,
+        samples: Vec<f32>,
     },
 }
 
@@ -624,6 +636,19 @@ impl AudioEngine {
         router.master.output_channel_selection = ChannelSelection::new(left_ch, right_ch);
     }
 
+    /// Get waveform data for visualization
+    fn get_track_waveform(&self, track: usize, max_samples: usize) -> Option<Response> {
+        let router = self.router.lock().unwrap();
+        if let Some(t) = router.tracks.get(track) {
+            let samples = t.get_waveform_buffer(max_samples);
+            Some(Response::Waveform { track, samples })
+        } else {
+            Some(Response::Error {
+                message: format!("Invalid track number: {}", track),
+            })
+        }
+    }
+
     /// Handle a command and return an optional response (only for critical operations)
     fn handle_command(&mut self, command: Command) -> Option<Response> {
         match command {
@@ -753,6 +778,9 @@ impl AudioEngine {
             } => {
                 self.set_master_output_channels(left_channel, right_channel);
                 None
+            }
+            Command::GetTrackWaveform { track, max_samples } => {
+                self.get_track_waveform(track, max_samples)
             }
             Command::ListDevices => match self.list_devices() {
                 Ok(devices) => Some(Response::Devices { devices }),

@@ -77,6 +77,10 @@ export const useAudioEngine = () => {
           }
           break
         
+        case 'waveform':
+          // Handled by getTrackWaveform promise (silent)
+          break
+        
         default:
           console.log('[useAudioEngine] Unhandled response type:', response.type)
       }
@@ -249,6 +253,24 @@ export const useAudioEngine = () => {
     await window.audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
   }
   
+  const getTrackWaveform = async (track: number, maxSamples: number = 512): Promise<number[]> => {
+    if (!window.audioEngine) {
+      return []
+    }
+    
+    if (!state.value.isRunning) {
+      return []
+    }
+    
+    try {
+      const samples = await window.audioEngine.getTrackWaveform(track, maxSamples)
+      return samples || []
+    } catch (error) {
+      // Silent failure - waveform display will show center line
+      return []
+    }
+  }
+  
   const getInputDevices = () => {
     return state.value.devices.filter(d => d.input_channels > 0)
   }
@@ -289,6 +311,7 @@ export const useAudioEngine = () => {
     setMasterGain,
     setMasterMute,
     setMasterOutputChannels,
+    getTrackWaveform,
     getInputDevices,
     getOutputDevices
   }

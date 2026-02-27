@@ -39,15 +39,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { useAudioEngine } from '@/composables/useAudioEngine'
 
 interface Props {
-  waveformNode?: any
+  trackNumber: number // Track number (0-based for backend)
   audioBuffer?: AudioBuffer | null
   isPlaying?: boolean
   currentTime?: number // Current playback time in seconds
   mode?: 'signal' | 'waveform' // External mode control
   showModeButtons?: boolean // Show mode toggle buttons
+  isActive?: boolean // Whether to draw (play or input active)
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -55,12 +57,16 @@ const props = withDefaults(defineProps<Props>(), {
   isPlaying: false,
   currentTime: 0,
   mode: 'signal',
-  showModeButtons: true
+  showModeButtons: true,
+  isActive: false
 })
 
+const audioEngine = useAudioEngine()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const internalMode = ref<'signal' | 'waveform'>(props.mode)
 let animationId: number | null = null
+let intervalId: number | null = null
+let isDrawing = false // Prevent overlapping IPC calls
 
 // Sync internal mode with prop
 watch(() => props.mode, (newMode) => {
@@ -72,10 +78,13 @@ function handleClick() {
 }
 
 onMounted(() => {
-  if (internalMode.value === 'signal') {
+  if (internalMode.value === 'signal' && props.isActive) {
     startSignalDrawing()
-  } else {
+  } else if (internalMode.value === 'waveform') {
     drawFullWaveform()
+  } else {
+    // Draw static center line when inactive
+    drawStaticCenterLine()
   }
 })
 
@@ -83,13 +92,25 @@ onUnmounted(() => {
   stopDrawing()
 })
 
-// Watch for mode or waveformNode changes
+// Watch for mode changes
 watch(() => internalMode.value, (newMode) => {
   stopDrawing()
-  if (newMode === 'signal') {
+  if (newMode === 'signal' && props.isActive) {
     startSignalDrawing()
-  } else {
+  } else if (newMode === 'waveform') {
     drawFullWaveform()
+  }
+})
+
+// Watch for isActive changes
+watch(() => props.isActive, (isActive) => {
+  if (internalMode.value === 'signal') {
+    if (isActive) {
+      startSignalDrawing()
+    } else {
+      stopDrawing()
+      drawStaticCenterLine()
+    }
   }
 })
 
@@ -105,72 +126,72 @@ watch(() => props.currentTime, () => {
   }
 })
 
-watch(() => props.waveformNode, () => {
-  if (internalMode.value === 'signal') {
-    stopDrawing()
-    startSignalDrawing()
-  }
-})
-
-// Real-time signal oscilloscope
-function drawSignal() {
-  if (!canvasRef.value || !props.waveformNode) {
-    return
-  }
-
-  const canvas = canvasRef.value
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  const dpr = window.devicePixelRatio || 1
-  const rect = canvas.getBoundingClientRect()
-
-  // Set canvas size accounting for device pixel ratio
-  canvas.width = rect.width * dpr
-  canvas.height = 50 * dpr
-  ctx.scale(dpr, dpr)
-
-  const width = rect.width
-  const height = 50
-
-  // Clear canvas
-  ctx.fillStyle = '#000000' // black background
-  ctx.fillRect(0, 0, width, height)
-
-  // Get waveform data
-  const values = props.waveformNode.getValue()
+// Real-time signal oscilloscope (using Rust backend)
+async function drawSignal() {
+  // Prevent overlapping calls - skip if previous call is still in progress
+  if (isDrawing) return
   
-  if (!values || values.length === 0) {
-    drawCenterLine(ctx, width, height)
-    return
-  }
+  isDrawing = true
+  
+  try {
+    if (!canvasRef.value) return
 
-  // Draw waveform
-  ctx.strokeStyle = '#22d3ee' // cyan-400
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
+    const canvas = canvasRef.value
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
 
-  const sliceWidth = width / values.length
-  let x = 0
+    const dpr = window.devicePixelRatio || 1
+    const rect = canvas.getBoundingClientRect()
 
-  for (let i = 0; i < values.length; i++) {
-    // Normalize value from -1,1 to 0,height
-    const v = (values[i] + 1) / 2
-    const y = v * height
+    // Set canvas size accounting for device pixel ratio
+    canvas.width = rect.width * dpr
+    canvas.height = rect.height * dpr
+    ctx.scale(dpr, dpr)
 
-    if (i === 0) {
-      ctx.moveTo(x, y)
-    } else {
-      ctx.lineTo(x, y)
+    const width = rect.width
+    const height = rect.height
+
+    // Clear canvas
+    ctx.fillStyle = '#000000'
+    ctx.fillRect(0, 0, width, height)
+
+    // Get waveform data from Rust backend
+    const values = await audioEngine.getTrackWaveform(props.trackNumber, 512)
+    
+    if (!values || values.length === 0) {
+      drawCenterLine(ctx, width, height)
+      return
     }
 
-    x += sliceWidth
+    // Draw waveform
+    ctx.strokeStyle = '#22d3ee' // cyan-400
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+
+    const sliceWidth = width / values.length
+    let x = 0
+
+    for (let i = 0; i < values.length; i++) {
+      // Normalize value from -1,1 to 0,height
+      const v = (values[i] + 1) / 2
+      const y = v * height
+
+      if (i === 0) {
+        ctx.moveTo(x, y)
+      } else {
+        ctx.lineTo(x, y)
+      }
+
+      x += sliceWidth
+    }
+
+    ctx.stroke()
+
+    // Draw center line
+    drawCenterLine(ctx, width, height)
+  } finally {
+    isDrawing = false
   }
-
-  ctx.stroke()
-
-  // Draw center line
-  drawCenterLine(ctx, width, height)
 }
 
 // Full waveform with timeline
@@ -185,11 +206,11 @@ function drawFullWaveform() {
   const rect = canvas.getBoundingClientRect()
 
   canvas.width = rect.width * dpr
-  canvas.height = 50 * dpr
+  canvas.height = rect.height * dpr  // Use actual rect height
   ctx.scale(dpr, dpr)
 
   const width = rect.width
-  const height = 50
+  const height = rect.height  // Use actual rect height
 
   // Clear canvas
   ctx.fillStyle = '#000000'
@@ -285,7 +306,7 @@ function drawFullWaveform() {
 }
 
 function drawCenterLine(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  ctx.strokeStyle = 'rgba(100, 116, 139, 0.3)' // gray-500 with opacity
+  ctx.strokeStyle = 'rgba(100, 116, 139, 0.8)' // gray-500 with higher opacity for visibility
   ctx.lineWidth = 1
   ctx.beginPath()
   ctx.moveTo(0, height / 2)
@@ -293,16 +314,41 @@ function drawCenterLine(ctx: CanvasRenderingContext2D, width: number, height: nu
   ctx.stroke()
 }
 
+// Draw static center line when inactive
+function drawStaticCenterLine() {
+  if (!canvasRef.value) return
+  
+  const canvas = canvasRef.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
+  const dpr = window.devicePixelRatio || 1
+  const rect = canvas.getBoundingClientRect()
+  
+  canvas.width = rect.width * dpr
+  canvas.height = rect.height * dpr
+  ctx.scale(dpr, dpr)
+  
+  const width = rect.width
+  const height = rect.height
+  
+  // Clear canvas with black
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(0, 0, width, height)
+  
+  // Draw center line
+  drawCenterLine(ctx, width, height)
+}
+
 // Start real-time signal animation loop
 function startSignalDrawing() {
-  if (animationId !== null || internalMode.value !== 'signal') return
+  if (intervalId !== null || internalMode.value !== 'signal') return
 
-  function animate() {
+  // Use setInterval instead of requestAnimationFrame to avoid overlap
+  // Update at ~10 FPS (sufficient for audio visualization, low IPC load)
+  intervalId = window.setInterval(() => {
     drawSignal()
-    animationId = requestAnimationFrame(animate)
-  }
-
-  animationId = requestAnimationFrame(animate)
+  }, 1000 / 10) as unknown as number
 }
 
 // Stop animation loop
@@ -312,18 +358,9 @@ function stopDrawing() {
     animationId = null
   }
   
-  // Clear the canvas
-  if (canvasRef.value) {
-    const canvas = canvasRef.value
-    const ctx = canvas.getContext('2d')
-    if (ctx) {
-      const rect = canvas.getBoundingClientRect()
-      ctx.fillStyle = '#000000'
-      ctx.fillRect(0, 0, rect.width, 50)
-      
-      // Draw center line on empty canvas
-      drawCenterLine(ctx, rect.width, 50)
-    }
+  if (intervalId !== null) {
+    clearInterval(intervalId)
+    intervalId = null
   }
 }
 
