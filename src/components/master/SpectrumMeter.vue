@@ -81,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, inject, toRaw } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 
 interface Props {
   masterFxOutputNode?: any
@@ -94,13 +94,9 @@ const bars = ref(128)
 const barOptions = [16, 24, 48, 96, 128]
 const displayMode = ref<'bars' | 'curve' | 'mirror' | 'dots'>('bars')
 
-const ToneRef = inject<any>('Tone')
-let Tone: any = null
-let analyserLeft: any = null
-let analyserRight: any = null
-let splitNode: any = null
+// FFT analysis will be implemented in Rust backend in future
+// For now, we just show the UI without live data
 let animationId: number | null = null
-let currentMasterNode: any = null
 let resizeObserver: ResizeObserver | null = null
 
 // Peak hold tracking
@@ -110,75 +106,27 @@ let peakTimestamps: number[] = []
 const PEAK_HOLD_TIME = 1500 // ms
 const PEAK_DECAY_RATE = 0.002
 
-// Inizializza Tone.js e gli analyser stereo
+// Placeholder analyzer initialization
+// TODO: Implement FFT in Rust backend and receive spectrum data via IPC
 const initAnalyser = async () => {
-  if (!Tone) {
-    if (ToneRef?.value) {
-      Tone = ToneRef.value
-    } else {
-      await new Promise<void>((resolve) => {
-        const check = setInterval(() => {
-          if (ToneRef?.value) {
-            Tone = ToneRef.value
-            clearInterval(check)
-            resolve()
-          }
-        }, 100)
-      })
-    }
-  }
-
-  if (!splitNode && Tone) {
-    // Crea split per separare i canali L/R
-    splitNode = new Tone.Split()
-    // Crea analyser separati per L e R
-    analyserLeft = new Tone.Analyser('fft', 4096)
-    analyserRight = new Tone.Analyser('fft', 4096)
-    // Connetti: split -> analyserLeft (canale 0) / analyserRight (canale 1)
-    splitNode.connect(analyserLeft, 0)
-    splitNode.connect(analyserRight, 1)
-  }
+  // No longer using Tone.js
+  // Spectrum analysis will be done in Rust backend
+  return
 }
 
-// Ottieni il nodo master da MasterFX
-const getMasterNode = () => {
-  if (!props.masterFxOutputNode) return null
-  return toRaw(props.masterFxOutputNode)
-}
-
-// Connetti gli analyser al master
+// Placeholder functions for future FFT implementation
+const getMasterNode = () => null
 const connectAnalyser = async () => {
-  await initAnalyser()
-  if (!splitNode) return
-
-  const masterNode = getMasterNode()
-  if (!masterNode) return
-
-  // Disconnetti il nodo precedente
-  if (currentMasterNode && currentMasterNode !== masterNode) {
-    try {
-      currentMasterNode.disconnect(splitNode)
-    } catch (e) {
-      console.warn('Unable to disconnect previous node:', e)
-    }
-  }
-
-  if (currentMasterNode === masterNode) return
-  
-  // Connetti il nuovo nodo allo split
-  try {
-    masterNode.connect(splitNode)
-    currentMasterNode = masterNode
-  } catch (e) {
-    console.warn('Unable to connect analyser:', e)
-  }
+  // No longer connecting Web Audio nodes
+  // FFT analysis will be done in Rust backend
+  return
 }
 
-// Watch masterFxOutputNode changes
+// Watch masterFxOutputNode changes (placeholder)
 watch(
   () => props.masterFxOutputNode,
   () => {
-    setTimeout(() => connectAnalyser(), 100)
+    // Will be implemented when FFT backend is ready
   },
   { immediate: true }
 )
@@ -237,8 +185,10 @@ const getLogBands = (numBands: number, sampleRate: number, fftBins: number) => {
 const render = () => {
   animationId = requestAnimationFrame(render)
 
-  if (!canvas.value || !analyserLeft || !analyserRight || !Tone) return
-
+  if (!canvas.value) return
+  
+  // TODO: FFT analysis will be implemented in Rust backend
+  // For now, just clear the canvas to show the UI is ready
   const ctx = canvas.value.getContext('2d')
   if (!ctx) return
 
@@ -305,10 +255,19 @@ const render = () => {
     ctx.fillText(label, x, height - 5)
   })
 
-  // Ottieni dati FFT da entrambi i canali
-  const fftDataLeft = analyserLeft.getValue() as Float32Array
-  const fftDataRight = analyserRight.getValue() as Float32Array
-  if (!fftDataLeft || fftDataLeft.length === 0 || !fftDataRight || fftDataRight.length === 0) return
+  // TODO: FFT data will come from Rust backend via IPC
+  // For now, draw empty spectrum with placeholder message
+  ctx.font = '12px monospace'
+  ctx.fillStyle = 'rgba(147, 197, 253, 0.6)'
+  ctx.textAlign = 'center'
+  ctx.fillText('Spectrum Analyzer - FFT implementation pending', width / 2, height / 2)
+  
+  return // Skip FFT rendering until backend implementation is ready
+  
+  /* Future implementation will receive FFT data via IPC:
+  const fftDataLeft = await window.audioEngine.getFFTData('left')
+  const fftDataRight = await window.audioEngine.getFFTData('right')
+  */
 
   // Calcola bande con lunghezza reale dei bin
   const sampleRate = Tone.context.sampleRate

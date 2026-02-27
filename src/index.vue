@@ -234,7 +234,7 @@
 
         <!-- Master EQ Display, Spectrum & FX (Draggable) - NASCOSTO -->
         <template v-else>
-          <RightSection v-if="false" ref="rightSectionRef" :master-channel="masterChannel"
+          <RightSection ref="rightSectionRef" :master-channel="masterChannel"
             :master-section-ref="masterSectionRef" :master-eq-output-node="masterEqOutputNode"
             :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses"
             @master-eq-output-node="handleMasterEqOutputNode" @master-fx-output-node="handleMasterFxOutputNode"
@@ -796,9 +796,27 @@ function handleMasterFxComponent(component: any) {
 }
 
 // Handle master EQ filters update from RightSection
-function handleMasterEQFiltersUpdate(filters: any[]) {
-  // Update is handled internally by RightSection
-  // This handler is kept for potential future use
+async function handleMasterEQFiltersUpdate(filters: any[]) {
+  if (!filters || filters.length === 0) {
+    // Clear master EQ if no filters
+    await window.audioEngine?.clearMasterParametricEQ()
+    return
+  }
+  
+  // Convert filters to backend format and send to Rust audio engine
+  const backendFilters = filters.map(f => ({
+    type: f.type, // 'peaking', 'lowshelf', 'highshelf', etc.
+    frequency: f.frequency,
+    gain: f.gain,
+    q: f.Q
+  }))
+  
+  try {
+    await window.audioEngine?.setMasterParametricEQFilters(backendFilters)
+    console.log('[Master EQ] Updated filters:', backendFilters.length, 'bands')
+  } catch (error) {
+    console.error('[Master EQ] Failed to update filters:', error)
+  }
 }
 
 function setTrackRef(trackId: number, el: any | null) {

@@ -119,6 +119,16 @@ enum Command {
     SetMasterGain { gain: f32 },
     #[serde(rename = "set_master_mute")]
     SetMasterMute { mute: bool },
+    #[serde(rename = "set_master_parametric_eq_filters")]
+    SetMasterParametricEQFilters {
+        filters: Vec<ParametricFilter>,
+    },
+    #[serde(rename = "set_master_parametric_eq_enabled")]
+    SetMasterParametricEQEnabled {
+        enabled: bool,
+    },
+    #[serde(rename = "clear_master_parametric_eq")]
+    ClearMasterParametricEQ,
     #[serde(rename = "set_master_output_channels")]
     SetMasterOutputChannels {
         left_channel: u16,
@@ -693,6 +703,41 @@ impl AudioEngine {
         router.master.mute = mute;
     }
 
+    fn set_master_parametric_eq_filters(&self, filters: &[ParametricFilter]) {
+        use equalizer::FilterType;
+        
+        let mut router = self.router.lock().unwrap();
+        // Clear existing filters
+        router.master.parametric_eq.clear();
+        
+        // Add new filters
+        for filter in filters {
+            let filter_type = match filter.filter_type.as_str() {
+                "lowshelf" => FilterType::LowShelf,
+                "highshelf" => FilterType::HighShelf,
+                "peaking" => FilterType::Peaking,
+                "lowpass" => FilterType::LowPass,
+                "highpass" => FilterType::HighPass,
+                _ => {
+                    eprintln!("[Master] Unknown filter type: {}", filter.filter_type);
+                    continue;
+                }
+            };
+            
+            router.master.parametric_eq.add_band(filter_type, filter.frequency, filter.gain, filter.q);
+        }
+    }
+
+    fn set_master_parametric_eq_enabled(&self, enabled: bool) {
+        let mut router = self.router.lock().unwrap();
+        router.master.parametric_eq.set_enabled(enabled);
+    }
+
+    fn clear_master_parametric_eq(&self) {
+        let mut router = self.router.lock().unwrap();
+        router.master.parametric_eq.clear();
+    }
+
     fn set_master_output_channels(&self, left_ch: u16, right_ch: u16) {
         let mut router = self.router.lock().unwrap();
         router.master.output_channel_selection = ChannelSelection::new(left_ch, right_ch);
@@ -896,6 +941,18 @@ impl AudioEngine {
             }
             Command::SetMasterMute { mute } => {
                 self.set_master_mute(mute);
+                None
+            }
+            Command::SetMasterParametricEQFilters { filters } => {
+                self.set_master_parametric_eq_filters(&filters);
+                None
+            }
+            Command::SetMasterParametricEQEnabled { enabled } => {
+                self.set_master_parametric_eq_enabled(enabled);
+                None
+            }
+            Command::ClearMasterParametricEQ => {
+                self.clear_master_parametric_eq();
                 None
             }
             Command::SetMasterOutputChannels {

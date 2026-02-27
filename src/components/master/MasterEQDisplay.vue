@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick, toRaw, inject } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, toRaw } from 'vue'
 import { PeakingFilter } from '~/lib/filters/peaking.class'
 import { LowShelvingFilter } from '~/lib/filters/lowShelving.class'
 import { HighShelvingFilter } from '~/lib/filters/highShelving.class'
@@ -46,12 +46,9 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'update:filtersData', value: any[]): void
-  (e: 'output-node', value: any): void
 }>()
 
-// Inject Tone.js
-const ToneRef = inject<any>('Tone')
-let Tone: any = null
+// No longer using Tone.js - audio processing handled by Rust backend
 
 const showMasterEQ = ref(false)
 const masterEqCanvas = ref<HTMLCanvasElement | null>(null)
@@ -63,8 +60,6 @@ const highShelvingCalculator = new HighShelvingFilter()
 
 let rafId: number | null = null
 let needsRedraw = false
-let masterParametricEQFilters: any = null
-let outputNode: any = null  // Output node for chaining to MasterSection
 let resizeObserver: ResizeObserver | null = null
 
 function syncFiltersData(newData?: any[]) {
@@ -88,25 +83,7 @@ watch(() => props.filtersData, (newVal) => {
   syncFiltersData(newVal)
 }, { immediate: true })
 
-// Watch for masterChannel to become available
-watch(() => props.masterChannel, (newVal) => {
-  if (newVal && Tone && !outputNode) {
-    outputNode = new Tone.Gain(1)
-    // Connect master to output
-    const masterChan = toRaw(newVal)
-    masterChan.connect(outputNode)
-    
-    // Emit the output node to parent
-    emit('output-node', outputNode)
-  }
-}, { immediate: true })
-
 onMounted(async () => {
-  // Get Tone.js
-  if (ToneRef?.value) {
-    Tone = ToneRef.value
-  }
-  
   await nextTick()
   requestRedraw()
   window.addEventListener('resize', requestRedraw)
@@ -117,17 +94,6 @@ onMounted(async () => {
       requestRedraw()
     })
     resizeObserver.observe(masterEqCanvas.value)
-  }
-  
-  // Create output node for chaining
-  if (Tone && props.masterChannel && !outputNode) {
-    outputNode = new Tone.Gain(1)
-    // Initially connect master directly to output
-    const masterChan = toRaw(props.masterChannel)
-    masterChan.connect(outputNode)
-    
-    // Emit the output node to parent
-    emit('output-node', outputNode)
   }
 })
 
@@ -140,19 +106,11 @@ onUnmounted(() => {
     resizeObserver.disconnect()
     resizeObserver = null
   }
-  
-  // Cleanup audio nodes
-  if (outputNode) {
-    outputNode.dispose()
-  }
 })
 
 // Handle parametric EQ update
 function handleMasterParametricEQUpdate(filters: any) {
   if (!filters) return
-  
-  // Store the latest filter chain
-  masterParametricEQFilters = filters
   
   // Store filter data for thumbnail AND update the preview
   if (filters.filtersData) {
@@ -166,42 +124,11 @@ function handleMasterParametricEQUpdate(filters: any) {
     }))
     
     // Emit to parent so masterEqFiltersData stays synchronized
+    // Parent (RightSection) will send this to Rust backend
     emit('update:filtersData', internalFiltersData.value)
     
     // Redraw the preview when filters change
     requestRedraw()
-  }
-  
-  // Apply the parametric EQ to the audio chain
-  applyMasterEQ()
-}
-
-// Insert or remove parametric EQ from the master chain
-function applyMasterEQ() {
-  if (!props.masterChannel || !outputNode) return
-  
-  const masterChan = toRaw(props.masterChannel)
-  
-  // Disconnect master channel
-  try {
-    masterChan.disconnect()
-  } catch (e) {
-    // Ignore disconnection errors
-  }
-  
-  // Insert parametric EQ between master and output if present
-  if (masterParametricEQFilters && masterParametricEQFilters.input && masterParametricEQFilters.output) {
-    masterChan.connect(masterParametricEQFilters.input)
-    
-    // Disconnect old parametric output if needed
-    try {
-      masterParametricEQFilters.output.disconnect()
-    } catch (e) { }
-    
-    masterParametricEQFilters.output.connect(outputNode)
-  } else {
-    // No parametric EQ: connect master directly to output
-    masterChan.connect(outputNode)
   }
 }
 

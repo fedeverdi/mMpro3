@@ -270,6 +270,7 @@ impl Track {
 pub struct MasterBus {
     pub gain: f32,
     pub mute: bool,
+    pub parametric_eq: ParametricEqualizer,
     pub output_channel_selection: ChannelSelection,
     pub level_l: f32,
     pub level_r: f32,
@@ -280,6 +281,7 @@ impl MasterBus {
         Self {
             gain: 1.0,
             mute: false,
+            parametric_eq: ParametricEqualizer::new(48000.0),
             output_channel_selection: ChannelSelection::stereo(),
             level_l: 0.0,
             level_r: 0.0,
@@ -304,9 +306,12 @@ impl MasterBus {
             }
         }
 
+        // Apply master parametric EQ BEFORE gain (typical mixing practice)
+        let (mix_l, mix_r) = self.parametric_eq.process(mix_l, mix_r);
+
         // Apply master gain
-        mix_l *= self.gain;
-        mix_r *= self.gain;
+        let mix_l = mix_l * self.gain;
+        let mix_r = mix_r * self.gain;
 
         // Update levels (peak hold)
         self.level_l = self.level_l.max(mix_l.abs());

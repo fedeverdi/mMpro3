@@ -49,6 +49,9 @@ interface AudioEngine {
   // Master Section Controls
   setMasterGain: (gain: number) => Promise<void>
   setMasterMute: (mute: boolean) => Promise<void>
+  setMasterParametricEQFilters: (filters: Array<{type: string, frequency: number, gain: number, q: number}>) => Promise<void>
+  setMasterParametricEQEnabled: (enabled: boolean) => Promise<void>
+  clearMasterParametricEQ: () => Promise<void>
   setMasterOutputChannels: (leftChannel: number, rightChannel: number) => Promise<void>
   
   // Subgroup Controls

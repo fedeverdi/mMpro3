@@ -51,6 +51,11 @@ contextBridge.exposeInMainWorld('audioEngine', {
   // Master controls
   setMasterGain: (gain: number) => ipcRenderer.invoke('audio-engine:set-master-gain', gain),
   setMasterMute: (mute: boolean) => ipcRenderer.invoke('audio-engine:set-master-mute', mute),
+  setMasterParametricEQFilters: (filters: Array<{type: string, frequency: number, gain: number, q: number}>) => 
+    ipcRenderer.invoke('audio-engine:set-master-parametric-eq-filters', filters),
+  setMasterParametricEQEnabled: (enabled: boolean) => 
+    ipcRenderer.invoke('audio-engine:set-master-parametric-eq-enabled', enabled),
+  clearMasterParametricEQ: () => ipcRenderer.invoke('audio-engine:clear-master-parametric-eq'),
   setMasterOutputChannels: (leftChannel: number, rightChannel: number) => 
     ipcRenderer.invoke('audio-engine:set-master-output-channels', leftChannel, rightChannel),
   

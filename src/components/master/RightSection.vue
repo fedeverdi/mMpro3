@@ -100,7 +100,7 @@
       </div>
 
       <!-- Aux Buses -->
-      <div v-if="component.id === 'aux'"
+      <div v-if="false && component.id === 'aux'"
         v-show="!isCollapsed"
         class="w-full mixer-fade-in relative group"
         :style="getDragStyles(component.id)"
@@ -130,7 +130,7 @@
       </div>
 
       <!-- Master FX -->
-      <div v-if="component.id === 'fx'"
+      <div v-if="false && component.id === 'fx'"
         v-show="!isCollapsed"
         class="w-full mixer-fade-in relative group"
         :style="getDragStyles(component.id)"
@@ -217,8 +217,9 @@ interface RightSectionComponent {
 const rightSectionComponents = ref<RightSectionComponent[]>([
   { id: 'eq', name: 'Master EQ', size: 'flex' },
   { id: 'spectrum', name: 'Spectrum', size: 'flex' },
-  { id: 'aux', name: 'Aux Buses', size: 'fixed' },
-  { id: 'fx', name: 'Master FX', size: 'fixed' }
+  // Temporarily hidden - will be implemented later
+  // { id: 'aux', name: 'Aux Buses', size: 'fixed' },
+  // { id: 'fx', name: 'Master FX', size: 'fixed' }
 ])
 
 const draggedComponent = ref<string | null>(null)
