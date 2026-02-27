@@ -33,13 +33,12 @@ const startAudioEngine = () => {
     const output = data.toString().trim()
     
     // Process each line separately (engine may send multiple JSON responses)
-    const lines = output.split('\n').filter(line => line.trim())
+    const lines = output.split('\n').filter((line: string) => line.trim())
     
     for (const line of lines) {
       // Try to parse as JSON
       try {
-        const response = JSON.parse(line)
-        console.log('[Engine Response]', response.type, response)
+        const response = JSON.parse(line)      
         
         // Forward to renderer
         BrowserWindow.getAllWindows().forEach(win => {
@@ -99,6 +98,10 @@ ipcMain.handle('audio-engine:set-gain', async (_, track: number, gain: number) =
   await sendCommandToEngine({ type: 'set_gain', track, gain })
 })
 
+ipcMain.handle('audio-engine:set-volume', async (_, track: number, volume: number) => {
+  await sendCommandToEngine({ type: 'set_volume', track, volume })
+})
+
 ipcMain.handle('audio-engine:set-mute', async (_, track: number, mute: boolean) => {
   await sendCommandToEngine({ type: 'set_mute', track, mute })
 })
@@ -113,6 +116,81 @@ ipcMain.handle('audio-engine:set-compressor', async (_, track: number, enabled: 
 
 ipcMain.handle('audio-engine:set-gate', async (_, track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => {
   await sendCommandToEngine({ type: 'set_gate', track, enabled, threshold, range, attack, release })
+})
+
+// Track source selection
+ipcMain.handle('audio-engine:set-track-source-input', async (_, track: number, leftChannel: number, rightChannel: number) => {
+  await sendCommandToEngine({ type: 'set_track_source_input', track, left_channel: leftChannel, right_channel: rightChannel })
+})
+
+ipcMain.handle('audio-engine:set-track-source-signal', async (_, track: number, waveform: string, frequency: number) => {
+  await sendCommandToEngine({ type: 'set_track_source_signal', track, waveform, frequency })
+})
+
+ipcMain.handle('audio-engine:set-track-source-file', async (_, track: number, filePath: string) => {
+  console.log('[Main] Setting track source file:', { track, filePath })
+  await sendCommandToEngine({ type: 'set_track_source_file', track, file_path: filePath })
+})
+
+// Save audio buffer to temp file and return path
+ipcMain.handle('audio-engine:save-temp-audio-file', async (_, arrayBuffer: ArrayBuffer, fileName: string) => {
+  try {
+    const tempDir = app.getPath('temp')
+    const mmpro3TempDir = path.join(tempDir, 'mmpro3-audio')
+    
+    // Create temp directory if it doesn't exist
+    if (!fs.existsSync(mmpro3TempDir)) {
+      fs.mkdirSync(mmpro3TempDir, { recursive: true })
+    }
+    
+    // Generate unique filename
+    const timestamp = Date.now()
+    const ext = path.extname(fileName) || '.mp3'
+    const baseName = path.basename(fileName, ext)
+    const tempFileName = `${baseName}_${timestamp}${ext}`
+    const tempFilePath = path.join(mmpro3TempDir, tempFileName)
+    
+    // Write buffer to file
+    const buffer = Buffer.from(arrayBuffer)
+    fs.writeFileSync(tempFilePath, buffer)
+    
+    console.log('[Main] Saved temp audio file:', tempFilePath)
+    return tempFilePath
+  } catch (error) {
+    console.error('[Main] Error saving temp audio file:', error)
+    throw error
+  }
+})
+
+// File playback controls
+ipcMain.handle('audio-engine:play-file', async (_, track: number) => {
+  console.log('[Main] Playing file on track:', track)
+  await sendCommandToEngine({ type: 'play_file', track })
+})
+
+ipcMain.handle('audio-engine:pause-file', async (_, track: number) => {
+  await sendCommandToEngine({ type: 'pause_file', track })
+})
+
+ipcMain.handle('audio-engine:stop-file', async (_, track: number) => {
+  await sendCommandToEngine({ type: 'stop_file', track })
+})
+
+ipcMain.handle('audio-engine:set-pan', async (_, track: number, pan: number) => {
+  await sendCommandToEngine({ type: 'set_pan', track, pan })
+})
+
+// Master controls
+ipcMain.handle('audio-engine:set-master-gain', async (_, gain: number) => {
+  await sendCommandToEngine({ type: 'set_master_gain', gain })
+})
+
+ipcMain.handle('audio-engine:set-master-mute', async (_, mute: boolean) => {
+  await sendCommandToEngine({ type: 'set_master_mute', mute })
+})
+
+ipcMain.handle('audio-engine:set-master-output-channels', async (_, leftChannel: number, rightChannel: number) => {
+  await sendCommandToEngine({ type: 'set_master_output_channels', left_channel: leftChannel, right_channel: rightChannel })
 })
 
 ipcMain.handle('audio-engine:list-devices', async () => {

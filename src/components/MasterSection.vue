@@ -140,8 +140,11 @@ function updateMetersHeight() {
 function onMasterOutputSelect(deviceId: string | null) {
   selectedMasterOutput.value = deviceId
   console.log('[Master Output] Selected:', deviceId)
-  // TODO: Send to Rust engine to set output device
-  // audioEngine.setMasterOutput(deviceId)
+  
+  // Send to Rust engine to set output device with default stereo channels (0, 1)
+  if (audioEngine?.state.value.isRunning && deviceId) {
+    audioEngine.setMasterOutputChannels(0, 1)
+  }
 }
 
 // Handle headphones output selection
@@ -168,9 +171,19 @@ function toggleMasterMute() {
 // Watchers - Send changes to Rust engine
 watch([leftVolume, rightVolume], ([left, right]) => {
   if (audioEngine?.state.value.isRunning) {
-    // TODO: Send master volume to Rust engine
-    // audioEngine.setMasterVolume(left, right)
-    console.log('[Master] Volume changed:', { left, right })
+    // Use average of L/R for master gain (since Rust has single master gain)
+    const avgDb = (left + right) / 2
+    
+    // Convert dB to linear gain: gain = 10^(dB/20)
+    let gainValue: number
+    if (avgDb <= -90) {
+      gainValue = 0.0 // Mute
+    } else {
+      gainValue = Math.pow(10, avgDb / 20)
+    }
+    
+    audioEngine.setMasterGain(gainValue)
+    console.log('[Master] Gain changed:', gainValue, `(${avgDb.toFixed(1)} dB)`)
   }
 })
 
@@ -184,11 +197,24 @@ watch(headphonesVolume, (volume) => {
 
 watch(masterMuted, (muted) => {
   if (audioEngine?.state.value.isRunning) {
-    // TODO: Send master mute to Rust engine
-    // audioEngine.setMasterMute(muted)
+    audioEngine.setMasterMute(muted)
     console.log('[Master] Mute changed:', muted)
   }
 })
+
+// Watch for meter level updates from audio engine
+watch(
+  () => audioEngine?.state.value.masterLevels,
+  (levels) => {
+    if (levels) {
+      // Convert linear (0-1) to dB (-60 to 0)
+      // dB = 20 * log10(linear)
+      leftLevel.value = levels.left > 0 ? 20 * Math.log10(levels.left) : -60
+      rightLevel.value = levels.right > 0 ? 20 * Math.log10(levels.right) : -60
+    }
+  },
+  { deep: true }
+)
 
 // When linked, sync right to left
 watch(leftVolume, (newVal) => {

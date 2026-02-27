@@ -4,8 +4,24 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Audio I/O
 cpal = { version = "0.15", features = ["asio"] }
+
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+# Error handling
 anyhow = "1.0"
+
+# Ring buffer for audio streams
 ringbuf = "0.3"
+
+# Audio file decoding (multi-format: MP3, FLAC, WAV, OGG, etc.)
+symphonia = { version = "0.5", features = ["all"] }
+
+# Resampling
+rubato = "0.15"
+
+# WAV file support (lightweight alternative)
+hound = "3.5"

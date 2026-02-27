@@ -24,11 +24,12 @@
         <select v-model="audioSourceType"
           class="w-full text-xs bg-gray-700 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-blue-500 focus:outline-none">
           <option value="input">🎤 Audio Input</option>
+          <option value="file">📁 Audio File</option>
         </select>
       </div>
 
       <!-- Audio Input Device Selector -->
-      <div class="w-full">
+      <div v-if="audioSourceType === 'input'" class="w-full">
         <InputSelector
           icon="🎤"
           title="Select Audio Input"
@@ -40,6 +41,15 @@
           :show-file-option="false"
           @select="handleInputSelect"
         />
+      </div>
+
+      <!-- Audio File Selector -->
+      <div v-if="audioSourceType === 'file'" class="w-full">
+        <button @click="openLibrary" 
+          class="w-full text-xs bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 rounded px-2 py-1.5 transition-all flex items-center justify-center gap-1">
+          <span>📚</span>
+          <span>{{ selectedFileName || 'Load from Library' }}</span>
+        </button>
       </div>
     </div>
 
@@ -112,7 +122,7 @@
       </div>
 
       <!-- Volume Fader and VU Meter -->
-      <div class="flex flex-col h-full">
+      <div class="flex flex-col flex-1 min-h-0 pb-6">
         <div class="text-[0.455rem] uppercase text-center">Volume</div>
         <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
           
@@ -177,6 +187,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   remove: []
   'toggle-arm': []
+  'open-library': [trackNumber: number]
 }>()
 
 // Inject Rust audio engine
@@ -189,12 +200,14 @@ const { audioInputDevices, refreshAudioInputs } = useAudioDevices()
 const trackElement = ref<HTMLElement | null>(null)
 const faderContainer = ref<HTMLElement | null>(null)
 const faderHeight = ref(0)
+const selectedAudioFile = ref<string | null>(null)
+const selectedFileName = ref<string | null>(null)
 
-const audioSourceType = ref<'input'>('input')
+const audioSourceType = ref<'input' | 'file'>('input')
 const selectedAudioInput = ref<string>('')
 
 // Control values
-const volume = ref(0.8) // 0-1 range
+const volume = ref(0) // dB (-90 to +12)
 const gain = ref(0) // dB
 const padEnabled = ref(false)
 const hpfEnabled = ref(false)
@@ -210,8 +223,8 @@ const compressorEnabled = ref(false)
 const showEQ3Bands = ref(false)
 
 // Meter levels (simulated for now)
-const trackLevelL = ref(0)
-const trackLevelR = ref(0)
+const trackLevelL = ref(-60)
+const trackLevelR = ref(-60)
 
 // Refs to child components
 const trackEQRef = ref<InstanceType<typeof TrackEQ> | null>(null)
@@ -221,8 +234,48 @@ const trackGateRef = ref<InstanceType<typeof TrackGate> | null>(null)
 // Handlers
 function handleInputSelect(deviceId: string | null) {
   selectedAudioInput.value = deviceId || ''
+  selectedAudioFile.value = null
+  selectedFileName.value = null
   console.log(`[Track ${props.trackNumber}] Selected input:`, deviceId)
-  // TODO: Send to Rust engine
+  
+  // Send to Rust engine with default stereo channels (0, 1)
+  if (audioEngine?.state.value.isRunning && deviceId) {
+    audioEngine.setTrackSourceInput(props.trackNumber - 1, 0, 1)
+  }
+}
+
+function openLibrary() {
+  emit('open-library', props.trackNumber)
+}
+
+// Method to load file from library (called from parent)
+async function loadFileFromLibrary(storedFile: any) {
+  try {
+    console.log(`[Track ${props.trackNumber}] Loading file from library:`, storedFile.fileName || storedFile.title, storedFile.id)
+    
+    selectedAudioFile.value = storedFile.id
+    selectedFileName.value = storedFile.title || storedFile.fileName
+    audioSourceType.value = 'file'
+    
+    // Save ArrayBuffer to temp file and get the file path
+    const tempFilePath = await window.audioEngine.saveTempAudioFile(
+      storedFile.arrayBuffer,
+      storedFile.fileName
+    )
+    
+    console.log(`[Track ${props.trackNumber}] Temp file saved at:`, tempFilePath)
+    
+    // Set track source to file in Rust engine
+    if (audioEngine?.state.value.isRunning) {
+      await audioEngine.setTrackSourceFile(props.trackNumber - 1, tempFilePath)
+      // Auto-play the file
+      await audioEngine.playFile(props.trackNumber - 1)
+    }
+    
+    console.log(`[Track ${props.trackNumber}] Audio file loaded and playing:`, storedFile.fileName)
+  } catch (error) {
+    console.error(`[Track ${props.trackNumber}] Error loading file from library:`, error)
+  }
 }
 
 function toggleMute() {
@@ -291,7 +344,25 @@ function handleGateParamsUpdate(params: { threshold: number; attack: number; rel
 
 // Watchers - Send changes to Rust engine
 watch(volume, (newVolume) => {
-  const gainValue = newVolume // Map 0-1 to linear gain
+  // Convert dB to linear gain: gain = 10^(dB/20)
+  // volume is in dB range (-90 to +12)
+  let gainValue: number
+  if (newVolume <= -90) {
+    gainValue = 0.0 // Mute
+  } else {
+    gainValue = Math.pow(10, newVolume / 20)
+  }
+  
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setTrackVolume(props.trackNumber - 1, gainValue)
+  }
+})
+
+watch(gain, (newGain) => {
+  // Convert dB to linear gain: gain = 10^(dB/20)
+  // gain knob is in dB range (-12 to +12)
+  const gainValue = Math.pow(10, newGain / 20)
+  
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackGain(props.trackNumber - 1, gainValue)
   }
@@ -335,6 +406,26 @@ watch(gateEnabled, (enabled) => {
   }
 })
 
+watch(pan, (newPan) => {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setTrackPan(props.trackNumber - 1, newPan)
+  }
+})
+
+// Watch for meter level updates from audio engine
+watch(
+  () => audioEngine?.state.value.trackLevels.get(props.trackNumber - 1),
+  (levels) => {
+    if (levels) {
+      // Convert linear (0-1) to dB (-60 to 0)
+      // dB = 20 * log10(linear)
+      trackLevelL.value = levels.left > 0 ? 20 * Math.log10(levels.left) : -60
+      trackLevelR.value = levels.right > 0 ? 20 * Math.log10(levels.right) : -60
+    }
+  },
+  { deep: true }
+)
+
 // Fader height calculation
 function updateFaderHeight() {
   if (faderContainer.value) {
@@ -357,6 +448,11 @@ onMounted(async () => {
 
 onUnmounted(() => {
   // Cleanup if needed
+})
+
+// Expose methods to parent
+defineExpose({
+  loadFileFromLibrary
 })
 </script>
 

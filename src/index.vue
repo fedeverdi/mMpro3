@@ -129,7 +129,7 @@
         </header>
 
         <!-- Mixer Console -->
-        <main class="flex-1 flex gap-2 p-2 pb-14 overflow-hidden">
+        <main class="flex-1 flex gap-2 p-2 overflow-hidden">
             <!-- Audio Tracks Section (flexible) -->
             <div class="tracks-scroll-wrap flex-1 overflow-hidden min-w-0 pb-[2px]">
                 <div class="tracks-scroll overflow-x-auto overflow-y-hidden h-full">
@@ -199,6 +199,7 @@
                                     :subgroups="subgroups" 
                                     :allow-subgroup-routing="buildLimits.allowSubgroupRouting"
                                     @toggle-arm="toggleTrackArm(track.id)"
+                                    @open-library="handleOpenLibrary"
                                     @remove="removeTrack(track.id)" />
                             </div>
                         </template>
@@ -573,6 +574,11 @@ provide('automation', automation)
 const fileManagerTargetTrackId = ref<number | null>(null)
 
 function openFileManagerForTrack(trackId: number) {
+    fileManagerTargetTrackId.value = trackId
+    showFileManager.value = true
+}
+
+function handleOpenLibrary(trackId: number) {
     fileManagerTargetTrackId.value = trackId
     showFileManager.value = true
 }

@@ -1,10 +1,20 @@
-use anyhow::Result;
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Host, Stream, StreamConfig};
-use ringbuf::HeapRb;
+use anyhow::{anyhow, Result};
+use cpal::traits::{DeviceTrait, StreamTrait};
+use cpal::Stream;
 use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead};
 use std::sync::{Arc, Mutex};
+
+// Import our modules
+mod audio_io;
+mod file_player;
+mod routing;
+mod signal_gen;
+
+use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
+use file_player::AudioFilePlayer;
+use routing::Router;
+use signal_gen::WaveformType;
 
 /// Comando ricevuto da Electron via stdin
 #[derive(Debug, Deserialize)]
@@ -12,41 +22,60 @@ use std::sync::{Arc, Mutex};
 enum Command {
     #[serde(rename = "start")]
     Start {
-        device_id: Option<String>,
+        input_device: Option<String>,
+        output_device: Option<String>,
         sample_rate: Option<u32>,
-        buffer_size: Option<u32>,
     },
     #[serde(rename = "stop")]
     Stop,
+
+    // Track source selection
+    #[serde(rename = "set_track_source_input")]
+    SetTrackSourceInput {
+        track: usize,
+        left_channel: u16,
+        right_channel: u16,
+    },
+    #[serde(rename = "set_track_source_signal")]
+    SetTrackSourceSignal {
+        track: usize,
+        waveform: String, // "sine", "square", "sawtooth", "triangle", "white", "pink"
+        frequency: f32,
+    },
+    #[serde(rename = "set_track_source_file")]
+    SetTrackSourceFile {
+        track: usize,
+        file_path: String,
+    },
+    #[serde(rename = "play_file")]
+    PlayFile { track: usize },
+    #[serde(rename = "pause_file")]
+    PauseFile { track: usize },
+    #[serde(rename = "stop_file")]
+    StopFile { track: usize },
+
+    // Track controls
     #[serde(rename = "set_gain")]
     SetGain { track: usize, gain: f32 },
+    #[serde(rename = "set_volume")]
+    SetVolume { track: usize, volume: f32 },
     #[serde(rename = "set_mute")]
     SetMute { track: usize, mute: bool },
-    #[serde(rename = "set_eq")]
-    SetEQ {
-        track: usize,
-        low: f32,
-        mid: f32,
-        high: f32,
+    #[serde(rename = "set_pan")]
+    SetPan { track: usize, pan: f32 },
+
+    // Master controls
+    #[serde(rename = "set_master_gain")]
+    SetMasterGain { gain: f32 },
+    #[serde(rename = "set_master_mute")]
+    SetMasterMute { mute: bool },
+    #[serde(rename = "set_master_output_channels")]
+    SetMasterOutputChannels {
+        left_channel: u16,
+        right_channel: u16,
     },
-    #[serde(rename = "set_compressor")]
-    SetCompressor {
-        track: usize,
-        enabled: bool,
-        threshold: f32,
-        ratio: f32,
-        attack: f32,
-        release: f32,
-    },
-    #[serde(rename = "set_gate")]
-    SetGate {
-        track: usize,
-        enabled: bool,
-        threshold: f32,
-        range: f32,
-        attack: f32,
-        release: f32,
-    },
+
+    // Device management
     #[serde(rename = "list_devices")]
     ListDevices,
 }
@@ -61,215 +90,85 @@ enum Response {
     Error { message: String },
     #[serde(rename = "devices")]
     Devices { devices: Vec<DeviceInfo> },
-    #[serde(rename = "level")]
-    Level { track: usize, level: f32 },
+    #[serde(rename = "started")]
+    Started,
+    #[serde(rename = "stopped")]
+    Stopped,
+    #[serde(rename = "levels")]
+    Levels {
+        tracks: Vec<TrackLevels>,
+        master_l: f32,
+        master_r: f32,
+    },
 }
 
 #[derive(Debug, Serialize)]
-struct DeviceInfo {
-    id: String,
-    name: String,
-    input_channels: u16,
-    output_channels: u16,
-}
-
-/// Stato del mixer audio
-struct MixerState {
-    tracks: Vec<TrackState>,
-    master_gain: f32,
-}
-
-#[derive(Clone)]
-struct EQState {
-    low: f32,   // -12 to +12 dB
-    mid: f32,   // -12 to +12 dB
-    high: f32,  // -12 to +12 dB
-}
-
-#[derive(Clone)]
-struct CompressorState {
-    enabled: bool,
-    threshold: f32,  // -60 to 0 dB
-    ratio: f32,      // 1 to 20:1
-    attack: f32,     // 0 to 1 s
-    release: f32,    // 0 to 4 s
-}
-
-#[derive(Clone)]
-struct GateState {
-    enabled: bool,
-    threshold: f32,  // -80 to 0 dB
-    range: f32,      // -60 to 0 dB (attenuation when closed)
-    attack: f32,     // 0.001 to 0.1 s
-    release: f32,    // 0.01 to 2 s
-}
-
-struct TrackState {
-    gain: f32,
-    mute: bool,
-    eq: EQState,
-    compressor: CompressorState,
-    gate: GateState,
-}
-
-impl MixerState {
-    fn new(num_tracks: usize) -> Self {
-        Self {
-            tracks: (0..num_tracks)
-                .map(|_| TrackState {
-                    gain: 1.0,
-                    mute: false,
-                    eq: EQState {
-                        low: 0.0,
-                        mid: 0.0,
-                        high: 0.0,
-                    },
-                    compressor: CompressorState {
-                        enabled: false,
-                        threshold: -20.0,
-                        ratio: 4.0,
-                        attack: 0.1,
-                        release: 0.25,
-                    },
-                    gate: GateState {
-                        enabled: false,
-                        threshold: -40.0,
-                        range: -30.0,
-                        attack: 0.005,
-                        release: 0.2,
-                    },
-                })
-                .collect(),
-            master_gain: 1.0,
-        }
-    }
-
-    fn set_track_gain(&mut self, track: usize, gain: f32) {
-        if let Some(t) = self.tracks.get_mut(track) {
-            t.gain = gain.clamp(0.0, 2.0);
-        }
-    }
-
-    fn set_track_mute(&mut self, track: usize, mute: bool) {
-        if let Some(t) = self.tracks.get_mut(track) {
-            t.mute = mute;
-        }
-    }
-    
-    fn set_track_eq(&mut self, track: usize, low: f32, mid: f32, high: f32) {
-        if let Some(t) = self.tracks.get_mut(track) {
-            t.eq.low = low.clamp(-12.0, 12.0);
-            t.eq.mid = mid.clamp(-12.0, 12.0);
-            t.eq.high = high.clamp(-12.0, 12.0);
-        }
-    }
-    
-    fn set_track_compressor(&mut self, track: usize, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
-        if let Some(t) = self.tracks.get_mut(track) {
-            t.compressor.enabled = enabled;
-            t.compressor.threshold = threshold.clamp(-60.0, 0.0);
-            t.compressor.ratio = ratio.clamp(1.0, 20.0);
-            t.compressor.attack = attack.clamp(0.0, 1.0);
-            t.compressor.release = release.clamp(0.0, 4.0);
-        }
-    }
-    
-    fn set_track_gate(&mut self, track: usize, enabled: bool, threshold: f32, range: f32, attack: f32, release: f32) {
-        if let Some(t) = self.tracks.get_mut(track) {
-            t.gate.enabled = enabled;
-            t.gate.threshold = threshold.clamp(-80.0, 0.0);
-            t.gate.range = range.clamp(-60.0, 0.0);
-            t.gate.attack = attack.clamp(0.001, 0.1);
-            t.gate.release = release.clamp(0.01, 2.0);
-        }
-    }
+struct TrackLevels {
+    track: usize,
+    level_l: f32,
+    level_r: f32,
 }
 
 /// Engine audio principale
 struct AudioEngine {
-    host: Host,
+    audio_io: AudioIO,
+    router: Arc<Mutex<Router>>,
     input_stream: Option<Stream>,
     output_stream: Option<Stream>,
-    state: Arc<Mutex<MixerState>>,
+    sample_rate: u32,
 }
 
 impl AudioEngine {
     fn new() -> Self {
-        // Usa host di default (CoreAudio su macOS, WASAPI su Windows)
-        let host = cpal::default_host();
-        
-        eprintln!("[Engine] Using host: {:?}", host.id());
+        let audio_io = AudioIO::new();
+        let router = Arc::new(Mutex::new(Router::new(1))); // Start with 1 track
+
+        eprintln!("[Engine] Audio engine initialized");
 
         Self {
-            host,
+            audio_io,
+            router,
             input_stream: None,
             output_stream: None,
-            state: Arc::new(Mutex::new(MixerState::new(32))), // 32 tracce
+            sample_rate: 48000,
         }
     }
 
     fn list_devices(&self) -> Result<Vec<DeviceInfo>> {
-        let mut devices = Vec::new();
-
-        // Input devices
-        if let Ok(input_devices) = self.host.input_devices() {
-            for device in input_devices {
-                if let Ok(name) = device.name() {
-                    let config = device.default_input_config().ok();
-                    devices.push(DeviceInfo {
-                        id: name.clone(),
-                        name,
-                        input_channels: config.map(|c| c.channels()).unwrap_or(0),
-                        output_channels: 0,
-                    });
-                }
-            }
-        }
-
-        // Output devices
-        if let Ok(output_devices) = self.host.output_devices() {
-            for device in output_devices {
-                if let Ok(name) = device.name() {
-                    let config = device.default_output_config().ok();
-                    devices.push(DeviceInfo {
-                        id: name.clone(),
-                        name,
-                        input_channels: 0,
-                        output_channels: config.map(|c| c.channels()).unwrap_or(0),
-                    });
-                }
-            }
-        }
-
-        Ok(devices)
+        self.audio_io.list_devices()
     }
 
-    fn start(&mut self, _device_id: Option<String>, sample_rate: Option<u32>, buffer_size: Option<u32>) -> Result<()> {
+    fn start(
+        &mut self,
+        input_device_name: Option<String>,
+        output_device_name: Option<String>,
+        sample_rate: Option<u32>,
+    ) -> Result<()> {
         if self.input_stream.is_some() || self.output_stream.is_some() {
             return Ok(()); // Already running
         }
 
-        // Trova device input/output (per ora usa default)
-        let input_device = self.host.default_input_device()
-            .ok_or_else(|| anyhow::anyhow!("No input device available"))?;
-        let output_device = self.host.default_output_device()
-            .ok_or_else(|| anyhow::anyhow!("No output device available"))?;
+        // Get devices
+        let input_device = if let Some(name) = input_device_name {
+            self.audio_io.find_device_by_name(&name, true)?
+        } else {
+            self.audio_io.default_input_device()?
+        };
+
+        let output_device = if let Some(name) = output_device_name {
+            self.audio_io.find_device_by_name(&name, false)?
+        } else {
+            self.audio_io.default_output_device()?
+        };
 
         eprintln!("[Engine] Input device: {:?}", input_device.name());
         eprintln!("[Engine] Output device: {:?}", output_device.name());
 
-        // Config
-        let mut input_config: StreamConfig = input_device.default_input_config()?.into();
-        let mut output_config: StreamConfig = output_device.default_output_config()?.into();
-        
-        if let Some(sr) = sample_rate {
-            input_config.sample_rate = cpal::SampleRate(sr);
-            output_config.sample_rate = cpal::SampleRate(sr);
-        }
-        if let Some(bs) = buffer_size {
-            input_config.buffer_size = cpal::BufferSize::Fixed(bs);
-            output_config.buffer_size = cpal::BufferSize::Fixed(bs);
-        }
+        // Get configs
+        let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate)?;
+        let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate)?;
+
+        self.sample_rate = output_config.sample_rate.0;
 
         eprintln!("[Engine] Input config: {:?}", input_config);
         eprintln!("[Engine] Output config: {:?}", output_config);
@@ -277,112 +176,120 @@ impl AudioEngine {
         let input_channels = input_config.channels as usize;
         let output_channels = output_config.channels as usize;
 
-        eprintln!("[Engine] Input channels: {}, Output channels: {}", input_channels, output_channels);
-
-        // Crea ring buffer: 8192 samples per canale (circa 170ms @ 48kHz)
-        // Buffer interleaved: total_size = 8192 * max(input_channels, output_channels)
-        let ring_buf_samples = 8192 * input_channels.max(output_channels);
-        let ring = HeapRb::<f32>::new(ring_buf_samples);
-        let (mut producer, consumer) = ring.split();
-
-        // Pre-fill con silenzio per evitare underrun all'avvio
-        for _ in 0..(ring_buf_samples / 2) {
-            let _ = producer.push(0.0);
-        }
-
-        let producer = Arc::new(Mutex::new(producer));
-        let consumer = Arc::new(Mutex::new(consumer));
+        eprintln!(
+            "[Engine] Channels: Input={}, Output={}",
+            input_channels, output_channels
+        );
 
         let err_fn = |err| eprintln!("[Engine] Stream error: {}", err);
 
-        // === INPUT STREAM: legge dal device, scrive nel ring buffer ===
-        let producer_clone = Arc::clone(&producer);
+        // Clone router for callbacks
+        let router_output = Arc::clone(&self.router);
+
+        // Meter update counter and interval (send levels every ~50ms at 48kHz = 2400 frames)
+        let meter_update_frames = Arc::new(Mutex::new(0_usize));
+        let meter_interval = 2400_usize;
+
+        // === INPUT STREAM: capture audio ===
+        // For now, we capture but don't use it directly (tracks may use it later)
+        let input_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
+        let input_buffer_clone = Arc::clone(&input_buffer);
+
         let input_stream = input_device.build_input_stream(
             &input_config,
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                let mut prod = producer_clone.lock().unwrap();
-                // Scrivi tutti i sample nel ring buffer
-                for &sample in data.iter() {
-                    // Se ring buffer è pieno, sovrascrivi (drop vecchi sample)
-                    if prod.push(sample).is_err() {
-                        // Buffer pieno, skip sample (in produzione: metriche xrun)
-                    }
-                }
+                let mut buffer = input_buffer_clone.lock().unwrap();
+                buffer.clear();
+                buffer.extend_from_slice(data);
             },
             err_fn,
             None,
         )?;
 
-        // === OUTPUT STREAM: legge dal ring buffer, applica routing, scrive al device ===
-        let consumer_clone = Arc::clone(&consumer);
-        let state = Arc::clone(&self.state);
+        // === OUTPUT STREAM: process and output audio ===
         let output_stream = output_device.build_output_stream(
             &output_config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                let mut cons = consumer_clone.lock().unwrap();
-                let state = state.lock().unwrap();
-
-                // Buffer temporaneo per input (legge dal ring buffer)
+                let input_buf = input_buffer.lock().unwrap();
                 let frames = data.len() / output_channels;
-                let mut input_buf = vec![0.0f32; frames * input_channels];
 
-                // Leggi dal ring buffer
-                for sample in input_buf.iter_mut() {
-                    *sample = cons.pop().unwrap_or(0.0);
-                }
-
-                // Routing e mixing:
-                // - Ogni traccia prende il suo canale input corrispondente
-                // - Applica gain e mute
-                // - Mixa tutto su master stereo (o multi-canale)
-                
-                // Per semplicità: mix tutte le tracce su L/R stereo
-                for frame_idx in 0..frames {
-                    let mut left_mix = 0.0f32;
-                    let mut right_mix = 0.0f32;
-
-                    // Mix tracks: ogni traccia contribuisce al mix stereo
-                    for (track_idx, track) in state.tracks.iter().enumerate() {
-                        if track.mute {
-                            continue;
-                        }
-
-                        // Prendi il sample corrispondente dal canale input
-                        // Se abbiamo meno canali input che tracce, fa cycling
-                        let input_channel = track_idx % input_channels;
-                        let sample_idx = frame_idx * input_channels + input_channel;
-                        let sample = if sample_idx < input_buf.len() {
-                            input_buf[sample_idx]
+                // Acquire lock, process audio, release lock quickly
+                let levels_to_send = {
+                    let mut router = router_output.lock().unwrap();
+                    
+                    // Process all frames
+                    for frame_idx in 0..frames {
+                        // Prepare input frame if available
+                        let input_frame: Option<Vec<f32>> = if !input_buf.is_empty() && frame_idx < input_buf.len() / input_channels {
+                            let start = frame_idx * input_channels;
+                            let end = start + input_channels;
+                            Some(input_buf[start..end].to_vec())
                         } else {
-                            0.0
+                            None
                         };
 
-                        // Applica gain della traccia
-                        let processed = sample * track.gain;
+                        // Process one frame through router
+                        let (left, right) = router.process_frame(input_frame.as_deref());
 
-                        // Pan: per ora hard-pan left/right alternato (TODO: implementare pan knob)
-                        if track_idx % 2 == 0 {
-                            left_mix += processed;
-                        } else {
-                            right_mix += processed;
+                        // Write to output
+                        let out_frame_start = frame_idx * output_channels;
+                        if output_channels >= 2 {
+                            data[out_frame_start] = left.clamp(-1.0, 1.0);
+                            data[out_frame_start + 1] = right.clamp(-1.0, 1.0);
+                            // Extra channels: silence
+                            for ch in 2..output_channels {
+                                data[out_frame_start + ch] = 0.0;
+                            }
+                        } else if output_channels == 1 {
+                            // Mono: mix L+R
+                            data[out_frame_start] = ((left + right) * 0.5).clamp(-1.0, 1.0);
                         }
                     }
 
-                    // Scrivi su output (stereo o multi-canale)
-                    let out_frame_start = frame_idx * output_channels;
+                    // Check if we need to send meter updates
+                    let mut counter = meter_update_frames.lock().unwrap();
+                    *counter += frames;
                     
-                    if output_channels >= 2 {
-                        // Stereo o multi-canale: L/R sui primi due canali
-                        data[out_frame_start] = left_mix.clamp(-1.0, 1.0);
-                        data[out_frame_start + 1] = right_mix.clamp(-1.0, 1.0);
+                    if *counter >= meter_interval {
+                        *counter = 0;
                         
-                        // Eventuali canali extra: silenzio
-                        for ch in 2..output_channels {
-                            data[out_frame_start + ch] = 0.0;
+                        // Copy levels data while we have the lock
+                        let track_levels: Vec<TrackLevels> = router.tracks.iter()
+                            .map(|t| TrackLevels {
+                                track: t.id,
+                                level_l: t.level_l,
+                                level_r: t.level_r,
+                            })
+                            .collect();
+                        
+                        let master_l = router.master.level_l;
+                        let master_r = router.master.level_r;
+                        
+                        // Reset peak levels after reading
+                        router.master.reset_levels();
+                        for track in router.tracks.iter_mut() {
+                            track.reset_levels();
                         }
-                    } else if output_channels == 1 {
-                        // Mono: mix L+R
-                        data[out_frame_start] = ((left_mix + right_mix) * 0.5).clamp(-1.0, 1.0);
+                        
+                        // Return data to serialize outside the lock
+                        Some((track_levels, master_l, master_r))
+                    } else {
+                        None
+                    }
+                }; // Lock is released here
+                
+                drop(input_buf); // Release input buffer lock
+                
+                // Send meter updates outside the lock
+                if let Some((track_levels, master_l, master_r)) = levels_to_send {
+                    let response = Response::Levels {
+                        tracks: track_levels,
+                        master_l,
+                        master_r,
+                    };
+                    
+                    if let Ok(json) = serde_json::to_string(&response) {
+                        println!("{}", json);
                     }
                 }
             },
@@ -390,47 +297,197 @@ impl AudioEngine {
             None,
         )?;
 
-        // Avvia entrambi gli stream
+        // Start streams
         input_stream.play()?;
         output_stream.play()?;
 
         self.input_stream = Some(input_stream);
         self.output_stream = Some(output_stream);
 
-        eprintln!("[Engine] Duplex streams started!");
+        eprintln!("[Engine] Streams started!");
         Ok(())
     }
 
     fn stop(&mut self) -> Result<()> {
         if let Some(stream) = self.input_stream.take() {
             drop(stream);
-            eprintln!("[Engine] Input stream stopped!");
+            eprintln!("[Engine] Input stream stopped");
         }
         if let Some(stream) = self.output_stream.take() {
             drop(stream);
-            eprintln!("[Engine] Output stream stopped!");
+            eprintln!("[Engine] Output stream stopped");
         }
         Ok(())
     }
 
+    // Track source commands
+    fn set_track_source_input(&self, track: usize, left_ch: u16, right_ch: u16) -> Result<()> {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            let channel_sel = ChannelSelection::new(left_ch, right_ch);
+            t.set_audio_input(channel_sel);
+            eprintln!("[Track {}] Source: Audio Input (L={}, R={})", track, left_ch, right_ch);
+            Ok(())
+        } else {
+            Err(anyhow!("Track {} not found", track))
+        }
+    }
+
+    fn set_track_source_signal(&self, track: usize, waveform: &str, frequency: f32) -> Result<()> {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            let wave = match waveform.to_lowercase().as_str() {
+                "sine" => WaveformType::Sine,
+                "square" => WaveformType::Square,
+                "sawtooth" => WaveformType::Sawtooth,
+                "triangle" => WaveformType::Triangle,
+                "white" => WaveformType::WhiteNoise,
+                "pink" => WaveformType::PinkNoise,
+                _ => return Err(anyhow!("Unknown waveform: {}", waveform)),
+            };
+            t.set_signal_generator(wave, frequency, self.sample_rate as f32);
+            eprintln!("[Track {}] Source: Signal ({:?} @ {}Hz)", track, wave, frequency);
+            Ok(())
+        } else {
+            Err(anyhow!("Track {} not found", track))
+        }
+    }
+
+    fn set_track_source_file(&self, track: usize, file_path: &str) -> Result<()> {
+        eprintln!("[Track {}] Attempting to load file: {}", track, file_path);
+        let mut router = self.router.lock().unwrap();
+        eprintln!("[Track {}] Router has {} tracks", track, router.tracks.len());
+        
+        if let Some(t) = router.get_track_mut(track) {
+            eprintln!("[Track {}] Track found in router", track);
+            let mut player = AudioFilePlayer::new();
+            player.set_output_sample_rate(self.sample_rate);
+            eprintln!("[Track {}] Loading file with output sample rate: {}", track, self.sample_rate);
+            
+            match player.load_file(file_path) {
+                Ok(_) => {
+                    // Debug: log loaded samples info
+                    let sample_count = player.samples.len();
+                    let duration_frames = sample_count / player.channels as usize;
+                    let duration_sec = duration_frames as f32 / player.sample_rate as f32;
+                    eprintln!("[Track {}] File loaded: {} samples, {} channels, {} Hz, {:.2}s duration", 
+                        track, sample_count, player.channels, player.sample_rate, duration_sec);
+                    
+                    t.set_file_player(player);
+                    eprintln!("[Track {}] Source: File ({})", track, file_path);
+                    Ok(())
+                }
+                Err(e) => {
+                    eprintln!("[Track {}] ERROR loading file: {}", track, e);
+                    Err(e)
+                }
+            }
+        } else {
+            eprintln!("[Track {}] ERROR: track not found (router has {} tracks)", track, router.tracks.len());
+            Err(anyhow!("Track {} not found", track))
+        }
+    }
+
+    fn play_file(&self, track: usize) -> Result<()> {
+        let mut router = self.router.lock().unwrap();
+        
+        if let Some(t) = router.get_track_mut(track) {
+            if let Some(player) = &mut t.file_player {
+                player.play();
+                eprintln!("[Track {}] File playback started (playing={}, samples={}, rate={})", 
+                    track, player.playing, player.samples.len(), player.sample_rate);
+                Ok(())
+            } else {
+                Err(anyhow!("Track {} has no file loaded", track))
+            }
+        } else {
+            Err(anyhow!("Track {} not found", track))
+        }
+    }
+
+    fn pause_file(&self, track: usize) -> Result<()> {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            if let Some(player) = &mut t.file_player {
+                player.pause();
+                eprintln!("[Track {}] File playback paused", track);
+                Ok(())
+            } else {
+                Err(anyhow!("Track {} has no file loaded", track))
+            }
+        } else {
+            Err(anyhow!("Track {} not found", track))
+        }
+    }
+
+    fn stop_file(&self, track: usize) -> Result<()> {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            if let Some(player) = &mut t.file_player {
+                player.stop();
+                eprintln!("[Track {}] File playback stopped", track);
+                Ok(())
+            } else {
+                Err(anyhow!("Track {} has no file loaded", track))
+            }
+        } else {
+            Err(anyhow!("Track {} not found", track))
+        }
+    }
+
+    // Track controls
     fn set_gain(&self, track: usize, gain: f32) {
-        self.state.lock().unwrap().set_track_gain(track, gain);
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            t.gain = gain.max(0.0); // No upper limit, but can't be negative
+            let gain_db = if gain > 0.0 { 20.0 * gain.log10() } else { -90.0 };
+            eprintln!("[Track {}] Gain: {:.3} ({:.1} dB)", track, t.gain, gain_db);
+        }
+    }
+
+    fn set_volume(&self, track: usize, volume: f32) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            t.volume = volume.max(0.0); // No upper limit, but can't be negative
+            let volume_db = if volume > 0.0 { 20.0 * volume.log10() } else { -90.0 };
+            eprintln!("[Track {}] Volume: {:.3} ({:.1} dB)", track, t.volume, volume_db);
+        }
     }
 
     fn set_mute(&self, track: usize, mute: bool) {
-        self.state.lock().unwrap().set_track_mute(track, mute);
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            t.mute = mute;
+            eprintln!("[Track {}] Mute: {}", track, mute);
+        }
     }
-    
-    fn set_eq(&self, track: usize, low: f32, mid: f32, high: f32) {
-        self.state.lock().unwrap().set_track_eq(track, low, mid, high);
+
+    fn set_pan(&self, track: usize, pan: f32) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            t.pan = pan.clamp(-1.0, 1.0);
+            eprintln!("[Track {}] Pan: {}", track, t.pan);
+        }
     }
-    
-    fn set_compressor(&self, track: usize, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
-        self.state.lock().unwrap().set_track_compressor(track, enabled, threshold, ratio, attack, release);
+
+    // Master controls
+    fn set_master_gain(&self, gain: f32) {
+        let mut router = self.router.lock().unwrap();
+        router.master.gain = gain.max(0.0); // No upper limit
+        let gain_db = if gain > 0.0 { 20.0 * gain.log10() } else { -90.0 };
+        eprintln!("[Master] Gain: {:.3} ({:.1} dB)", router.master.gain, gain_db);
     }
-    
-    fn set_gate(&self, track: usize, enabled: bool, threshold: f32, range: f32, attack: f32, release: f32) {
-        self.state.lock().unwrap().set_track_gate(track, enabled, threshold, range, attack, release);
+
+    fn set_master_mute(&self, mute: bool) {
+        let mut router = self.router.lock().unwrap();
+        router.master.mute = mute;
+        eprintln!("[Master] Mute: {}", mute);
+    }
+
+    fn set_master_output_channels(&self, left_ch: u16, right_ch: u16) {
+        let mut router = self.router.lock().unwrap();
+        router.master.output_channel_selection = ChannelSelection::new(left_ch, right_ch);
+        eprintln!("[Master] Output channels: L={}, R={}", left_ch, right_ch);
     }
 }
 
@@ -442,54 +499,130 @@ fn send_response(response: &Response) {
 
 fn main() -> Result<()> {
     eprintln!("[Engine] mMpro3 Audio Engine starting...");
-    
+
     let mut engine = AudioEngine::new();
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
 
     eprintln!("[Engine] Ready. Waiting for commands on stdin...");
 
-    // Loop: leggi comandi da stdin
+    // Loop: read commands from stdin
     while let Some(Ok(line)) = lines.next() {
         let command: Result<Command, _> = serde_json::from_str(&line);
-        
+
+        // Debug: log received command
         if let Ok(ref cmd) = command {
-            eprintln!("[Engine] Received command: {:?}", cmd);
+            eprintln!("[Engine] Command: {:?}", cmd);
+        } else if let Err(ref e) = command {
+            eprintln!("[Engine] Failed to parse command: {}", e);
+            eprintln!("[Engine] Raw input: {}", line);
         }
 
         match command {
-            Ok(Command::Start { device_id, sample_rate, buffer_size }) => {
-                match engine.start(device_id, sample_rate, buffer_size) {
+            Ok(Command::Start {
+                input_device,
+                output_device,
+                sample_rate,
+            }) => match engine.start(input_device, output_device, sample_rate) {
+                Ok(_) => {
+                    send_response(&Response::Started);
+                }
+                Err(e) => send_response(&Response::Error {
+                    message: format!("Start failed: {}", e),
+                }),
+            },
+            Ok(Command::Stop) => match engine.stop() {
+                Ok(_) => {
+                    send_response(&Response::Stopped);
+                }
+                Err(e) => send_response(&Response::Error {
+                    message: format!("Stop failed: {}", e),
+                }),
+            },
+            Ok(Command::SetTrackSourceInput {
+                track,
+                left_channel,
+                right_channel,
+            }) => match engine.set_track_source_input(track, left_channel, right_channel) {
+                Ok(_) => send_response(&Response::Ok {
+                    message: format!("Track {} source set to input", track),
+                }),
+                Err(e) => send_response(&Response::Error {
+                    message: e.to_string(),
+                }),
+            },
+            Ok(Command::SetTrackSourceSignal {
+                track,
+                waveform,
+                frequency,
+            }) => match engine.set_track_source_signal(track, &waveform, frequency) {
+                Ok(_) => send_response(&Response::Ok {
+                    message: format!("Track {} source set to signal", track),
+                }),
+                Err(e) => send_response(&Response::Error {
+                    message: e.to_string(),
+                }),
+            },
+            Ok(Command::SetTrackSourceFile { track, file_path }) => {
+                eprintln!("[Engine] Executing SetTrackSourceFile for track {}", track);
+                match engine.set_track_source_file(track, &file_path) {
                     Ok(_) => {
+                        eprintln!("[Engine] SetTrackSourceFile succeeded for track {}", track);
                         send_response(&Response::Ok {
-                            message: "Engine started".to_string(),
-                        });
-                        // Send started event
-                        println!("{{\"type\":\"started\"}}");
-                    },
-                    Err(e) => send_response(&Response::Error {
-                        message: format!("Failed to start: {}", e),
-                    }),
+                            message: format!("Track {} source set to file", track),
+                        })
+                    }
+                    Err(e) => {
+                        eprintln!("[Engine] SetTrackSourceFile FAILED for track {}: {}", track, e);
+                        send_response(&Response::Error {
+                            message: e.to_string(),
+                        })
+                    }
                 }
             }
-            Ok(Command::Stop) => {
-                match engine.stop() {
+            Ok(Command::PlayFile { track }) => {
+                eprintln!("[Engine] Executing PlayFile for track {}", track);
+                match engine.play_file(track) {
                     Ok(_) => {
+                        eprintln!("[Engine] PlayFile succeeded for track {}", track);
                         send_response(&Response::Ok {
-                            message: "Engine stopped".to_string(),
-                        });
-                        // Send stopped event
-                        println!("{{\"type\":\"stopped\"}}");
-                    },
-                    Err(e) => send_response(&Response::Error {
-                        message: format!("Failed to stop: {}", e),
-                    }),
+                            message: format!("Track {} playing", track),
+                        })
+                    }
+                    Err(e) => {
+                        eprintln!("[Engine] PlayFile FAILED for track {}: {}", track, e);
+                        send_response(&Response::Error {
+                            message: e.to_string(),
+                        })
+                    }
                 }
             }
+            Ok(Command::PauseFile { track }) => match engine.pause_file(track) {
+                Ok(_) => send_response(&Response::Ok {
+                    message: format!("Track {} paused", track),
+                }),
+                Err(e) => send_response(&Response::Error {
+                    message: e.to_string(),
+                }),
+            },
+            Ok(Command::StopFile { track }) => match engine.stop_file(track) {
+                Ok(_) => send_response(&Response::Ok {
+                    message: format!("Track {} stopped", track),
+                }),
+                Err(e) => send_response(&Response::Error {
+                    message: e.to_string(),
+                }),
+            },
             Ok(Command::SetGain { track, gain }) => {
                 engine.set_gain(track, gain);
                 send_response(&Response::Ok {
-                    message: format!("Track {} gain set to {}", track, gain),
+                    message: format!("Track {} gain: {}", track, gain),
+                });
+            }
+            Ok(Command::SetVolume { track, volume }) => {
+                engine.set_volume(track, volume);
+                send_response(&Response::Ok {
+                    message: format!("Track {} volume: {}", track, volume),
                 });
             }
             Ok(Command::SetMute { track, mute }) => {
@@ -498,37 +631,42 @@ fn main() -> Result<()> {
                     message: format!("Track {} mute: {}", track, mute),
                 });
             }
-            Ok(Command::SetEQ { track, low, mid, high }) => {
-                engine.set_eq(track, low, mid, high);
+            Ok(Command::SetPan { track, pan }) => {
+                engine.set_pan(track, pan);
                 send_response(&Response::Ok {
-                    message: format!("Track {} EQ set", track),
+                    message: format!("Track {} pan: {}", track, pan),
                 });
             }
-            Ok(Command::SetCompressor { track, enabled, threshold, ratio, attack, release }) => {
-                engine.set_compressor(track, enabled, threshold, ratio, attack, release);
+            Ok(Command::SetMasterGain { gain }) => {
+                engine.set_master_gain(gain);
                 send_response(&Response::Ok {
-                    message: format!("Track {} compressor {}", track, if enabled { "enabled" } else { "disabled" }),
+                    message: format!("Master gain: {}", gain),
                 });
             }
-            Ok(Command::SetGate { track, enabled, threshold, range, attack, release }) => {
-                engine.set_gate(track, enabled, threshold, range, attack, release);
+            Ok(Command::SetMasterMute { mute }) => {
+                engine.set_master_mute(mute);
                 send_response(&Response::Ok {
-                    message: format!("Track {} gate {}", track, if enabled { "enabled" } else { "disabled" }),
+                    message: format!("Master mute: {}", mute),
                 });
             }
-            Ok(Command::ListDevices) => {
-                match engine.list_devices() {
-                    Ok(devices) => send_response(&Response::Devices { devices }),
-                    Err(e) => send_response(&Response::Error {
-                        message: format!("Failed to list devices: {}", e),
-                    }),
-                }
-            }
-            Err(e) => {
-                send_response(&Response::Error {
-                    message: format!("Invalid command: {}", e),
+            Ok(Command::SetMasterOutputChannels {
+                left_channel,
+                right_channel,
+            }) => {
+                engine.set_master_output_channels(left_channel, right_channel);
+                send_response(&Response::Ok {
+                    message: format!("Master output: L={}, R={}", left_channel, right_channel),
                 });
             }
+            Ok(Command::ListDevices) => match engine.list_devices() {
+                Ok(devices) => send_response(&Response::Devices { devices }),
+                Err(e) => send_response(&Response::Error {
+                    message: format!("List devices failed: {}", e),
+                }),
+            },
+            Err(e) => send_response(&Response::Error {
+                message: format!("Invalid command: {}", e),
+            }),
         }
     }
 

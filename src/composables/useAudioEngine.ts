@@ -12,13 +12,17 @@ export interface AudioEngineState {
   devices: AudioDevice[]
   selectedInputDevice: string | null
   selectedOutputDevice: string | null
+  trackLevels: Map<number, { left: number, right: number }>
+  masterLevels: { left: number, right: number }
 }
 
 const state = ref<AudioEngineState>({
   isRunning: false,
   devices: [],
   selectedInputDevice: null,
-  selectedOutputDevice: null
+  selectedOutputDevice: null,
+  trackLevels: new Map(),
+  masterLevels: { left: 0, right: 0 }
 })
 
 let isListening = false
@@ -52,6 +56,25 @@ export const useAudioEngine = () => {
           
         case 'error':
           console.error('[useAudioEngine] Engine error:', response.message)
+          break
+        
+        case 'levels':
+          // Update track levels
+          if (response.tracks) {
+            response.tracks.forEach((trackLevel: any) => {
+              state.value.trackLevels.set(trackLevel.track, {
+                left: trackLevel.level_l,
+                right: trackLevel.level_r
+              })
+            })
+          }
+          // Update master levels
+          if (response.master_l !== undefined && response.master_r !== undefined) {
+            state.value.masterLevels = {
+              left: response.master_l,
+              right: response.master_r
+            }
+          }
           break
         
         default:
@@ -98,6 +121,12 @@ export const useAudioEngine = () => {
     
     await window.audioEngine.setGain(track, gain)
   }
+
+  const setTrackVolume = async (track: number, volume: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setVolume(track, volume)
+  }
   
   const setTrackMute = async (track: number, mute: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
@@ -122,6 +151,69 @@ export const useAudioEngine = () => {
     
     await window.audioEngine.setGate(track, enabled, threshold, range, attack, release)
   }
+
+  // Track source selection
+  const setTrackSourceInput = async (track: number, leftChannel: number, rightChannel: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setTrackSourceInput(track, leftChannel, rightChannel)
+  }
+
+  const setTrackSourceSignal = async (track: number, waveform: string, frequency: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setTrackSourceSignal(track, waveform, frequency)
+  }
+
+  const setTrackSourceFile = async (track: number, filePath: string) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setTrackSourceFile(track, filePath)
+  }
+
+  // File playback controls
+  const playFile = async (track: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.playFile(track)
+  }
+
+  const pauseFile = async (track: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.pauseFile(track)
+  }
+
+  const stopFile = async (track: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.stopFile(track)
+  }
+
+  const setTrackPan = async (track: number, pan: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setPan(track, pan)
+  }
+
+  // Master controls
+  const setMasterGain = async (gain: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setMasterGain(gain)
+  }
+
+  const setMasterMute = async (mute: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setMasterMute(mute)
+  }
+
+  const setMasterOutputChannels = async (leftChannel: number, rightChannel: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
+  }
   
   const getInputDevices = () => {
     return state.value.devices.filter(d => d.input_channels > 0)
@@ -143,10 +235,21 @@ export const useAudioEngine = () => {
     start,
     stop,
     setTrackGain,
+    setTrackVolume,
     setTrackMute,
     setTrackEQ,
     setTrackCompressor,
     setTrackGate,
+    setTrackSourceInput,
+    setTrackSourceSignal,
+    setTrackSourceFile,
+    playFile,
+    pauseFile,
+    stopFile,
+    setTrackPan,
+    setMasterGain,
+    setMasterMute,
+    setMasterOutputChannels,
     getInputDevices,
     getOutputDevices
   }
