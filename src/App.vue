@@ -22,7 +22,6 @@ const handleAudioStart = async () => {
   // Start engine automatically
   await audioEngine.start()
   
-  console.log('[App] Rust audio engine initialized and started')
   isAppReady.value = true
 }
 

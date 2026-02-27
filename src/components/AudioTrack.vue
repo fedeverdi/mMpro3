@@ -1,11 +1,9 @@
 <template>
-  <div
-    ref="trackElement"
-    :class="[
-      'track-channel relative bg-gray-800 rounded-lg border p-1 flex flex-col items-center gap-1 h-full',
-      'border-gray-700'
-    ]">
-    
+  <div ref="trackElement" :class="[
+    'track-channel relative bg-gray-800 rounded-lg border p-1 flex flex-col items-center gap-1 h-full',
+    'border-gray-700'
+  ]">
+
     <!-- Track Header -->
     <div class="w-full flex flex-col gap-1">
       <div class="w-full flex items-center justify-between gap-1">
@@ -30,22 +28,15 @@
 
       <!-- Audio Input Device Selector -->
       <div v-if="audioSourceType === 'input'" class="w-full">
-        <InputSelector
-          icon="🎤"
-          title="Select Audio Input"
-          :devices="audioInputDevices"
-          :selected-device-id="selectedAudioInput"
-          default-label="No Input"
-          default-description="Select an audio input device"
-          default-icon="🎤"
-          :show-file-option="false"
-          @select="handleInputSelect"
-        />
+        <InputSelector icon="🎤" title="Select Audio Input" :devices="audioInputDevices"
+          :selected-device-id="selectedAudioInput" default-label="No Input"
+          default-description="Select an audio input device" default-icon="🎤" :show-file-option="false"
+          @select="handleInputSelect" />
       </div>
 
       <!-- Audio File Selector -->
       <div v-if="audioSourceType === 'file'" class="w-full flex flex-col gap-1">
-        <button @click="openLibrary" 
+        <button @click="openLibrary"
           class="w-full text-xs bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 rounded px-2 py-1 transition-all flex items-center gap-1 overflow-hidden">
           <span class="flex-shrink-0">📚</span>
           <span class="flex-1 min-w-0 overflow-hidden">
@@ -54,33 +45,29 @@
             </span>
           </span>
         </button>
-        
-        <!-- Play/Stop Controls -->
-        <div v-if="selectedFileName" class="flex gap-1">
-          <button @click="handlePlayFile"
-            class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all flex items-center justify-center gap-1"
-            :class="isPlaying ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-            ▶ PLAY
-          </button>
-          <button @click="handleStopFile"
-            class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all flex items-center justify-center gap-1 bg-gray-700 hover:bg-gray-600 text-gray-300">
-            ■ STOP
-          </button>
-        </div>
+      </div>
+
+      <!-- Play/Stop Controls -->
+      <div class="flex gap-1">
+        <button @click="handlePlayFile" :disabled="!selectedFileName"
+          class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+          :class="isPlaying ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+          ▶ PLAY
+        </button>
+        <button @click="handleStopFile" :disabled="!selectedFileName"
+          class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all flex items-center justify-center gap-1 bg-gray-700 hover:bg-gray-600 text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed">
+          ■ STOP
+        </button>
       </div>
 
       <!-- Waveform Display - Always visible -->
-      <WaveformDisplay 
-        :track-number="trackNumber - 1"
-        :show-mode-buttons="false"
-        mode="signal"
-        :is-active="(audioSourceType === 'file' && isPlaying) || (audioSourceType === 'input' && selectedAudioInput !== '')"
-      />
+      <WaveformDisplay :track-number="trackNumber - 1" :show-mode-buttons="false" mode="signal"
+        :is-active="(audioSourceType === 'file' && isPlaying) || (audioSourceType === 'input' && selectedAudioInput !== '')" />
     </div>
 
     <!-- Main Content -->
     <div class="w-full flex-1 flex flex-col gap-2 min-h-0">
-      
+
       <!-- Gain Control -->
       <div class="w-full flex items-center justify-center gap-2 h-[4rem]">
         <div class="flex flex-col gap-1 items-center justify-center pt-1">
@@ -88,26 +75,17 @@
           <HPFButton v-model="hpfEnabled" />
         </div>
         <div class="scale-[0.65]">
-          <Knob v-model="gain" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Gain" unit="dB" color="#8b5cf6" />
+          <Knob v-model="gain" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Gain" unit="dB"
+            color="#8b5cf6" />
         </div>
       </div>
 
       <!-- Effects Section -->
       <div class="w-full bg-gray-900 rounded p-1 border border-gray-700 grid grid-cols-2 gap-1">
-        <TrackGate 
-          ref="trackGateRef" 
-          :track-number="trackNumber" 
-          :enabled="gateEnabled"
-          @toggle="toggleGate" 
-          @update-params="handleGateParamsUpdate" 
-        />
-        <TrackCompressor 
-          ref="trackCompressorRef" 
-          :track-number="trackNumber" 
-          :enabled="compressorEnabled"
-          @toggle="toggleCompressor" 
-          @params-changed="handleCompressorParamsChanged" 
-        />
+        <TrackGate ref="trackGateRef" :track-number="trackNumber" :enabled="gateEnabled" @toggle="toggleGate"
+          @update-params="handleGateParamsUpdate" />
+        <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
+          @toggle="toggleCompressor" @params-changed="handleCompressorParamsChanged" />
       </div>
 
       <!-- EQ Section -->
@@ -128,21 +106,15 @@
             PEQ
           </button>
         </div>
-        
+
         <!-- EQ Thumbnail (Frequency Response Curve) -->
         <EQThumbnail :system-filters="eq4BandFilters" :filters="parametricEQFilters" />
-        
+
         <!-- 4-Band Parametric EQ - Absolute positioned -->
         <div class="absolute top-full left-0 right-0 z-[1000] mt-1">
-          <TrackEQ 
-            :track-number="trackNumber" 
-            :show="showEQ3Bands" 
-            v-model:model-low="eqLow"
-            v-model:model-low-mid="eqLowMid"
-            v-model:model-high-mid="eqHighMid"
-            v-model:model-high="eqHigh"
-            v-model:model-enabled="eqEnabled"
-          />
+          <TrackEQ :track-number="trackNumber" :show="showEQ3Bands" v-model:model-low="eqLow"
+            v-model:model-low-mid="eqLowMid" v-model:model-high-mid="eqHighMid" v-model:model-high="eqHigh"
+            v-model:model-enabled="eqEnabled" />
         </div>
       </div>
 
@@ -162,22 +134,22 @@
       <div class="flex justify-center scale-[0.75]">
         <PanKnob v-model="pan" label="Pan" />
       </div>
-        <div class="text-[0.455rem] uppercase text-center mb-6">Volume</div>
+      <div class="text-[0.455rem] uppercase text-center mb-6">Volume</div>
 
       <!-- Volume Fader and VU Meter -->
       <div class="flex flex-col flex-1 min-h-0 pb-6 ">
         <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
-          
+
           <!-- Phase Invert Button -->
-          <button @click="togglePhaseInvert" 
+          <button @click="togglePhaseInvert"
             class="absolute left-[0.2rem] bottom-[2.7rem] w-5 h-5 text-[0.65rem] font-bold rounded transition-all border"
-            :class="phaseInverted 
-              ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-500/50' 
+            :class="phaseInverted
+              ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-500/50'
               : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
             title="Phase Invert">
             Ø
           </button>
-          
+
           <!-- Routing Buttons -->
           <div class="flex flex-col gap-2 absolute left-[0.2rem] top-1/2 transform -translate-y-1/2 z-50">
             <button @click="toggleRouteToMaster" title="Route to Master"
@@ -186,15 +158,11 @@
               M
             </button>
           </div>
-          
+
           <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
-          
-          <TrackMeter 
-            class="absolute right-[0.4rem] top-1/2 transform -translate-y-1/2 z-50"
-            v-if="faderHeight > 0" 
-            :levelL="trackLevelL" 
-            :levelR="trackLevelR" 
-            :isStereo="audioSourceType === 'file'"
+
+          <TrackMeter class="absolute right-[0.4rem] top-1/2 transform -translate-y-1/2 z-50" v-if="faderHeight > 0"
+            :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="audioSourceType === 'file'"
             :height="faderHeight + 20" />
         </div>
       </div>
@@ -202,12 +170,8 @@
   </div>
 
   <!-- Parametric EQ Modal -->
-  <ParametricEQModal
-    v-model="showParametricEQ"
-    :track-number="trackNumber"
-    :title="`Parametric EQ - Track ${trackNumber + 1}`"
-    @update="handleParametricEQUpdate"
-  />
+  <ParametricEQModal v-model="showParametricEQ" :track-number="trackNumber"
+    :title="`Parametric EQ - Track ${trackNumber + 1}`" @update="handleParametricEQUpdate" />
 </template>
 
 <script setup lang="ts">
@@ -289,7 +253,7 @@ const parametricEQFilters = ref<any[]>([])
 // Computed: Convert 4-band EQ values + HPF to filter format for EQThumbnail (system filters)
 const eq4BandFilters = computed(() => {
   const filters = []
-  
+
   // Add HPF (80Hz high-pass) if enabled
   if (hpfEnabled.value) {
     filters.push({
@@ -299,7 +263,7 @@ const eq4BandFilters = computed(() => {
       Q: 0.707
     })
   }
-  
+
   // Add 4-band EQ filters if enabled
   if (eqEnabled.value) {
     const eqFilters = [
@@ -328,10 +292,10 @@ const eq4BandFilters = computed(() => {
         Q: 0.707
       }
     ].filter(f => Math.abs(f.gain) > 0.1) // Only show bands with significant gain
-    
+
     filters.push(...eqFilters)
   }
-  
+
   return filters
 })
 
@@ -359,7 +323,7 @@ function handleInputSelect(deviceId: string | null) {
   selectedAudioInput.value = deviceId || ''
   selectedAudioFile.value = null
   selectedFileName.value = null
-  
+
   // Send to Rust engine with default stereo channels (0, 1)
   if (audioEngine?.state.value.isRunning && deviceId) {
     audioEngine.setTrackSourceInput(props.trackNumber - 1, 0, 1)
@@ -387,17 +351,17 @@ function handleStopFile() {
 
 // Method to load file from library (called from parent)
 async function loadFileFromLibrary(storedFile: any) {
-  try {  
+  try {
     selectedAudioFile.value = storedFile.id
     selectedFileName.value = storedFile.title || storedFile.fileName
     audioSourceType.value = 'file'
-    
+
     // Save ArrayBuffer to temp file and get the file path
     const tempFilePath = await window.audioEngine.saveTempAudioFile(
       storedFile.arrayBuffer,
       storedFile.fileName
     )
-        
+
     // Set track source to file in Rust engine
     if (audioEngine?.state.value.isRunning) {
       await audioEngine.setTrackSourceFile(props.trackNumber - 1, tempFilePath)
@@ -484,7 +448,7 @@ function handleParametricEQUpdate(filters: any) {
       Q: f.Q
     }))
   }
-  
+
   // Convert filtersData to the format expected by Rust engine
   if (filters.filtersData && audioEngine?.state.value.isRunning) {
     const rustFilters = filters.filtersData.map((f: any) => ({
@@ -493,7 +457,7 @@ function handleParametricEQUpdate(filters: any) {
       gain: f.gain,
       q: f.Q
     }))
-    
+
     audioEngine.setParametricEQFilters(props.trackNumber - 1, rustFilters)
   }
 }
@@ -508,7 +472,7 @@ watch(volume, (newVolume) => {
   } else {
     gainValue = Math.pow(10, newVolume / 20)
   }
-  
+
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackVolume(props.trackNumber - 1, gainValue)
   }
@@ -518,7 +482,7 @@ watch(gain, (newGain) => {
   // Convert dB to linear gain: gain = 10^(dB/20)
   // gain knob is in dB range (-12 to +12)
   const gainValue = Math.pow(10, newGain / 20)
-  
+
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackGain(props.trackNumber - 1, gainValue)
   }
@@ -604,13 +568,13 @@ function updateFaderHeight() {
 // Lifecycle
 onMounted(async () => {
   await refreshAudioInputs()
-  
+
   // Set up resize observer for fader
   const resizeObserver = new ResizeObserver(updateFaderHeight)
   if (faderContainer.value) {
     resizeObserver.observe(faderContainer.value)
   }
-  
+
   updateFaderHeight()
 })
 
@@ -630,6 +594,7 @@ defineExpose({
   0% {
     transform: translateX(0);
   }
+
   100% {
     transform: translateX(-50%);
   }

@@ -129,7 +129,6 @@ export function useAudioDevices() {
         
         audioOutputDevices.value = outputDevices
         outputDevicesEnumerated = true
-        console.log(`[useAudioDevices] Loaded ${outputDevices.length} output devices from Rust engine`)
       } catch (error) {
         console.error('[useAudioDevices] Error enumerating audio outputs:', error)
       } finally {

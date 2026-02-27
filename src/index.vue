@@ -284,7 +284,7 @@
         <footer v-if="false" class="bg-black/50 backdrop-blur-sm border-t border-gray-700 px-6 py-2 fixed bottom-0 left-0 right-0 z-[100]">
             <div class="flex justify-between items-center text-xs text-gray-500">
                 <div>
-                    Built with Nuxt 3, Tone.js & Tailwind CSS
+                    Built with Vue 3, Rust & Tailwind CSS
                 </div>
                 <div>
                     Sample Rate: {{ sampleRate }}Hz | Buffer Size: {{ bufferSize }}
@@ -479,9 +479,6 @@ import { useAutomation } from '~/composables/useAutomation'
 import { getBuildLimits, canAddTrack, getTrackCounts, getBuildMode } from '~/config/buildLimits'
 import { channel } from 'diagnostics_channel'
 
-const ToneRef = inject<any>('Tone')
-let Tone: any = null
-const toneReady = ref(false)
 const masterChannel = ref<any>(null)
 
 // Subgroups system
@@ -538,7 +535,6 @@ const isAppReady = inject<Ref<boolean>>('isAppReady', ref(false))
 // Watch for engine to be ready and remove skeletons
 watch(isAppReady, (ready) => {
     if (ready) {
-        console.log('[Index] Rust engine ready - showing tracks')
         isReady.value = true
     }
 })
@@ -652,6 +648,10 @@ function initializeTracks(): Track[] {
     
     // Start with just 1 audio track
     tracks.push({ id: 1, type: 'audio', order: 1 })
+    tracks.push({ id: 2, type: 'audio', order: 2 })
+    tracks.push({ id: 3, type: 'audio', order: 3 })
+    tracks.push({ id: 4, type: 'audio', order: 4 })
+    tracks.push({ id: 5, type: 'audio', order: 5 })
     
     return tracks
 }
@@ -867,8 +867,6 @@ function setSubgroupRef(subgroupId: number, el: any | null) {
 }
 
 function addSubgroup() {
-    if (!Tone) return
-
     // Check build limits
     if (subgroups.value.length >= buildLimits.value.maxSubgroups) {
         const limits = buildLimits.value
@@ -881,19 +879,11 @@ function addSubgroup() {
     const id = nextSubgroupId++
     const name = `SUB ${id}`
 
-    // Create Tone.js channel for this subgroup
-    const channel = new Tone.Channel({
-        volume: 0,
-        pan: 0,
-        channelCount: 2,
-        channelCountMode: 'explicit',
-        channelInterpretation: 'speakers'
-    })
-
+    // Subgroups now managed by Rust backend
     subgroups.value.push({
         id,
         name,
-        channel,
+        channel: null,
         ref: null
     })
 }
@@ -923,8 +913,6 @@ function removeSubgroup(subgroupId: number) {
 
 // Aux buses management
 function addAux() {
-    if (!Tone) return
-
     // Check build limits
     if (auxBuses.value.length >= buildLimits.value.maxAuxBuses) {
         const limits = buildLimits.value
@@ -937,55 +925,7 @@ function addAux() {
     const id = `aux-${nextAuxId++}`
     const name = `AUX ${nextAuxId - 1}`
 
-    // Create Tone.js channel for this aux - this receives sends from tracks
-    const inputNode = new Tone.Channel({
-        volume: 0,
-        pan: 0,
-        mute: false,
-        channelCount: 2,
-        channelCountMode: 'explicit',
-        channelInterpretation: 'speakers'
-    })
-
-    // Create FX chain
-    // Reverb (initially disabled - wet will be set to 1.0 when enabled)
-    const reverbNode = new Tone.Reverb({
-        decay: 2.5,
-        preDelay: 0.01,
-        wet: 0  // Start disabled
-    })
-    
-    // Generate reverb impulse response (required for Tone.Reverb)
-    reverbNode.generate().then(() => {
-    }).catch((err: any) => {
-        console.error(`[AUX ${name}] Reverb generation failed:`, err)
-    })
-
-    // Delay (initially disabled - wet will be set to 1.0 when enabled)
-    const delayNode = new Tone.FeedbackDelay({
-        delayTime: 0.25,  // 250ms (quarter note at 120bpm)
-        feedback: 0.3,
-        wet: 0  // Start disabled
-    })
-    
-    // Output node (final point of FX chain)
-    const outputNode = new Tone.Gain(1)
-
-    // FX Chain: input → reverb → delay → outputNode → destinations
-    // outputNode is the final node that connects to master and/or output device
-    
-    // Create MediaStreamDestination for output routing
-    const mainAudioContext = Tone.context.rawContext as AudioContext
-    const outputStreamDest = mainAudioContext.createMediaStreamDestination()
-
-    // Connect FX chain - ALWAYS connected, bypass via wet=0
-    inputNode.connect(reverbNode)
-    reverbNode.connect(delayNode)
-    delayNode.connect(outputNode)
-    
-    // Output node connects to stream destination by default
-    outputNode.connect(outputStreamDest as any)
-
+    // Aux buses now managed by Rust backend
     const newAux: AuxBus = {
         id,
         name,
@@ -994,16 +934,16 @@ function addAux() {
         soloed: false,
         routeToMaster: false,
         selectedOutputDevice: 'no-output',
-        node: inputNode,
-        outputNode,
-        outputStreamDest,
+        node: null,
+        outputNode: null,
+        outputStreamDest: null,
         outputAudioContext: null,
         outputSource: null,
         // FX
-        reverbNode,
+        reverbNode: null,
         reverbEnabled: false,
         reverbParams: { decay: 2.5, preDelay: 0.01, wet: 1.0 },
-        delayNode,
+        delayNode: null,
         delayEnabled: false,
         delayParams: { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
     }
@@ -1020,23 +960,7 @@ function removeAux(index: number) {
             return
         }
 
-        // Disconnect and close output
-        if (aux.outputSource) {
-            try {
-                aux.outputSource.disconnect()
-            } catch (e) { }
-        }
-
-        if (aux.outputAudioContext) {
-            aux.outputAudioContext.close()
-        }
-
-        // Dispose Tone.js node
-        if (aux.node) {
-            aux.node.dispose()
-        }
-
-        // Remove from array
+        // Remove from array (Rust backend handles cleanup)
         auxBuses.value.splice(index, 1)
     }
 }
@@ -1095,7 +1019,7 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
     if (index < 0 || index >= auxBuses.value.length) return
 
     const aux = auxBuses.value[index]
-    if (!aux.outputStreamDest || !Tone) return
+    if (!aux.outputStreamDest) return
 
     try {
         // Disconnect and close existing output
@@ -1141,10 +1065,9 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
         }
 
         // Create new AudioContext targeting selected device
-        const mainAudioContext = Tone.context.rawContext as AudioContext
         const contextOptions: any = {
             latencyHint: 'interactive',
-            sampleRate: mainAudioContext.sampleRate
+            sampleRate: 48000  // Fixed sample rate (Rust backend uses 48kHz)
         }
 
         if (realDeviceId && realDeviceId !== '') {
@@ -1306,22 +1229,12 @@ function isTrackArmed(trackId: number): boolean {
     return armedTracks.value.has(trackId)
 }
 
-// Audio context info (reactive)
+// Audio context info (reactive) - Now handled by Rust backend
 const sampleRate = computed(() => {
-    if (toneReady.value && Tone?.context?.sampleRate) {
-        return Math.round(Tone.context.sampleRate)
-    }
-    return 0
+    return 48000 // Fixed sample rate from Rust backend
 })
 const bufferSize = computed(() => {
-    if (toneReady.value && Tone?.context?.rawContext) {
-        const audioContext = Tone.context.rawContext
-
-        return audioContext.baseLatency
-            ? Math.round(audioContext.baseLatency * audioContext.sampleRate)
-            : (audioContext.sampleRate ? 128 : 0) // Default buffer size estimate
-    }
-    return 0
+    return 256 // Fixed buffer size from Rust backend (5.33ms @ 48kHz)
 })
 
 // Audio devices enumeration (shared across all tracks)
@@ -1484,18 +1397,9 @@ function handleLoadScene(sceneId: string) {
         setTimeout(() => {
             // Restore aux buses FIRST (before tracks, so aux nodes exist when tracks restore their sends)
             if (scene.auxBuses) {
-                // Clean up existing aux buses
+                // Clean up existing aux buses (simple cleanup - no Tone.js nodes)
                 while (auxBuses.value.length > 0) {
                     const aux = auxBuses.value[0]
-                    
-                    // Disconnect Tone.js node first to avoid InvalidStateError
-                    if (aux.node) {
-                        try {
-                            toRaw(aux.node).disconnect()
-                        } catch (e) { 
-                            console.warn('[Scene Load] Error disconnecting aux node:', e)
-                        }
-                    }
                     
                     // Disconnect and close output
                     if (aux.outputSource) {
@@ -1509,71 +1413,11 @@ function handleLoadScene(sceneId: string) {
                         } catch (e) { }
                     }
                     
-                    // Dispose Tone.js node
-                    if (aux.node) {
-                        try {
-                            aux.node.dispose()
-                        } catch (e) {
-                            console.warn('[Scene Load] Error disposing aux node:', e)
-                        }
-                    }
                     auxBuses.value.shift()
                 }
 
-                // Create aux buses from scene
+                // Create aux buses from scene (simplified - Rust backend handles audio)
                 scene.auxBuses.forEach((auxSnapshot: AuxSnapshot) => {
-                    // Create Tone.js channel for this aux (input node)
-                    const node = new Tone.Channel({
-                        volume: auxSnapshot.volume,
-                        pan: 0,
-                        mute: auxSnapshot.muted,
-                        channelCount: 2,
-                        channelCountMode: 'explicit',
-                        channelInterpretation: 'speakers'
-                    })
-
-                    // Create FX chain with saved parameters
-                    const reverbParams = auxSnapshot.reverbParams || { decay: 2.5, preDelay: 0.01, wet: 1.0 }
-                    const reverbNode = new Tone.Reverb({
-                        decay: reverbParams.decay,
-                        preDelay: reverbParams.preDelay,
-                        wet: auxSnapshot.reverbEnabled ? reverbParams.wet : 0
-                    })
-                    
-                    reverbNode.generate().catch((err: any) => {
-                        console.error(`[Aux ${auxSnapshot.name}] Reverb generation failed:`, err)
-                    })
-                    
-                    const delayParams = auxSnapshot.delayParams || { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
-                    const delayNode = new Tone.FeedbackDelay({
-                        delayTime: delayParams.delayTime,
-                        feedback: delayParams.feedback,
-                        wet: auxSnapshot.delayEnabled ? delayParams.wet : 0
-                    })
-                    
-                    // Output node (final point of FX chain)
-                    const outputNode = new Tone.Gain(1)
-
-                    // Create MediaStreamDestination for output routing
-                    const mainAudioContext = Tone.context.rawContext as AudioContext
-                    const outputStreamDest = mainAudioContext.createMediaStreamDestination()
-
-                    // Connect FX chain
-                    node.connect(reverbNode)
-                    reverbNode.connect(delayNode)
-                    delayNode.connect(outputNode)
-                    
-                    // Connect outputNode based on routeToMaster setting
-                    if (auxSnapshot.routeToMaster) {
-                        const masterChan = toRaw(masterChannel.value)
-                        if (masterChan) {
-                            outputNode.connect(masterChan)
-                        }
-                        outputNode.connect(outputStreamDest as any)
-                    } else {
-                        outputNode.connect(outputStreamDest as any)
-                    }
-
                     const newAux: AuxBus = {
                         id: auxSnapshot.id,
                         name: auxSnapshot.name,
@@ -1582,29 +1426,21 @@ function handleLoadScene(sceneId: string) {
                         soloed: auxSnapshot.soloed,
                         routeToMaster: auxSnapshot.routeToMaster,
                         selectedOutputDevice: auxSnapshot.selectedOutputDevice ?? 'no-output',
-                        node,
-                        outputNode,
-                        outputStreamDest,
+                        node: null,
+                        outputNode: null,
+                        outputStreamDest: null,
                         outputAudioContext: null,
                         outputSource: null,
                         // FX
-                        reverbNode,
+                        reverbNode: null,
                         reverbEnabled: auxSnapshot.reverbEnabled || false,
-                        reverbParams,
-                        delayNode,
+                        reverbParams: auxSnapshot.reverbParams || { decay: 2.5, preDelay: 0.01, wet: 1.0 },
+                        delayNode: null,
                         delayEnabled: auxSnapshot.delayEnabled || false,
-                        delayParams
+                        delayParams: auxSnapshot.delayParams || { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
                     }
 
                     auxBuses.value.push(newAux)
-
-                    // Restore output device (must be async, but we don't need to await here)
-                    nextTick(() => {
-                        const auxIndex = auxBuses.value.findIndex(a => a.id === auxSnapshot.id)
-                        if (auxIndex !== -1 && auxSnapshot.selectedOutputDevice !== undefined && auxSnapshot.selectedOutputDevice !== 'no-output') {
-                            changeAuxOutputDevice(auxIndex, auxSnapshot.selectedOutputDevice)
-                        }
-                    })
                 })
 
                 // Update nextAuxId counter
@@ -1666,19 +1502,11 @@ function handleLoadScene(sceneId: string) {
 
                 if (missingSubgroups.length > 0) {
                     missingSubgroups.forEach((snapshot: SubgroupSnapshot) => {
-                        // Create Tone.js channel for this subgroup
-                        const channel = new Tone.Channel({
-                            volume: 0,
-                            pan: 0,
-                            channelCount: 2,
-                            channelCountMode: 'explicit',
-                            channelInterpretation: 'speakers'
-                        })
-
+                        // Subgroups now managed by Rust backend
                         subgroups.value.push({
                             id: snapshot.id,
                             name: snapshot.name,
-                            channel,
+                            channel: null,
                             ref: null
                         })
                     })
@@ -1878,34 +1706,8 @@ onMounted(async () => {
     // Load scenes from IndexedDB
     await loadScenesFromStorage()
 
-    // Get Tone.js from inject
-    if (ToneRef?.value) {
-        Tone = ToneRef.value
-    } else {
-        // Fallback: wait for it
-        await new Promise<void>((resolve) => {
-            const checkTone = setInterval(() => {
-                if (ToneRef?.value) {
-                    Tone = ToneRef.value
-                    clearInterval(checkTone)
-                    resolve()
-                }
-            }, 100)
-        })
-    }
-
-    // Mark Tone as ready immediately after import
-    toneReady.value = true
-
-    // Use Gain instead of Channel to preserve stereo
-    // Tone.Channel converts stereo to mono!
-    masterChannel.value = new Tone.Channel({
-        volume: 0,
-        pan: 0,
-        channelCount: 2,
-        channelCountMode: 'explicit',
-        channelInterpretation: 'speakers'
-    })
+    // Rust backend handles all audio routing - no Tone.js needed
+    masterChannel.value = null
 
     // Add initial subgroup (only if allowed by build limits)
     const limits = getBuildLimits()

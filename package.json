@@ -56,7 +56,6 @@
   "dependencies": {
     "electron-squirrel-startup": "^1.0.1",
     "music-metadata": "^11.12.1",
-    "tone": "^15.1.22",
     "vue": "^3.5.28",
     "web-audio-beat-detector": "^8.2.35"
   }

@@ -268,9 +268,6 @@ const displayFilters = computed(() => {
   return [...system, ...filters.value]
 })
 
-const ToneRef = inject<any>('Tone')
-let Tone: any = null
-let filterNodes: any[] = []
 let nextFilterId = filters.value.length + 1
 let canvasRect: DOMRect | null = null
 
@@ -288,18 +285,7 @@ let dragStartX = 0
 let dragStartQ = 0
 
 onMounted(async () => {
-  // Get Tone.js from inject
-  if (ToneRef?.value) {
-    Tone = ToneRef.value
-  } else {
-    // Fallback: wait for it
-    const checkTone = setInterval(() => {
-      if (ToneRef?.value) {
-        Tone = ToneRef.value
-        clearInterval(checkTone)
-      }
-    }, 100)
-  }
+  // Using Rust backend - no Tone.js needed
   await nextTick()
   
   setupCanvas()
@@ -312,7 +298,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
-  disposeFilters()
+  // No cleanup needed - Rust backend handles all audio
 })
 
 // Watch for external changes to eqFilters (e.g., when loading a scene)
@@ -362,11 +348,7 @@ watch(() => props.modelValue, (isOpen) => {
     nextTick(() => {
       setupCanvas()
       drawEQCurve()
-      // Create filter chain when modal opens for the first time
-      // This ensures the preview is populated
-      if (filterNodes.length === 0) {
-        createFilterChain()
-      }
+      // All audio processing handled by Rust backend
     })
   }
 })
@@ -395,66 +377,16 @@ function handleResize() {
 }
 
 function createFilterChain() {
-  // Always emit filter data for backend integration (regardless of Tone.js availability)
+  // Always emit filter data for backend integration (Rust backend)
   emit('update', {
-    input: null,  // No Tone.js nodes when using Rust backend
+    input: null,  // No Web Audio nodes needed
     output: null,
-    filters: [],  // No Tone.js filters when using Rust backend
+    filters: [],  // No Web Audio filters needed
     filtersData: filters.value // Always send filter parameters
   })
   
-  // Optional: Try to create Tone.js nodes for Web Audio API visualization/routing
-  // (Only used when routing through Tone.js, like on master bus)
-  if (Tone) {
-    try {
-      // Dispose old filters
-      disposeFilters()
-      
-      filterNodes = []
-      
-      // Create audio nodes only for user filters
-      // System filters (like HPF) come via systemFilters prop and are only for visualization
-      filters.value.forEach((filter, index) => {
-        const node = new Tone.Filter({
-          type: filter.type,
-          frequency: filter.frequency,
-          Q: filter.Q,
-          gain: filter.gain
-        })
-        
-        filter.node = node
-        filterNodes.push(node)
-        
-        // Connect in series
-        if (index > 0) {
-          filterNodes[index - 1].connect(node)
-        }
-      })
-      
-      // If we successfully created Tone.js nodes, emit them too
-      if (filterNodes.length > 0) {
-        emit('update', {
-          input: filterNodes[0],
-          output: filterNodes[filterNodes.length - 1],
-          filters: filterNodes,
-          filtersData: filters.value
-        })
-      }
-    } catch (error) {
-      // Tone.js AudioContext not ready - that's okay, we already emitted filtersData
-      console.log('[ParametricEQ] Tone.js nodes not created (using Rust backend)', error)
-    }
-  }
-  
   // Always draw the curve (visualization doesn't require AudioContext)
   drawEQCurve()
-}
-
-function disposeFilters() {
-  filterNodes.forEach(node => {
-    if (node) node.dispose()
-  })
-  filterNodes = []
 }
 
 function updateFilterNode(displayIndex: number) {
@@ -469,30 +401,11 @@ function updateFilterNode(displayIndex: number) {
   
   if (userFilterIndex < 0 || userFilterIndex >= filters.value.length) return
   
-  const userFilter = filters.value[userFilterIndex]
-  
-  // If filter chain hasn't been created yet, create it first
-  if (!userFilter.node || filterNodes.length === 0) {
-    createFilterChain()
-    return
-  }
-  
-  // Update Tone.js node parameters (if using Web Audio API)
-  if (userFilter.node) {
-    userFilter.node.frequency.rampTo(userFilter.frequency, 0.01)
-    if (userFilter.type !== 'lowpass' && userFilter.type !== 'highpass') {
-      userFilter.node.gain.rampTo(userFilter.gain, 0.01)
-    }
-    if (userFilter.type === 'peaking' || userFilter.type === 'lowpass' || userFilter.type === 'highpass') {
-      userFilter.node.Q.rampTo(userFilter.Q, 0.01)
-    }
-  }
-  
-  // Always emit update for Rust backend
+  // Emit update for Rust backend (no Tone.js nodes needed)
   emit('update', {
-    input: filterNodes.length > 0 ? filterNodes[0] : null,
-    output: filterNodes.length > 0 ? filterNodes[filterNodes.length - 1] : null,
-    filters: filterNodes,
+    input: null,
+    output: null,
+    filters: [],
     filtersData: filters.value
   })
   
@@ -544,10 +457,7 @@ function reset() {
 function handleCanvasMouseDown(e: MouseEvent) {
   if (!canvasRect) return
   
-  // Ensure filters are created on first interaction
-  if (filterNodes.length === 0) {
-    createFilterChain()
-  }
+  // All audio processing handled by Rust backend - just handle UI
   
   const x = e.clientX - canvasRect.left
   const y = e.clientY - canvasRect.top
@@ -665,11 +575,7 @@ function handleCanvasMouseMove(e: MouseEvent) {
     const sensitivity = 0.05 // Q change per pixel
     const newQ = dragStartQ + (deltaX * sensitivity)
     filter.Q = parseFloat(Math.max(0.1, Math.min(20, newQ)).toFixed(2))
-    
-    // Update the filter node
-    if (filter.node) {
-      filter.node.Q.rampTo(filter.Q, 0.01)
-    }
+    // Tone.js nodes removed - Rust backend handles audio
   } else {
     // Dragging main point - change frequency and gain
     // Convert x position to frequency (log scale)
@@ -683,21 +589,14 @@ function handleCanvasMouseMove(e: MouseEvent) {
     const height = 450
     const gain = 24 - (y / height) * 48 // -24 to +24 dB
     filter.gain = Math.max(-24, Math.min(24, Math.round(gain * 2) / 2))
-    
-    // Update the filter node (if using Tone.js)
-    if (filter.node) {
-      filter.node.frequency.rampTo(filter.frequency, 0.01)
-      if (filter.type !== 'lowpass' && filter.type !== 'highpass') {
-        filter.node.gain.rampTo(filter.gain, 0.01)
-      }
-    }
+    // Tone.js nodes removed - Rust backend handles audio
   }
   
   // Always emit update during drag for real-time processing in Rust backend
   emit('update', {
-    input: filterNodes.length > 0 ? filterNodes[0] : null,
-    output: filterNodes.length > 0 ? filterNodes[filterNodes.length - 1] : null,
-    filters: filterNodes,
+    input: null,
+    output: null,
+    filters: [],
     filtersData: filters.value  // Send all user filters to Rust backend
   })
   
@@ -708,22 +607,11 @@ function handleCanvasMouseMove(e: MouseEvent) {
 function handleCanvasMouseUp() {
   // Emit final update when dragging ends
   if (draggedFilterIndex.value !== null) {
-    const filter = displayFilters.value[draggedFilterIndex.value]
-    
-    // Apply final values to Tone.js node if using Web Audio API
-    if (filterNodes.length > 0 && filter && !filter.isSystem && filter.node) {
-      filter.node.frequency.rampTo(filter.frequency, 0.05)
-      if (filter.type !== 'lowpass' && filter.type !== 'highpass') {
-        filter.node.gain.rampTo(filter.gain, 0.05)
-      }
-      filter.node.Q.rampTo(filter.Q, 0.05)
-    }
-    
-    // Always emit final update for Rust backend (regardless of Tone.js)
+    // Always emit final update for Rust backend
     emit('update', {
-      input: filterNodes.length > 0 ? filterNodes[0] : null,
-      output: filterNodes.length > 0 ? filterNodes[filterNodes.length - 1] : null,
-      filters: filterNodes,
+      input: null,
+      output: null,
+      filters: [],
       filtersData: filters.value
     })
   }
@@ -1086,41 +974,7 @@ function calculateFilterGain(filter: EQFilter, freq: number): number {
   return 0
 }
 
-// Watch for filter changes (array length changes, type changes, etc.)
-// Note: for parameter updates via input, we use updateFilterNode instead of recreating the chain
-watch(() => filters.value.length, () => {
-  // Recreate chain when filters are added/removed
-  if (filterNodes.length > 0) {
-    createFilterChain()
-  }
-})
-
-// Watch for modal opening to create filters if needed
-watch(() => props.modelValue, (isOpen) => {
-  if (isOpen && Tone) {
-    // Load filters from prop when modal opens (e.g., after loading a scene)
-    if (props.eqFilters && props.eqFilters.length > 0) {
-      filters.value = props.eqFilters.map((f: any, index: number) => ({
-        id: index + 1,
-        type: f.type,
-        frequency: f.frequency,
-        gain: f.gain,
-        Q: f.Q,
-        color: f.color || filterColors[index % filterColors.length]
-      }))
-      nextFilterId = filters.value.length + 1
-    }
-    
-    // Re-setup canvas when modal opens (in case it was hidden before)
-    nextTick(() => {
-      setupCanvas()
-      drawEQCurve()
-      
-      // Create or recreate filter chain when modal opens
-      createFilterChain()
-    })
-  }
-})
+// All audio processing handled by Rust backend - these watches are no longer needed
 
 function close() {
   emit('update:modelValue', false)

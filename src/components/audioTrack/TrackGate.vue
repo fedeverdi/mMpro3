@@ -117,8 +117,6 @@ const isGateOpen = ref(false)
 const gateOpenPercentage = ref(0)
 const thresholdPosition = ref(50)
 
-const ToneRef = inject<any>('Tone')
-
 function handleToggle() {
   emit('toggle')
 }
@@ -215,7 +213,7 @@ function startGateMonitoring() {
 
     try {
       // Get current level from meter
-      const Tone = ToneRef?.value
+      const Tone = null;
       if (Tone && props.meter) {
         // Tone.Meter.getValue() already returns dB, no conversion needed!
         const dbLevel = props.meter.getValue()
