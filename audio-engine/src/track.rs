@@ -141,7 +141,6 @@ pub fn set_gain(router: &mut Router, track: usize, gain: f32) {
     if let Some(t) = router.get_track_mut(track) {
         t.gain = gain.max(0.0); // No upper limit, but can't be negative
         let gain_db = if gain > 0.0 { 20.0 * gain.log10() } else { -90.0 };
-        eprintln!("[Track {}] Gain: {:.3} ({:.1} dB)", track, t.gain, gain_db);
     }
 }
 
@@ -150,7 +149,6 @@ pub fn set_volume(router: &mut Router, track: usize, volume: f32) {
     if let Some(t) = router.get_track_mut(track) {
         t.volume = volume.max(0.0); // No upper limit, but can't be negative
         let volume_db = if volume > 0.0 { 20.0 * volume.log10() } else { -90.0 };
-        eprintln!("[Track {}] Volume: {:.3} ({:.1} dB)", track, t.volume, volume_db);
     }
 }
 
@@ -158,7 +156,6 @@ pub fn set_volume(router: &mut Router, track: usize, volume: f32) {
 pub fn set_mute(router: &mut Router, track: usize, mute: bool) {
     if let Some(t) = router.get_track_mut(track) {
         t.mute = mute;
-        eprintln!("[Track {}] Mute: {}", track, mute);
     }
 }
 
@@ -166,6 +163,5 @@ pub fn set_mute(router: &mut Router, track: usize, mute: bool) {
 pub fn set_pan(router: &mut Router, track: usize, pan: f32) {
     if let Some(t) = router.get_track_mut(track) {
         t.pan = pan.clamp(-1.0, 1.0);
-        eprintln!("[Track {}] Pan: {}", track, t.pan);
     }
 }

@@ -166,8 +166,6 @@ impl AudioEngine {
         let audio_io = AudioIO::new();
         let router = Arc::new(Mutex::new(Router::new(1))); // Start with 1 track
 
-        eprintln!("[Engine] Audio engine initialized");
-
         Self {
             audio_io,
             router,
@@ -204,17 +202,12 @@ impl AudioEngine {
             self.audio_io.default_output_device()?
         };
 
-        eprintln!("[Engine] Input device: {:?}", input_device.name());
-        eprintln!("[Engine] Output device: {:?}", output_device.name());
-
         // Get configs
         let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate)?;
         let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate)?;
 
         self.sample_rate = output_config.sample_rate.0;
-        
-        eprintln!("[Engine] New sample rate: {}", self.sample_rate);
-        
+                
         // Update sample rate for all active file players and equalizers
         {
             let mut router = self.router.lock().unwrap();
@@ -223,24 +216,14 @@ impl AudioEngine {
                 if let Some(ref mut player) = track.file_player {
                     let old_rate = player.output_sample_rate;
                     player.set_output_sample_rate(self.sample_rate);
-                    eprintln!("[Engine] Track {} file player: updated output_sample_rate {} → {} (file_rate={})", 
-                        track.id, old_rate, player.output_sample_rate, player.sample_rate);
                 }
                 // Update equalizer sample rate
                 track.equalizer.set_sample_rate(self.sample_rate as f32);
             }
         }
 
-        eprintln!("[Engine] Input config: {:?}", input_config);
-        eprintln!("[Engine] Output config: {:?}", output_config);
-
         let input_channels = input_config.channels as usize;
         let output_channels = output_config.channels as usize;
-
-        eprintln!(
-            "[Engine] Channels: Input={}, Output={}",
-            input_channels, output_channels
-        );
 
         let err_fn = |err| eprintln!("[Engine] Stream error: {}", err);
 
@@ -365,18 +348,15 @@ impl AudioEngine {
         self.input_stream = Some(input_stream);
         self.output_stream = Some(output_stream);
 
-        eprintln!("[Engine] Streams started!");
         Ok(())
     }
 
     fn stop(&mut self) -> Result<()> {
         if let Some(stream) = self.input_stream.take() {
             drop(stream);
-            eprintln!("[Engine] Input stream stopped");
         }
         if let Some(stream) = self.output_stream.take() {
             drop(stream);
-            eprintln!("[Engine] Output stream stopped");
         }
         
         Ok(())
@@ -475,8 +455,6 @@ impl AudioEngine {
                 
                 t.parametric_eq.add_band(filter_type, filter.frequency, filter.gain, filter.q);
             }
-            
-            eprintln!("[Track {}] Parametric EQ updated with {} filters", track, filters.len());
         } else {
             eprintln!("[Engine] Invalid track number: {}", track);
         }
@@ -486,7 +464,6 @@ impl AudioEngine {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.tracks.get_mut(track) {
             t.parametric_eq.set_enabled(enabled);
-            eprintln!("[Track {}] Parametric EQ enabled: {}", track, enabled);
         } else {
             eprintln!("[Engine] Invalid track number: {}", track);
         }
@@ -496,7 +473,6 @@ impl AudioEngine {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.tracks.get_mut(track) {
             t.parametric_eq.clear();
-            eprintln!("[Track {}] Parametric EQ cleared", track);
         } else {
             eprintln!("[Engine] Invalid track number: {}", track);
         }
@@ -507,143 +483,106 @@ impl AudioEngine {
         let mut router = self.router.lock().unwrap();
         router.master.gain = gain.max(0.0); // No upper limit
         let gain_db = if gain > 0.0 { 20.0 * gain.log10() } else { -90.0 };
-        eprintln!("[Master] Gain: {:.3} ({:.1} dB)", router.master.gain, gain_db);
     }
 
     fn set_master_mute(&self, mute: bool) {
         let mut router = self.router.lock().unwrap();
         router.master.mute = mute;
-        eprintln!("[Master] Mute: {}", mute);
     }
 
     fn set_master_output_channels(&self, left_ch: u16, right_ch: u16) {
         let mut router = self.router.lock().unwrap();
         router.master.output_channel_selection = ChannelSelection::new(left_ch, right_ch);
-        eprintln!("[Master] Output channels: L={}, R={}", left_ch, right_ch);
     }
 
-    /// Handle a command and return the appropriate response
-    fn handle_command(&mut self, command: Command) -> Response {
+    /// Handle a command and return an optional response (only for critical operations)
+    fn handle_command(&mut self, command: Command) -> Option<Response> {
         match command {
             Command::Start {
                 input_device,
                 output_device,
                 sample_rate,
             } => match self.start(input_device, output_device, sample_rate) {
-                Ok(_) => Response::Started,
-                Err(e) => Response::Error {
+                Ok(_) => Some(Response::Started),
+                Err(e) => Some(Response::Error {
                     message: format!("Start failed: {}", e),
-                },
+                }),
             },
             Command::Stop => match self.stop() {
-                Ok(_) => Response::Stopped,
-                Err(e) => Response::Error {
+                Ok(_) => Some(Response::Stopped),
+                Err(e) => Some(Response::Error {
                     message: format!("Stop failed: {}", e),
-                },
+                }),
             },
             Command::SetTrackSourceInput {
                 track,
                 left_channel,
                 right_channel,
-            } => match self.set_track_source_input(track, left_channel, right_channel) {
-                Ok(_) => Response::Ok {
-                    message: format!("Track {} source set to input", track),
-                },
-                Err(e) => Response::Error {
-                    message: e.to_string(),
-                },
-            },
+            } => {
+                // Fire-and-forget command, no response needed
+                let _ = self.set_track_source_input(track, left_channel, right_channel);
+                None
+            }
             Command::SetTrackSourceSignal {
                 track,
                 waveform,
                 frequency,
-            } => match self.set_track_source_signal(track, &waveform, frequency) {
-                Ok(_) => Response::Ok {
-                    message: format!("Track {} source set to signal", track),
-                },
-                Err(e) => Response::Error {
-                    message: e.to_string(),
-                },
-            },
+            } => {
+                // Fire-and-forget command, no response needed
+                let _ = self.set_track_source_signal(track, &waveform, frequency);
+                None
+            }
             Command::SetTrackSourceFile { track, file_path } => {
                 eprintln!("[Engine] Executing SetTrackSourceFile for track {}", track);
                 match self.set_track_source_file(track, &file_path) {
                     Ok(_) => {
                         eprintln!("[Engine] SetTrackSourceFile succeeded for track {}", track);
-                        Response::Ok {
-                            message: format!("Track {} source set to file", track),
-                        }
                     }
                     Err(e) => {
                         eprintln!("[Engine] SetTrackSourceFile FAILED for track {}: {}", track, e);
-                        Response::Error {
-                            message: e.to_string(),
-                        }
                     }
                 }
+                None
             }
             Command::PlayFile { track } => {
                 eprintln!("[Engine] Executing PlayFile for track {}", track);
                 match self.play_file(track) {
                     Ok(_) => {
                         eprintln!("[Engine] PlayFile succeeded for track {}", track);
-                        Response::Ok {
-                            message: format!("Track {} playing", track),
-                        }
                     }
                     Err(e) => {
                         eprintln!("[Engine] PlayFile FAILED for track {}: {}", track, e);
-                        Response::Error {
-                            message: e.to_string(),
-                        }
                     }
                 }
+                None
             }
-            Command::PauseFile { track } => match self.pause_file(track) {
-                Ok(_) => Response::Ok {
-                    message: format!("Track {} paused", track),
-                },
-                Err(e) => Response::Error {
-                    message: e.to_string(),
-                },
-            },
-            Command::StopFile { track } => match self.stop_file(track) {
-                Ok(_) => Response::Ok {
-                    message: format!("Track {} stopped", track),
-                },
-                Err(e) => Response::Error {
-                    message: e.to_string(),
-                },
-            },
+            Command::PauseFile { track } => {
+                let _ = self.pause_file(track);
+                None
+            }
+            Command::StopFile { track } => {
+                let _ = self.stop_file(track);
+                None
+            }
             Command::StopAllFiles => {
                 self.stop_all_files();
-                Response::Ok {
-                    message: "All file players stopped".to_string(),
-                }
+                None
             }
             Command::SetGain { track, gain } => {
                 self.set_gain(track, gain);
-                Response::Ok {
-                    message: format!("Track {} gain: {}", track, gain),
-                }
+                None
             }
             Command::SetVolume { track, volume } => {
                 self.set_volume(track, volume);
-                Response::Ok {
-                    message: format!("Track {} volume: {}", track, volume),
-                }
+                None
             }
             Command::SetMute { track, mute } => {
                 self.set_mute(track, mute);
-                Response::Ok {
-                    message: format!("Track {} mute: {}", track, mute),
-                }
+                None
             }
             Command::SetPan { track, pan } => {
                 self.set_pan(track, pan);
-                Response::Ok {
-                    message: format!("Track {} pan: {}", track, pan),
-                }
+                None
             }
             Command::SetEQ {
                 track,
@@ -653,60 +592,44 @@ impl AudioEngine {
                 high,
             } => {
                 self.set_eq(track, low, low_mid, high_mid, high);
-                Response::Ok {
-                    message: format!("Track {} EQ set", track),
-                }
+                None
             }
             Command::SetEQEnabled { track, enabled } => {
                 self.set_eq_enabled(track, enabled);
-                Response::Ok {
-                    message: format!("Track {} EQ enabled: {}", track, enabled),
-                }
+                None
             }
             Command::SetParametricEQFilters { track, filters } => {
                 self.set_parametric_eq_filters(track, &filters);
-                Response::Ok {
-                    message: format!("Track {} parametric EQ updated with {} filters", track, filters.len()),
-                }
+                None
             }
             Command::SetParametricEQEnabled { track, enabled } => {
                 self.set_parametric_eq_enabled(track, enabled);
-                Response::Ok {
-                    message: format!("Track {} parametric EQ enabled: {}", track, enabled),
-                }
+                None
             }
             Command::ClearParametricEQ { track } => {
                 self.clear_parametric_eq(track);
-                Response::Ok {
-                    message: format!("Track {} parametric EQ cleared", track),
-                }
+                None
             }
             Command::SetMasterGain { gain } => {
                 self.set_master_gain(gain);
-                Response::Ok {
-                    message: format!("Master gain: {}", gain),
-                }
+                None
             }
             Command::SetMasterMute { mute } => {
                 self.set_master_mute(mute);
-                Response::Ok {
-                    message: format!("Master mute: {}", mute),
-                }
+                None
             }
             Command::SetMasterOutputChannels {
                 left_channel,
                 right_channel,
             } => {
                 self.set_master_output_channels(left_channel, right_channel);
-                Response::Ok {
-                    message: format!("Master output: L={}, R={}", left_channel, right_channel),
-                }
+                None
             }
             Command::ListDevices => match self.list_devices() {
-                Ok(devices) => Response::Devices { devices },
-                Err(e) => Response::Error {
+                Ok(devices) => Some(Response::Devices { devices }),
+                Err(e) => Some(Response::Error {
                     message: format!("List devices failed: {}", e),
-                },
+                }),
             },
         }
     }
@@ -725,15 +648,14 @@ fn main() -> Result<()> {
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
 
-    eprintln!("[Engine] Ready. Waiting for commands on stdin...");
-
     // Loop: read commands from stdin
     while let Some(Ok(line)) = lines.next() {
         match serde_json::from_str::<Command>(&line) {
             Ok(command) => {
-                eprintln!("[Engine] Command: {:?}", command);
-                let response = engine.handle_command(command);
-                send_response(&response);
+                // Only send response if there is one (critical operations only)
+                if let Some(response) = engine.handle_command(command) {
+                    send_response(&response);
+                }
             }
             Err(e) => {
                 eprintln!("[Engine] Failed to parse command: {}", e);

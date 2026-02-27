@@ -63,23 +63,40 @@ impl BiquadState {
 #[derive(Debug, Clone)]
 pub struct EQBand {
     filter_type: FilterType,
-    frequency: f32,
-    gain_db: f32,
-    q: f32,
+    // Target parameters (set by user)
+    target_frequency: f32,
+    target_gain_db: f32,
+    target_q: f32,
+    // Current parameters (smoothed)
+    current_frequency: f32,
+    current_gain_db: f32,
+    current_q: f32,
     sample_rate: f32,
     coeffs: BiquadCoeffs,
     state_l: BiquadState,
     state_r: BiquadState,
     enabled: bool,
+    // Smoothing coefficient (for parameter interpolation)
+    smooth_coeff: f32,
+    // Counter to update coefficients every N samples (optimization)
+    update_counter: usize,
 }
 
 impl EQBand {
     pub fn new(filter_type: FilterType, frequency: f32, sample_rate: f32) -> Self {
+        // Calculate smoothing coefficient for ~5ms smoothing time
+        // smooth_coeff = exp(-1.0 / (smoothing_time * sample_rate))
+        let smoothing_time = 0.005; // 5ms
+        let smooth_coeff = (-1.0 / (smoothing_time * sample_rate)).exp();
+        
         let mut band = Self {
             filter_type,
-            frequency,
-            gain_db: 0.0,
-            q: 0.707, // Butterworth Q
+            target_frequency: frequency,
+            target_gain_db: 0.0,
+            target_q: 0.707, // Butterworth Q
+            current_frequency: frequency,
+            current_gain_db: 0.0,
+            current_q: 0.707,
             sample_rate,
             coeffs: BiquadCoeffs {
                 b0: 1.0,
@@ -91,42 +108,45 @@ impl EQBand {
             state_l: BiquadState::new(),
             state_r: BiquadState::new(),
             enabled: true,
+            smooth_coeff,
+            update_counter: 0,
         };
         band.update_coefficients();
         band
     }
 
     pub fn set_gain(&mut self, gain_db: f32) {
-        self.gain_db = gain_db.clamp(-24.0, 24.0);
-        self.update_coefficients();
+        self.target_gain_db = gain_db.clamp(-24.0, 24.0);
     }
 
     pub fn set_frequency(&mut self, frequency: f32) {
-        self.frequency = frequency.clamp(20.0, 20000.0);
-        self.update_coefficients();
+        self.target_frequency = frequency.clamp(20.0, 20000.0);
     }
 
     pub fn set_q(&mut self, q: f32) {
-        self.q = q.clamp(0.1, 10.0);
-        self.update_coefficients();
+        self.target_q = q.clamp(0.1, 10.0);
     }
 
     pub fn set_type(&mut self, filter_type: FilterType) {
         self.filter_type = filter_type;
+        // Force recalculation of coefficients with current parameters
         self.update_coefficients();
     }
 
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
+        // Recalculate smoothing coefficient
+        let smoothing_time = 0.005; // 5ms
+        self.smooth_coeff = (-1.0 / (smoothing_time * sample_rate)).exp();
         self.update_coefficients();
     }
 
     fn update_coefficients(&mut self) {
-        let w0 = 2.0 * PI * self.frequency / self.sample_rate;
+        let w0 = 2.0 * PI * self.current_frequency / self.sample_rate;
         let cos_w0 = w0.cos();
         let sin_w0 = w0.sin();
-        let alpha = sin_w0 / (2.0 * self.q);
-        let a = 10_f32.powf(self.gain_db / 40.0); // sqrt of gain
+        let alpha = sin_w0 / (2.0 * self.current_q);
+        let a = 10_f32.powf(self.current_gain_db / 40.0); // sqrt of gain
 
         match self.filter_type {
             FilterType::LowShelf => {
@@ -213,6 +233,21 @@ impl EQBand {
     pub fn process(&mut self, left: f32, right: f32) -> (f32, f32) {
         if !self.enabled {
             return (left, right);
+        }
+
+        // Smooth parameters towards targets using exponential smoothing
+        // current = current * smooth_coeff + target * (1 - smooth_coeff)
+        let one_minus_smooth = 1.0 - self.smooth_coeff;
+        self.current_frequency = self.current_frequency * self.smooth_coeff + self.target_frequency * one_minus_smooth;
+        self.current_gain_db = self.current_gain_db * self.smooth_coeff + self.target_gain_db * one_minus_smooth;
+        self.current_q = self.current_q * self.smooth_coeff + self.target_q * one_minus_smooth;
+
+        // Update coefficients every 32 samples to avoid expensive recalculation at every sample
+        // This is a good balance between smoothness and performance
+        self.update_counter += 1;
+        if self.update_counter >= 32 {
+            self.update_counter = 0;
+            self.update_coefficients();
         }
 
         let left_out = self.state_l.process(left, &self.coeffs);
