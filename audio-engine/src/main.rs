@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::Stream;
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,16 @@ mod track;
 
 use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
 use routing::Router;
+
+/// Parametric filter specification from frontend
+#[derive(Debug, Deserialize, Clone)]
+pub struct ParametricFilter {
+    #[serde(rename = "type")]
+    pub filter_type: String, // "lowshelf", "highshelf", "peaking", "lowpass", "highpass"
+    pub frequency: f32,
+    pub gain: f32,
+    pub q: f32,
+}
 
 /// Comando ricevuto da Electron via stdin
 #[derive(Debug, Deserialize)]
@@ -79,6 +89,22 @@ enum Command {
     SetEQEnabled {
         track: usize,
         enabled: bool,
+    },
+    
+    // Parametric EQ controls
+    #[serde(rename = "set_parametric_eq_filters")]
+    SetParametricEQFilters {
+        track: usize,
+        filters: Vec<ParametricFilter>,
+    },
+    #[serde(rename = "set_parametric_eq_enabled")]
+    SetParametricEQEnabled {
+        track: usize,
+        enabled: bool,
+    },
+    #[serde(rename = "clear_parametric_eq")]
+    ClearParametricEQ {
+        track: usize,
     },
 
     // Master controls
@@ -374,29 +400,17 @@ impl AudioEngine {
 
     fn play_file(&self, track: usize) -> Result<()> {
         let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            t.play_file(self.sample_rate)
-        } else {
-            Err(anyhow!("Track {} not found", track))
-        }
+        track::play_file(&mut router, track, self.sample_rate)
     }
 
     fn pause_file(&self, track: usize) -> Result<()> {
         let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            t.pause_file()
-        } else {
-            Err(anyhow!("Track {} not found", track))
-        }
+        track::pause_file(&mut router, track)
     }
 
     fn stop_file(&self, track: usize) -> Result<()> {
         let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            t.stop_file()
-        } else {
-            Err(anyhow!("Track {} not found", track))
-        }
+        track::stop_file(&mut router, track)
     }
 
     fn stop_all_files(&self) {
@@ -407,50 +421,84 @@ impl AudioEngine {
     // Track controls
     fn set_gain(&self, track: usize, gain: f32) {
         let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            t.gain = gain.max(0.0); // No upper limit, but can't be negative
-            let gain_db = if gain > 0.0 { 20.0 * gain.log10() } else { -90.0 };
-            eprintln!("[Track {}] Gain: {:.3} ({:.1} dB)", track, t.gain, gain_db);
-        }
+        track::set_gain(&mut router, track, gain);
     }
 
     fn set_volume(&self, track: usize, volume: f32) {
         let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            t.volume = volume.max(0.0); // No upper limit, but can't be negative
-            let volume_db = if volume > 0.0 { 20.0 * volume.log10() } else { -90.0 };
-            eprintln!("[Track {}] Volume: {:.3} ({:.1} dB)", track, t.volume, volume_db);
-        }
+        track::set_volume(&mut router, track, volume);
     }
 
     fn set_mute(&self, track: usize, mute: bool) {
         let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            t.mute = mute;
-            eprintln!("[Track {}] Mute: {}", track, mute);
-        }
+        track::set_mute(&mut router, track, mute);
     }
 
     fn set_pan(&self, track: usize, pan: f32) {
         let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            t.pan = pan.clamp(-1.0, 1.0);
-            eprintln!("[Track {}] Pan: {}", track, t.pan);
-        }
+        track::set_pan(&mut router, track, pan);
     }
 
     // Track EQ controls
     fn set_eq(&self, track: usize, low: f32, low_mid: f32, high_mid: f32, high: f32) {
         let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            t.set_eq(low, low_mid, high_mid, high);
-        }
+        track::set_eq(&mut router, track, low, low_mid, high_mid, high);
     }
 
     fn set_eq_enabled(&self, track: usize, enabled: bool) {
         let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            t.set_eq_enabled(enabled);
+        track::set_eq_enabled(&mut router, track, enabled);
+    }
+
+    // Parametric EQ controls
+    fn set_parametric_eq_filters(&self, track: usize, filters: &[ParametricFilter]) {
+        use equalizer::FilterType;
+        
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.tracks.get_mut(track) {
+            // Clear existing filters
+            t.parametric_eq.clear();
+            
+            // Add new filters
+            for filter in filters {
+                let filter_type = match filter.filter_type.as_str() {
+                    "lowshelf" => FilterType::LowShelf,
+                    "highshelf" => FilterType::HighShelf,
+                    "peaking" => FilterType::Peaking,
+                    "lowpass" => FilterType::LowPass,
+                    "highpass" => FilterType::HighPass,
+                    _ => {
+                        eprintln!("[Track {}] Unknown filter type: {}", track, filter.filter_type);
+                        continue;
+                    }
+                };
+                
+                t.parametric_eq.add_band(filter_type, filter.frequency, filter.gain, filter.q);
+            }
+            
+            eprintln!("[Track {}] Parametric EQ updated with {} filters", track, filters.len());
+        } else {
+            eprintln!("[Engine] Invalid track number: {}", track);
+        }
+    }
+
+    fn set_parametric_eq_enabled(&self, track: usize, enabled: bool) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.tracks.get_mut(track) {
+            t.parametric_eq.set_enabled(enabled);
+            eprintln!("[Track {}] Parametric EQ enabled: {}", track, enabled);
+        } else {
+            eprintln!("[Engine] Invalid track number: {}", track);
+        }
+    }
+
+    fn clear_parametric_eq(&self, track: usize) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.tracks.get_mut(track) {
+            t.parametric_eq.clear();
+            eprintln!("[Track {}] Parametric EQ cleared", track);
+        } else {
+            eprintln!("[Engine] Invalid track number: {}", track);
         }
     }
 
@@ -613,6 +661,24 @@ impl AudioEngine {
                 self.set_eq_enabled(track, enabled);
                 Response::Ok {
                     message: format!("Track {} EQ enabled: {}", track, enabled),
+                }
+            }
+            Command::SetParametricEQFilters { track, filters } => {
+                self.set_parametric_eq_filters(track, &filters);
+                Response::Ok {
+                    message: format!("Track {} parametric EQ updated with {} filters", track, filters.len()),
+                }
+            }
+            Command::SetParametricEQEnabled { track, enabled } => {
+                self.set_parametric_eq_enabled(track, enabled);
+                Response::Ok {
+                    message: format!("Track {} parametric EQ enabled: {}", track, enabled),
+                }
+            }
+            Command::ClearParametricEQ { track } => {
+                self.clear_parametric_eq(track);
+                Response::Ok {
+                    message: format!("Track {} parametric EQ cleared", track),
                 }
             }
             Command::SetMasterGain { gain } => {

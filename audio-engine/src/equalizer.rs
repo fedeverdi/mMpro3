@@ -1,11 +1,13 @@
 /// Parametric equalizer with biquad filters
 use std::f32::consts::PI;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FilterType {
     LowShelf,
     Peaking,
     HighShelf,
+    LowPass,
+    HighPass,
 }
 
 /// Biquad filter coefficients
@@ -99,6 +101,21 @@ impl EQBand {
         self.update_coefficients();
     }
 
+    pub fn set_frequency(&mut self, frequency: f32) {
+        self.frequency = frequency.clamp(20.0, 20000.0);
+        self.update_coefficients();
+    }
+
+    pub fn set_q(&mut self, q: f32) {
+        self.q = q.clamp(0.1, 10.0);
+        self.update_coefficients();
+    }
+
+    pub fn set_type(&mut self, filter_type: FilterType) {
+        self.filter_type = filter_type;
+        self.update_coefficients();
+    }
+
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
         self.update_coefficients();
@@ -155,6 +172,34 @@ impl EQBand {
                 let a0 = a_plus_1 - a_minus_1 * cos_w0 + sqrt_a_alpha;
                 let a1 = 2.0 * (a_minus_1 - a_plus_1 * cos_w0);
                 let a2 = a_plus_1 - a_minus_1 * cos_w0 - sqrt_a_alpha;
+
+                self.coeffs.b0 = b0 / a0;
+                self.coeffs.b1 = b1 / a0;
+                self.coeffs.b2 = b2 / a0;
+                self.coeffs.a1 = a1 / a0;
+                self.coeffs.a2 = a2 / a0;
+            }
+            FilterType::LowPass => {
+                let b0 = (1.0 - cos_w0) / 2.0;
+                let b1 = 1.0 - cos_w0;
+                let b2 = (1.0 - cos_w0) / 2.0;
+                let a0 = 1.0 + alpha;
+                let a1 = -2.0 * cos_w0;
+                let a2 = 1.0 - alpha;
+
+                self.coeffs.b0 = b0 / a0;
+                self.coeffs.b1 = b1 / a0;
+                self.coeffs.b2 = b2 / a0;
+                self.coeffs.a1 = a1 / a0;
+                self.coeffs.a2 = a2 / a0;
+            }
+            FilterType::HighPass => {
+                let b0 = (1.0 + cos_w0) / 2.0;
+                let b1 = -(1.0 + cos_w0);
+                let b2 = (1.0 + cos_w0) / 2.0;
+                let a0 = 1.0 + alpha;
+                let a1 = -2.0 * cos_w0;
+                let a2 = 1.0 - alpha;
 
                 self.coeffs.b0 = b0 / a0;
                 self.coeffs.b1 = b1 / a0;
@@ -254,6 +299,94 @@ impl Equalizer {
     }
 }
 
+/// Dynamic parametric equalizer with unlimited bands
+#[derive(Debug, Clone)]
+pub struct ParametricEqualizer {
+    bands: Vec<EQBand>,
+    sample_rate: f32,
+    pub enabled: bool,
+}
+
+impl ParametricEqualizer {
+    pub fn new(sample_rate: f32) -> Self {
+        Self {
+            bands: Vec::new(),
+            sample_rate,
+            enabled: true,
+        }
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+        if !enabled {
+            self.reset();
+        }
+    }
+
+    pub fn set_sample_rate(&mut self, sample_rate: f32) {
+        self.sample_rate = sample_rate;
+        for band in &mut self.bands {
+            band.set_sample_rate(sample_rate);
+        }
+    }
+
+    /// Clear all bands
+    pub fn clear(&mut self) {
+        self.bands.clear();
+    }
+
+    /// Add a new band with specified parameters
+    pub fn add_band(&mut self, filter_type: FilterType, frequency: f32, gain_db: f32, q: f32) {
+        let mut band = EQBand::new(filter_type, frequency, self.sample_rate);
+        band.set_gain(gain_db);
+        band.set_q(q);
+        self.bands.push(band);
+    }
+
+    /// Update a specific band
+    pub fn update_band(&mut self, index: usize, filter_type: FilterType, frequency: f32, gain_db: f32, q: f32) {
+        if let Some(band) = self.bands.get_mut(index) {
+            band.set_type(filter_type);
+            band.set_frequency(frequency);
+            band.set_gain(gain_db);
+            band.set_q(q);
+        }
+    }
+
+    /// Remove a band by index
+    pub fn remove_band(&mut self, index: usize) {
+        if index < self.bands.len() {
+            self.bands.remove(index);
+        }
+    }
+
+    /// Get the number of bands
+    pub fn band_count(&self) -> usize {
+        self.bands.len()
+    }
+
+    pub fn process(&mut self, left: f32, right: f32) -> (f32, f32) {
+        if !self.enabled || self.bands.is_empty() {
+            return (left, right);
+        }
+
+        let mut left_out = left;
+        let mut right_out = right;
+
+        for band in &mut self.bands {
+            (left_out, right_out) = band.process(left_out, right_out);
+        }
+
+        (left_out, right_out)
+    }
+
+    pub fn reset(&mut self) {
+        for band in &mut self.bands {
+            band.reset();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,5 +404,17 @@ mod tests {
         let (left, right) = eq.process(0.5, -0.5);
         assert_eq!(left, 0.5);
         assert_eq!(right, -0.5);
+    }
+
+    #[test]
+    fn test_parametric_eq() {
+        let mut peq = ParametricEqualizer::new(48000.0);
+        assert_eq!(peq.band_count(), 0);
+        
+        peq.add_band(FilterType::Peaking, 1000.0, 6.0, 1.0);
+        assert_eq!(peq.band_count(), 1);
+        
+        let (left, right) = peq.process(1.0, 1.0);
+        assert!(left != 0.0 && right != 0.0);
     }
 }

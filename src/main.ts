@@ -261,6 +261,19 @@ ipcMain.handle('audio-engine:set-eq-enabled', async (_, track: number, enabled: 
   await sendCommandToEngine({ type: 'set_eq_enabled', track, enabled })
 })
 
+// Parametric EQ controls
+ipcMain.handle('audio-engine:set-parametric-eq-filters', async (_, track: number, filters: Array<{type: string, frequency: number, gain: number, q: number}>) => {
+  await sendCommandToEngine({ type: 'set_parametric_eq_filters', track, filters })
+})
+
+ipcMain.handle('audio-engine:set-parametric-eq-enabled', async (_, track: number, enabled: boolean) => {
+  await sendCommandToEngine({ type: 'set_parametric_eq_enabled', track, enabled })
+})
+
+ipcMain.handle('audio-engine:clear-parametric-eq', async (_, track: number) => {
+  await sendCommandToEngine({ type: 'clear_parametric_eq', track })
+})
+
 // Master controls
 ipcMain.handle('audio-engine:set-master-gain', async (_, gain: number) => {
   await sendCommandToEngine({ type: 'set_master_gain', gain })

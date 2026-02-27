@@ -1,6 +1,6 @@
 /// Audio routing engine
 use crate::audio_io::ChannelSelection;
-use crate::equalizer::Equalizer;
+use crate::equalizer::{Equalizer, ParametricEqualizer};
 use crate::file_player::AudioFilePlayer;
 use crate::signal_gen::{SignalGenerator, WaveformType};
 
@@ -29,8 +29,11 @@ pub struct Track {
     // File player
     pub file_player: Option<AudioFilePlayer>,
     
-    // Equalizer
+    // Equalizer (4-band fixed)
     pub equalizer: Equalizer,
+    
+    // Parametric EQ (dynamic filters)
+    pub parametric_eq: ParametricEqualizer,
     
     // Processing state
     pub level_l: f32,
@@ -50,6 +53,7 @@ impl Track {
             signal_generator: None,
             file_player: None,
             equalizer: Equalizer::new(48000.0),
+            parametric_eq: ParametricEqualizer::new(48000.0),
             level_l: 0.0,
             level_r: 0.0,
         }
@@ -170,8 +174,11 @@ impl Track {
             }
         };
 
-        // Apply EQ processing
-        let (mut left, mut right) = self.equalizer.process(left, right);
+        // Apply 4-band EQ processing
+        let (left, right) = self.equalizer.process(left, right);
+        
+        // Apply parametric EQ processing
+        let (mut left, mut right) = self.parametric_eq.process(left, right);
 
         // Apply input gain/trim first
         left *= self.gain;

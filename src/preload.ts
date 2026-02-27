@@ -16,6 +16,15 @@ contextBridge.exposeInMainWorld('audioEngine', {
   setEQ: (track: number, low: number, low_mid: number, high_mid: number, high: number) => 
     ipcRenderer.invoke('audio-engine:set-eq', track, low, low_mid, high_mid, high),
   setEQEnabled: (track: number, enabled: boolean) => ipcRenderer.invoke('audio-engine:set-eq-enabled', track, enabled),
+  
+  // Parametric EQ controls
+  setParametricEQFilters: (track: number, filters: Array<{type: string, frequency: number, gain: number, q: number}>) => 
+    ipcRenderer.invoke('audio-engine:set-parametric-eq-filters', track, filters),
+  setParametricEQEnabled: (track: number, enabled: boolean) => 
+    ipcRenderer.invoke('audio-engine:set-parametric-eq-enabled', track, enabled),
+  clearParametricEQ: (track: number) => 
+    ipcRenderer.invoke('audio-engine:clear-parametric-eq', track),
+    
   setCompressor: (track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => 
     ipcRenderer.invoke('audio-engine:set-compressor', track, enabled, threshold, ratio, attack, release),
   setGate: (track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => 

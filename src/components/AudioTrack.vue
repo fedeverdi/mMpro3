@@ -104,9 +104,9 @@
 
       <!-- EQ Section -->
       <div class="w-full bg-gray-900 rounded p-1 border border-gray-700 relative">
-        <div class="flex items-center justify-between px-2">
+        <div class="flex items-center justify-between px-2 gap-1">
           <button @click="showEQ3Bands = !showEQ3Bands"
-            class="flex items-center gap-1 hover:text-gray-200 transition-colors">
+            class="flex items-center gap-1 hover:text-gray-200 transition-colors flex-1">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
               class="w-3 h-3 text-gray-400 transition-transform" :class="showEQ3Bands ? 'rotate-90' : ''">
               <path fill-rule="evenodd"
@@ -114,6 +114,10 @@
                 clip-rule="evenodd" />
             </svg>
             <div class="text-xs text-gray-400 uppercase tracking-wide">EQ</div>
+          </button>
+          <button @click="showParametricEQ = true"
+            class="px-2 py-0.5 text-[0.6rem] font-bold rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 transition-all">
+            PEQ
           </button>
         </div>
         
@@ -177,6 +181,14 @@
       </div>
     </div>
   </div>
+
+  <!-- Parametric EQ Modal -->
+  <ParametricEQModal
+    v-model="showParametricEQ"
+    :track-number="trackNumber"
+    :title="`Parametric EQ - Track ${trackNumber + 1}`"
+    @update="handleParametricEQUpdate"
+  />
 </template>
 
 <script setup lang="ts">
@@ -192,6 +204,7 @@ import TrackFader from './audioTrack/TrackFader.vue'
 import TrackGate from './audioTrack/TrackGate.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
 import Knob from './core/Knob.vue'
+import ParametricEQModal from './master/ParametricEQModal.vue'
 
 // Props
 const props = defineProps<{
@@ -240,6 +253,14 @@ const routeToMaster = ref(true)
 const gateEnabled = ref(false)
 const compressorEnabled = ref(false)
 const showEQ3Bands = ref(false)
+const showParametricEQ = ref(false)
+
+// Watch when parametric EQ modal opens
+watch(showParametricEQ, (isOpen) => {
+  if (isOpen) {
+    console.log(`[Track ${props.trackNumber}] Parametric EQ modal opened`)
+  }
+})
 
 // Meter levels (simulated for now)
 const trackLevelL = ref(-60)
@@ -379,6 +400,34 @@ function handleGateParamsUpdate(params: { threshold: number; attack: number; rel
       params.attack,
       params.release
     )
+  }
+}
+
+function handleParametricEQUpdate(filters: any) {
+  console.log(`[Track ${props.trackNumber}] Parametric EQ updated:`)
+  console.log('  - Input node:', filters.input)
+  console.log('  - Output node:', filters.output)
+  console.log('  - Filters count:', filters.filters?.length)
+  console.log('  - Filters data:', filters.filtersData)
+  
+  // Log each filter details
+  if (filters.filtersData) {
+    filters.filtersData.forEach((f: any, i: number) => {
+      console.log(`  Filter ${i + 1}: ${f.type} @ ${f.frequency}Hz, gain: ${f.gain}dB, Q: ${f.Q}`)
+    })
+  }
+  
+  // Convert filtersData to the format expected by Rust engine
+  if (filters.filtersData && audioEngine?.state.value.isRunning) {
+    const rustFilters = filters.filtersData.map((f: any) => ({
+      type: f.type,
+      frequency: f.frequency,
+      gain: f.gain,
+      q: f.Q
+    }))
+    
+    audioEngine.setParametricEQFilters(props.trackNumber - 1, rustFilters)
+    console.log(`[Track ${props.trackNumber}] Sent ${rustFilters.length} filters to Rust engine`)
   }
 }
 

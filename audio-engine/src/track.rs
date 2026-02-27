@@ -87,3 +87,85 @@ pub fn set_source_file(
         Err(anyhow!("Track {} not found", track))
     }
 }
+
+/// Set track EQ parameters (4-band parametric)
+pub fn set_eq(
+    router: &mut Router,
+    track: usize,
+    low: f32,
+    low_mid: f32,
+    high_mid: f32,
+    high: f32,
+) {
+    if let Some(t) = router.get_track_mut(track) {
+        t.set_eq(low, low_mid, high_mid, high);
+    }
+}
+
+/// Enable or disable track EQ
+pub fn set_eq_enabled(router: &mut Router, track: usize, enabled: bool) {
+    if let Some(t) = router.get_track_mut(track) {
+        t.set_eq_enabled(enabled);
+    }
+}
+
+/// Play file on track
+pub fn play_file(router: &mut Router, track: usize, sample_rate: u32) -> Result<()> {
+    if let Some(t) = router.get_track_mut(track) {
+        t.play_file(sample_rate)
+    } else {
+        Err(anyhow!("Track {} not found", track))
+    }
+}
+
+/// Pause file on track
+pub fn pause_file(router: &mut Router, track: usize) -> Result<()> {
+    if let Some(t) = router.get_track_mut(track) {
+        t.pause_file()
+    } else {
+        Err(anyhow!("Track {} not found", track))
+    }
+}
+
+/// Stop file on track
+pub fn stop_file(router: &mut Router, track: usize) -> Result<()> {
+    if let Some(t) = router.get_track_mut(track) {
+        t.stop_file()
+    } else {
+        Err(anyhow!("Track {} not found", track))
+    }
+}
+
+/// Set track gain (input trim)
+pub fn set_gain(router: &mut Router, track: usize, gain: f32) {
+    if let Some(t) = router.get_track_mut(track) {
+        t.gain = gain.max(0.0); // No upper limit, but can't be negative
+        let gain_db = if gain > 0.0 { 20.0 * gain.log10() } else { -90.0 };
+        eprintln!("[Track {}] Gain: {:.3} ({:.1} dB)", track, t.gain, gain_db);
+    }
+}
+
+/// Set track volume (fader)
+pub fn set_volume(router: &mut Router, track: usize, volume: f32) {
+    if let Some(t) = router.get_track_mut(track) {
+        t.volume = volume.max(0.0); // No upper limit, but can't be negative
+        let volume_db = if volume > 0.0 { 20.0 * volume.log10() } else { -90.0 };
+        eprintln!("[Track {}] Volume: {:.3} ({:.1} dB)", track, t.volume, volume_db);
+    }
+}
+
+/// Set track mute
+pub fn set_mute(router: &mut Router, track: usize, mute: bool) {
+    if let Some(t) = router.get_track_mut(track) {
+        t.mute = mute;
+        eprintln!("[Track {}] Mute: {}", track, mute);
+    }
+}
+
+/// Set track pan (-1.0 left, 0.0 center, 1.0 right)
+pub fn set_pan(router: &mut Router, track: usize, pan: f32) {
+    if let Some(t) = router.get_track_mut(track) {
+        t.pan = pan.clamp(-1.0, 1.0);
+        eprintln!("[Track {}] Pan: {}", track, t.pan);
+    }
+}

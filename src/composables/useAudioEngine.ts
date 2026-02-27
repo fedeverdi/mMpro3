@@ -211,6 +211,25 @@ export const useAudioEngine = () => {
     await window.audioEngine.setEQEnabled(track, enabled)
   }
 
+  // Parametric EQ controls
+  const setParametricEQFilters = async (track: number, filters: Array<{type: string, frequency: number, gain: number, q: number}>) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setParametricEQFilters(track, filters)
+  }
+
+  const setParametricEQEnabled = async (track: number, enabled: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.setParametricEQEnabled(track, enabled)
+  }
+
+  const clearParametricEQ = async (track: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    await window.audioEngine.clearParametricEQ(track)
+  }
+
   // Master controls
   const setMasterGain = async (gain: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
@@ -255,6 +274,9 @@ export const useAudioEngine = () => {
     setTrackMute,
     setTrackEQ,
     setTrackEQEnabled,
+    setParametricEQFilters,
+    setParametricEQEnabled,
+    clearParametricEQ,
     setTrackCompressor,
     setTrackGate,
     setTrackSourceInput,
