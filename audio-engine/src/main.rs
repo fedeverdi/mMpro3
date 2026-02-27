@@ -221,7 +221,7 @@ struct AudioEngine {
 impl AudioEngine {
     fn new() -> Self {
         let audio_io = AudioIO::new();
-        let router = Arc::new(Mutex::new(Router::new(1))); // Start with 1 track
+        let router = Arc::new(Mutex::new(Router::new(24))); // Support up to 24 tracks
 
         Self {
             audio_io,

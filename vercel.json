@@ -4,7 +4,7 @@
   "installCommand": "npm install",
   "devCommand": "npm run dev",
   "env": {
-    "VITE_BUILD_MODE": "demo"
+    "VITE_BUILD_MODE": "full"
   },
   "rewrites": [
     {

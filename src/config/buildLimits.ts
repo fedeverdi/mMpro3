@@ -48,8 +48,9 @@ const LIMITS: Record<BuildMode, BuildLimits> = {
 // Get build mode from environment variable, default to 'full'
 export function getBuildMode(): BuildMode {
   const mode = import.meta.env.VITE_BUILD_MODE as string
+  console.log('🔧 Build mode from env:', mode, '| Using: full (forced for development)')
   if (mode === 'demo' || mode === 'medium' || mode === 'full') {
-    return mode
+    return 'full' // Force full mode for development
   }
   return 'full' // default
 }
