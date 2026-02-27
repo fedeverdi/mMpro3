@@ -181,14 +181,6 @@ impl ChannelSelection {
     pub fn stereo() -> Self {
         Self { left: 0, right: 1 }
     }
-
-    /// Mono selection (same channel for L/R)
-    pub fn mono(channel: u16) -> Self {
-        Self {
-            left: channel,
-            right: channel,
-        }
-    }
 }
 
 #[cfg(test)]

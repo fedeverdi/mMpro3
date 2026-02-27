@@ -12,6 +12,22 @@ if (started) {
 let audioEngineProcess: ChildProcess | null = null
 
 const startAudioEngine = () => {
+  // If audio engine is already running, stop it first
+  if (audioEngineProcess) {
+    console.log('[Main] Audio engine already running, stopping it first...')
+    stopAudioEngine()
+    
+    // Wait a bit for the stop to complete, then start fresh
+    setTimeout(() => {
+      startAudioEngineInternal()
+    }, 150)
+    return
+  }
+  
+  startAudioEngineInternal()
+}
+
+const startAudioEngineInternal = () => {
   const enginePath = app.isPackaged
     ? path.join(process.resourcesPath, 'audio-engine', 'mmpro3-engine')
     : path.join(app.getAppPath(), 'audio-engine', 'target', 'release', 'mmpro3-engine')
@@ -72,8 +88,25 @@ const startAudioEngine = () => {
 const stopAudioEngine = () => {
   if (audioEngineProcess) {
     console.log('[Main] Stopping audio engine')
-    audioEngineProcess.kill()
-    audioEngineProcess = null
+    
+    // First, stop all file players gracefully
+    try {
+      if (audioEngineProcess.stdin) {
+        const stopCommand = JSON.stringify({ type: 'stop_all_files' }) + '\n'
+        audioEngineProcess.stdin.write(stopCommand)
+        console.log('[Main] Sent stop_all_files command')
+      }
+    } catch (err) {
+      console.error('[Main] Error sending stop_all_files command:', err)
+    }
+    
+    // Give it a moment to process, then kill
+    setTimeout(() => {
+      if (audioEngineProcess) {
+        audioEngineProcess.kill()
+        audioEngineProcess = null
+      }
+    }, 100)
   }
 }
 

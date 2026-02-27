@@ -13,7 +13,6 @@ mod routing;
 mod signal_gen;
 
 use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
-use equalizer::Equalizer;
 use file_player::AudioFilePlayer;
 use routing::Router;
 use signal_gen::WaveformType;
@@ -55,6 +54,8 @@ enum Command {
     PauseFile { track: usize },
     #[serde(rename = "stop_file")]
     StopFile { track: usize },
+    #[serde(rename = "stop_all_files")]
+    StopAllFiles,
 
     // Track controls
     #[serde(rename = "set_gain")]
@@ -426,19 +427,8 @@ impl AudioEngine {
 
     fn play_file(&self, track: usize) -> Result<()> {
         let mut router = self.router.lock().unwrap();
-        
         if let Some(t) = router.get_track_mut(track) {
-            if let Some(player) = &mut t.file_player {
-                // Ensure output sample rate is correct before playing
-                player.set_output_sample_rate(self.sample_rate);
-                player.play();
-                eprintln!("[Track {}] File playback started (playing={}, file_rate={}, output_rate={}, ratio={:.4})", 
-                    track, player.playing, player.sample_rate, player.output_sample_rate,
-                    player.sample_rate as f64 / player.output_sample_rate as f64);
-                Ok(())
-            } else {
-                Err(anyhow!("Track {} has no file loaded", track))
-            }
+            t.play_file(self.sample_rate)
         } else {
             Err(anyhow!("Track {} not found", track))
         }
@@ -447,13 +437,7 @@ impl AudioEngine {
     fn pause_file(&self, track: usize) -> Result<()> {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.get_track_mut(track) {
-            if let Some(player) = &mut t.file_player {
-                player.pause();
-                eprintln!("[Track {}] File playback paused", track);
-                Ok(())
-            } else {
-                Err(anyhow!("Track {} has no file loaded", track))
-            }
+            t.pause_file()
         } else {
             Err(anyhow!("Track {} not found", track))
         }
@@ -462,16 +446,15 @@ impl AudioEngine {
     fn stop_file(&self, track: usize) -> Result<()> {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.get_track_mut(track) {
-            if let Some(player) = &mut t.file_player {
-                player.stop();
-                eprintln!("[Track {}] File playback stopped", track);
-                Ok(())
-            } else {
-                Err(anyhow!("Track {} has no file loaded", track))
-            }
+            t.stop_file()
         } else {
             Err(anyhow!("Track {} not found", track))
         }
+    }
+
+    fn stop_all_files(&self) {
+        let mut router = self.router.lock().unwrap();
+        router.stop_all_files();
     }
 
     // Track controls
@@ -513,20 +496,14 @@ impl AudioEngine {
     fn set_eq(&self, track: usize, low: f32, low_mid: f32, high_mid: f32, high: f32) {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.get_track_mut(track) {
-            t.equalizer.set_low_shelf(low);
-            t.equalizer.set_low_mid(low_mid);
-            t.equalizer.set_high_mid(high_mid);
-            t.equalizer.set_high_shelf(high);
-            eprintln!("[Track {}] EQ: Low={:.1}dB, LowMid={:.1}dB, HighMid={:.1}dB, High={:.1}dB", 
-                track, low, low_mid, high_mid, high);
+            t.set_eq(low, low_mid, high_mid, high);
         }
     }
 
     fn set_eq_enabled(&self, track: usize, enabled: bool) {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.get_track_mut(track) {
-            t.equalizer.set_enabled(enabled);
-            eprintln!("[Track {}] EQ Enabled: {}", track, enabled);
+            t.set_eq_enabled(enabled);
         }
     }
 
@@ -673,6 +650,12 @@ fn main() -> Result<()> {
                     message: e.to_string(),
                 }),
             },
+            Ok(Command::StopAllFiles) => {
+                engine.stop_all_files();
+                send_response(&Response::Ok {
+                    message: "All file players stopped".to_string(),
+                });
+            }
             Ok(Command::SetGain { track, gain }) => {
                 engine.set_gain(track, gain);
                 send_response(&Response::Ok {

@@ -43,18 +43,6 @@ impl SignalGenerator {
         }
     }
 
-    pub fn set_frequency(&mut self, frequency: f32) {
-        self.frequency = frequency;
-    }
-
-    pub fn set_waveform(&mut self, waveform: WaveformType) {
-        self.waveform = waveform;
-    }
-
-    pub fn reset_phase(&mut self) {
-        self.phase = 0.0;
-    }
-
     /// Generate next sample
     pub fn next_sample(&mut self) -> f32 {
         let sample = match self.waveform {

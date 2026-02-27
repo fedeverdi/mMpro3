@@ -161,11 +161,6 @@ impl AudioFilePlayer {
         self.resample_position = 0.0;
     }
 
-    /// Set looping mode
-    pub fn set_looping(&mut self, looping: bool) {
-        self.looping = looping;
-    }
-
     /// Get next stereo frame (L, R) with resampling
     pub fn next_frame(&mut self) -> (f32, f32) {
         if !self.playing || self.samples.is_empty() {
@@ -212,28 +207,6 @@ impl AudioFilePlayer {
         self.resample_position += ratio;
 
         (left, right)
-    }
-
-    /// Check if currently playing
-    pub fn is_playing(&self) -> bool {
-        self.playing
-    }
-
-    /// Get total duration in samples
-    pub fn duration_samples(&self) -> usize {
-        self.samples.len() / self.channels as usize
-    }
-
-    /// Get current position in samples
-    pub fn position_samples(&self) -> usize {
-        self.position
-    }
-
-    /// Seek to position (in samples)
-    pub fn seek(&mut self, position: usize) {
-        let max_pos = self.samples.len() / self.channels as usize;
-        self.position = position.min(max_pos);
-        self.resample_position = position as f64;
     }
 
     /// Set output sample rate for resampling

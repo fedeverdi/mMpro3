@@ -77,6 +77,58 @@ impl Track {
         self.signal_generator = None;
     }
 
+    /// Set EQ parameters
+    pub fn set_eq(&mut self, low: f32, low_mid: f32, high_mid: f32, high: f32) {
+        self.equalizer.set_low_shelf(low);
+        self.equalizer.set_low_mid(low_mid);
+        self.equalizer.set_high_mid(high_mid);
+        self.equalizer.set_high_shelf(high);
+        eprintln!("[Track {}] EQ: Low={:.1}dB, LowMid={:.1}dB, HighMid={:.1}dB, High={:.1}dB", 
+            self.id, low, low_mid, high_mid, high);
+    }
+
+    /// Enable or disable EQ
+    pub fn set_eq_enabled(&mut self, enabled: bool) {
+        self.equalizer.set_enabled(enabled);
+        eprintln!("[Track {}] EQ Enabled: {}", self.id, enabled);
+    }
+
+    /// Play file
+    pub fn play_file(&mut self, output_sample_rate: u32) -> anyhow::Result<()> {
+        if let Some(player) = &mut self.file_player {
+            player.set_output_sample_rate(output_sample_rate);
+            player.play();
+            eprintln!("[Track {}] File playback started (playing={}, file_rate={}, output_rate={}, ratio={:.4})", 
+                self.id, player.playing, player.sample_rate, player.output_sample_rate,
+                player.sample_rate as f64 / player.output_sample_rate as f64);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Track {} has no file loaded", self.id))
+        }
+    }
+
+    /// Pause file
+    pub fn pause_file(&mut self) -> anyhow::Result<()> {
+        if let Some(player) = &mut self.file_player {
+            player.pause();
+            eprintln!("[Track {}] File playback paused", self.id);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Track {} has no file loaded", self.id))
+        }
+    }
+
+    /// Stop file
+    pub fn stop_file(&mut self) -> anyhow::Result<()> {
+        if let Some(player) = &mut self.file_player {
+            player.stop();
+            eprintln!("[Track {}] File playback stopped", self.id);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Track {} has no file loaded", self.id))
+        }
+    }
+
     /// Process audio for this track
     /// Returns (left, right) stereo samples
     pub fn process(&mut self, input_frame: Option<&[f32]>) -> (f32, f32) {
@@ -84,7 +136,7 @@ impl Track {
             return (0.0, 0.0);
         }
 
-        let (mut left, mut right) = match self.source {
+        let (left, right) = match self.source {
             TrackSource::None => (0.0, 0.0),
             
             TrackSource::AudioInput => {
@@ -234,6 +286,16 @@ impl Router {
     /// Get track by id
     pub fn get_track_mut(&mut self, id: usize) -> Option<&mut Track> {
         self.tracks.get_mut(id)
+    }
+
+    /// Stop all file players
+    pub fn stop_all_files(&mut self) {
+        for track in self.tracks.iter_mut() {
+            if track.file_player.is_some() {
+                let _ = track.stop_file();
+            }
+        }
+        eprintln!("[Router] All file players stopped");
     }
 }
 

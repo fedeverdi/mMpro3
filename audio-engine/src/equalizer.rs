@@ -99,24 +99,6 @@ impl EQBand {
         self.update_coefficients();
     }
 
-    pub fn set_frequency(&mut self, frequency: f32) {
-        self.frequency = frequency.clamp(20.0, 20000.0);
-        self.update_coefficients();
-    }
-
-    pub fn set_q(&mut self, q: f32) {
-        self.q = q.clamp(0.1, 10.0);
-        self.update_coefficients();
-    }
-
-    pub fn set_enabled(&mut self, enabled: bool) {
-        self.enabled = enabled;
-        if !enabled {
-            self.state_l.reset();
-            self.state_r.reset();
-        }
-    }
-
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
         self.update_coefficients();
