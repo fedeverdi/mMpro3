@@ -103,7 +103,6 @@ function updateMetersHeight() {
 // Handle output device selection
 function handleOutputSelect(deviceId: string | null) {
   selectedOutput.value = deviceId
-  console.log(`[Subgroup ${props.subgroupId}] Output selected:`, deviceId)
 
   if (!audioEngine || props.subgroupId === undefined) return
 
@@ -111,14 +110,9 @@ function handleOutputSelect(deviceId: string | null) {
   // The subgroup can still route to master if route_to_master is enabled
   if (deviceId === 'no-output' || deviceId === null) {
     audioEngine.setSubgroupOutputEnabled(props.subgroupId, false)
-    console.log(`[Subgroup ${props.subgroupId}] Direct output disabled (can still route to master)`)
   } else {
     // Enable direct output when a device is selected
     audioEngine.setSubgroupOutputEnabled(props.subgroupId, true)
-    console.log(`[Subgroup ${props.subgroupId}] Direct output enabled`)
-
-    // Note: Currently all subgroups use the main output device
-    // Multi-device routing would require separate audio streams per subgroup
   }
 }
 
