@@ -314,6 +314,7 @@ impl AudioEngine {
         };
 
         // Get configs with 256 frame buffer for low latency
+        // If sample_rate is None, will automatically use the highest supported rate for each device
         let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate, Some(256))?;
         let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate, Some(256))?;
 
@@ -358,14 +359,11 @@ impl AudioEngine {
         {
             let mut router = self.router.lock().unwrap();
             for track in router.tracks.iter_mut() {
-                // Update file player sample rate
-                if let Some(ref mut player) = track.file_player {
-                    let old_rate = player.output_sample_rate;
-                    player.set_output_sample_rate(self.sample_rate);
-                }
-                // Update equalizer sample rate
-                track.equalizer.set_sample_rate(self.sample_rate as f32);
+                track.set_sample_rate(self.sample_rate as f32);
             }
+            
+            // Update master bus equalizers
+            router.master.parametric_eq.set_sample_rate(self.sample_rate as f32);
         }
 
         let input_channels = input_config.channels as usize;

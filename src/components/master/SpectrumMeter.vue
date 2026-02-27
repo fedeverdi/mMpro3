@@ -94,8 +94,8 @@ const props = defineProps<Props>()
 const audioEngine = inject<any>('audioEngine')
 
 const canvas = ref<HTMLCanvasElement | null>(null)
-const bars = ref(128)
-const barOptions = [16, 24, 48, 96, 128]
+const bars = ref(96)
+const barOptions = [16, 24, 48, 96]
 const displayMode = ref<'bars' | 'curve' | 'mirror' | 'dots'>('bars')
 
 // FFT data from backend
@@ -103,13 +103,33 @@ const currentFFTLeft = ref<Float32Array | null>(null)
 const currentFFTRight = ref<Float32Array | null>(null)
 const currentSampleRate = ref<number>(48000)
 
+// Smoothed FFT data for fluid visualization
+let smoothedFFTLeft: Float32Array | null = null
+let smoothedFFTRight: Float32Array | null = null
+const SMOOTHING_FACTOR = 0.7 // 0 = no smoothing, 1 = max smoothing
+
 // Watch for FFT data updates from audio engine
 watch(
   () => audioEngine?.state?.value?.fftData,
   (fftData) => {
     if (fftData) {
-      currentFFTLeft.value = fftData.binsLeft
-      currentFFTRight.value = fftData.binsRight
+      const newLeft = fftData.binsLeft
+      const newRight = fftData.binsRight
+      
+      // Initialize smoothed buffers on first data
+      if (!smoothedFFTLeft || smoothedFFTLeft.length !== newLeft.length) {
+        smoothedFFTLeft = new Float32Array(newLeft)
+        smoothedFFTRight = new Float32Array(newRight)
+      } else {
+        // Apply exponential smoothing: smoothed = smoothed * factor + new * (1 - factor)
+        for (let i = 0; i < newLeft.length; i++) {
+          smoothedFFTLeft[i] = smoothedFFTLeft[i] * SMOOTHING_FACTOR + newLeft[i] * (1 - SMOOTHING_FACTOR)
+          smoothedFFTRight[i] = smoothedFFTRight[i] * SMOOTHING_FACTOR + newRight[i] * (1 - SMOOTHING_FACTOR)
+        }
+      }
+      
+      currentFFTLeft.value = smoothedFFTLeft
+      currentFFTRight.value = smoothedFFTRight
       currentSampleRate.value = fftData.sampleRate
     }
   },

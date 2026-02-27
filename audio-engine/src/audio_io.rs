@@ -143,18 +143,80 @@ impl AudioIO {
         sample_rate: Option<u32>,
         buffer_size: Option<u32>,
     ) -> Result<StreamConfig> {
-        let config = if is_input {
+        let default_config = if is_input {
             device.default_input_config()?
         } else {
             device.default_output_config()?
         };
 
-        let mut stream_config = config.config();
+        let mut stream_config = default_config.config();
+        let default_rate = default_config.sample_rate().0;
 
-        // Override sample rate if specified
-        if let Some(rate) = sample_rate {
-            stream_config.sample_rate = cpal::SampleRate(rate);
-        }
+        // If no sample rate specified, try to find the highest supported rate
+        let target_sample_rate = if let Some(rate) = sample_rate {
+            rate
+        } else {
+            // Get maximum supported sample rate
+            let max_rate = if is_input {
+                device.supported_input_configs()
+                    .ok()
+                    .and_then(|configs| {
+                        configs
+                            .map(|config| config.max_sample_rate().0)
+                            .max()
+                    })
+                    .unwrap_or(default_rate)
+            } else {
+                device.supported_output_configs()
+                    .ok()
+                    .and_then(|configs| {
+                        configs
+                            .map(|config| config.max_sample_rate().0)
+                            .max()
+                    })
+                    .unwrap_or(default_rate)
+            };
+            
+            if max_rate != default_rate {
+                eprintln!("[AudioIO] Device supports max sample rate: {} Hz (default: {} Hz)", max_rate, default_rate);
+            }
+            max_rate
+        };
+
+        // Verify the target sample rate is supported
+        let is_supported = if is_input {
+            if let Ok(mut configs) = device.supported_input_configs() {
+                configs.any(|config| {
+                    let min = config.min_sample_rate().0;
+                    let max = config.max_sample_rate().0;
+                    target_sample_rate >= min && target_sample_rate <= max
+                })
+            } else {
+                false
+            }
+        } else {
+            if let Ok(mut configs) = device.supported_output_configs() {
+                configs.any(|config| {
+                    let min = config.min_sample_rate().0;
+                    let max = config.max_sample_rate().0;
+                    target_sample_rate >= min && target_sample_rate <= max
+                })
+            } else {
+                false
+            }
+        };
+
+        let final_sample_rate = if is_supported {
+            target_sample_rate
+        } else {
+            if target_sample_rate != default_rate {
+                eprintln!("[AudioIO] Sample rate {} Hz not supported, using default {} Hz", 
+                    target_sample_rate, default_rate);
+            }
+            default_rate
+        };
+
+        stream_config.sample_rate = cpal::SampleRate(final_sample_rate);
 
         // Override buffer size if specified
         if let Some(size) = buffer_size {

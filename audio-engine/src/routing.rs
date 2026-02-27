@@ -17,24 +17,46 @@ pub enum TrackSource {
 const WAVEFORM_BUFFER_SIZE: usize = 2048;
 
 // FFT size for spectrum analysis (2048 samples = ~42ms @ 48kHz)
+// Balanced between update rate and CPU usage
 const FFT_SIZE: usize = 2048;
 
 pub struct FFTAnalyzer {
     buffer_left: Vec<f32>,
     buffer_right: Vec<f32>,
     position: usize,
-    planner: FftPlanner<f32>,
     fft_ready: bool,
+    // Pre-calculated window function
+    window: Vec<f32>,
+    // Pre-allocated FFT buffers
+    fft_left: Vec<Complex<f32>>,
+    fft_right: Vec<Complex<f32>>,
+    // Cached FFT plan
+    fft: std::sync::Arc<dyn rustfft::Fft<f32>>,
 }
 
 impl FFTAnalyzer {
     pub fn new() -> Self {
+        let mut planner = FftPlanner::new();
+        let fft = planner.plan_fft_forward(FFT_SIZE);
+        
+        // Pre-calculate Hann window
+        let window: Vec<f32> = (0..FFT_SIZE)
+            .map(|i| 0.5 * (1.0 - f32::cos(2.0 * std::f32::consts::PI * i as f32 / (FFT_SIZE - 1) as f32)))
+            .collect();
+        
+        // Pre-allocate FFT buffers
+        let fft_left = vec![Complex::new(0.0, 0.0); FFT_SIZE];
+        let fft_right = vec![Complex::new(0.0, 0.0); FFT_SIZE];
+        
         Self {
             buffer_left: vec![0.0; FFT_SIZE],
             buffer_right: vec![0.0; FFT_SIZE],
             position: 0,
-            planner: FftPlanner::new(),
             fft_ready: false,
+            window,
+            fft_left,
+            fft_right,
+            fft,
         }
     }
 
@@ -58,38 +80,28 @@ impl FFTAnalyzer {
 
         self.fft_ready = false;
 
-        // Apply Hann window to reduce spectral leakage
-        let window: Vec<f32> = (0..FFT_SIZE)
-            .map(|i| 0.5 * (1.0 - f32::cos(2.0 * std::f32::consts::PI * i as f32 / (FFT_SIZE - 1) as f32)))
-            .collect();
+        // Apply window to left channel (reuse pre-allocated buffer)
+        for i in 0..FFT_SIZE {
+            self.fft_left[i] = Complex::new(self.buffer_left[i] * self.window[i], 0.0);
+        }
 
-        // Process left channel
-        let mut left_complex: Vec<Complex<f32>> = self.buffer_left
-            .iter()
-            .zip(window.iter())
-            .map(|(sample, win)| Complex::new(sample * win, 0.0))
-            .collect();
+        // Apply window to right channel (reuse pre-allocated buffer)
+        for i in 0..FFT_SIZE {
+            self.fft_right[i] = Complex::new(self.buffer_right[i] * self.window[i], 0.0);
+        }
 
-        // Process right channel
-        let mut right_complex: Vec<Complex<f32>> = self.buffer_right
-            .iter()
-            .zip(window.iter())
-            .map(|(sample, win)| Complex::new(sample * win, 0.0))
-            .collect();
-
-        // Perform FFT
-        let fft = self.planner.plan_fft_forward(FFT_SIZE);
-        fft.process(&mut left_complex);
-        fft.process(&mut right_complex);
+        // Perform FFT (in-place on pre-allocated buffers)
+        self.fft.process(&mut self.fft_left);
+        self.fft.process(&mut self.fft_right);
 
         // Calculate magnitude spectrum (only first half due to symmetry)
         let bins_count = FFT_SIZE / 2;
-        let left_magnitudes: Vec<f32> = left_complex[..bins_count]
+        let left_magnitudes: Vec<f32> = self.fft_left[..bins_count]
             .iter()
             .map(|c| (c.re * c.re + c.im * c.im).sqrt() / FFT_SIZE as f32)
             .collect();
 
-        let right_magnitudes: Vec<f32> = right_complex[..bins_count]
+        let right_magnitudes: Vec<f32> = self.fft_right[..bins_count]
             .iter()
             .map(|c| (c.re * c.re + c.im * c.im).sqrt() / FFT_SIZE as f32)
             .collect();
@@ -228,6 +240,23 @@ impl Track {
             Ok(())
         } else {
             Err(anyhow::anyhow!("Track {} has no file loaded", self.id))
+        }
+    }
+
+    /// Update sample rate for all components
+    pub fn set_sample_rate(&mut self, sample_rate: f32) {
+        self.equalizer.set_sample_rate(sample_rate);
+        self.parametric_eq.set_sample_rate(sample_rate);
+        self.hpf_filter.set_sample_rate(sample_rate);
+        
+        // Update file player output sample rate
+        if let Some(player) = &mut self.file_player {
+            player.set_output_sample_rate(sample_rate as u32);
+        }
+        
+        // Update signal generator sample rate
+        if let Some(generator) = &mut self.signal_generator {
+            generator.set_sample_rate(sample_rate);
         }
     }
 
