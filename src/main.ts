@@ -1,4 +1,5 @@
-import { app, BrowserWindow, screen } from 'electron'
+import { app, BrowserWindow, screen, ipcMain } from 'electron'
+import { spawn, ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
@@ -6,6 +7,97 @@ import started from 'electron-squirrel-startup'
 if (started) {
   app.quit()
 }
+
+// Audio Engine Process
+let audioEngineProcess: ChildProcess | null = null
+
+const startAudioEngine = () => {
+  const enginePath = app.isPackaged
+    ? path.join(process.resourcesPath, 'audio-engine', 'mmpro3-engine')
+    : path.join(app.getAppPath(), 'audio-engine', 'target', 'release', 'mmpro3-engine')
+
+  console.log('[Main] App path:', app.getAppPath())
+  console.log('[Main] Starting audio engine:', enginePath)
+  console.log('[Main] Engine exists:', fs.existsSync(enginePath))
+  
+  if (!fs.existsSync(enginePath)) {
+    console.error('[Main] Engine not found! Skipping audio engine startup.')
+    return
+  }
+  
+  audioEngineProcess = spawn(enginePath, [], {
+    stdio: ['pipe', 'pipe', 'pipe']
+  })
+
+  audioEngineProcess.stdout?.on('data', (data) => {
+    const output = data.toString().trim()
+    console.log('[Engine]', output)
+    
+    // Parse JSON responses and forward to renderer
+    try {
+      const response = JSON.parse(output)
+      BrowserWindow.getAllWindows().forEach(win => {
+        win.webContents.send('audio-engine-response', response)
+      })
+    } catch (err) {
+      // Not JSON, just log
+    }
+  })
+
+  audioEngineProcess.stderr?.on('data', (data) => {
+    console.error('[Engine Error]', data.toString())
+  })
+
+  audioEngineProcess.on('close', (code) => {
+    console.log('[Main] Audio engine closed with code:', code)
+    audioEngineProcess = null
+  })
+}
+
+const stopAudioEngine = () => {
+  if (audioEngineProcess) {
+    console.log('[Main] Stopping audio engine')
+    audioEngineProcess.kill()
+    audioEngineProcess = null
+  }
+}
+
+const sendCommandToEngine = (command: any): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (!audioEngineProcess || !audioEngineProcess.stdin) {
+      reject(new Error('Audio engine not running'))
+      return
+    }
+
+    try {
+      audioEngineProcess.stdin.write(JSON.stringify(command) + '\n')
+      resolve()
+    } catch (err) {
+      reject(err)
+    }
+  })
+}
+
+// IPC Handlers
+ipcMain.handle('audio-engine:start', async () => {
+  await sendCommandToEngine({ type: 'start' })
+})
+
+ipcMain.handle('audio-engine:stop', async () => {
+  await sendCommandToEngine({ type: 'stop' })
+})
+
+ipcMain.handle('audio-engine:set-gain', async (_, track: number, gain: number) => {
+  await sendCommandToEngine({ type: 'set_gain', track, gain })
+})
+
+ipcMain.handle('audio-engine:set-mute', async (_, track: number, mute: boolean) => {
+  await sendCommandToEngine({ type: 'set_mute', track, mute })
+})
+
+ipcMain.handle('audio-engine:list-devices', async () => {
+  await sendCommandToEngine({ type: 'list_devices' })
+})
 
 // Window state management
 interface WindowState {
@@ -140,10 +232,11 @@ const createWindow = () => {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`))
   }
 
-  // mainWindow.webContents.openDevTools()
+  mainWindow.webContents.openDevTools()
 }
 
 app.whenReady().then(() => {
+  startAudioEngine()
   createWindow()
 
   app.on('activate', () => {
@@ -154,7 +247,12 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  stopAudioEngine()
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+app.on('before-quit', () => {
+  stopAudioEngine()
 })

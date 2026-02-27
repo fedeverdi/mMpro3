@@ -7,10 +7,14 @@
 import { provide, ref, watch } from 'vue'
 import IndexPage from './index.vue'
 import SplashScreen from './components/layout/SplashScreen.vue'
+import { useAudioEngine } from './composables/useAudioEngine'
 
 const Tone = ref<any>(null)
 const isAppReady = ref(false)
 const splashScreenRef = ref<InstanceType<typeof SplashScreen> | null>(null)
+
+// Initialize audio engine
+const audioEngine = useAudioEngine()
 
 // Import Tone.js and initialize audio context ONLY after user interaction
 const handleAudioStart = async () => {
@@ -30,6 +34,9 @@ const handleAudioStart = async () => {
   context.lookAhead = 0.060
   
   console.log('[App] Audio context initialized:', context.state)
+  
+  // Initialize Rust audio engine
+  await audioEngine.loadDevices()
 }
 
 // Watch for app ready state and hide splash screen after 3 seconds
@@ -41,7 +48,8 @@ watch(isAppReady, (ready) => {
   }
 })
 
-// Provide Tone.js and app ready state to all child components
+// Provide Tone.js, audio engine and app ready state to all child components
 provide('Tone', Tone)
+provide('audioEngine', audioEngine)
 provide('isAppReady', isAppReady)
 </script>
