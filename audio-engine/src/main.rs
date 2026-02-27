@@ -526,6 +526,177 @@ impl AudioEngine {
         router.master.output_channel_selection = ChannelSelection::new(left_ch, right_ch);
         eprintln!("[Master] Output channels: L={}, R={}", left_ch, right_ch);
     }
+
+    /// Handle a command and return the appropriate response
+    fn handle_command(&mut self, command: Command) -> Response {
+        match command {
+            Command::Start {
+                input_device,
+                output_device,
+                sample_rate,
+            } => match self.start(input_device, output_device, sample_rate) {
+                Ok(_) => Response::Started,
+                Err(e) => Response::Error {
+                    message: format!("Start failed: {}", e),
+                },
+            },
+            Command::Stop => match self.stop() {
+                Ok(_) => Response::Stopped,
+                Err(e) => Response::Error {
+                    message: format!("Stop failed: {}", e),
+                },
+            },
+            Command::SetTrackSourceInput {
+                track,
+                left_channel,
+                right_channel,
+            } => match self.set_track_source_input(track, left_channel, right_channel) {
+                Ok(_) => Response::Ok {
+                    message: format!("Track {} source set to input", track),
+                },
+                Err(e) => Response::Error {
+                    message: e.to_string(),
+                },
+            },
+            Command::SetTrackSourceSignal {
+                track,
+                waveform,
+                frequency,
+            } => match self.set_track_source_signal(track, &waveform, frequency) {
+                Ok(_) => Response::Ok {
+                    message: format!("Track {} source set to signal", track),
+                },
+                Err(e) => Response::Error {
+                    message: e.to_string(),
+                },
+            },
+            Command::SetTrackSourceFile { track, file_path } => {
+                eprintln!("[Engine] Executing SetTrackSourceFile for track {}", track);
+                match self.set_track_source_file(track, &file_path) {
+                    Ok(_) => {
+                        eprintln!("[Engine] SetTrackSourceFile succeeded for track {}", track);
+                        Response::Ok {
+                            message: format!("Track {} source set to file", track),
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[Engine] SetTrackSourceFile FAILED for track {}: {}", track, e);
+                        Response::Error {
+                            message: e.to_string(),
+                        }
+                    }
+                }
+            }
+            Command::PlayFile { track } => {
+                eprintln!("[Engine] Executing PlayFile for track {}", track);
+                match self.play_file(track) {
+                    Ok(_) => {
+                        eprintln!("[Engine] PlayFile succeeded for track {}", track);
+                        Response::Ok {
+                            message: format!("Track {} playing", track),
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[Engine] PlayFile FAILED for track {}: {}", track, e);
+                        Response::Error {
+                            message: e.to_string(),
+                        }
+                    }
+                }
+            }
+            Command::PauseFile { track } => match self.pause_file(track) {
+                Ok(_) => Response::Ok {
+                    message: format!("Track {} paused", track),
+                },
+                Err(e) => Response::Error {
+                    message: e.to_string(),
+                },
+            },
+            Command::StopFile { track } => match self.stop_file(track) {
+                Ok(_) => Response::Ok {
+                    message: format!("Track {} stopped", track),
+                },
+                Err(e) => Response::Error {
+                    message: e.to_string(),
+                },
+            },
+            Command::StopAllFiles => {
+                self.stop_all_files();
+                Response::Ok {
+                    message: "All file players stopped".to_string(),
+                }
+            }
+            Command::SetGain { track, gain } => {
+                self.set_gain(track, gain);
+                Response::Ok {
+                    message: format!("Track {} gain: {}", track, gain),
+                }
+            }
+            Command::SetVolume { track, volume } => {
+                self.set_volume(track, volume);
+                Response::Ok {
+                    message: format!("Track {} volume: {}", track, volume),
+                }
+            }
+            Command::SetMute { track, mute } => {
+                self.set_mute(track, mute);
+                Response::Ok {
+                    message: format!("Track {} mute: {}", track, mute),
+                }
+            }
+            Command::SetPan { track, pan } => {
+                self.set_pan(track, pan);
+                Response::Ok {
+                    message: format!("Track {} pan: {}", track, pan),
+                }
+            }
+            Command::SetEQ {
+                track,
+                low,
+                low_mid,
+                high_mid,
+                high,
+            } => {
+                self.set_eq(track, low, low_mid, high_mid, high);
+                Response::Ok {
+                    message: format!("Track {} EQ set", track),
+                }
+            }
+            Command::SetEQEnabled { track, enabled } => {
+                self.set_eq_enabled(track, enabled);
+                Response::Ok {
+                    message: format!("Track {} EQ enabled: {}", track, enabled),
+                }
+            }
+            Command::SetMasterGain { gain } => {
+                self.set_master_gain(gain);
+                Response::Ok {
+                    message: format!("Master gain: {}", gain),
+                }
+            }
+            Command::SetMasterMute { mute } => {
+                self.set_master_mute(mute);
+                Response::Ok {
+                    message: format!("Master mute: {}", mute),
+                }
+            }
+            Command::SetMasterOutputChannels {
+                left_channel,
+                right_channel,
+            } => {
+                self.set_master_output_channels(left_channel, right_channel);
+                Response::Ok {
+                    message: format!("Master output: L={}, R={}", left_channel, right_channel),
+                }
+            }
+            Command::ListDevices => match self.list_devices() {
+                Ok(devices) => Response::Devices { devices },
+                Err(e) => Response::Error {
+                    message: format!("List devices failed: {}", e),
+                },
+            },
+        }
+    }
 }
 
 fn send_response(response: &Response) {
@@ -545,183 +716,19 @@ fn main() -> Result<()> {
 
     // Loop: read commands from stdin
     while let Some(Ok(line)) = lines.next() {
-        let command: Result<Command, _> = serde_json::from_str(&line);
-
-        // Debug: log received command
-        if let Ok(ref cmd) = command {
-            eprintln!("[Engine] Command: {:?}", cmd);
-        } else if let Err(ref e) = command {
-            eprintln!("[Engine] Failed to parse command: {}", e);
-            eprintln!("[Engine] Raw input: {}", line);
-        }
-
-        match command {
-            Ok(Command::Start {
-                input_device,
-                output_device,
-                sample_rate,
-            }) => match engine.start(input_device, output_device, sample_rate) {
-                Ok(_) => {
-                    send_response(&Response::Started);
-                }
-                Err(e) => send_response(&Response::Error {
-                    message: format!("Start failed: {}", e),
-                }),
-            },
-            Ok(Command::Stop) => match engine.stop() {
-                Ok(_) => {
-                    send_response(&Response::Stopped);
-                }
-                Err(e) => send_response(&Response::Error {
-                    message: format!("Stop failed: {}", e),
-                }),
-            },
-            Ok(Command::SetTrackSourceInput {
-                track,
-                left_channel,
-                right_channel,
-            }) => match engine.set_track_source_input(track, left_channel, right_channel) {
-                Ok(_) => send_response(&Response::Ok {
-                    message: format!("Track {} source set to input", track),
-                }),
-                Err(e) => send_response(&Response::Error {
-                    message: e.to_string(),
-                }),
-            },
-            Ok(Command::SetTrackSourceSignal {
-                track,
-                waveform,
-                frequency,
-            }) => match engine.set_track_source_signal(track, &waveform, frequency) {
-                Ok(_) => send_response(&Response::Ok {
-                    message: format!("Track {} source set to signal", track),
-                }),
-                Err(e) => send_response(&Response::Error {
-                    message: e.to_string(),
-                }),
-            },
-            Ok(Command::SetTrackSourceFile { track, file_path }) => {
-                eprintln!("[Engine] Executing SetTrackSourceFile for track {}", track);
-                match engine.set_track_source_file(track, &file_path) {
-                    Ok(_) => {
-                        eprintln!("[Engine] SetTrackSourceFile succeeded for track {}", track);
-                        send_response(&Response::Ok {
-                            message: format!("Track {} source set to file", track),
-                        })
-                    }
-                    Err(e) => {
-                        eprintln!("[Engine] SetTrackSourceFile FAILED for track {}: {}", track, e);
-                        send_response(&Response::Error {
-                            message: e.to_string(),
-                        })
-                    }
-                }
+        match serde_json::from_str::<Command>(&line) {
+            Ok(command) => {
+                eprintln!("[Engine] Command: {:?}", command);
+                let response = engine.handle_command(command);
+                send_response(&response);
             }
-            Ok(Command::PlayFile { track }) => {
-                eprintln!("[Engine] Executing PlayFile for track {}", track);
-                match engine.play_file(track) {
-                    Ok(_) => {
-                        eprintln!("[Engine] PlayFile succeeded for track {}", track);
-                        send_response(&Response::Ok {
-                            message: format!("Track {} playing", track),
-                        })
-                    }
-                    Err(e) => {
-                        eprintln!("[Engine] PlayFile FAILED for track {}: {}", track, e);
-                        send_response(&Response::Error {
-                            message: e.to_string(),
-                        })
-                    }
-                }
-            }
-            Ok(Command::PauseFile { track }) => match engine.pause_file(track) {
-                Ok(_) => send_response(&Response::Ok {
-                    message: format!("Track {} paused", track),
-                }),
-                Err(e) => send_response(&Response::Error {
-                    message: e.to_string(),
-                }),
-            },
-            Ok(Command::StopFile { track }) => match engine.stop_file(track) {
-                Ok(_) => send_response(&Response::Ok {
-                    message: format!("Track {} stopped", track),
-                }),
-                Err(e) => send_response(&Response::Error {
-                    message: e.to_string(),
-                }),
-            },
-            Ok(Command::StopAllFiles) => {
-                engine.stop_all_files();
-                send_response(&Response::Ok {
-                    message: "All file players stopped".to_string(),
+            Err(e) => {
+                eprintln!("[Engine] Failed to parse command: {}", e);
+                eprintln!("[Engine] Raw input: {}", line);
+                send_response(&Response::Error {
+                    message: format!("Invalid command: {}", e),
                 });
             }
-            Ok(Command::SetGain { track, gain }) => {
-                engine.set_gain(track, gain);
-                send_response(&Response::Ok {
-                    message: format!("Track {} gain: {}", track, gain),
-                });
-            }
-            Ok(Command::SetVolume { track, volume }) => {
-                engine.set_volume(track, volume);
-                send_response(&Response::Ok {
-                    message: format!("Track {} volume: {}", track, volume),
-                });
-            }
-            Ok(Command::SetMute { track, mute }) => {
-                engine.set_mute(track, mute);
-                send_response(&Response::Ok {
-                    message: format!("Track {} mute: {}", track, mute),
-                });
-            }
-            Ok(Command::SetPan { track, pan }) => {
-                engine.set_pan(track, pan);
-                send_response(&Response::Ok {
-                    message: format!("Track {} pan: {}", track, pan),
-                });
-            }
-            Ok(Command::SetEQ { track, low, low_mid, high_mid, high }) => {
-                engine.set_eq(track, low, low_mid, high_mid, high);
-                send_response(&Response::Ok {
-                    message: format!("Track {} EQ set", track),
-                });
-            }
-            Ok(Command::SetEQEnabled { track, enabled }) => {
-                engine.set_eq_enabled(track, enabled);
-                send_response(&Response::Ok {
-                    message: format!("Track {} EQ enabled: {}", track, enabled),
-                });
-            }
-            Ok(Command::SetMasterGain { gain }) => {
-                engine.set_master_gain(gain);
-                send_response(&Response::Ok {
-                    message: format!("Master gain: {}", gain),
-                });
-            }
-            Ok(Command::SetMasterMute { mute }) => {
-                engine.set_master_mute(mute);
-                send_response(&Response::Ok {
-                    message: format!("Master mute: {}", mute),
-                });
-            }
-            Ok(Command::SetMasterOutputChannels {
-                left_channel,
-                right_channel,
-            }) => {
-                engine.set_master_output_channels(left_channel, right_channel);
-                send_response(&Response::Ok {
-                    message: format!("Master output: L={}, R={}", left_channel, right_channel),
-                });
-            }
-            Ok(Command::ListDevices) => match engine.list_devices() {
-                Ok(devices) => send_response(&Response::Devices { devices }),
-                Err(e) => send_response(&Response::Error {
-                    message: format!("List devices failed: {}", e),
-                }),
-            },
-            Err(e) => send_response(&Response::Error {
-                message: format!("Invalid command: {}", e),
-            }),
         }
     }
 
