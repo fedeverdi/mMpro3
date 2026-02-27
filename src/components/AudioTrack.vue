@@ -404,19 +404,6 @@ function handleGateParamsUpdate(params: { threshold: number; attack: number; rel
 }
 
 function handleParametricEQUpdate(filters: any) {
-  console.log(`[Track ${props.trackNumber}] Parametric EQ updated:`)
-  console.log('  - Input node:', filters.input)
-  console.log('  - Output node:', filters.output)
-  console.log('  - Filters count:', filters.filters?.length)
-  console.log('  - Filters data:', filters.filtersData)
-  
-  // Log each filter details
-  if (filters.filtersData) {
-    filters.filtersData.forEach((f: any, i: number) => {
-      console.log(`  Filter ${i + 1}: ${f.type} @ ${f.frequency}Hz, gain: ${f.gain}dB, Q: ${f.Q}`)
-    })
-  }
-  
   // Convert filtersData to the format expected by Rust engine
   if (filters.filtersData && audioEngine?.state.value.isRunning) {
     const rustFilters = filters.filtersData.map((f: any) => ({
@@ -427,7 +414,6 @@ function handleParametricEQUpdate(filters: any) {
     }))
     
     audioEngine.setParametricEQFilters(props.trackNumber - 1, rustFilters)
-    console.log(`[Track ${props.trackNumber}] Sent ${rustFilters.length} filters to Rust engine`)
   }
 }
 
