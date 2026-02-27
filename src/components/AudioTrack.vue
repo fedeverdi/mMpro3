@@ -286,36 +286,53 @@ const eqEnabled = ref(true)
 // Parametric EQ filters from modal
 const parametricEQFilters = ref<any[]>([])
 
-// Computed: Convert 4-band EQ values to filter format for EQThumbnail (system filters)
+// Computed: Convert 4-band EQ values + HPF to filter format for EQThumbnail (system filters)
 const eq4BandFilters = computed(() => {
-  if (!eqEnabled.value) return []
+  const filters = []
   
-  return [
-    {
-      type: 'lowshelf',
+  // Add HPF (80Hz high-pass) if enabled
+  if (hpfEnabled.value) {
+    filters.push({
+      type: 'highpass',
       frequency: 80,
-      gain: eqLow.value,
+      gain: 0,
       Q: 0.707
-    },
-    {
-      type: 'peaking',
-      frequency: 400,
-      gain: eqLowMid.value,
-      Q: 0.707
-    },
-    {
-      type: 'peaking',
-      frequency: 2500,
-      gain: eqHighMid.value,
-      Q: 0.707
-    },
-    {
-      type: 'highshelf',
-      frequency: 8000,
-      gain: eqHigh.value,
-      Q: 0.707
-    }
-  ].filter(f => Math.abs(f.gain) > 0.1) // Only show bands with significant gain
+    })
+  }
+  
+  // Add 4-band EQ filters if enabled
+  if (eqEnabled.value) {
+    const eqFilters = [
+      {
+        type: 'lowshelf',
+        frequency: 80,
+        gain: eqLow.value,
+        Q: 0.707
+      },
+      {
+        type: 'peaking',
+        frequency: 400,
+        gain: eqLowMid.value,
+        Q: 0.707
+      },
+      {
+        type: 'peaking',
+        frequency: 2500,
+        gain: eqHighMid.value,
+        Q: 0.707
+      },
+      {
+        type: 'highshelf',
+        frequency: 8000,
+        gain: eqHigh.value,
+        Q: 0.707
+      }
+    ].filter(f => Math.abs(f.gain) > 0.1) // Only show bands with significant gain
+    
+    filters.push(...eqFilters)
+  }
+  
+  return filters
 })
 
 // Watch when parametric EQ modal opens
