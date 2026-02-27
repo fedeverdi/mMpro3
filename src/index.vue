@@ -263,7 +263,7 @@
                         @remove-aux="removeAux" @update-aux="updateAux" />
 
                     <!-- Subgroups Section - NASCOSTO -->
-                    <template v-if="false" v-for="subgroup in subgroups" :key="subgroup.id">
+                    <template v-for="subgroup in subgroups" :key="subgroup.id">
                         <div class="flex-shrink-0 h-full mixer-fade-in">
                             <SubgroupsSection :ref="el => setSubgroupRef(subgroup.id, el)"
                                 :master-channel="masterChannel" :subgroup-id="subgroup.id"
