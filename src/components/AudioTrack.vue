@@ -137,10 +137,10 @@
       <div class="flex justify-center scale-[0.75]">
         <PanKnob v-model="pan" label="Pan" />
       </div>
+        <div class="text-[0.455rem] uppercase text-center mb-6">Volume</div>
 
       <!-- Volume Fader and VU Meter -->
-      <div class="flex flex-col flex-1 min-h-0 pb-6">
-        <div class="text-[0.455rem] uppercase text-center">Volume</div>
+      <div class="flex flex-col flex-1 min-h-0 pb-6 ">
         <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
           
           <!-- Phase Invert Button -->
@@ -165,7 +165,7 @@
           <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
           
           <TrackMeter 
-            class="absolute right-[0.4rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3"
+            class="absolute right-[0.4rem] top-1/2 transform -translate-y-1/2 z-50"
             v-if="faderHeight > 0" 
             :levelL="trackLevelL" 
             :levelR="trackLevelR" 
