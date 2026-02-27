@@ -82,7 +82,7 @@ const rightLevel = ref(-60)
 
 // Audio outputs
 const { audioOutputDevices, refreshAudioOutputs } = useAudioDevices()
-const selectedOutput = ref<string | null>(null)
+const selectedOutput = ref<string | null>('no-output')
 
 // Container and dynamic height
 const metersContainer = ref<HTMLElement | null>(null)

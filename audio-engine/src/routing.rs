@@ -346,7 +346,7 @@ impl SubgroupBus {
             gain: 1.0,
             mute: false,
             route_to_master: false,
-            output_enabled: true, // Direct output enabled by default
+            output_enabled: false, // No direct output by default
             output_channel_selection: ChannelSelection::stereo(),
             level_l: 0.0,
             level_r: 0.0,
