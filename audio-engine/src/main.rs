@@ -169,6 +169,21 @@ impl AudioEngine {
         let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate)?;
 
         self.sample_rate = output_config.sample_rate.0;
+        
+        eprintln!("[Engine] New sample rate: {}", self.sample_rate);
+        
+        // Update sample rate for all active file players
+        {
+            let mut router = self.router.lock().unwrap();
+            for track in router.tracks.iter_mut() {
+                if let Some(ref mut player) = track.file_player {
+                    let old_rate = player.output_sample_rate;
+                    player.set_output_sample_rate(self.sample_rate);
+                    eprintln!("[Engine] Track {} file player: updated output_sample_rate {} → {} (file_rate={})", 
+                        track.id, old_rate, player.output_sample_rate, player.sample_rate);
+                }
+            }
+        }
 
         eprintln!("[Engine] Input config: {:?}", input_config);
         eprintln!("[Engine] Output config: {:?}", output_config);
@@ -317,6 +332,7 @@ impl AudioEngine {
             drop(stream);
             eprintln!("[Engine] Output stream stopped");
         }
+        
         Ok(())
     }
 
@@ -393,9 +409,12 @@ impl AudioEngine {
         
         if let Some(t) = router.get_track_mut(track) {
             if let Some(player) = &mut t.file_player {
+                // Ensure output sample rate is correct before playing
+                player.set_output_sample_rate(self.sample_rate);
                 player.play();
-                eprintln!("[Track {}] File playback started (playing={}, samples={}, rate={})", 
-                    track, player.playing, player.samples.len(), player.sample_rate);
+                eprintln!("[Track {}] File playback started (playing={}, file_rate={}, output_rate={}, ratio={:.4})", 
+                    track, player.playing, player.sample_rate, player.output_sample_rate,
+                    player.sample_rate as f64 / player.output_sample_rate as f64);
                 Ok(())
             } else {
                 Err(anyhow!("Track {} has no file loaded", track))
