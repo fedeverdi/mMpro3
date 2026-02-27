@@ -147,10 +147,6 @@ impl Track {
     /// Process audio for this track
     /// Returns (left, right) stereo samples
     pub fn process(&mut self, input_frame: Option<&[f32]>) -> (f32, f32) {
-        if self.mute {
-            return (0.0, 0.0);
-        }
-
         let (left, right) = match self.source {
             TrackSource::None => (0.0, 0.0),
             
@@ -231,7 +227,12 @@ impl Track {
         self.waveform_buffer_r[self.waveform_write_index] = right;
         self.waveform_write_index = (self.waveform_write_index + 1) % WAVEFORM_BUFFER_SIZE;
 
-        (left, right)
+        // Apply mute after level calculation (so meters still work)
+        if self.mute {
+            (0.0, 0.0)
+        } else {
+            (left, right)
+        }
     }
 
     /// Get waveform buffer for visualization (returns samples in chronological order)
