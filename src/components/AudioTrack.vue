@@ -279,7 +279,6 @@ function handleInputSelect(deviceId: string | null) {
   selectedAudioInput.value = deviceId || ''
   selectedAudioFile.value = null
   selectedFileName.value = null
-  console.log(`[Track ${props.trackNumber}] Selected input:`, deviceId)
   
   // Send to Rust engine with default stereo channels (0, 1)
   if (audioEngine?.state.value.isRunning && deviceId) {
@@ -296,7 +295,6 @@ function handlePlayFile() {
   if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
     audioEngine.playFile(props.trackNumber - 1)
     isPlaying.value = true
-    console.log(`[Track ${props.trackNumber}] Play file`)
   }
 }
 
@@ -304,15 +302,12 @@ function handleStopFile() {
   if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
     audioEngine.stopFile(props.trackNumber - 1)
     isPlaying.value = false
-    console.log(`[Track ${props.trackNumber}] Stop file`)
   }
 }
 
 // Method to load file from library (called from parent)
 async function loadFileFromLibrary(storedFile: any) {
-  try {
-    console.log(`[Track ${props.trackNumber}] Loading file from library:`, storedFile.fileName || storedFile.title, storedFile.id)
-    
+  try {  
     selectedAudioFile.value = storedFile.id
     selectedFileName.value = storedFile.title || storedFile.fileName
     audioSourceType.value = 'file'
@@ -322,9 +317,7 @@ async function loadFileFromLibrary(storedFile: any) {
       storedFile.arrayBuffer,
       storedFile.fileName
     )
-    
-    console.log(`[Track ${props.trackNumber}] Temp file saved at:`, tempFilePath)
-    
+        
     // Set track source to file in Rust engine
     if (audioEngine?.state.value.isRunning) {
       await audioEngine.setTrackSourceFile(props.trackNumber - 1, tempFilePath)
@@ -332,8 +325,6 @@ async function loadFileFromLibrary(storedFile: any) {
       await audioEngine.playFile(props.trackNumber - 1)
       isPlaying.value = true
     }
-    
-    console.log(`[Track ${props.trackNumber}] Audio file loaded and playing:`, storedFile.fileName)
   } catch (error) {
     console.error(`[Track ${props.trackNumber}] Error loading file from library:`, error)
   }
