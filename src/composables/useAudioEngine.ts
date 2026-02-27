@@ -13,6 +13,7 @@ export interface AudioEngineState {
   selectedInputDevice: string | null
   selectedOutputDevice: string | null
   trackLevels: Map<number, { left: number, right: number }>
+  trackWaveforms: Map<number, number[]>
   masterLevels: { left: number, right: number }
 }
 
@@ -22,6 +23,7 @@ const state = ref<AudioEngineState>({
   selectedInputDevice: null,
   selectedOutputDevice: null,
   trackLevels: new Map(),
+  trackWaveforms: new Map(),
   masterLevels: { left: 0, right: 0 }
 })
 
@@ -59,13 +61,18 @@ export const useAudioEngine = () => {
           break
         
         case 'levels':
-          // Update track levels
+          // Update track levels and waveforms
           if (response.tracks) {
             response.tracks.forEach((trackLevel: any) => {
               state.value.trackLevels.set(trackLevel.track, {
                 left: trackLevel.level_l,
                 right: trackLevel.level_r
               })
+              
+              // Update waveform data if present
+              if (trackLevel.waveform) {
+                state.value.trackWaveforms.set(trackLevel.track, trackLevel.waveform)
+              }
             })
           }
           // Update master levels
@@ -75,10 +82,6 @@ export const useAudioEngine = () => {
               right: response.master_r
             }
           }
-          break
-        
-        case 'waveform':
-          // Handled by getTrackWaveform promise (silent)
           break
         
         default:
@@ -265,24 +268,6 @@ export const useAudioEngine = () => {
     await window.audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
   }
   
-  const getTrackWaveform = async (track: number, maxSamples: number = 512): Promise<number[]> => {
-    if (!window.audioEngine) {
-      return []
-    }
-    
-    if (!state.value.isRunning) {
-      return []
-    }
-    
-    try {
-      const samples = await window.audioEngine.getTrackWaveform(track, maxSamples)
-      return samples || []
-    } catch (error) {
-      // Silent failure - waveform display will show center line
-      return []
-    }
-  }
-  
   const getInputDevices = () => {
     return state.value.devices.filter(d => d.input_channels > 0)
   }
@@ -325,7 +310,6 @@ export const useAudioEngine = () => {
     setMasterGain,
     setMasterMute,
     setMasterOutputChannels,
-    getTrackWaveform,
     getInputDevices,
     getOutputDevices
   }

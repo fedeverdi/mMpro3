@@ -65,8 +65,7 @@ const audioEngine = useAudioEngine()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const internalMode = ref<'signal' | 'waveform'>(props.mode)
 let animationId: number | null = null
-let intervalId: number | null = null
-let isDrawing = false // Prevent overlapping IPC calls
+let isDrawingLoop = false
 
 // Sync internal mode with prop
 watch(() => props.mode, (newMode) => {
@@ -78,37 +77,42 @@ function handleClick() {
 }
 
 onMounted(() => {
-  if (internalMode.value === 'signal' && props.isActive) {
-    startSignalDrawing()
-  } else if (internalMode.value === 'waveform') {
+  if (internalMode.value === 'waveform') {
     drawFullWaveform()
-  } else {
-    // Draw static center line when inactive
-    drawStaticCenterLine()
+  } else if (internalMode.value === 'signal') {
+    if (props.isActive) {
+      startSignalLoop()
+    } else {
+      drawStaticCenterLine()
+    }
   }
 })
 
 onUnmounted(() => {
-  stopDrawing()
+  stopSignalLoop()
 })
 
 // Watch for mode changes
 watch(() => internalMode.value, (newMode) => {
-  stopDrawing()
-  if (newMode === 'signal' && props.isActive) {
-    startSignalDrawing()
-  } else if (newMode === 'waveform') {
+  stopSignalLoop()
+  if (newMode === 'waveform') {
     drawFullWaveform()
+  } else if (newMode === 'signal') {
+    if (props.isActive) {
+      startSignalLoop()
+    } else {
+      drawStaticCenterLine()
+    }
   }
 })
 
-// Watch for isActive changes
+// Watch for isActive changes in signal mode
 watch(() => props.isActive, (isActive) => {
   if (internalMode.value === 'signal') {
     if (isActive) {
-      startSignalDrawing()
+      startSignalLoop()
     } else {
-      stopDrawing()
+      stopSignalLoop()
       drawStaticCenterLine()
     }
   }
@@ -126,42 +130,36 @@ watch(() => props.currentTime, () => {
   }
 })
 
-// Real-time signal oscilloscope (using Rust backend)
-async function drawSignal() {
-  // Prevent overlapping calls - skip if previous call is still in progress
-  if (isDrawing) return
+// Real-time signal oscilloscope (using streamed data from Rust backend)
+function drawSignal() {
+  if (!canvasRef.value) return
+
+  const canvas = canvasRef.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const dpr = window.devicePixelRatio || 1
+  const rect = canvas.getBoundingClientRect()
+
+  // Set canvas size accounting for device pixel ratio
+  canvas.width = rect.width * dpr
+  canvas.height = rect.height * dpr
+  ctx.scale(dpr, dpr)
+
+  const width = rect.width
+  const height = rect.height
+
+  // Clear canvas
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(0, 0, width, height)
+
+  // Get waveform data from stream (updated automatically by audio engine)
+  const values = audioEngine.state.value.trackWaveforms.get(props.trackNumber)
   
-  isDrawing = true
-  
-  try {
-    if (!canvasRef.value) return
-
-    const canvas = canvasRef.value
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const dpr = window.devicePixelRatio || 1
-    const rect = canvas.getBoundingClientRect()
-
-    // Set canvas size accounting for device pixel ratio
-    canvas.width = rect.width * dpr
-    canvas.height = rect.height * dpr
-    ctx.scale(dpr, dpr)
-
-    const width = rect.width
-    const height = rect.height
-
-    // Clear canvas
-    ctx.fillStyle = '#000000'
-    ctx.fillRect(0, 0, width, height)
-
-    // Get waveform data from Rust backend
-    const values = await audioEngine.getTrackWaveform(props.trackNumber, 512)
-    
-    if (!values || values.length === 0) {
-      drawCenterLine(ctx, width, height)
-      return
-    }
+  if (!values || values.length === 0) {
+    drawCenterLine(ctx, width, height)
+    return
+  }
 
     // Draw waveform
     ctx.strokeStyle = '#22d3ee' // cyan-400
@@ -189,9 +187,6 @@ async function drawSignal() {
 
     // Draw center line
     drawCenterLine(ctx, width, height)
-  } finally {
-    isDrawing = false
-  }
 }
 
 // Full waveform with timeline
@@ -314,6 +309,31 @@ function drawCenterLine(ctx: CanvasRenderingContext2D, width: number, height: nu
   ctx.stroke()
 }
 
+// Start continuous rendering loop for signal mode (reads from stream)
+function startSignalLoop() {
+  if (isDrawingLoop) return
+  
+  isDrawingLoop = true
+  
+  const loop = () => {
+    if (!isDrawingLoop) return
+    
+    drawSignal()
+    animationId = requestAnimationFrame(loop)
+  }
+  
+  loop()
+}
+
+// Stop rendering loop
+function stopSignalLoop() {
+  isDrawingLoop = false
+  if (animationId !== null) {
+    cancelAnimationFrame(animationId)
+    animationId = null
+  }
+}
+
 // Draw static center line when inactive
 function drawStaticCenterLine() {
   if (!canvasRef.value) return
@@ -340,37 +360,13 @@ function drawStaticCenterLine() {
   drawCenterLine(ctx, width, height)
 }
 
-// Start real-time signal animation loop
-function startSignalDrawing() {
-  if (intervalId !== null || internalMode.value !== 'signal') return
-
-  // Use setInterval instead of requestAnimationFrame to avoid overlap
-  // Update at ~10 FPS (sufficient for audio visualization, low IPC load)
-  intervalId = window.setInterval(() => {
-    drawSignal()
-  }, 1000 / 10) as unknown as number
-}
-
-// Stop animation loop
-function stopDrawing() {
-  if (animationId !== null) {
-    cancelAnimationFrame(animationId)
-    animationId = null
-  }
-  
-  if (intervalId !== null) {
-    clearInterval(intervalId)
-    intervalId = null
-  }
-}
-
 // Expose methods for external control
 defineExpose({
-  start: startSignalDrawing,
-  stop: stopDrawing,
   redraw: () => {
     if (internalMode.value === 'waveform') {
       drawFullWaveform()
+    } else if (internalMode.value === 'signal') {
+      drawSignal()
     }
   }
 })

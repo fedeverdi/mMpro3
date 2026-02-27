@@ -297,16 +297,6 @@ ipcMain.handle('audio-engine:list-devices', async () => {
   const response = await sendCommandAndWaitForResponse({ type: 'list_devices' }, 'devices')
   return response.devices
 })
-
-ipcMain.handle('audio-engine:get-track-waveform', async (_, track: number, maxSamples: number) => {
-  const response = await sendCommandAndWaitForResponse(
-    { type: 'get_track_waveform', track, max_samples: maxSamples },
-    'waveform',
-    1000  // 1 second timeout - waveform requests should be fast
-  )
-  return response.samples
-})
-
 // Window state management
 interface WindowState {
   x?: number
