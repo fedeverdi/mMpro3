@@ -82,8 +82,9 @@
 
       <!-- Effects Section -->
       <div class="w-full bg-gray-900 rounded p-1 border border-gray-700 grid grid-cols-2 gap-1">
-        <TrackGate ref="trackGateRef" :track-number="trackNumber" :enabled="gateEnabled" @toggle="toggleGate"
-          @update-params="handleGateParamsUpdate" />
+        <TrackGate ref="trackGateRef" :track-number="trackNumber" :enabled="gateEnabled"
+          :input-level-db="gateInputDb" :attenuation-db="gateAttenuationDb"
+          @toggle="toggleGate" @update-params="handleGateParamsUpdate" />
         <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
           :input-level-db="compressorInputDb" :gain-reduction-db="compressorReductionDb"
           @toggle="toggleCompressor" @params-changed="handleCompressorParamsChanged" />
@@ -582,6 +583,10 @@ watch(pan, (newPan) => {
 const compressorInputDb = ref(-90)
 const compressorReductionDb = ref(0)
 
+// Gate visualization data
+const gateInputDb = ref(-90)
+const gateAttenuationDb = ref(0)
+
 // Watch for meter level updates from audio engine
 watch(
   () => audioEngine?.state.value.trackLevels.get(props.trackNumber - 1),
@@ -595,6 +600,10 @@ watch(
       // Update compressor visualization data
       compressorInputDb.value = levels.compressorInputDb || -90
       compressorReductionDb.value = levels.compressorReductionDb || 0
+      
+      // Update gate visualization data
+      gateInputDb.value = levels.gateInputDb || -90
+      gateAttenuationDb.value = levels.gateAttenuationDb || 0
     }
   },
   { deep: true }

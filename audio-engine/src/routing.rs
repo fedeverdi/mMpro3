@@ -3,6 +3,7 @@ use crate::audio_io::ChannelSelection;
 use crate::compressor::Compressor;
 use crate::equalizer::{Equalizer, ParametricEqualizer, EQBand, FilterType};
 use crate::file_player::AudioFilePlayer;
+use crate::gate::NoiseGate;
 use crate::signal_gen::{SignalGenerator, WaveformType};
 use rustfft::{FftPlanner, num_complex::Complex};
 
@@ -135,6 +136,9 @@ pub struct Track {
     // Compressor (before EQ)
     pub compressor: Compressor,
     
+    // Noise Gate (after gain)
+    pub gate: NoiseGate,
+    
     // Equalizer (4-band fixed)
     pub equalizer: Equalizer,
     
@@ -171,6 +175,7 @@ impl Track {
             signal_generator: None,
             file_player: None,
             compressor: Compressor::new(44100.0),
+            gate: NoiseGate::new(44100.0),
             equalizer: Equalizer::new(44100.0),
             parametric_eq: ParametricEqualizer::new(44100.0),
             hpf_filter: EQBand::new(FilterType::HighPass, 80.0, 44100.0),
@@ -251,6 +256,7 @@ impl Track {
     /// Update sample rate for all components
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.compressor.set_sample_rate(sample_rate);
+        self.gate.set_sample_rate(sample_rate);
         self.equalizer.set_sample_rate(sample_rate);
         self.parametric_eq.set_sample_rate(sample_rate);
         self.hpf_filter.set_sample_rate(sample_rate);
@@ -328,7 +334,10 @@ impl Track {
         };
 
         // Apply input gain/trim
-        let (mut left, mut right) = (left * self.gain, right * self.gain);
+        let (left, right) = (left * self.gain, right * self.gain);
+
+        // Apply noise gate (after gain)
+        let (mut left, mut right) = self.gate.process(left, right);
 
         // Apply fader volume
         left *= self.volume;

@@ -91,6 +91,8 @@ import Knob from '../core/Knob.vue'
 interface Props {
   trackNumber: number
   enabled: boolean
+  inputLevelDb?: number
+  attenuationDb?: number
   gateNode?: any
   meter?: any
 }
@@ -203,33 +205,26 @@ defineExpose({
 let monitoringId: number | null = null
 
 function startGateMonitoring() {
-  if (monitoringId || !props.meter) return
+  if (monitoringId) return
 
   function updateGateStatus() {
-    if (!showModal.value || !props.meter) {
+    if (!showModal.value) {
       monitoringId = null
       return
     }
 
-    try {
-      // Get current level from meter
-      const Tone = null;
-      if (Tone && props.meter) {
-        // Tone.Meter.getValue() already returns dB, no conversion needed!
-        const dbLevel = props.meter.getValue()
-        
-        // Handle -Infinity or very low values
-        currentLevel.value = isFinite(dbLevel) ? dbLevel : -100
-        
-        // Determine if gate is open
-        isGateOpen.value = currentLevel.value > threshold.value
-        
-        // Calculate signal level percentage for visual feedback (absolute level, not relative to threshold)
-        // Map from -80dB to 0dB → 0% to 100%
-        gateOpenPercentage.value = Math.max(0, Math.min(100, ((currentLevel.value + 80) / 80) * 100))
-      }
-    } catch (error) {
-      console.error('Error in gate monitoring:', error)
+    // Use data from Rust engine if available
+    if (props.inputLevelDb !== undefined) {
+      currentLevel.value = props.inputLevelDb
+      
+      // Determine if gate is open (input is above threshold + attenuation is minimal)
+      // When gate is truly open, attenuation should be close to 0dB
+      isGateOpen.value = currentLevel.value > threshold.value && 
+                         (props.attenuationDb !== undefined ? props.attenuationDb > -10 : false)
+      
+      // Calculate signal level percentage for visual feedback
+      // Map from -80dB to 0dB → 0% to 100%
+      gateOpenPercentage.value = Math.max(0, Math.min(100, ((currentLevel.value + 80) / 80) * 100))
     }
 
     monitoringId = requestAnimationFrame(updateGateStatus)

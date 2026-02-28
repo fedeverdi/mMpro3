@@ -11,6 +11,7 @@ mod audio_io;
 mod compressor;
 mod equalizer;
 mod file_player;
+mod gate;
 mod routing;
 mod signal_gen;
 mod track;
@@ -99,7 +100,7 @@ enum Command {
         track: usize,
         enabled: bool,
         threshold: f32,
-        ratio: f32,
+        range: f32,       // Attenuation range in dB (not ratio like compressor)
         attack: f32,
         release: f32,
     },
@@ -235,6 +236,8 @@ struct TrackLevels {
     waveform: Vec<f32>, // Waveform samples (downsampled to ~128 samples)
     compressor_input_db: f32,
     compressor_reduction_db: f32,
+    gate_input_db: f32,
+    gate_attenuation_db: f32,
 }
 
 #[derive(Debug, Serialize)]
@@ -494,6 +497,8 @@ impl AudioEngine {
                                 waveform: t.get_waveform_buffer(128), // 128 samples for efficient streaming
                                 compressor_input_db: t.compressor.input_level_db,
                                 compressor_reduction_db: t.compressor.gain_reduction_db,
+                                gate_input_db: t.gate.input_level_db,
+                                gate_attenuation_db: t.gate.attenuation_db,
                             })
                             .collect();
                         
@@ -707,11 +712,14 @@ impl AudioEngine {
         }
     }
 
-    fn set_gate(&self, track: usize, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
+    fn set_gate(&self, track: usize, enabled: bool, threshold: f32, range: f32, attack: f32, release: f32) {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.tracks.get_mut(track) {
-            // Gate will be implemented later
-            eprintln!("[Engine] Gate not yet implemented for track {}", track);
+            t.gate.set_enabled(enabled);
+            t.gate.set_threshold(threshold);
+            t.gate.set_range(range);
+            t.gate.set_attack(attack);
+            t.gate.set_release(release);
         }
     }
 
@@ -997,11 +1005,11 @@ impl AudioEngine {
                 track,
                 enabled,
                 threshold,
-                ratio,
+                range,
                 attack,
                 release,
             } => {
-                self.set_gate(track, enabled, threshold, ratio, attack, release);
+                self.set_gate(track, enabled, threshold, range, attack, release);
                 None
             }
             Command::SetEQ {
