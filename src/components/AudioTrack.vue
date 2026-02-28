@@ -223,7 +223,7 @@ const emit = defineEmits<{
 const audioEngine = inject<any>('audioEngine', null)
 
 // Audio devices
-const { audioInputDevices, refreshAudioInputs } = useAudioDevices()
+const { audioInputDevices } = useAudioDevices()
 
 // Reactive state - UI Only
 const trackElement = ref<HTMLElement | null>(null)
@@ -618,7 +618,8 @@ function updateFaderHeight() {
 
 // Lifecycle
 onMounted(async () => {
-  await refreshAudioInputs()
+  // Audio input devices are already enumerated during app initialization
+  // No need to refresh them here
 
   // Set up resize observer for fader
   const resizeObserver = new ResizeObserver(updateFaderHeight)

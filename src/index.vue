@@ -1168,9 +1168,6 @@ const bufferSize = computed(() => {
   return 256 // Fixed buffer size from Rust backend (5.33ms @ 48kHz)
 })
 
-// Audio devices enumeration (shared across all tracks)
-const { enumerateAudioInputs } = useAudioDevices()
-
 // Scene management
 const {
   scenes,
@@ -1659,12 +1656,8 @@ onMounted(async () => {
   //     await Tone.context.resume()
   // }
 
-  // Enumerate audio devices ONCE for all tracks
-  // Don't await - let it run in background and don't block app startup
-  enumerateAudioInputs().catch((error) => {
-    console.warn('[Index] Failed to enumerate audio inputs (likely permission denied):', error)
-    // App will still work, but audio input selection might be limited
-  })
+  // Audio input devices are now enumerated during app initialization (in App.vue)
+  // No need to enumerate them again here
 
   // Wait for next tick to ensure all components are ready
   await nextTick()

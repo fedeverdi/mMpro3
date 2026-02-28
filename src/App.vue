@@ -8,6 +8,7 @@ import { provide, ref, onMounted } from 'vue'
 import IndexPage from './index.vue'
 import SplashScreen from './components/layout/SplashScreen.vue'
 import { useAudioEngine } from './composables/useAudioEngine'
+import { useAudioDevices } from './composables/useAudioDevices'
 
 const isAppReady = ref(false)
 const engineReady = ref(false)
@@ -15,17 +16,26 @@ const engineReady = ref(false)
 // Initialize Rust audio engine
 const audioEngine = useAudioEngine()
 
+// Initialize audio devices composable
+const { enumerateAudioInputs } = useAudioDevices()
+
 // Initialize audio engine during splash screen
 const initializeEngine = async () => {
   console.log('[App] Initializing Rust audio engine...')
   
   try {
-    // Load available audio devices from Rust engine
-    await audioEngine.loadDevices()
+    // Load available audio devices from Rust engine (outputs)
+    const loadDevicesPromise = audioEngine.loadDevices()
+    
+    // Enumerate audio input devices
+    const loadInputsPromise = enumerateAudioInputs()
+    
+    // Wait for both to complete
+    await Promise.all([loadDevicesPromise, loadInputsPromise])
     
     // Pre-initialize engine (but don't start audio yet - requires user interaction)
     engineReady.value = true
-    console.log('[App] Engine ready')
+    console.log('[App] Engine and devices ready')
   } catch (error) {
     console.error('[App] Failed to initialize engine:', error)
   }
