@@ -309,48 +309,54 @@ impl Track {
             }
         };
 
-        // Apply 4-band EQ processing
-        let (left, right) = self.equalizer.process(left, right);
-        
-        // Apply parametric EQ processing
-        let (left, right) = self.parametric_eq.process(left, right);
+        // ===== INPUT STAGE (Preamp Section) =====
+        // 1. PAD: Attenuate very hot signals before preamp (-24dB)
+        let (mut left, mut right) = if self.pad_enabled {
+            const PAD_ATTENUATION: f32 = 0.063095734; // 10^(-24/20)
+            (left * PAD_ATTENUATION, right * PAD_ATTENUATION)
+        } else {
+            (left, right)
+        };
 
-        // Apply compressor (after EQ)
-        let (mut left, mut right) = self.compressor.process(left, right);
+        // 2. GAIN/TRIM: Preamp amplification (input stage)
+        left *= self.gain;
+        right *= self.gain;
 
-        // Apply PAD attenuation (-24dB) if enabled (before gain)
-        // -24dB = 10^(-24/20) ≈ 0.063095734
-        if self.pad_enabled {
-            const PAD_ATTENUATION: f32 = 0.063095734;
-            left *= PAD_ATTENUATION;
-            right *= PAD_ATTENUATION;
-        }
-
-        // Apply HPF (80Hz high-pass filter) if enabled (between PAD and gain)
+        // 3. HPF: High-pass filter @ 80Hz (removes rumble/sub-sonic noise)
         let (left, right) = if self.hpf_enabled {
             self.hpf_filter.process(left, right)
         } else {
             (left, right)
         };
 
-        // Apply input gain/trim
-        let (left, right) = (left * self.gain, right * self.gain);
+        // ===== INSERT/DYNAMICS SECTION =====
+        // 4. GATE: Noise gate (eliminates unwanted noise)
+        let (left, right) = self.gate.process(left, right);
 
-        // Apply noise gate (after gain)
-        let (mut left, mut right) = self.gate.process(left, right);
+        // 5. COMPRESSOR: Dynamic range control
+        let (left, right) = self.compressor.process(left, right);
 
-        // Apply fader volume
-        left *= self.volume;
-        right *= self.volume;
+        // 6. EQ: Tone shaping (4-band shelving/bell)
+        let (left, right) = self.equalizer.process(left, right);
+        
+        // 7. PARAMETRIC EQ: Surgical frequency control
+        let (left, right) = self.parametric_eq.process(left, right);
 
-        // Apply pan
-        if self.pan < 0.0 {
+        // ===== OUTPUT STAGE (Channel Section) =====
+        // 8. PAN: Stereo positioning
+        let (mut left, mut right) = if self.pan < 0.0 {
             // Pan left: reduce right channel
-            right *= 1.0 + self.pan;
+            (left, right * (1.0 + self.pan))
         } else if self.pan > 0.0 {
             // Pan right: reduce left channel
-            left *= 1.0 - self.pan;
-        }
+            (left * (1.0 - self.pan), right)
+        } else {
+            (left, right)
+        };
+
+        // 9. FADER: Final level control
+        left *= self.volume;
+        right *= self.volume;
 
         // Update levels for metering (peak hold)
         self.level_l = self.level_l.max(left.abs());
