@@ -129,7 +129,7 @@
       </div>
 
       <!-- Master FX -->
-      <div v-if="false && component.id === 'fx'"
+      <div v-if="component.id === 'fx'"
         v-show="!isCollapsed"
         class="w-full mixer-fade-in relative group"
         :style="getDragStyles(component.id)"
