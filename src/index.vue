@@ -156,129 +156,49 @@
       <div class="tracks-scroll-wrap flex-1 overflow-hidden min-w-0 pb-[2px]">
         <div class="tracks-scroll overflow-x-auto overflow-y-hidden h-full">
           <div class="flex gap-2 h-full min-w-max">
-            <!-- Loading Skeletons -->
-            <template v-if="!isReady">
-              <div v-for="n in 24" :key="'skeleton-' + n" class="w-[8rem] h-full">
-                <div class="bg-gray-800 rounded-lg border border-gray-700 p-1 h-full flex flex-col gap-2">
-                  <!-- Header -->
-                  <div class="h-4 bg-gray-700 rounded animate-pulse"></div>
-                  <!-- Controls -->
-                  <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
-                  <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
-                  <div class="flex gap-1">
-                    <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
-                    <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
-                  </div>
-                  <!-- Knob area -->
-                  <div class="flex-1 flex items-center justify-center">
-                    <div class="w-16 h-16 bg-gray-700 rounded-full animate-pulse"></div>
-                  </div>
-                  <!-- Fader area -->
-                  <div class="flex-1 flex flex-col items-center justify-center gap-2 py-4">
-                    <!-- VU Meter skeleton -->
-                    <div class="w-12 flex-1 bg-gray-700 rounded animate-pulse"></div>
-                    <!-- Fader skeleton -->
-                    <div class="w-8 h-32 bg-gray-700 rounded animate-pulse"></div>
-                  </div>
-                  <!-- Bottom controls -->
-                  <div class="flex gap-1">
-                    <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
-                    <div class="flex-1 h-6 bg-gray-700 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              </div>
-            </template>
-
             <!-- Audio Tracks -->
-            <template v-else>
-              <div v-for="track in sortedTracks" :key="track.id" class="w-[8.5rem] h-full mixer-fade-in track-wrapper"
-                :class="{
-                  'dragging': draggedTrackId === track.id,
-                  'drag-over': dragOverTrackId === track.id
-                }" @dragover="handleTrackDragOver(track.id, $event)" @dragleave="handleTrackDragLeave"
-                @drop="handleTrackDrop(track.id)" @dragend="handleTrackDragEnd">
-                <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)"
-                  :trackNumber="track.id" :order="track.order" :master-channel="masterChannel" :subgroups="subgroups"
-                  :allow-subgroup-routing="buildLimits.allowSubgroupRouting" :is-dragging="draggedTrackId === track.id"
-                  @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate" @remove="removeTrack(track.id)"
-                  @drag-start="handleTrackDragStart(track.id)" />
-                <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
-                  :master-channel="masterChannel" :subgroups="subgroups"
-                  :allow-subgroup-routing="buildLimits.allowSubgroupRouting" @toggle-arm="toggleTrackArm(track.id)"
-                  @open-library="handleOpenLibrary" @remove="removeTrack(track.id)" />
-              </div>
-            </template>
+            <div v-for="track in sortedTracks" :key="track.id" class="w-[8.5rem] h-full mixer-fade-in track-wrapper"
+              :class="{
+                'dragging': draggedTrackId === track.id,
+                'drag-over': dragOverTrackId === track.id
+              }" @dragover="handleTrackDragOver(track.id, $event)" @dragleave="handleTrackDragLeave"
+              @drop="handleTrackDrop(track.id)" @dragend="handleTrackDragEnd">
+              <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)"
+                :trackNumber="track.id" :order="track.order" :master-channel="masterChannel" :subgroups="subgroups"
+                :allow-subgroup-routing="buildLimits.allowSubgroupRouting" :is-dragging="draggedTrackId === track.id"
+                @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate" @remove="removeTrack(track.id)"
+                @drag-start="handleTrackDragStart(track.id)" />
+              <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
+                :master-channel="masterChannel" :subgroups="subgroups"
+                :allow-subgroup-routing="buildLimits.allowSubgroupRouting" @toggle-arm="toggleTrackArm(track.id)"
+                @open-library="handleOpenLibrary" @remove="removeTrack(track.id)" />
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Right Section (fixed width) -->
       <div class="flex gap-2 flex-shrink-0">
-        <!-- Loading Skeletons for Right Section -->
-        <template v-if="!isReady">
-          <!-- Master EQ/Spectrum/FX Skeleton -->
-          <div class="flex flex-col h-full gap-2">
-            <div class="w-[36rem] flex flex-col flex-1 min-h-0 gap-2">
-              <div class="flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700 animate-pulse">
-              </div>
-              <div class="flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700 animate-pulse">
-              </div>
-            </div>
-            <div class="w-[36rem] bg-gray-800 rounded-lg border border-gray-700 p-4 animate-pulse"
-              style="height: 200px;"></div>
-          </div>
+        <!-- Master EQ Display, Spectrum & FX -->
+        <RightSection ref="rightSectionRef" :master-channel="masterChannel"
+          :master-section-ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses"
+          @master-fx-output-node="handleMasterFxOutputNode"
+          @master-fx-component="handleMasterFxComponent" @update:master-eq-filters="handleMasterEQFiltersUpdate"
+          @add-aux="addAux" @remove-aux="removeAux" @update-aux="updateAux" />
 
-          <!-- Subgroups Skeleton -->
-          <div class="w-32 h-full">
-            <div class="bg-gray-800 rounded-lg border border-gray-700 h-full p-2 flex flex-col gap-2">
-              <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
-              <div class="flex-1 flex items-center justify-center py-4">
-                <div class="flex gap-2">
-                  <div class="w-5 flex-1 bg-gray-700 rounded animate-pulse"></div>
-                  <div class="w-5 flex-1 bg-gray-700 rounded animate-pulse"></div>
-                </div>
-              </div>
-              <div class="h-8 bg-gray-700 rounded animate-pulse"></div>
-            </div>
-          </div>
-
-          <!-- Master Skeleton -->
-          <div class="w-44 h-full">
-            <div class="bg-gray-800 rounded-lg border border-gray-700 h-full p-2 flex flex-col gap-2">
-              <div class="h-6 bg-gray-700 rounded animate-pulse"></div>
-              <div class="flex-1 flex items-center justify-center py-4">
-                <div class="flex gap-2">
-                  <div class="w-8 flex-1 bg-gray-700 rounded animate-pulse"></div>
-                  <div class="w-8 flex-1 bg-gray-700 rounded animate-pulse"></div>
-                </div>
-              </div>
-              <div class="h-8 bg-gray-700 rounded animate-pulse"></div>
-            </div>
-          </div>
-        </template>
-
-        <!-- Master EQ Display, Spectrum & FX (Draggable) - NASCOSTO -->
-        <template v-else>
-          <RightSection ref="rightSectionRef" :master-channel="masterChannel"
-            :master-section-ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses"
-            @master-fx-output-node="handleMasterFxOutputNode"
-            @master-fx-component="handleMasterFxComponent" @update:master-eq-filters="handleMasterEQFiltersUpdate"
-            @add-aux="addAux" @remove-aux="removeAux" @update-aux="updateAux" />
-
-          <!-- Subgroups Section - NASCOSTO -->
-          <template v-for="subgroup in subgroups" :key="subgroup.id">
-            <div class="flex-shrink-0 h-full mixer-fade-in">
-              <SubgroupsSection :ref="el => setSubgroupRef(subgroup.id, el)" :master-channel="masterChannel"
-                :subgroup-id="subgroup.id" :subgroup-name="subgroup.name" @remove="removeSubgroup(subgroup.id)" />
-            </div>
-          </template>
-
-          <!-- Master Section -->
+        <!-- Subgroups Section -->
+        <template v-for="subgroup in subgroups" :key="subgroup.id">
           <div class="flex-shrink-0 h-full mixer-fade-in">
-            <MasterSection ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode"
-              :master-fx-component="masterFxComponent" :loaded-tracks="loadedTracks" />
+            <SubgroupsSection :ref="el => setSubgroupRef(subgroup.id, el)" :master-channel="masterChannel"
+              :subgroup-id="subgroup.id" :subgroup-name="subgroup.name" @remove="removeSubgroup(subgroup.id)" />
           </div>
         </template>
+
+        <!-- Master Section -->
+        <div class="flex-shrink-0 h-full mixer-fade-in">
+          <MasterSection ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode"
+            :master-fx-component="masterFxComponent" :loaded-tracks="loadedTracks" />
+        </div>
       </div>
     </main>
 
@@ -449,7 +369,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, toRaw, nextTick, inject, watch, onUnmounted, provide, type Ref } from 'vue'
+import { ref, onMounted, computed, toRaw, nextTick, inject, onUnmounted, provide, type Ref } from 'vue'
 import AudioTrack from './components/AudioTrack.vue'
 import SignalTrack from './components/SignalTrack.vue'
 import AudioFlowModal from './components/layout/AudioFlowModal.vue'
@@ -521,16 +441,8 @@ interface Track {
   order: number
 }
 
-// App ready state
-const isReady = ref(false)
+// App ready state - not needed anymore since splash screen handles initialization
 const isAppReady = inject<Ref<boolean>>('isAppReady', ref(false))
-
-// Watch for engine to be ready and remove skeletons
-watch(isAppReady, (ready) => {
-  if (ready) {
-    isReady.value = true
-  }
-})
 
 // Audio Flow Modal
 const showAudioFlowModal = ref(false)
