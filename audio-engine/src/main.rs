@@ -436,40 +436,58 @@ impl AudioEngine {
             self.audio_io.default_output_device()?
         };
 
-        // Get configs with 256 frame buffer for low latency
-        // If sample_rate is None, will automatically use the highest supported rate for each device
-        let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate, Some(256))?;
-        let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate, Some(256))?;
+        // Detect Bluetooth devices and use larger buffer for stability
+        let output_device_name = output_device.name().unwrap_or_else(|_| String::from("Unknown"));
+        let output_device_name_lower = output_device_name.to_lowercase();
+        
+        let is_bluetooth = output_device_name_lower.contains("airpods") 
+            || output_device_name_lower.contains("bluetooth")
+            || output_device_name_lower.contains("wireless")
+            || output_device_name_lower.contains("bt");
+        
+        // Use adaptive buffer sizing: larger for Bluetooth, default for wired
+        let buffer_size = if is_bluetooth {
+            Some(1024)  // ~21ms @ 48kHz - optimal for Bluetooth stability
+        } else {
+            None  // Use device native buffer (typically 256-512)
+        };
+        
+        let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate, buffer_size)?;
+        let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate, buffer_size)?;
 
         self.sample_rate = output_config.sample_rate.0;
         
-        // Get device name for logging
-        let output_device_name = output_device.name().unwrap_or_else(|_| "Unknown".to_string());
-        
         // Log configuration
-        let buffer_size = output_config.buffer_size;
-        match buffer_size {
+        let actual_buffer_size = output_config.buffer_size;
+        let device_type = if is_bluetooth { "🎧 Bluetooth" } else { "🔌 Wired" };
+        
+        match actual_buffer_size {
             cpal::BufferSize::Fixed(size) => {
                 let latency_ms = (size as f32 / self.sample_rate as f32) * 1000.0;
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
-                eprintln!("[Engine] Audio Configuration (native device settings)");
+                eprintln!("[Engine] Audio Configuration - {}", device_type);
                 eprintln!("[Engine] ───────────────────────────────────────────────────");
                 eprintln!("[Engine] Device: {}", output_device_name);
                 eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
                 eprintln!("[Engine] Buffer Size: {} frames ({:.2}ms latency)", size, latency_ms);
-                eprintln!("[Engine] ───────────────────────────────────────────────────");
-                eprintln!("[Engine] ℹ️  Buffer e sample rate automatici dal dispositivo");
+                
+                if is_bluetooth {
+                    eprintln!("[Engine] ───────────────────────────────────────────────────");
+                    eprintln!("[Engine] ✓ Buffer ottimizzato per Bluetooth (1024 frames)");
+                    eprintln!("[Engine]   Riduce drasticamente click e interruzioni");
+                } else {
+                    eprintln!("[Engine] ───────────────────────────────────────────────────");
+                    eprintln!("[Engine] ✓ Buffer nativo del dispositivo");
+                }
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
             },
             cpal::BufferSize::Default => {
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
-                eprintln!("[Engine] Audio Configuration");
+                eprintln!("[Engine] Audio Configuration - {}", device_type);
                 eprintln!("[Engine] ───────────────────────────────────────────────────");
                 eprintln!("[Engine] Device: {}", output_device_name);
                 eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
                 eprintln!("[Engine] Buffer Size: DEFAULT (system auto)");
-                eprintln!("[Engine] ───────────────────────────────────────────────────");
-                eprintln!("[Engine] ℹ️  Configurazione ottimale gestita dal sistema");
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
             },
         }
