@@ -31,8 +31,8 @@ impl NoiseGate {
             enabled: false,
             threshold_db: -40.0,
             range_db: -80.0,
-            attack_ms: 1.0,      // Fast attack (gate opens quickly)
-            release_ms: 100.0,   // Slower release (gate closes gradually)
+            attack_ms: 10.0,     // Slower attack = less distortion on transients
+            release_ms: 150.0,   // Longer release = smoother closing
             sample_rate,
             envelope: 0.0,
             attack_coeff: 0.0,

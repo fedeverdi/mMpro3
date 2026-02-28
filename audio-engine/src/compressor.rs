@@ -21,6 +21,8 @@ pub struct Compressor {
     attack_coeff: f32,
     /// Release coefficient (calculated from release_ms)
     release_coeff: f32,
+    /// Smoothed gain reduction (prevents abrupt changes)
+    smoothed_gain_reduction: f32,
     
     /// Current gain reduction in dB (for metering/visualization)
     pub gain_reduction_db: f32,
@@ -34,13 +36,14 @@ impl Compressor {
         let mut compressor = Self {
             threshold_db: -20.0,
             ratio: 4.0,
-            attack_ms: 10.0,
-            release_ms: 100.0,
+            attack_ms: 30.0,     // Slower attack = smoother, less distortion
+            release_ms: 250.0,   // Longer release = more natural
             enabled: false,
             sample_rate,
             envelope: 0.0,
             attack_coeff: 0.0,
             release_coeff: 0.0,
+            smoothed_gain_reduction: 0.0,
             gain_reduction_db: 0.0,
             input_level_db: -90.0,
         };
@@ -90,6 +93,7 @@ impl Compressor {
         if !enabled {
             // Reset envelope when disabled
             self.envelope = 0.0;
+            self.smoothed_gain_reduction = 0.0;
             self.gain_reduction_db = 0.0;
             self.input_level_db = -90.0;
         }
@@ -130,21 +134,32 @@ impl Compressor {
         // Store input level for visualization
         self.input_level_db = envelope_db;
         
-        // Calculate gain reduction
+        // Calculate gain reduction with soft knee (wider = smoother)
+        let knee_width = 10.0; // dB - wider knee for smoother transition
         let mut gain_reduction_db = 0.0;
         
-        if envelope_db > self.threshold_db {
-            // Signal is above threshold, apply compression
+        if envelope_db > self.threshold_db + knee_width / 2.0 {
+            // Above knee: full compression
             let overshoot_db = envelope_db - self.threshold_db;
-            // Gain reduction = overshoot * (1 - 1/ratio)
             gain_reduction_db = overshoot_db * (1.0 - 1.0 / self.ratio);
+        } else if envelope_db > self.threshold_db - knee_width / 2.0 {
+            // In knee: soft transition using quadratic curve
+            let overshoot_db = envelope_db - self.threshold_db + knee_width / 2.0;
+            let knee_factor = overshoot_db / knee_width;
+            gain_reduction_db = knee_factor * knee_factor * knee_width * (1.0 - 1.0 / self.ratio) / 4.0;
         }
+        // Below knee: no compression (gain_reduction_db stays 0.0)
         
-        // Store for metering
+        // Smooth the gain reduction to prevent zipper noise and distortion
+        // Use exponential smoothing (time constant ~10ms for very smooth operation)
+        let smooth_coeff = (-1.0 / (0.010 * self.sample_rate)).exp();
+        self.smoothed_gain_reduction = gain_reduction_db + smooth_coeff * (self.smoothed_gain_reduction - gain_reduction_db);
+        
+        // Store for metering (unsmoothed for accurate display)
         self.gain_reduction_db = gain_reduction_db;
         
-        // Convert gain reduction to linear gain
-        let gain = 10.0_f32.powf(-gain_reduction_db / 20.0);
+        // Convert smoothed gain reduction to linear gain
+        let gain = 10.0_f32.powf(-self.smoothed_gain_reduction / 20.0);
         
         // Apply gain to both channels
         (left * gain, right * gain)
