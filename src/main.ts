@@ -370,6 +370,39 @@ ipcMain.handle('audio-engine:set-track-route-to-subgroup', async (_, track: numb
   await sendCommandToEngine({ type: 'set_track_route_to_subgroup', track, subgroup, route })
 })
 
+// Aux bus IPC handlers
+ipcMain.handle('audio-engine:set-track-aux-send', async (_, track: number, aux: number, level: number, preFader: boolean, muted: boolean) => {
+  await sendCommandToEngine({ type: 'set_track_aux_send', track, aux, level, pre_fader: preFader, muted })
+})
+
+ipcMain.handle('audio-engine:set-aux-bus-gain', async (_, aux: number, gain: number) => {
+  await sendCommandToEngine({ type: 'set_aux_bus_gain', aux, gain })
+})
+
+ipcMain.handle('audio-engine:set-aux-bus-mute', async (_, aux: number, mute: boolean) => {
+  await sendCommandToEngine({ type: 'set_aux_bus_mute', aux, mute })
+})
+
+ipcMain.handle('audio-engine:set-aux-bus-reverb', async (_, aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
+  await sendCommandToEngine({ type: 'set_aux_bus_reverb', aux, enabled, room_size: roomSize, damping, wet, width })
+})
+
+ipcMain.handle('audio-engine:set-aux-bus-delay', async (_, aux: number, enabled: boolean, time: number, feedback: number, mix: number) => {
+  await sendCommandToEngine({ type: 'set_aux_bus_delay', aux, enabled, time, feedback, mix })
+})
+
+ipcMain.handle('audio-engine:set-aux-bus-route-to-master', async (_, aux: number, route: boolean) => {
+  await sendCommandToEngine({ type: 'set_aux_bus_route_to_master', aux, route })
+})
+
+ipcMain.handle('audio-engine:set-aux-bus-output-enabled', async (_, aux: number, enabled: boolean) => {
+  await sendCommandToEngine({ type: 'set_aux_bus_output_enabled', aux, enabled })
+})
+
+ipcMain.handle('audio-engine:set-aux-bus-output-channels', async (_, aux: number, leftChannel: number, rightChannel: number) => {
+  await sendCommandToEngine({ type: 'set_aux_bus_output_channels', aux, left_channel: leftChannel, right_channel: rightChannel })
+})
+
 ipcMain.handle('audio-engine:list-devices', async () => {
   const response = await sendCommandAndWaitForResponse({ type: 'list_devices' }, 'devices')
   return response.devices

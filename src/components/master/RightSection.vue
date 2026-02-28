@@ -99,7 +99,7 @@
       </div>
 
       <!-- Aux Buses -->
-      <div v-if="false && component.id === 'aux'"
+      <div v-if="component.id === 'aux'"
         v-show="!isCollapsed"
         class="w-full mixer-fade-in relative group"
         :style="getDragStyles(component.id)"
@@ -150,8 +150,8 @@
           </div>
         </div>
         <MasterFX :master-section="masterSectionRef"
-          @output-node="(node) => emit('master-fx-output-node', node)" 
-          @component="(component) => emit('master-fx-component', component)" />
+          @output-node="(node: any) => emit('master-fx-output-node', node)" 
+          @component="(component: any) => emit('master-fx-component', component)" />
       </div>
     </template>
   </div>
@@ -214,9 +214,8 @@ interface RightSectionComponent {
 const rightSectionComponents = ref<RightSectionComponent[]>([
   { id: 'eq', name: 'Master EQ', size: 'flex' },
   { id: 'spectrum', name: 'Spectrum', size: 'flex' },
-  // Temporarily hidden - will be implemented later
-  // { id: 'aux', name: 'Aux Buses', size: 'fixed' },
-  // { id: 'fx', name: 'Master FX', size: 'fixed' }
+  { id: 'aux', name: 'Aux Buses', size: 'fixed' },
+  { id: 'fx', name: 'Master FX', size: 'fixed' }
 ])
 
 const draggedComponent = ref<string | null>(null)

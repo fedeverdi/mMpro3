@@ -54,12 +54,12 @@
 import Knob from '../core/Knob.vue'
 
 interface AuxBus {
-  id: string
+  id: string | number
   name: string
-  volume: number
-  muted: boolean
-  soloed: boolean
-  routeToMaster: boolean
+  volume?: number
+  muted?: boolean
+  soloed?: boolean
+  routeToMaster?: boolean
   selectedOutputDevice?: string | null
   node?: any  // Input node
   outputNode?: any  // Output node

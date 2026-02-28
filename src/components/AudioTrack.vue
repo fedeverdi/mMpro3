@@ -82,12 +82,11 @@
 
       <!-- Effects Section -->
       <div class="w-full bg-gray-900 rounded p-1 border border-gray-700 grid grid-cols-2 gap-1">
-        <TrackGate ref="trackGateRef" :track-number="trackNumber" :enabled="gateEnabled"
-          :input-level-db="gateInputDb" :attenuation-db="gateAttenuationDb"
-          @toggle="toggleGate" @update-params="handleGateParamsUpdate" />
+        <TrackGate ref="trackGateRef" :track-number="trackNumber" :enabled="gateEnabled" :input-level-db="gateInputDb"
+          :attenuation-db="gateAttenuationDb" @toggle="toggleGate" @update-params="handleGateParamsUpdate" />
         <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
-          :input-level-db="compressorInputDb" :gain-reduction-db="compressorReductionDb"
-          @toggle="toggleCompressor" @params-changed="handleCompressorParamsChanged" />
+          :input-level-db="compressorInputDb" :gain-reduction-db="compressorReductionDb" @toggle="toggleCompressor"
+          @params-changed="handleCompressorParamsChanged" />
       </div>
 
       <!-- EQ Section -->
@@ -132,6 +131,27 @@
         </button>
       </div>
 
+      <!-- Aux Sends -->
+      <div v-if="props.auxBuses && props.auxBuses.length > 0" class="w-full">
+        <TrackAuxSends :track-number="trackNumber" :aux-buses="props.auxBuses" :aux-sends-data="auxSendsData"
+          @toggle-panel="showAuxSendsPanel = !showAuxSendsPanel" @update-sends="handleAuxSendsUpdate" />
+
+        <!-- Aux Send Controls Grid (expandable) -->
+        <div v-if="showAuxSendsPanel"
+          class="w-full z-[200] absolute bg-gray-800 left-0 top-[6.8rem] max-h-[50rem] overflow-y-auto custom-scrollbar">
+          <button @click="showAuxSendsPanel = false"
+            class="absolute right-2 top-2 w-4 h-4 pb-[0.05rem] rounded-full bg-white/20 hover:bg-white/30 text-white/60 hover:text-white/80 text-xs flex items-center justify-center transition-all"
+            title="Remove Track">
+            ×
+          </button>
+          <div class="grid grid-cols-1 gap-2">
+            <AuxSendControl v-for="aux in props.auxBuses.slice(0, 6)" :key="aux.id" :aux="aux"
+              :aux-send-data="auxSendsData[aux.id]" @update-level="(val) => updateAuxSend(aux.id, val)"
+              @toggle-pre-post="toggleAuxPrePost(aux.id)" @toggle-mute="toggleAuxMute(aux.id)" />
+          </div>
+        </div>
+      </div>
+
       <!-- Pan Knob -->
       <div class="flex justify-center scale-[0.75]">
         <PanKnob v-model="pan" label="Pan" />
@@ -160,10 +180,7 @@
               M
             </button>
             <!-- Subgroup routing buttons -->
-            <button
-              v-for="subgroup in props.subgroups"
-              :key="subgroup.id"
-              @click="toggleSubgroupRoute(subgroup.id)"
+            <button v-for="subgroup in props.subgroups" :key="subgroup.id" @click="toggleSubgroupRoute(subgroup.id)"
               :title="`Route to ${subgroup.name}`"
               class="w-5 h-6 text-[7px] font-bold rounded transition-all flex items-center justify-center"
               :class="routedSubgroups.has(subgroup.id) ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
@@ -198,6 +215,8 @@ import TrackEQ from './audioTrack/TrackEQ.vue'
 import TrackFader from './audioTrack/TrackFader.vue'
 import TrackGate from './audioTrack/TrackGate.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
+import TrackAuxSends from './audioTrack/TrackAuxSends.vue'
+import AuxSendControl from './audioTrack/AuxSendControl.vue'
 import Knob from './core/Knob.vue'
 import ParametricEQModal from './master/ParametricEQModal.vue'
 import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
@@ -207,8 +226,8 @@ import EQThumbnail from './audioTrack/EQThumbnail.vue'
 const props = defineProps<{
   trackNumber: number
   masterChannel?: any
-  subgroups?: Array<{ id: number; name: string; channel: any }>
-  auxBuses?: Array<{ id: number; name: string; channel: any }>
+  subgroups?: Array<{ id: number; name: string; channel?: any }>
+  auxBuses?: Array<{ id: string | number; name: string; channel?: any }>
   allowSubgroupRouting?: boolean
 }>()
 
@@ -246,6 +265,10 @@ const isSolo = ref(false)
 const phaseInverted = ref(false)
 const routeToMaster = ref(true)
 const routedSubgroups = ref<Set<number>>(new Set()) // Track which subgroups this track is routed to
+
+// Aux sends state
+const auxSendsData = ref<Record<string, { level: number, preFader: boolean, muted: boolean }>>({})
+const showAuxSendsPanel = ref(false)
 
 // Effects state
 const gateEnabled = ref(false)
@@ -467,6 +490,94 @@ function handleGateParamsUpdate(params: { threshold: number; attack: number; rel
   }
 }
 
+// Handle aux sends updates
+function handleAuxSendsUpdate(sends: Record<string, { level: number, preFader: boolean, muted: boolean }>) {
+  auxSendsData.value = sends
+
+  // Send to Rust engine for each aux
+  if (audioEngine?.state.value.isRunning) {
+    Object.entries(sends).forEach(([auxId, send]) => {
+      // Extract numeric index from aux ID (handles "aux1", "aux-1", etc.)
+      const auxIndex = parseInt(auxId.replace(/\D/g, '')) - 1
+      // Convert dB to linear gain
+      const linearGain = Math.pow(10, send.level / 20)
+      audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+    })
+  }
+}
+
+// Update individual aux send level
+function updateAuxSend(auxId: string | number, level: number) {
+  const auxKey = typeof auxId === 'number' ? `aux${auxId}` : auxId
+  if (!auxSendsData.value[auxKey]) {
+    auxSendsData.value[auxKey] = {
+      level: -60,
+      preFader: false,
+      muted: true
+    }
+  }
+
+  auxSendsData.value[auxKey].level = level
+
+  // Auto-unmute if level > -60
+  if (level > -60 && auxSendsData.value[auxKey].muted) {
+    auxSendsData.value[auxKey].muted = false
+  }
+
+  // Send to Rust engine
+  if (audioEngine?.state.value.isRunning) {
+    const send = auxSendsData.value[auxKey]
+    // Convert aux ID to numeric index (0-based)
+    const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
+    const linearGain = Math.pow(10, send.level / 20)
+    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+  }
+}
+
+// Toggle aux send pre/post fader
+function toggleAuxPrePost(auxId: string | number) {
+  const auxKey = typeof auxId === 'number' ? `aux${auxId}` : auxId
+  if (!auxSendsData.value[auxKey]) {
+    auxSendsData.value[auxKey] = {
+      level: -60,
+      preFader: false,
+      muted: true
+    }
+  }
+
+  auxSendsData.value[auxKey].preFader = !auxSendsData.value[auxKey].preFader
+
+  // Send to Rust engine
+  if (audioEngine?.state.value.isRunning) {
+    const send = auxSendsData.value[auxKey]
+    const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
+    const linearGain = Math.pow(10, send.level / 20)
+    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+  }
+}
+
+// Toggle aux send mute
+function toggleAuxMute(auxId: string | number) {
+  const auxKey = typeof auxId === 'number' ? `aux${auxId}` : auxId
+  if (!auxSendsData.value[auxKey]) {
+    auxSendsData.value[auxKey] = {
+      level: -60,
+      preFader: false,
+      muted: true
+    }
+  }
+
+  auxSendsData.value[auxKey].muted = !auxSendsData.value[auxKey].muted
+
+  // Send to Rust engine
+  if (audioEngine?.state.value.isRunning) {
+    const send = auxSendsData.value[auxKey]
+    const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
+    const linearGain = Math.pow(10, send.level / 20)
+    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+  }
+}
+
 function handleParametricEQUpdate(filters: any) {
   // Save filters for EQThumbnail display
   if (filters.filtersData) {
@@ -596,11 +707,11 @@ watch(
       // dB = 20 * log10(linear)
       trackLevelL.value = levels.left > 0 ? 20 * Math.log10(levels.left) : -60
       trackLevelR.value = levels.right > 0 ? 20 * Math.log10(levels.right) : -60
-      
+
       // Update compressor visualization data
       compressorInputDb.value = levels.compressorInputDb || -90
       compressorReductionDb.value = levels.compressorReductionDb || 0
-      
+
       // Update gate visualization data
       gateInputDb.value = levels.gateInputDb || -90
       gateAttenuationDb.value = levels.gateAttenuationDb || 0

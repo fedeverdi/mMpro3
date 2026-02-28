@@ -416,6 +416,56 @@ export const useAudioEngine = () => {
 
     await window.audioEngine.setTrackRouteToSubgroup(track, subgroup, route)
   }
+
+  // Aux bus methods
+  const setTrackAuxSend = async (track: number, aux: number, level: number, preFader: boolean, muted: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setTrackAuxSend(track, aux, level, preFader, muted)
+  }
+
+  const setAuxBusGain = async (aux: number, gain: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setAuxBusGain(aux, gain)
+  }
+
+  const setAuxBusMute = async (aux: number, mute: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setAuxBusMute(aux, mute)
+  }
+
+  const setAuxBusReverb = async (aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setAuxBusReverb(aux, enabled, roomSize, damping, wet, width)
+  }
+
+  const setAuxBusDelay = async (aux: number, enabled: boolean, time: number, feedback: number, mix: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setAuxBusDelay(aux, enabled, time, feedback, mix)
+  }
+
+  const setAuxBusRouteToMaster = async (aux: number, route: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setAuxBusRouteToMaster(aux, route)
+  }
+
+  const setAuxBusOutputEnabled = async (aux: number, enabled: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setAuxBusOutputEnabled(aux, enabled)
+  }
+
+  const setAuxBusOutputChannels = async (aux: number, leftChannel: number, rightChannel: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setAuxBusOutputChannels(aux, leftChannel, rightChannel)
+  }
+
   const getInputDevices = () => {
     return state.value.devices.filter(d => d.input_channels > 0)
   }
@@ -471,6 +521,14 @@ export const useAudioEngine = () => {
     setSubgroupRouteToMaster,
     setSubgroupOutputChannels,
     setTrackRouteToSubgroup,
+    setTrackAuxSend,
+    setAuxBusGain,
+    setAuxBusMute,
+    setAuxBusReverb,
+    setAuxBusDelay,
+    setAuxBusRouteToMaster,
+    setAuxBusOutputEnabled,
+    setAuxBusOutputChannels,
     getInputDevices,
     getOutputDevices
   }

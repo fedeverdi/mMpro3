@@ -83,6 +83,24 @@ contextBridge.exposeInMainWorld('audioEngine', {
   setTrackRouteToSubgroup: (track: number, subgroup: number, route: boolean) => 
     ipcRenderer.invoke('audio-engine:set-track-route-to-subgroup', track, subgroup, route),
   
+  // Aux bus methods
+  setTrackAuxSend: (track: number, aux: number, level: number, preFader: boolean, muted: boolean) =>
+    ipcRenderer.invoke('audio-engine:set-track-aux-send', track, aux, level, preFader, muted),
+  setAuxBusGain: (aux: number, gain: number) =>
+    ipcRenderer.invoke('audio-engine:set-aux-bus-gain', aux, gain),
+  setAuxBusMute: (aux: number, mute: boolean) =>
+    ipcRenderer.invoke('audio-engine:set-aux-bus-mute', aux, mute),
+  setAuxBusReverb: (aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) =>
+    ipcRenderer.invoke('audio-engine:set-aux-bus-reverb', aux, enabled, roomSize, damping, wet, width),
+  setAuxBusDelay: (aux: number, enabled: boolean, time: number, feedback: number, mix: number) =>
+    ipcRenderer.invoke('audio-engine:set-aux-bus-delay', aux, enabled, time, feedback, mix),
+  setAuxBusRouteToMaster: (aux: number, route: boolean) =>
+    ipcRenderer.invoke('audio-engine:set-aux-bus-route-to-master', aux, route),
+  setAuxBusOutputEnabled: (aux: number, enabled: boolean) =>
+    ipcRenderer.invoke('audio-engine:set-aux-bus-output-enabled', aux, enabled),
+  setAuxBusOutputChannels: (aux: number, leftChannel: number, rightChannel: number) =>
+    ipcRenderer.invoke('audio-engine:set-aux-bus-output-channels', aux, leftChannel, rightChannel),
+  
   // Device management
   listDevices: () => ipcRenderer.invoke('audio-engine:list-devices'),
   

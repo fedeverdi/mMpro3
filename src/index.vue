@@ -169,7 +169,7 @@
                 @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate" @remove="removeTrack(track.id)"
                 @drag-start="handleTrackDragStart(track.id)" />
               <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
-                :master-channel="masterChannel" :subgroups="subgroups"
+                :master-channel="masterChannel" :subgroups="subgroups" :aux-buses="auxBuses"
                 :allow-subgroup-routing="buildLimits.allowSubgroupRouting" @toggle-arm="toggleTrackArm(track.id)"
                 @open-library="handleOpenLibrary" @remove="removeTrack(track.id)" />
             </div>
@@ -908,7 +908,63 @@ async function updateAux(index: number, updatedAux: AuxBus) {
   if (index >= 0 && index < auxBuses.value.length) {
     const aux = auxBuses.value[index]
 
-    // Update routing to master if changed
+    // Send updates to Rust engine
+    if (audioEngine.state.value.isRunning) {
+      // Update volume (gain)
+      if (updatedAux.volume !== aux.volume) {
+        const linearGain = Math.pow(10, updatedAux.volume / 20)
+        await audioEngine.setAuxBusGain(index, linearGain)
+      }
+
+      // Update mute
+      if (updatedAux.muted !== aux.muted) {
+        await audioEngine.setAuxBusMute(index, updatedAux.muted)
+      }
+
+      // Update routing to master
+      if (updatedAux.routeToMaster !== aux.routeToMaster) {
+        await audioEngine.setAuxBusRouteToMaster(index, updatedAux.routeToMaster)
+      }
+
+      // Update reverb enabled state
+      if (updatedAux.reverbEnabled !== aux.reverbEnabled) {
+        const enabled = updatedAux.reverbEnabled ?? false
+        // Map Tone.js-style params to Freeverb params or use defaults
+        const reverbParams = updatedAux.reverbParams
+        const roomSize = reverbParams?.decay ? Math.min(reverbParams.decay / 10, 1.0) : 0.5  // Map decay to roomSize
+        const damping = 0.5  // Default damping
+        const wet = reverbParams?.wet ?? 1.0
+        const width = 1.0  // Default stereo width
+        
+        await audioEngine.setAuxBusReverb(
+          index,
+          enabled,
+          roomSize,
+          damping,
+          wet,
+          width
+        )
+      }
+
+      // Update delay enabled state
+      if (updatedAux.delayEnabled !== aux.delayEnabled) {
+        const enabled = updatedAux.delayEnabled ?? false
+        const delayParams = updatedAux.delayParams
+        const time = delayParams?.delayTime ?? 0.5
+        const feedback = delayParams?.feedback ?? 0.3
+        const wet = delayParams?.wet ?? 0.5
+        
+        await audioEngine.setAuxBusDelay(
+          index,
+          enabled,
+          time,
+          feedback,
+          wet
+        )
+      }
+    }
+
+    // Update routing to master if changed (Web Audio for monitoring)
     if (updatedAux.routeToMaster !== aux.routeToMaster) {
       const outputNode = toRaw(aux.outputNode)  // Use outputNode (end of FX chain)
       const masterChan = toRaw(masterChannel.value)

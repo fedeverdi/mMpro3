@@ -218,6 +218,59 @@ enum Command {
         route: bool, // true = add to routing, false = remove from routing
     },
 
+    // Aux bus controls
+    #[serde(rename = "set_track_aux_send")]
+    SetTrackAuxSend {
+        track: usize,
+        aux: usize,
+        level: f32,
+        pre_fader: bool,
+        muted: bool,
+    },
+    #[serde(rename = "set_aux_bus_gain")]
+    SetAuxBusGain {
+        aux: usize,
+        gain: f32,
+    },
+    #[serde(rename = "set_aux_bus_mute")]
+    SetAuxBusMute {
+        aux: usize,
+        mute: bool,
+    },
+    #[serde(rename = "set_aux_bus_reverb")]
+    SetAuxBusReverb {
+        aux: usize,
+        enabled: bool,
+        room_size: f32,
+        damping: f32,
+        wet: f32,
+        width: f32,
+    },
+    #[serde(rename = "set_aux_bus_delay")]
+    SetAuxBusDelay {
+        aux: usize,
+        enabled: bool,
+        time: f32,
+        feedback: f32,
+        mix: f32,
+    },
+    #[serde(rename = "set_aux_bus_route_to_master")]
+    SetAuxBusRouteToMaster {
+        aux: usize,
+        route: bool,
+    },
+    #[serde(rename = "set_aux_bus_output_enabled")]
+    SetAuxBusOutputEnabled {
+        aux: usize,
+        enabled: bool,
+    },
+    #[serde(rename = "set_aux_bus_output_channels")]
+    SetAuxBusOutputChannels {
+        aux: usize,
+        left_channel: u16,
+        right_channel: u16,
+    },
+
     // Device management
     #[serde(rename = "list_devices")]
     ListDevices,
@@ -430,6 +483,11 @@ impl AudioEngine {
             let mut router = self.router.lock().unwrap();
             for track in router.tracks.iter_mut() {
                 track.set_sample_rate(self.sample_rate as f32);
+            }
+            
+            // Update aux buses
+            for aux_bus in router.aux_buses.iter_mut() {
+                aux_bus.set_sample_rate(self.sample_rate as f32);
             }
             
             // Update master bus (EQ + FX chain)
@@ -966,6 +1024,75 @@ impl AudioEngine {
         }
     }
 
+    // Aux bus methods
+    fn set_track_aux_send(&self, track: usize, aux: usize, level: f32, pre_fader: bool, muted: bool) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            if aux < t.aux_sends.len() {
+                t.aux_sends[aux].level = level.max(0.0);
+                t.aux_sends[aux].pre_fader = pre_fader;
+                t.aux_sends[aux].muted = muted;
+            }
+        }
+    }
+
+    fn set_aux_bus_gain(&self, aux: usize, gain: f32) {
+        let mut router = self.router.lock().unwrap();
+        if aux < router.aux_buses.len() {
+            router.aux_buses[aux].gain = gain.max(0.0);
+        }
+    }
+
+    fn set_aux_bus_mute(&self, aux: usize, mute: bool) {
+        let mut router = self.router.lock().unwrap();
+        if aux < router.aux_buses.len() {
+            router.aux_buses[aux].mute = mute;
+        }
+    }
+
+    fn set_aux_bus_reverb(&self, aux: usize, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32) {
+        let mut router = self.router.lock().unwrap();
+        if aux < router.aux_buses.len() {
+            router.aux_buses[aux].reverb.set_enabled(enabled);
+            router.aux_buses[aux].reverb.set_room_size(room_size);
+            router.aux_buses[aux].reverb.set_damping(damping);
+            router.aux_buses[aux].reverb.set_wet(wet);
+            router.aux_buses[aux].reverb.set_width(width);
+        }
+    }
+
+    fn set_aux_bus_delay(&self, aux: usize, enabled: bool, time: f32, feedback: f32, mix: f32) {
+        let mut router = self.router.lock().unwrap();
+        if aux < router.aux_buses.len() {
+            router.aux_buses[aux].delay.set_enabled(enabled);
+            router.aux_buses[aux].delay.set_delay_time_left(time);
+            router.aux_buses[aux].delay.set_delay_time_right(time);
+            router.aux_buses[aux].delay.set_feedback(feedback);
+            router.aux_buses[aux].delay.set_mix(mix);
+        }
+    }
+
+    fn set_aux_bus_route_to_master(&self, aux: usize, route: bool) {
+        let mut router = self.router.lock().unwrap();
+        if aux < router.aux_buses.len() {
+            router.aux_buses[aux].route_to_master = route;
+        }
+    }
+
+    fn set_aux_bus_output_enabled(&self, aux: usize, enabled: bool) {
+        let mut router = self.router.lock().unwrap();
+        if aux < router.aux_buses.len() {
+            router.aux_buses[aux].output_enabled = enabled;
+        }
+    }
+
+    fn set_aux_bus_output_channels(&self, aux: usize, left_ch: u16, right_ch: u16) {
+        let mut router = self.router.lock().unwrap();
+        if aux < router.aux_buses.len() {
+            router.aux_buses[aux].output_channel_selection = ChannelSelection::new(left_ch, right_ch);
+        }
+    }
+
     /// Handle a command and return an optional response (only for critical operations)
     fn handle_command(&mut self, command: Command) -> Option<Response> {
         match command {
@@ -1212,6 +1339,61 @@ impl AudioEngine {
                 route,
             } => {
                 self.set_track_route_to_subgroup(track, subgroup, route);
+                None
+            }
+            Command::SetTrackAuxSend {
+                track,
+                aux,
+                level,
+                pre_fader,
+                muted,
+            } => {
+                self.set_track_aux_send(track, aux, level, pre_fader, muted);
+                None
+            }
+            Command::SetAuxBusGain { aux, gain } => {
+                self.set_aux_bus_gain(aux, gain);
+                None
+            }
+            Command::SetAuxBusMute { aux, mute } => {
+                self.set_aux_bus_mute(aux, mute);
+                None
+            }
+            Command::SetAuxBusReverb {
+                aux,
+                enabled,
+                room_size,
+                damping,
+                wet,
+                width,
+            } => {
+                self.set_aux_bus_reverb(aux, enabled, room_size, damping, wet, width);
+                None
+            }
+            Command::SetAuxBusDelay {
+                aux,
+                enabled,
+                time,
+                feedback,
+                mix,
+            } => {
+                self.set_aux_bus_delay(aux, enabled, time, feedback, mix);
+                None
+            }
+            Command::SetAuxBusRouteToMaster { aux, route } => {
+                self.set_aux_bus_route_to_master(aux, route);
+                None
+            }
+            Command::SetAuxBusOutputEnabled { aux, enabled } => {
+                self.set_aux_bus_output_enabled(aux, enabled);
+                None
+            }
+            Command::SetAuxBusOutputChannels {
+                aux,
+                left_channel,
+                right_channel,
+            } => {
+                self.set_aux_bus_output_channels(aux, left_channel, right_channel);
                 None
             }
             Command::ListDevices => match self.list_devices() {

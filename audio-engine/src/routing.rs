@@ -25,6 +25,27 @@ const WAVEFORM_BUFFER_SIZE: usize = 2048;
 // Balanced between update rate and CPU usage
 const FFT_SIZE: usize = 2048;
 
+// Maximum number of aux buses
+const MAX_AUX_BUSES: usize = 6;
+
+/// Auxiliary send from a track to an aux bus
+#[derive(Debug, Clone)]
+pub struct AuxSend {
+    pub level: f32,      // Send level (linear, 0.0 to ~4.0)
+    pub pre_fader: bool, // If true, send is before track fader; if false, after
+    pub muted: bool,     // Mute this send
+}
+
+impl Default for AuxSend {
+    fn default() -> Self {
+        Self {
+            level: 0.0,      // -∞ dB
+            pre_fader: false, // Post-fader by default
+            muted: true,     // Muted by default
+        }
+    }
+}
+
 pub struct FFTAnalyzer {
     buffer_left: Vec<f32>,
     buffer_right: Vec<f32>,
@@ -124,6 +145,7 @@ pub struct Track {
     pub pan: f32, // -1.0 (left) to 1.0 (right)
     pub route_to_master: bool, // Whether to send output to master bus
     pub route_to_subgroups: Vec<usize>, // List of subgroup IDs to route to
+    pub aux_sends: Vec<AuxSend>, // Aux sends (up to MAX_AUX_BUSES)
     pub pad_enabled: bool, // -24dB attenuation before gain
     pub hpf_enabled: bool, // High-pass filter @ 80Hz (between PAD and gain)
     
@@ -155,6 +177,9 @@ pub struct Track {
     pub level_l: f32,
     pub level_r: f32,
     
+    // Aux send outputs (stereo pairs for each aux bus)
+    pub aux_outputs: Vec<(f32, f32)>,
+    
     // Waveform ring buffer (for visualization)
     waveform_buffer_l: Vec<f32>,
     waveform_buffer_r: Vec<f32>,
@@ -172,6 +197,7 @@ impl Track {
             pan: 0.0,
             route_to_master: true, // Route to master by default
             route_to_subgroups: Vec::new(), // No subgroups by default
+            aux_sends: vec![AuxSend::default(); MAX_AUX_BUSES], // Initialize all aux sends
             pad_enabled: false, // PAD off by default
             hpf_enabled: false, // HPF off by default
             input_channel_selection: ChannelSelection::stereo(),
@@ -184,6 +210,7 @@ impl Track {
             hpf_filter: EQBand::new(FilterType::HighPass, 80.0, 44100.0),
             level_l: 0.0,
             level_r: 0.0,
+            aux_outputs: vec![(0.0, 0.0); MAX_AUX_BUSES], // Initialize all aux outputs
             waveform_buffer_l: vec![0.0; WAVEFORM_BUFFER_SIZE],
             waveform_buffer_r: vec![0.0; WAVEFORM_BUFFER_SIZE],
             waveform_write_index: 0,
@@ -357,9 +384,28 @@ impl Track {
             (left, right)
         };
 
+        // Store pre-fader signal for aux sends
+        let pre_fader_l = left;
+        let pre_fader_r = right;
+
         // 9. FADER: Final level control
         left *= self.volume;
         right *= self.volume;
+
+        // ===== AUX SENDS SECTION =====
+        // Calculate all aux send outputs (PRE or POST fader based on send configuration)
+        for (i, aux_send) in self.aux_sends.iter().enumerate() {
+            if aux_send.muted {
+                self.aux_outputs[i] = (0.0, 0.0);
+            } else {
+                let (source_l, source_r) = if aux_send.pre_fader {
+                    (pre_fader_l, pre_fader_r)
+                } else {
+                    (left, right)
+                };
+                self.aux_outputs[i] = (source_l * aux_send.level, source_r * aux_send.level);
+            }
+        }
 
         // Update levels for metering (peak hold)
         self.level_l = self.level_l.max(left.abs());
@@ -565,9 +611,87 @@ impl SubgroupBus {
     }
 }
 
+/// Auxiliary bus with reverb and delay effects
+pub struct AuxBus {
+    pub id: usize,
+    pub gain: f32,
+    pub mute: bool,
+    pub route_to_master: bool,
+    pub output_enabled: bool, // Controls direct output (independent from route_to_master)
+    pub output_channel_selection: ChannelSelection,
+    
+    // FX Chain
+    pub reverb: Reverb,
+    pub delay: Delay,
+    
+    // Levels for metering
+    pub level_l: f32,
+    pub level_r: f32,
+}
+
+impl AuxBus {
+    pub fn new(id: usize, sample_rate: f32) -> Self {
+        Self {
+            id,
+            gain: 1.0,
+            mute: false,
+            route_to_master: true, // Route to master by default
+            output_enabled: false, // No direct output by default
+            output_channel_selection: ChannelSelection::stereo(),
+            reverb: Reverb::new(sample_rate),
+            delay: Delay::new(sample_rate),
+            level_l: 0.0,
+            level_r: 0.0,
+        }
+    }
+
+    /// Process aux bus with all sends mixed together
+    pub fn process(&mut self, input_l: f32, input_r: f32) -> (f32, f32) {
+        if self.mute {
+            return (0.0, 0.0);
+        }
+
+        let mut l = input_l;
+        let mut r = input_r;
+
+        // Apply reverb (returns dry signal if disabled)
+        let reverb_out = self.reverb.process(l, r);
+        l = reverb_out.0;
+        r = reverb_out.1;
+
+        // Apply delay (returns dry signal if disabled)
+        let delay_out = self.delay.process(l, r);
+        l = delay_out.0;
+        r = delay_out.1;
+
+        // Apply gain
+        l *= self.gain;
+        r *= self.gain;
+
+        // Update levels (peak hold)
+        self.level_l = self.level_l.max(l.abs());
+        self.level_r = self.level_r.max(r.abs());
+
+        (l, r)
+    }
+
+    /// Reset peak levels for metering
+    pub fn reset_levels(&mut self) {
+        self.level_l = 0.0;
+        self.level_r = 0.0;
+    }
+
+    /// Set sample rate for all effects
+    pub fn set_sample_rate(&mut self, sample_rate: f32) {
+        self.reverb.set_sample_rate(sample_rate);
+        self.delay.set_sample_rate(sample_rate);
+    }
+}
+
 pub struct Router {
     pub tracks: Vec<Track>,
     pub subgroups: Vec<SubgroupBus>,
+    pub aux_buses: Vec<AuxBus>,
     pub master: MasterBus,
     pub fft_analyzer: FFTAnalyzer,
     // Master bus output (before adding direct subgroups) for FFT analysis
@@ -578,9 +702,13 @@ impl Router {
     pub fn new(num_tracks: usize) -> Self {
         let tracks = (0..num_tracks).map(Track::new).collect();
         
+        // Initialize 6 aux buses by default
+        let aux_buses = (0..MAX_AUX_BUSES).map(|i| AuxBus::new(i, 44100.0)).collect();
+        
         Self {
             tracks,
             subgroups: Vec::new(),
+            aux_buses,
             master: MasterBus::new(),
             fft_analyzer: FFTAnalyzer::new(),
             last_master_output: (0.0, 0.0),
@@ -638,6 +766,24 @@ impl Router {
             subgroup_outputs.push(output);
         }
 
+        // Process all aux buses (sum all track aux sends for each aux)
+        let mut aux_outputs: Vec<(f32, f32)> = Vec::new();
+        for aux_index in 0..self.aux_buses.len() {
+            // Sum all track aux sends for this aux bus
+            let mut aux_sum_l = 0.0;
+            let mut aux_sum_r = 0.0;
+            for track in self.tracks.iter() {
+                if aux_index < track.aux_outputs.len() {
+                    aux_sum_l += track.aux_outputs[aux_index].0;
+                    aux_sum_r += track.aux_outputs[aux_index].1;
+                }
+            }
+            
+            // Process through aux bus (reverb, delay, gain)
+            let aux_output = self.aux_buses[aux_index].process(aux_sum_l, aux_sum_r);
+            aux_outputs.push(aux_output);
+        }
+
         // Process master bus (using cached track outputs)
         // Master processes all tracks with route_to_master enabled (parallel with subgroups)
         let mut master_output = self.master.process_cached(&self.tracks, &track_outputs);
@@ -650,14 +796,22 @@ impl Router {
             }
         }
         
-        // Update master levels to include routed subgroups
+        // Add aux buses routed to master INTO the master (apply master gain)
+        for (i, aux_bus) in self.aux_buses.iter().enumerate() {
+            if aux_bus.route_to_master {
+                master_output.0 += aux_outputs[i].0 * self.master.gain;
+                master_output.1 += aux_outputs[i].1 * self.master.gain;
+            }
+        }
+        
+        // Update master levels to include routed subgroups and aux buses
         self.master.level_l = self.master.level_l.max(master_output.0.abs());
         self.master.level_r = self.master.level_r.max(master_output.1.abs());
 
-        // Save master bus output for FFT analysis (before adding direct subgroups)
+        // Save master bus output for FFT analysis (before adding direct subgroups/aux)
         self.last_master_output = master_output;
 
-        // Start with master output (includes routed subgroups)
+        // Start with master output (includes routed subgroups and aux)
         let mut final_l = master_output.0;
         let mut final_r = master_output.1;
         
@@ -666,6 +820,14 @@ impl Router {
             if subgroup.output_enabled {
                 final_l += subgroup_outputs[i].0;
                 final_r += subgroup_outputs[i].1;
+            }
+        }
+        
+        // Add aux buses with direct output enabled (regardless of route_to_master)
+        for (i, aux_bus) in self.aux_buses.iter().enumerate() {
+            if aux_bus.output_enabled {
+                final_l += aux_outputs[i].0;
+                final_r += aux_outputs[i].1;
             }
         }
 
