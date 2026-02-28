@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onUnmounted, inject } from 'vue'
+import { ref, watch, nextTick, onUnmounted } from 'vue'
 import Knob from '../core/Knob.vue'
 
 const props = defineProps<{
@@ -101,8 +101,6 @@ const attack = ref(props.initialAttack ?? 0.003)
 const release = ref(props.initialRelease ?? 0.25)
 
 // Realtime level monitoring
-const ToneRef = inject<any>('Tone')
-let Tone: any = null
 let animationFrameId: number | null = null
 const currentInputLevel = ref(-60)
 const currentGainReduction = ref(0)
@@ -113,22 +111,8 @@ function toggleEffect() {
 }
 
 // Start/stop monitoring based on modal visibility
-watch(showModal, async (isOpen) => {
+watch(showModal, (isOpen) => {
   if (isOpen) {
-    if (!Tone) {
-      // Get Tone.js from inject
-      if (ToneRef?.value) {
-        Tone = ToneRef.value
-      } else {
-        // Fallback: wait for it
-        const checkTone = setInterval(() => {
-          if (ToneRef?.value) {
-            Tone = ToneRef.value
-            clearInterval(checkTone)
-          }
-        }, 100)
-      }
-    }
     startMonitoring()
     nextTick(() => {
       drawCompressionCurve()
@@ -404,14 +388,6 @@ watch([threshold, ratio, attack, release], () => {
 
   // Redraw curve when parameters change (only if modal is open)
   if (showModal.value) {
-    nextTick(() => {
-      drawCompressionCurve()
-    })
-  }
-})
-
-watch(showModal, (isOpen) => {
-  if (isOpen) {
     nextTick(() => {
       drawCompressionCurve()
     })

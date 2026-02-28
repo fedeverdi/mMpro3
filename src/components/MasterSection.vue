@@ -263,13 +263,33 @@ onUnmounted(() => {
   }
 })
 
-// Expose refs for parent component
+// Method to get current meter values for FX visualization
+function getMeterValues() {
+  return {
+    left: leftLevel.value,
+    right: rightLevel.value
+  }
+}
+
+// Method to get pre-limiter meter values for limiter visualization
+function getPreLimiterValues() {
+  return {
+    left: leftLevel.value,
+    right: rightLevel.value
+  }
+}
+
+// Expose refs and methods for parent component
 defineExpose({
   leftVolume,
   rightVolume,
   masterMuted,
   selectedMasterOutput,
-  selectedHeadphonesOutput
+  selectedHeadphonesOutput,
+  leftLevel,
+  rightLevel,
+  getMeterValues,
+  getPreLimiterValues
 })
 </script>
 

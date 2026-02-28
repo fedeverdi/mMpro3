@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onUnmounted, inject } from 'vue'
+import { ref, watch, nextTick, onUnmounted } from 'vue'
 import Knob from '../core/Knob.vue'
 
 const props = defineProps<{
@@ -82,8 +82,6 @@ const curveCanvas = ref<HTMLCanvasElement | null>(null)
 const threshold = ref(props.initialThreshold ?? -1)
 
 // Realtime level monitoring
-const ToneRef = inject<any>('Tone')
-let Tone: any = null
 let animationFrameId: number | null = null
 const currentInputLevel = ref(-60)
 const currentGainReduction = ref(0)
@@ -94,22 +92,8 @@ function toggleEffect() {
 }
 
 // Start/stop monitoring based on modal visibility
-watch(showModal, async (isOpen) => {
+watch(showModal, (isOpen) => {
   if (isOpen) {
-    if (!Tone) {
-      // Get Tone.js from inject
-      if (ToneRef?.value) {
-        Tone = ToneRef.value
-      } else {
-        // Fallback: wait for it
-        const checkTone = setInterval(() => {
-          if (ToneRef?.value) {
-            Tone = ToneRef.value
-            clearInterval(checkTone)
-          }
-        }, 100)
-      }
-    }
     startMonitoring()
     nextTick(() => {
       drawLimiterCurve()
@@ -359,14 +343,6 @@ watch(threshold, () => {
 
   // Redraw curve when threshold changes (only if modal is open)
   if (showModal.value) {
-    nextTick(() => {
-      drawLimiterCurve()
-    })
-  }
-})
-
-watch(showModal, (isOpen) => {
-  if (isOpen) {
     nextTick(() => {
       drawLimiterCurve()
     })
