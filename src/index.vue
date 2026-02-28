@@ -1631,16 +1631,10 @@ onMounted(async () => {
   // Load automation panel state
   loadAutomationHeight()
 
-  // Load scenes from IndexedDB
-  await loadScenesFromStorage()
-
-  // Refresh audio output devices (they were pre-loaded during splash, but we refresh here to ensure they're up to date)
-  await refreshAudioOutputs()
-
   // Rust backend handles all audio routing - no Tone.js needed
   masterChannel.value = null
 
-  // Add initial subgroup (only if allowed by build limits)
+  // Add initial subgroup and aux buses FIRST (before async operations) for immediate rendering
   const limits = getBuildLimits()
   if (limits.maxSubgroups > 0) {
     addSubgroup()
@@ -1651,6 +1645,12 @@ onMounted(async () => {
   for (let i = 0; i < maxAuxToAdd; i++) {
     addAux()
   }
+
+  // Then load async resources in parallel
+  await Promise.all([
+    loadScenesFromStorage(),
+    refreshAudioOutputs()
+  ])
 
   // Don't start connection here - wait for component to mount
 
