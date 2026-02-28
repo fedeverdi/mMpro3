@@ -119,18 +119,6 @@
         </div>
       </div>
 
-      <!-- Mute & Solo Buttons -->
-      <div class="flex flex-row gap-1 w-full">
-        <button @click="toggleMute" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
-          :class="isMuted ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-          MUTE
-        </button>
-        <button @click="toggleSolo" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
-          :class="isSolo ? 'bg-yellow-500 text-gray-900 animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-          SOLO
-        </button>
-      </div>
-
       <!-- Aux Sends -->
       <div v-if="props.auxBuses && props.auxBuses.length > 0" class="w-full">
         <TrackAuxSends :track-number="trackNumber" :aux-buses="props.auxBuses" :aux-sends-data="auxSendsData"
@@ -151,6 +139,19 @@
           </div>
         </div>
       </div>
+
+        <!-- Mute & Solo Buttons -->
+      <div class="flex flex-row gap-1 w-full">
+        <button @click="toggleMute" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
+          :class="isMuted ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+          MUTE
+        </button>
+        <button @click="toggleSolo" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
+          :class="isSolo ? 'bg-yellow-500 text-gray-900 animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+          SOLO
+        </button>
+      </div>
+
 
       <!-- Pan Knob -->
       <div class="flex justify-center scale-[0.75]">
