@@ -409,9 +409,9 @@ impl MasterBus {
         let mut mix_l = 0.0;
         let mut mix_r = 0.0;
 
-        // Sum only tracks routed to master AND NOT routed to any subgroup
+        // Sum all tracks routed to master (parallel routing - tracks can go to both master AND subgroups)
         for (i, track) in tracks.iter().enumerate() {
-            if track.route_to_master && track.route_to_subgroups.is_empty() {
+            if track.route_to_master {
                 let (l, r) = track_outputs[i];
                 mix_l += l;
                 mix_r += r;
@@ -580,7 +580,7 @@ impl Router {
         }
 
         // Process master bus (using cached track outputs)
-        // Master only processes tracks NOT routed to any subgroup
+        // Master processes all tracks with route_to_master enabled (parallel with subgroups)
         let mut master_output = self.master.process_cached(&self.tracks, &track_outputs);
 
         // Add subgroups routed to master INTO the master (apply master gain)
