@@ -1634,6 +1634,9 @@ onMounted(async () => {
   // Load scenes from IndexedDB
   await loadScenesFromStorage()
 
+  // Refresh audio output devices (they were pre-loaded during splash, but we refresh here to ensure they're up to date)
+  await refreshAudioOutputs()
+
   // Rust backend handles all audio routing - no Tone.js needed
   masterChannel.value = null
 

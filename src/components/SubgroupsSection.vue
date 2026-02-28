@@ -81,7 +81,7 @@ const leftLevel = ref(-60)
 const rightLevel = ref(-60)
 
 // Audio outputs
-const { audioOutputDevices, refreshAudioOutputs } = useAudioDevices()
+const { audioOutputDevices } = useAudioDevices()
 const selectedOutput = ref<string | null>('no-output')
 
 // Container and dynamic height
@@ -156,8 +156,8 @@ watch(
 
 // Initialize
 onMounted(async () => {
-  // Enumerate audio outputs
-  await refreshAudioOutputs()
+  // Audio output devices are already enumerated during app initialization
+  // No need to refresh them here
 
   // Calculate initial height
   await nextTick()
