@@ -116,7 +116,7 @@ const rightLevel = ref(-60)
 const headphonesLevel = ref(-60)
 
 // Audio outputs
-const { audioOutputDevices, refreshAudioOutputs } = useAudioDevices()
+const { audioOutputDevices } = useAudioDevices()
 const selectedHeadphonesOutput = ref<string | null>(null)
 const selectedMasterOutput = ref<string | null>(null)
 
@@ -238,8 +238,8 @@ watch(leftVolume, (newVal) => {
 
 // Initialize
 onMounted(async () => {
-  // Enumerate audio outputs
-  await refreshAudioOutputs()
+  // Audio output devices are already enumerated during app initialization
+  // No need to refresh them here
 
   // Calculate initial height
   await nextTick()

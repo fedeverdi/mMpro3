@@ -357,7 +357,7 @@ const emit = defineEmits<{
 const ToneRef = inject<any>('Tone')
 let Tone: any = null
 
-const { audioOutputDevices, enumerateAudioOutputs } = useAudioDevices()
+const { audioOutputDevices } = useAudioDevices()
 
 const selectedAuxIndex = ref<number | null>(null)
 const selectedReverbAux = ref<number | null>(null)
@@ -368,9 +368,10 @@ const auxBuses = ref<AuxBus[]>(props.auxBuses || [])
 const tapTimes = ref<number[]>([])
 const tapBpm = ref<number | null>(null)
 
-// Enumerate audio output devices on mount
-onMounted(async () => {
-    await enumerateAudioOutputs()
+// Audio output devices are already enumerated during app initialization
+// No need to enumerate them again here
+onMounted(() => {
+    // Initialization complete
 })
 
 // Watch for prop changes
