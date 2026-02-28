@@ -17,6 +17,14 @@ export interface AudioEngineState {
   subgroupLevels: Map<number, { left: number, right: number }>
   masterLevels: { left: number, right: number }
   fftData: { binsLeft: Float32Array, binsRight: Float32Array, sampleRate: number } | null
+  performanceStats: {
+    bufferSize: number
+    latencyMs: number
+    avgProcessMs: number
+    cpuPercent: number
+    minProcessMs: number
+    maxProcessMs: number
+  } | null
 }
 
 const state = ref<AudioEngineState>({
@@ -28,7 +36,8 @@ const state = ref<AudioEngineState>({
   trackWaveforms: new Map(),
   subgroupLevels: new Map(),
   masterLevels: { left: 0, right: 0 },
-  fftData: null
+  fftData: null,
+  performanceStats: null
 })
 
 let isListening = false
@@ -112,6 +121,18 @@ export const useAudioEngine = () => {
               binsRight: new Float32Array(response.bins_right),
               sampleRate: response.sample_rate
             }
+          }
+          break
+
+        case 'performance':
+          // Update performance stats
+          state.value.performanceStats = {
+            bufferSize: response.buffer_size,
+            latencyMs: response.latency_ms,
+            avgProcessMs: response.avg_process_ms,
+            cpuPercent: response.cpu_percent,
+            minProcessMs: response.min_process_ms,
+            maxProcessMs: response.max_process_ms
           }
           break
 

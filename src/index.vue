@@ -6,6 +6,31 @@
         <div class="flex items-center gap-2">
           <img src="./assets/logo_no_scritta.svg" alt="mMpro3" class="h-8" />
 
+          <!-- Performance Stats -->
+          <template v-if="audioEngineState.performanceStats">
+            <div class="w-px h-6 bg-gray-600"></div>
+            <div class="flex items-center gap-2 text-[10px] font-mono">
+              <div class="flex items-center gap-1">
+                <span class="text-gray-500">BUF:</span>
+                <span class="text-gray-300">{{ audioEngineState.performanceStats.bufferSize }}</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-gray-500">LAT:</span>
+                <span class="text-gray-300">{{ audioEngineState.performanceStats.latencyMs.toFixed(2) }}ms</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-gray-500">CPU:</span>
+                <span :class="audioEngineState.performanceStats.cpuPercent > 80 ? 'text-red-400 font-bold' : audioEngineState.performanceStats.cpuPercent > 60 ? 'text-yellow-400' : 'text-green-400'">
+                  {{ audioEngineState.performanceStats.cpuPercent.toFixed(1) }}%
+                </span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-gray-500">AVG:</span>
+                <span class="text-gray-300">{{ audioEngineState.performanceStats.avgProcessMs.toFixed(2) }}ms</span>
+              </div>
+            </div>
+          </template>
+
           <!-- Quick Scene Access -->
           <template v-if="pinnedScenes.length > 0">
             <div class="w-px h-6 bg-gray-600"></div>
@@ -445,6 +470,7 @@ import { channel } from 'diagnostics_channel'
 
 const { audioOutputDevices, audioInputDevices, refreshAudioOutputs, refreshAudioInputs } = useAudioDevices()
 const audioEngine = useAudioEngine()
+const audioEngineState = audioEngine.state
 
 const masterChannel = ref<any>(null)
 

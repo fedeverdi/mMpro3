@@ -195,6 +195,15 @@ enum Response {
         bins_right: Vec<f32>,
         sample_rate: u32,
     },
+    #[serde(rename = "performance")]
+    PerformanceStats {
+        buffer_size: usize,
+        latency_ms: f32,
+        avg_process_ms: f32,
+        cpu_percent: f32,
+        min_process_ms: f32,
+        max_process_ms: f32,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -539,7 +548,7 @@ impl AudioEngine {
                 let mut stats = perf_stats_clone.lock().unwrap();
                 stats.record(process_time_us);
                 
-                // Log every 2-3 seconds
+                // Send performance stats every 2-3 seconds
                 if stats.should_log() && stats.buffer_count > 0 {
                     let avg_us = stats.total_process_time_us / stats.buffer_count as u128;
                     let avg_ms = avg_us as f32 / 1000.0;
@@ -547,15 +556,18 @@ impl AudioEngine {
                     let min_ms = stats.min_process_time_us as f32 / 1000.0;
                     let max_ms = stats.max_process_time_us as f32 / 1000.0;
                     
-                    eprintln!("[Perf] Buffer: {} frames ({:.2}ms latency) | Processing: Avg {:.3}ms ({:.1}% CPU) | Min {:.3}ms | Max {:.3}ms | Buffers: {}",
-                        frames,
-                        buffer_latency_ms,
-                        avg_ms,
-                        avg_cpu,
-                        min_ms,
-                        max_ms,
-                        stats.buffer_count
-                    );
+                    let response = Response::PerformanceStats {
+                        buffer_size: frames,
+                        latency_ms: buffer_latency_ms,
+                        avg_process_ms: avg_ms,
+                        cpu_percent: avg_cpu,
+                        min_process_ms: min_ms,
+                        max_process_ms: max_ms,
+                    };
+                    
+                    if let Ok(json) = serde_json::to_string(&response) {
+                        println!("{}", json);
+                    }
                     
                     stats.reset();
                 }

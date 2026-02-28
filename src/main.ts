@@ -77,7 +77,6 @@ const startAudioEngineInternal = () => {
         })
       } catch (err) {
         // Not JSON, just log as plain text
-        console.log('[Engine Output]', line)
       }
     }
   })
