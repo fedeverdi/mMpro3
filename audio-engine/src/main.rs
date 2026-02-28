@@ -436,8 +436,9 @@ impl AudioEngine {
                         // Process one frame through router
                         let (left, right) = router.process_frame(input_frame.as_deref());
 
-                        // Push samples to FFT analyzer
-                        router.fft_analyzer.push_samples(left, right);
+                        // Push MASTER BUS samples to FFT analyzer (parallel tap, doesn't affect audio)
+                        let (master_l, master_r) = router.last_master_output;
+                        router.fft_analyzer.push_samples(master_l, master_r);
 
                         // Write to output
                         let out_frame_start = frame_idx * output_channels;

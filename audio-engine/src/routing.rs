@@ -511,6 +511,8 @@ pub struct Router {
     pub subgroups: Vec<SubgroupBus>,
     pub master: MasterBus,
     pub fft_analyzer: FFTAnalyzer,
+    // Master bus output (before adding direct subgroups) for FFT analysis
+    pub last_master_output: (f32, f32),
 }
 
 impl Router {
@@ -522,6 +524,7 @@ impl Router {
             subgroups: Vec::new(),
             master: MasterBus::new(),
             fft_analyzer: FFTAnalyzer::new(),
+            last_master_output: (0.0, 0.0),
         }
     }
 
@@ -591,6 +594,9 @@ impl Router {
         // Update master levels to include routed subgroups
         self.master.level_l = self.master.level_l.max(master_output.0.abs());
         self.master.level_r = self.master.level_r.max(master_output.1.abs());
+
+        // Save master bus output for FFT analysis (before adding direct subgroups)
+        self.last_master_output = master_output;
 
         // Start with master output (includes routed subgroups)
         let mut final_l = master_output.0;
