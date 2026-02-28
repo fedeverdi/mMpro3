@@ -1,9 +1,12 @@
 /// Audio routing engine
 use crate::audio_io::ChannelSelection;
 use crate::compressor::Compressor;
+use crate::delay::Delay;
 use crate::equalizer::{Equalizer, ParametricEqualizer, EQBand, FilterType};
 use crate::file_player::AudioFilePlayer;
 use crate::gate::NoiseGate;
+use crate::limiter::Limiter;
+use crate::reverb::Reverb;
 use crate::signal_gen::{SignalGenerator, WaveformType};
 use rustfft::{FftPlanner, num_complex::Complex};
 
@@ -410,6 +413,12 @@ pub struct MasterBus {
     pub output_channel_selection: ChannelSelection,
     pub level_l: f32,
     pub level_r: f32,
+    
+    // Master FX Chain (applied in series after EQ)
+    pub compressor: Compressor,
+    pub limiter: Limiter,
+    pub delay: Delay,
+    pub reverb: Reverb,
 }
 
 impl MasterBus {
@@ -421,7 +430,20 @@ impl MasterBus {
             output_channel_selection: ChannelSelection::stereo(),
             level_l: 0.0,
             level_r: 0.0,
+            compressor: Compressor::new(44100.0),
+            limiter: Limiter::new(44100.0),
+            delay: Delay::new(44100.0),
+            reverb: Reverb::new(44100.0),
         }
+    }
+    
+    /// Set sample rate for all master FX
+    pub fn set_sample_rate(&mut self, sample_rate: f32) {
+        self.parametric_eq.set_sample_rate(sample_rate);
+        self.compressor.set_sample_rate(sample_rate);
+        self.limiter.set_sample_rate(sample_rate);
+        self.delay.set_sample_rate(sample_rate);
+        self.reverb.set_sample_rate(sample_rate);
     }
 
     /// Mix all tracks and apply master processing (using cached track outputs)
@@ -449,7 +471,20 @@ impl MasterBus {
         let mix_l = mix_l * self.gain;
         let mix_r = mix_r * self.gain;
 
-        // Update levels (peak hold)
+        // ===== MASTER FX CHAIN (in series) =====
+        // 1. Compressor: Dynamic range control
+        let (mix_l, mix_r) = self.compressor.process(mix_l, mix_r);
+        
+        // 2. Reverb: Spatial effect
+        let (mix_l, mix_r) = self.reverb.process(mix_l, mix_r);
+        
+        // 3. Delay: Time-based effect
+        let (mix_l, mix_r) = self.delay.process(mix_l, mix_r);
+        
+        // 4. Limiter: Brick-wall limiting to prevent clipping (last, catches all peaks)
+        let (mix_l, mix_r) = self.limiter.process(mix_l, mix_r);
+
+        // Update levels (peak hold) - AFTER all processing
         self.level_l = self.level_l.max(mix_l.abs());
         self.level_r = self.level_r.max(mix_r.abs());
 

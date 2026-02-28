@@ -43,14 +43,14 @@
             </button>
           </div>
 
-          <p class="text-xs text-yellow-500 mb-2 text-center">* Decay requires toggle OFF/ON to apply</p>
+          <div class="grid grid-cols-4 gap-4">
+            <Knob class="scale-[0.8]" v-model="roomSize" :min="0" :max="1" :step="0.01" label="Room Size" unit="" color="#10b981" />
 
-          <div class="grid grid-cols-3 gap-4">
-            <Knob class="scale-[0.8]" v-model="decay" :min="0.1" :max="10" :step="0.1" label="Decay" unit="s" color="#10b981" />
-
-            <Knob class="scale-[0.8]" v-model="preDelay" :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#14b8a6" />
+            <Knob class="scale-[0.8]" v-model="damping" :min="0" :max="1" :step="0.01" label="Damping" unit="" color="#14b8a6" />
 
             <Knob class="scale-[0.8]" v-model="wet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
+
+            <Knob class="scale-[0.8]" v-model="width" :min="0" :max="1" :step="0.01" label="Width" unit="" color="#8b5cf6" />
           </div>
         </div>
       </div>
@@ -64,33 +64,36 @@ import Knob from '../core/Knob.vue'
 
 const props = defineProps<{
   enabled?: boolean
-  initialDecay?: number
-  initialPreDelay?: number
+  initialRoomSize?: number
+  initialDamping?: number
   initialWet?: number
+  initialWidth?: number
 }>()
 
 const emit = defineEmits<{
   (e: 'toggle', enabled: boolean): void
-  (e: 'update', params: { decay: number, preDelay: number, wet: number }): void
+  (e: 'update', params: { roomSize: number, damping: number, wet: number, width: number }): void
 }>()
 
 const isEnabled = ref(props.enabled ?? false)
 const showModal = ref(false)
 
-const decay = ref(props.initialDecay ?? 1.5)
-const preDelay = ref(props.initialPreDelay ?? 0.01)
+const roomSize = ref(props.initialRoomSize ?? 0.7)
+const damping = ref(props.initialDamping ?? 0.5)
 const wet = ref(props.initialWet ?? 0.3)
+const width = ref(props.initialWidth ?? 1.0)
 
 function toggleEffect() {
   isEnabled.value = !isEnabled.value
   emit('toggle', isEnabled.value)
 }
 
-watch([decay, preDelay, wet], () => {
+watch([roomSize, damping, wet, width], () => {
   emit('update', {
-    decay: decay.value,
-    preDelay: preDelay.value,
-    wet: wet.value
+    roomSize: roomSize.value,
+    damping: damping.value,
+    wet: wet.value,
+    width: width.value
   })
 })
 </script>

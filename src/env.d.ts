@@ -54,6 +54,12 @@ interface AudioEngine {
   clearMasterParametricEQ: () => Promise<void>
   setMasterOutputChannels: (leftChannel: number, rightChannel: number) => Promise<void>
   
+  // Master FX Controls
+  setMasterCompressor: (enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => Promise<void>
+  setMasterLimiter: (enabled: boolean, ceiling: number, release: number) => Promise<void>
+  setMasterDelay: (enabled: boolean, timeL: number, timeR: number, feedback: number, mix: number) => Promise<void>
+  setMasterReverb: (enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => Promise<void>
+  
   // Subgroup Controls
   addSubgroup: () => Promise<number>
   removeSubgroup: (subgroup: number) => Promise<void>

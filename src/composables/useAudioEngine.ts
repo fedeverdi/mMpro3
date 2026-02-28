@@ -336,6 +336,32 @@ export const useAudioEngine = () => {
 
     await window.audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
   }
+
+  // Master FX controls
+  const setMasterCompressor = async (enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setMasterCompressor(enabled, threshold, ratio, attack, release)
+  }
+
+  const setMasterLimiter = async (enabled: boolean, ceiling: number, release: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setMasterLimiter(enabled, ceiling, release)
+  }
+
+  const setMasterDelay = async (enabled: boolean, timeL: number, timeR: number, feedback: number, mix: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setMasterDelay(enabled, timeL, timeR, feedback, mix)
+  }
+
+  const setMasterReverb = async (enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width)
+  }
+
   // Subgroup methods
   const addSubgroup = async (): Promise<number | null> => {
     if (!window.audioEngine) return null
@@ -433,6 +459,10 @@ export const useAudioEngine = () => {
     setMasterGain,
     setMasterMute,
     setMasterOutputChannels,
+    setMasterCompressor,
+    setMasterLimiter,
+    setMasterDelay,
+    setMasterReverb,
     addSubgroup,
     removeSubgroup,
     setSubgroupGain,

@@ -8,10 +8,13 @@ use std::time::Instant;
 
 // Import our modules
 mod audio_io;
+mod delay;
+mod limiter;
 mod compressor;
 mod equalizer;
 mod file_player;
 mod gate;
+mod reverb;
 mod routing;
 mod signal_gen;
 mod track;
@@ -155,6 +158,38 @@ enum Command {
     SetMasterOutputChannels {
         left_channel: u16,
         right_channel: u16,
+    },
+
+    // Master FX controls
+    #[serde(rename = "set_master_compressor")]
+    SetMasterCompressor {
+        enabled: bool,
+        threshold: f32,
+        ratio: f32,
+        attack: f32,
+        release: f32,
+    },
+    #[serde(rename = "set_master_limiter")]
+    SetMasterLimiter {
+        enabled: bool,
+        ceiling: f32,
+        release: f32,
+    },
+    #[serde(rename = "set_master_delay")]
+    SetMasterDelay {
+        enabled: bool,
+        time_l: f32,
+        time_r: f32,
+        feedback: f32,
+        mix: f32,
+    },
+    #[serde(rename = "set_master_reverb")]
+    SetMasterReverb {
+        enabled: bool,
+        room_size: f32,
+        damping: f32,
+        wet: f32,
+        width: f32,
     },
 
     // Subgroup controls
@@ -397,8 +432,9 @@ impl AudioEngine {
                 track.set_sample_rate(self.sample_rate as f32);
             }
             
-            // Update master bus equalizers
+            // Update master bus (EQ + FX chain)
             router.master.parametric_eq.set_sample_rate(self.sample_rate as f32);
+            router.master.set_sample_rate(self.sample_rate as f32);
         }
 
         let input_channels = input_config.channels as usize;
@@ -834,6 +870,41 @@ impl AudioEngine {
         router.master.output_channel_selection = ChannelSelection::new(left_ch, right_ch);
     }
 
+    // Master FX methods
+    fn set_master_compressor(&self, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
+        let mut router = self.router.lock().unwrap();
+        router.master.compressor.set_enabled(enabled);
+        router.master.compressor.set_threshold(threshold);
+        router.master.compressor.set_ratio(ratio);
+        router.master.compressor.set_attack(attack);
+        router.master.compressor.set_release(release);
+    }
+
+    fn set_master_limiter(&self, enabled: bool, ceiling: f32, release: f32) {
+        let mut router = self.router.lock().unwrap();
+        router.master.limiter.set_enabled(enabled);
+        router.master.limiter.set_ceiling(ceiling);
+        router.master.limiter.set_release(release);
+    }
+
+    fn set_master_delay(&self, enabled: bool, time_l: f32, time_r: f32, feedback: f32, mix: f32) {
+        let mut router = self.router.lock().unwrap();
+        router.master.delay.set_enabled(enabled);
+        router.master.delay.set_delay_time_left(time_l);
+        router.master.delay.set_delay_time_right(time_r);
+        router.master.delay.set_feedback(feedback);
+        router.master.delay.set_mix(mix);
+    }
+
+    fn set_master_reverb(&self, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32) {
+        let mut router = self.router.lock().unwrap();
+        router.master.reverb.set_enabled(enabled);
+        router.master.reverb.set_room_size(room_size);
+        router.master.reverb.set_damping(damping);
+        router.master.reverb.set_wet(wet);
+        router.master.reverb.set_width(width);
+    }
+
     // Subgroup methods
     fn add_subgroup(&self) -> usize {
         let mut router = self.router.lock().unwrap();
@@ -1063,6 +1134,44 @@ impl AudioEngine {
                 right_channel,
             } => {
                 self.set_master_output_channels(left_channel, right_channel);
+                None
+            }
+            Command::SetMasterCompressor {
+                enabled,
+                threshold,
+                ratio,
+                attack,
+                release,
+            } => {
+                self.set_master_compressor(enabled, threshold, ratio, attack, release);
+                None
+            }
+            Command::SetMasterLimiter {
+                enabled,
+                ceiling,
+                release,
+            } => {
+                self.set_master_limiter(enabled, ceiling, release);
+                None
+            }
+            Command::SetMasterDelay {
+                enabled,
+                time_l,
+                time_r,
+                feedback,
+                mix,
+            } => {
+                self.set_master_delay(enabled, time_l, time_r, feedback, mix);
+                None
+            }
+            Command::SetMasterReverb {
+                enabled,
+                room_size,
+                damping,
+                wet,
+                width,
+            } => {
+                self.set_master_reverb(enabled, room_size, damping, wet, width);
                 None
             }
             Command::AddSubgroup => {

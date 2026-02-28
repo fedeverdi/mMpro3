@@ -59,6 +59,16 @@ contextBridge.exposeInMainWorld('audioEngine', {
   setMasterOutputChannels: (leftChannel: number, rightChannel: number) => 
     ipcRenderer.invoke('audio-engine:set-master-output-channels', leftChannel, rightChannel),
   
+  // Master FX controls
+  setMasterCompressor: (enabled: boolean, threshold: number, ratio: number, attack: number, release: number) =>
+    ipcRenderer.invoke('audio-engine:set-master-compressor', enabled, threshold, ratio, attack, release),
+  setMasterLimiter: (enabled: boolean, ceiling: number, release: number) =>
+    ipcRenderer.invoke('audio-engine:set-master-limiter', enabled, ceiling, release),
+  setMasterDelay: (enabled: boolean, timeL: number, timeR: number, feedback: number, mix: number) =>
+    ipcRenderer.invoke('audio-engine:set-master-delay', enabled, timeL, timeR, feedback, mix),
+  setMasterReverb: (enabled: boolean, roomSize: number, damping: number, wet: number, width: number) =>
+    ipcRenderer.invoke('audio-engine:set-master-reverb', enabled, roomSize, damping, wet, width),
+  
   // Subgroup controls
   addSubgroup: () => ipcRenderer.invoke('audio-engine:add-subgroup'),
   removeSubgroup: (subgroup: number) => ipcRenderer.invoke('audio-engine:remove-subgroup', subgroup),

@@ -39,10 +39,10 @@
         <ReverbEffect 
           v-else-if="effect.type === 'reverb'"
           :enabled="effect.enabled"
-          :initial-decay="effect.params.decay"
-          :initial-pre-delay="effect.params.preDelay"
+          :initial-room-size="effect.params.roomSize"
+          :initial-damping="effect.params.damping"
           :initial-wet="effect.params.wet"
-          :effect-node="effect.node"
+          :initial-width="effect.params.width"
           @toggle="(enabled) => handleEffectToggle(index, enabled)"
           @update="(params) => handleEffectUpdate(index, params)"
         />
@@ -141,6 +141,7 @@ import CompressorEffect from '../fx/CompressorEffect.vue'
 import ReverbEffect from '../fx/ReverbEffect.vue'
 import DelayEffect from '../fx/DelayEffect.vue'
 import LimiterEffect from '../fx/LimiterEffect.vue'
+import { useAudioEngine } from '../../composables/useAudioEngine'
 
 interface Props {
   masterSection?: any       // For meter visualization in CompressorEffect and LimiterEffect
@@ -149,13 +150,11 @@ interface Props {
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  (e: 'output-node', value: any): void
   (e: 'component', value: { getSnapshot: () => any, restoreSnapshot: (snapshot: any) => void, resetToDefaults: () => void }): void
 }>()
 
-// Inject Tone.js
-const ToneRef = inject<any>('Tone')
-let Tone: any = null
+// Audio Engine composable
+const audioEngine = useAudioEngine()
 
 // Effect types
 type EffectType = 'compressor' | 'reverb' | 'delay' | 'limiter'
@@ -175,20 +174,6 @@ const addEffectButton = ref<HTMLElement | null>(null)
 const menuPosition = ref({ top: 0, left: 0 })
 let nextEffectId = 1
 
-// Audio nodes
-let inputNode: any = null   // Input from MasterEQDisplay
-let outputNode: any = null  // Output to MasterSection
-
-// FX nodes
-let compressorNode: any = null
-let reverbNode: any = null
-let delayNode: any = null
-let limiterNode: any = null
-const fxChainEnabled = new Set<string>()
-let isRegeneratingReverb = false
-let isUpdatingLimiter = false
-let reverbRegenerateTimeout: any = null
-
 // FX parameters (for scene snapshots)
 const compressorParams = ref({
   threshold: -40,
@@ -197,9 +182,10 @@ const compressorParams = ref({
   release: 0.25
 })
 const reverbParams = ref({
-  decay: 1.5,
-  preDelay: 0.01,
-  wet: 0.3
+  roomSize: 0.7,
+  damping: 0.5,
+  wet: 0.3,
+  width: 1.0
 })
 const delayParams = ref({
   delayTime: 0.25,
@@ -234,9 +220,10 @@ const defaultParams = {
     release: 0.25
   },
   reverb: {
-    decay: 1.5,
-    preDelay: 0.01,
-    wet: 0.3
+    roomSize: 0.7,
+    damping: 0.5,
+    wet: 0.3,
+    width: 1.0
   },
   delay: {
     delayTime: 0.25,
@@ -249,31 +236,8 @@ const defaultParams = {
 }
 
 // Initialize audio nodes
-onMounted(async () => {
-  // Get Tone.js
-  if (ToneRef?.value) {
-    Tone = ToneRef.value
-  } else {
-    // Wait for Tone to be available
-    await new Promise<void>((resolve) => {
-      const checkTone = setInterval(() => {
-        if (ToneRef?.value) {
-          Tone = ToneRef.value
-          clearInterval(checkTone)
-          resolve()
-        }
-      }, 100)
-    })
-  }
-
-  if (!Tone) return
-
-  // Create output node
-  outputNode = new Tone.Gain(1)
-  
-  // Emit output node to parent
-  emit('output-node', outputNode)
-  
+// Initialize component
+onMounted(() => {
   // Emit component interface to parent
   emit('component', {
     getSnapshot,
@@ -288,109 +252,47 @@ onMounted(async () => {
       delayParams.value = { ...defaultParams.delay }
       limiterParams.value = { ...defaultParams.limiter }
       
-      // Disconnect and clear all audio nodes
-      if (compressorNode) {
-        try {
-          compressorNode.disconnect()
-        } catch (e) { /* ignore */ }
-        compressorNode = null
-      }
-      if (reverbNode) {
-        try {
-          reverbNode.disconnect()
-        } catch (e) { /* ignore */ }
-        reverbNode = null
-      }
-      if (delayNode) {
-        try {
-          delayNode.disconnect()
-        } catch (e) { /* ignore */ }
-        delayNode = null
-      }
-      if (limiterNode) {
-        try {
-          limiterNode.disconnect()
-        } catch (e) { /* ignore */ }
-        limiterNode = null
-      }
-      
-      // Rebuild chain
-      rebuildFXChain()
+      // Disable all Rust engine effects
+      audioEngine.setMasterCompressor(false, -24, 4, 30, 250)
+      audioEngine.setMasterLimiter(false, -0.1, 100)
+      audioEngine.setMasterDelay(false, 250, 250, 0.5, 0.3)
+      audioEngine.setMasterReverb(false, 0.7, 0.5, 0.3, 1.0)
     }
   })
 })
 
-// Watch for MasterEQ output node to become available
-
-// Cleanup
-onUnmounted(() => {
-  // Clear any pending reverb regeneration
-  if (reverbRegenerateTimeout) {
-    clearTimeout(reverbRegenerateTimeout)
-  }
+// Handle effect toggle
+async function handleEffectToggle(index: number, enabled: boolean) {
+  const effect = effects.value[index]
+  effect.enabled = enabled
   
-  if (outputNode) outputNode.dispose()
-  if (compressorNode) compressorNode.dispose()
-  if (reverbNode) reverbNode.dispose()
-  if (delayNode) delayNode.dispose()
-  if (limiterNode) limiterNode.dispose()
-})
-
-// Rebuild FX chain
-function rebuildFXChain() {
-  if (!inputNode || !outputNode || !Tone) return
-
-  // Disconnect inputNode from everything
   try {
-    inputNode.disconnect()
-  } catch (e) {}
-
-  // Disconnect all FX nodes
-  if (compressorNode) {
-    try { compressorNode.disconnect() } catch (e) {}
+    switch (effect.type) {
+      case 'compressor':
+        await toggleCompressor(enabled, effect.params)
+        effect.node = null
+        break
+        
+      case 'reverb':
+        await toggleReverb(enabled, effect.params)
+        effect.node = null
+        break
+        
+      case 'delay':
+        await toggleDelay(enabled, effect.params)
+        effect.node = null
+        break
+        
+      case 'limiter':
+        effect.params.threshold = Math.max(-50, Math.min(0, effect.params.threshold))
+        await toggleLimiter(enabled, effect.params)
+        effect.node = null
+        break
+    }
+  } catch (error) {
+    console.error(`[MasterFX] Error toggling ${effect.type}:`, error)
+    effect.enabled = false
   }
-  if (reverbNode) {
-    try { reverbNode.disconnect() } catch (e) {}
-  }
-  if (delayNode) {
-    try { delayNode.disconnect() } catch (e) {}
-  }
-  if (limiterNode) {
-    try { limiterNode.disconnect() } catch (e) {}
-  }
-
-  // Build chain: input → [enabled FX] → output
-  let currentNode = inputNode
-
-  // If no FX enabled, direct connection
-  if (fxChainEnabled.size === 0) {
-    currentNode.connect(outputNode)
-    return
-  }
-
-  // Chain order: Compressor → Reverb → Delay → Limiter
-  if (fxChainEnabled.has('compressor') && compressorNode) {
-    currentNode.connect(compressorNode)
-    currentNode = compressorNode
-  }
-
-  if (fxChainEnabled.has('reverb') && reverbNode) {
-    currentNode.connect(reverbNode)
-    currentNode = reverbNode
-  }
-
-  if (fxChainEnabled.has('delay') && delayNode) {
-    currentNode.connect(delayNode)
-    currentNode = delayNode
-  }
-
-  if (fxChainEnabled.has('limiter') && limiterNode) {
-    currentNode.connect(limiterNode)
-    currentNode = limiterNode
-  }
-
-  // Final connection to output
-  currentNode.connect(outputNode)
 }
 
 // Add effect to chain
@@ -411,7 +313,7 @@ function addEffect(type: EffectType) {
 async function removeEffect(index: number) {
   const effect = effects.value[index]
   
-  // Disable effect first to disconnect it properly
+  // Disable effect first
   if (effect.enabled) {
     await handleEffectToggle(index, false)
   }
@@ -419,57 +321,12 @@ async function removeEffect(index: number) {
   effects.value.splice(index, 1)
 }
 
-// Handle effect toggle
-async function handleEffectToggle(index: number, enabled: boolean) {
-  const effect = effects.value[index]
-  effect.enabled = enabled
-  
-  if (!Tone) return
-  
-  try {
-    switch (effect.type) {
-      case 'compressor':
-        await toggleCompressor(enabled, effect.params)
-        if (enabled) {
-          effect.node = compressorNode
-        }
-        break
-        
-      case 'reverb':
-        await toggleReverb(enabled, effect.params)
-        if (enabled) {
-          effect.node = reverbNode
-        }
-        break
-        
-      case 'delay':
-        await toggleDelay(enabled, effect.params)
-        if (enabled) {
-          effect.node = delayNode
-        }
-        break
-        
-      case 'limiter':
-        // Ensure threshold is in valid range
-        effect.params.threshold = Math.max(-50, Math.min(0, effect.params.threshold))
-        await toggleLimiter(enabled, effect.params)
-        if (enabled) {
-          effect.node = limiterNode
-        }
-        break
-    }
-  } catch (error) {
-    console.error(`[MasterFX] Error toggling ${effect.type}:`, error)
-    effect.enabled = false
-  }
-}
-
 // Handle effect parameter update
 function handleEffectUpdate(index: number, params: any) {
   const effect = effects.value[index]
   effect.params = { ...effect.params, ...params }
   
-  if (!Tone || !effect.enabled) return
+  if (!effect.enabled) return
   
   switch (effect.type) {
     case 'compressor':
@@ -490,272 +347,147 @@ function handleEffectUpdate(index: number, params: any) {
   }
 }
 
-// Compressor functions
+// Compressor functions (Rust Engine)
 async function toggleCompressor(enabled: boolean, params?: any) {
-  if (!Tone) return
-
-  if (enabled) {
-    if (!compressorNode) {
-      compressorNode = new Tone.Compressor({
-        threshold: params?.threshold ?? -40,
-        ratio: 1, // Start with no compression
-        attack: params?.attack ?? 0.01,
-        release: params?.release ?? 0.25,
-        knee: 30
-      })
-    }
-    fxChainEnabled.add('compressor')
-    rebuildFXChain()
-    // Smooth fade in by ramping ratio from 1:1 (bypass) to target
-    const targetRatio = params?.ratio ?? 2
-    compressorNode.ratio.rampTo(targetRatio, 0.50)
-  } else {
-    // Smooth fade out before removing from chain
-    if (compressorNode) {
-      compressorNode.ratio.rampTo(1, 0.50)
-      await new Promise(resolve => setTimeout(resolve, 150))
-    }
-    fxChainEnabled.delete('compressor')
-    rebuildFXChain()
-  }
+  const threshold = params?.threshold ?? compressorParams.value.threshold
+  const ratio = params?.ratio ?? compressorParams.value.ratio
+  const attack = params?.attack ?? compressorParams.value.attack
+  const release = params?.release ?? compressorParams.value.release
+  
+  // Convert attack/release from seconds to milliseconds for Rust engine
+  const attackMs = attack * 1000
+  const releaseMs = release * 1000
+  
+  await audioEngine.setMasterCompressor(enabled, threshold, ratio, attackMs, releaseMs)
 }
 
 function updateCompressor(params: any) {
-  if (!compressorNode) return
-  
   // Save parameters to ref for snapshots
   if (params.threshold !== undefined) compressorParams.value.threshold = params.threshold
   if (params.ratio !== undefined) compressorParams.value.ratio = params.ratio
   if (params.attack !== undefined) compressorParams.value.attack = params.attack
   if (params.release !== undefined) compressorParams.value.release = params.release
   
-  // Use longer ramp times to avoid metallic artifacts
-  if (params.threshold !== undefined) compressorNode.threshold.rampTo(params.threshold, 0.05)
-  if (params.ratio !== undefined) compressorNode.ratio.rampTo(params.ratio, 0.05)
-  if (params.attack !== undefined) compressorNode.attack.rampTo(params.attack, 0.05)
-  if (params.release !== undefined) compressorNode.release.rampTo(params.release, 0.05)
-  if (params.knee !== undefined && compressorNode.knee) compressorNode.knee.rampTo(params.knee, 0.05)
+  // Send to Rust engine (convert to ms)
+  const attackMs = (params.attack ?? compressorParams.value.attack) * 1000
+  const releaseMs = (params.release ?? compressorParams.value.release) * 1000
+  
+  audioEngine.setMasterCompressor(
+    true, // Keep enabled during update
+    params.threshold ?? compressorParams.value.threshold,
+    params.ratio ?? compressorParams.value.ratio,
+    attackMs,
+    releaseMs
+  )
 }
 
 // Reverb functions
+// Reverb functions (Rust Engine)
 async function toggleReverb(enabled: boolean, params?: any) {
-  if (!Tone) return
-
-  if (enabled) {
-    if (!reverbNode) {
-      reverbNode = new Tone.Reverb({
-        decay: params?.decay ?? 1.5,
-        preDelay: params?.preDelay ?? 0.01
-      })
-      reverbNode.wet.value = 0
-      await reverbNode.generate()
-    }
-    fxChainEnabled.add('reverb')
-    rebuildFXChain()
-    // Smooth fade in
-    const targetWet = params?.wet ?? 0.3
-    reverbNode.wet.rampTo(targetWet, 0.3)
-  } else {
-    // Smooth fade out before removing from chain
-    if (reverbNode) {
-      reverbNode.wet.rampTo(0, 0.3)
-      await new Promise(resolve => setTimeout(resolve, 300))
-    }
-    fxChainEnabled.delete('reverb')
-    rebuildFXChain()
-  }
+  const roomSize = params?.roomSize ?? reverbParams.value.roomSize
+  const damping = params?.damping ?? reverbParams.value.damping
+  const wet = params?.wet ?? reverbParams.value.wet
+  const width = params?.width ?? reverbParams.value.width
+  
+  await audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width)
 }
 
 function updateReverb(params: any) {
-  if (!reverbNode) return
-  
   // Save parameters to ref for snapshots
-  if (params.decay !== undefined) reverbParams.value.decay = params.decay
-  if (params.preDelay !== undefined) reverbParams.value.preDelay = params.preDelay
+  if (params.roomSize !== undefined) reverbParams.value.roomSize = params.roomSize
+  if (params.damping !== undefined) reverbParams.value.damping = params.damping
   if (params.wet !== undefined) reverbParams.value.wet = params.wet
+  if (params.width !== undefined) reverbParams.value.width = params.width
   
-  if (params.wet !== undefined && !isRegeneratingReverb) {
-    reverbNode.wet.rampTo(params.wet, 0.1)
-  }
-  
-  // Decay and preDelay require regeneration - use debounce to avoid continuous regeneration
-  if (params.decay !== undefined || params.preDelay !== undefined) {
-    // Clear any pending regeneration
-    if (reverbRegenerateTimeout) {
-      clearTimeout(reverbRegenerateTimeout)
-    }
-    
-    // Debounce: wait 150ms after last change before regenerating
-    reverbRegenerateTimeout = setTimeout(() => {
-      regenerateReverb(params)
-    }, 150)
-  }
+  // Send to Rust engine
+  audioEngine.setMasterReverb(
+    true, // Keep enabled during update
+    params.roomSize ?? reverbParams.value.roomSize,
+    params.damping ?? reverbParams.value.damping,
+    params.wet ?? reverbParams.value.wet,
+    params.width ?? reverbParams.value.width
+  )
 }
 
-function regenerateReverb(params: any) {
-  if (!reverbNode || isRegeneratingReverb) return
-  
-  isRegeneratingReverb = true
-  const currentWet = reverbNode.wet.value
-  const oldReverb = reverbNode
-  
-  const newReverb = new Tone.Reverb({
-    decay: params.decay ?? oldReverb.decay,
-    preDelay: params.preDelay ?? oldReverb.preDelay
-  })
-  newReverb.wet.value = 0
-  
-  if (oldReverb.wet.value > 0) {
-    oldReverb.wet.rampTo(0, 0.05)
-  }
-  
-  newReverb.generate().then(() => {
-    setTimeout(() => {
-      reverbNode = newReverb
-      rebuildFXChain()
-      
-      if (oldReverb) {
-        try {
-          oldReverb.disconnect()
-          oldReverb.dispose()
-        } catch (e) {}
-      }
-      
-      newReverb.wet.rampTo(params.wet ?? currentWet, 0.05)
-      
-      setTimeout(() => {
-        isRegeneratingReverb = false
-      }, 100)
-    }, 60)
-  })
-}
-
-// Delay functions
+// Delay functions (Rust Engine)
 async function toggleDelay(enabled: boolean, params?: any) {
-  if (!Tone) return
-
-  if (enabled) {
-    if (!delayNode) {
-      delayNode = new Tone.FeedbackDelay({
-        delayTime: params?.delayTime ?? 0.25,
-        feedback: params?.feedback ?? 0.15,
-        wet: 0,
-        maxDelay: 2
-      })
-    }
-    fxChainEnabled.add('delay')
-    rebuildFXChain()
-    // Smooth fade in
-    const targetWet = params?.wet ?? 0.15
-    delayNode.wet.rampTo(targetWet, 0.3)
-  } else {
-    // Smooth fade out before removing from chain
-    if (delayNode) {
-      delayNode.wet.rampTo(0, 0.3)
-      await new Promise(resolve => setTimeout(resolve, 300))
-    }
-    fxChainEnabled.delete('delay')
-    rebuildFXChain()
-  }
+  const delayTime = params?.delayTime ?? delayParams.value.delayTime
+  const feedback = params?.feedback ?? delayParams.value.feedback
+  const wet = params?.wet ?? delayParams.value.wet
+  
+  // Convert delay time from seconds to milliseconds for Rust engine
+  const delayTimeMs = delayTime * 1000
+  
+  // Rust engine uses stereo delay, use same time for both channels
+  await audioEngine.setMasterDelay(enabled, delayTimeMs, delayTimeMs, feedback, wet)
 }
 
 function updateDelay(params: any) {
-  if (!delayNode) return
-  
   // Save parameters to ref for snapshots
   if (params.delayTime !== undefined) delayParams.value.delayTime = params.delayTime
   if (params.feedback !== undefined) delayParams.value.feedback = params.feedback
   if (params.wet !== undefined) delayParams.value.wet = params.wet
   
-  // Clamp values to prevent clipping/stretch
+  // Clamp values to prevent clipping
   const clampedFeedback = Math.max(0, Math.min(0.7, params.feedback ?? delayParams.value.feedback))
   const clampedWet = Math.max(0, Math.min(0.5, params.wet ?? delayParams.value.wet))
   
-  if (params.delayTime !== undefined) {
-    // Reduce feedback temporarily during time changes to prevent stretch
-    const currentFeedback = delayNode.feedback.value
-    if (currentFeedback > 0.1) {
-      delayNode.feedback.rampTo(0.1, 0.02)
-      setTimeout(() => {
-        delayNode.delayTime.rampTo(params.delayTime, 0.05)
-        setTimeout(() => {
-          delayNode.feedback.rampTo(currentFeedback, 0.1)
-        }, 60)
-      }, 30)
-    } else {
-      delayNode.delayTime.rampTo(params.delayTime, 0.01)
-    }
-  }
+  // Convert to ms and send to Rust engine
+  const delayTimeMs = (params.delayTime ?? delayParams.value.delayTime) * 1000
   
-  if (params.feedback !== undefined) {
-    delayNode.feedback.rampTo(clampedFeedback, 0.01)
-  }
-  
-  if (params.wet !== undefined) {
-    delayNode.wet.rampTo(clampedWet, 0.01)
-  }
+  audioEngine.setMasterDelay(
+    true, // Keep enabled during update
+    delayTimeMs,
+    delayTimeMs,
+    clampedFeedback,
+    clampedWet
+  )
 }
 
-// Limiter functions
+// Limiter functions (Rust Engine)
 async function toggleLimiter(enabled: boolean, params?: any) {
-  if (!Tone) return
-
-  if (enabled) {
-    if (!limiterNode) {
-      // Use Compressor with heavy ratio as limiter
-      limiterNode = new Tone.Compressor({
-        threshold: params?.threshold ?? -1,
-        ratio: 1, // Start with no limiting
-        attack: 0.003,
-        release: 0.1,
-        knee: 6
-      })
-    }
-    fxChainEnabled.add('limiter')
-    rebuildFXChain()
-    // Smooth fade in by ramping ratio from 1:1 (bypass) to 20:1 (limiting)
-    limiterNode.ratio.rampTo(20, 0.15)
-  } else {
-    // Smooth fade out before removing from chain
-    if (limiterNode) {
-      limiterNode.ratio.rampTo(1, 0.15)
-      await new Promise(resolve => setTimeout(resolve, 150))
-    }
-    fxChainEnabled.delete('limiter')
-    rebuildFXChain()
-  }
+  const threshold = params?.threshold ?? limiterParams.value.threshold
+  
+  // Rust engine limiter uses "ceiling" parameter (max output level)
+  // Threshold in UI is the ceiling, release is fixed at 100ms in Rust
+  await audioEngine.setMasterLimiter(enabled, threshold, 100)
 }
 
 function updateLimiter(params: any) {
-  if (!limiterNode || !Tone) return
-  
   if (params.threshold !== undefined) {
     // Save parameter to ref for snapshots
     limiterParams.value.threshold = params.threshold
     
-    // Direct rampTo on threshold parameter
+    // Clamp to valid range
     const threshold = Math.max(-50, Math.min(0, params.threshold))
-    limiterNode.threshold.rampTo(threshold, 0.05)
+    
+    // Send to Rust engine
+    audioEngine.setMasterLimiter(true, threshold, 100)
   }
 }
 
 // Scene Snapshot Support
+// Scene Snapshot Support
 function getSnapshot() {
+  // Track enabled states from effects array
+  const enabledEffects = new Set(effects.value.filter(e => e.enabled).map(e => e.type))
+  
   return {
-    compressorEnabled: fxChainEnabled.has('compressor'),
+    compressorEnabled: enabledEffects.has('compressor'),
     compressorThreshold: compressorParams.value.threshold,
     compressorRatio: compressorParams.value.ratio,
     compressorAttack: compressorParams.value.attack,
     compressorRelease: compressorParams.value.release,
-    reverbEnabled: fxChainEnabled.has('reverb'),
-    reverbDecay: reverbParams.value.decay,
-    reverbPreDelay: reverbParams.value.preDelay,
+    reverbEnabled: enabledEffects.has('reverb'),
+    reverbRoomSize: reverbParams.value.roomSize,
+    reverbDamping: reverbParams.value.damping,
     reverbWet: reverbParams.value.wet,
-    delayEnabled: fxChainEnabled.has('delay'),
+    reverbWidth: reverbParams.value.width,
+    delayEnabled: enabledEffects.has('delay'),
     delayTime: delayParams.value.delayTime,
     delayFeedback: delayParams.value.feedback,
     delayWet: delayParams.value.wet,
-    limiterEnabled: fxChainEnabled.has('limiter'),
+    limiterEnabled: enabledEffects.has('limiter'),
     limiterThreshold: limiterParams.value.threshold,
     // Also save effects array for UI state
     effects: effects.value.map(e => ({
@@ -787,7 +519,7 @@ function restoreSnapshot(snapshot: any) {
     })
   }
 
-  // Restore Compressor
+  // Restore Compressor (Rust Engine)
   if (snapshot.compressorEnabled !== undefined) {
     const params = {
       threshold: snapshot.compressorThreshold ?? compressorParams.value.threshold,
@@ -798,20 +530,20 @@ function restoreSnapshot(snapshot: any) {
     compressorParams.value = params
     toggleCompressor(snapshot.compressorEnabled, params)
     
-    // Update effect in UI
     const compEffect = effects.value.find(e => e.type === 'compressor')
     if (compEffect) {
       compEffect.enabled = snapshot.compressorEnabled
-      compEffect.node = compressorNode
+      compEffect.node = null
     }
   }
 
-  // Restore Reverb
+  // Restore Reverb (Rust Engine)
   if (snapshot.reverbEnabled !== undefined) {
     const params = {
-      decay: snapshot.reverbDecay ?? reverbParams.value.decay,
-      preDelay: snapshot.reverbPreDelay ?? reverbParams.value.preDelay,
-      wet: snapshot.reverbWet ?? reverbParams.value.wet
+      roomSize: snapshot.reverbRoomSize ?? reverbParams.value.roomSize,
+      damping: snapshot.reverbDamping ?? reverbParams.value.damping,
+      wet: snapshot.reverbWet ?? reverbParams.value.wet,
+      width: snapshot.reverbWidth ?? reverbParams.value.width
     }
     reverbParams.value = params
     toggleReverb(snapshot.reverbEnabled, params)
@@ -819,11 +551,11 @@ function restoreSnapshot(snapshot: any) {
     const reverbEffect = effects.value.find(e => e.type === 'reverb')
     if (reverbEffect) {
       reverbEffect.enabled = snapshot.reverbEnabled
-      reverbEffect.node = reverbNode
+      reverbEffect.node = null
     }
   }
 
-  // Restore Delay
+  // Restore Delay (Rust Engine)
   if (snapshot.delayEnabled !== undefined) {
     const params = {
       delayTime: snapshot.delayTime ?? delayParams.value.delayTime,
@@ -836,11 +568,11 @@ function restoreSnapshot(snapshot: any) {
     const delayEffect = effects.value.find(e => e.type === 'delay')
     if (delayEffect) {
       delayEffect.enabled = snapshot.delayEnabled
-      delayEffect.node = delayNode
+      delayEffect.node = null
     }
   }
 
-  // Restore Limiter
+  // Restore Limiter (Rust Engine)
   if (snapshot.limiterEnabled !== undefined) {
     const params = {
       threshold: snapshot.limiterThreshold ?? limiterParams.value.threshold
@@ -851,7 +583,7 @@ function restoreSnapshot(snapshot: any) {
     const limiterEffect = effects.value.find(e => e.type === 'limiter')
     if (limiterEffect) {
       limiterEffect.enabled = snapshot.limiterEnabled
-      limiterEffect.node = limiterNode
+      limiterEffect.node = null
     }
   }
 }

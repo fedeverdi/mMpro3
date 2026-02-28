@@ -314,6 +314,23 @@ ipcMain.handle('audio-engine:set-master-output-channels', async (_, leftChannel:
   await sendCommandToEngine({ type: 'set_master_output_channels', left_channel: leftChannel, right_channel: rightChannel })
 })
 
+// Master FX handlers
+ipcMain.handle('audio-engine:set-master-compressor', async (_, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
+  await sendCommandToEngine({ type: 'set_master_compressor', enabled, threshold, ratio, attack, release })
+})
+
+ipcMain.handle('audio-engine:set-master-limiter', async (_, enabled: boolean, ceiling: number, release: number) => {
+  await sendCommandToEngine({ type: 'set_master_limiter', enabled, ceiling, release })
+})
+
+ipcMain.handle('audio-engine:set-master-delay', async (_, enabled: boolean, timeL: number, timeR: number, feedback: number, mix: number) => {
+  await sendCommandToEngine({ type: 'set_master_delay', enabled, time_l: timeL, time_r: timeR, feedback, mix })
+})
+
+ipcMain.handle('audio-engine:set-master-reverb', async (_, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
+  await sendCommandToEngine({ type: 'set_master_reverb', enabled, room_size: roomSize, damping, wet, width })
+})
+
 // Subgroup handlers
 ipcMain.handle('audio-engine:add-subgroup', async () => {
   try {
