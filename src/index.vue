@@ -794,23 +794,31 @@ async function addSubgroup() {
     return
   }
 
-  // Create subgroup in Rust backend
-  const id = await audioEngine.addSubgroup()
-  if (id === null) {
-    console.error('[addSubgroup] Failed to create subgroup in backend')
-    return
-  }
-
   const name = `SUB ${subgroups.value.length + 1}`
 
-  // Add to frontend state
-  subgroups.value.push({
-    id,
+  // Add to frontend state IMMEDIATELY (optimistic UI)
+  const tempSubgroup = {
+    id: 0, // Temporary id, will be updated when backend responds
     name,
     channel: null,
     ref: null
-  })
+  }
+  subgroups.value.push(tempSubgroup)
 
+  // Create subgroup in Rust backend (async)
+  const id = await audioEngine.addSubgroup()
+  if (id === null) {
+    console.error('[addSubgroup] Failed to create subgroup in backend')
+    // Remove the optimistically added subgroup on failure
+    const index = subgroups.value.indexOf(tempSubgroup)
+    if (index > -1) {
+      subgroups.value.splice(index, 1)
+    }
+    return
+  }
+
+  // Update the id when backend responds
+  tempSubgroup.id = id
   console.log(`[Subgroup ${id}] Created: ${name}`)
 }
 
