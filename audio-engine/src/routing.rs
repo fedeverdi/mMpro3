@@ -303,14 +303,14 @@ impl Track {
             }
         };
 
-        // Apply compressor (before EQ)
-        let (left, right) = self.compressor.process(left, right);
-
         // Apply 4-band EQ processing
         let (left, right) = self.equalizer.process(left, right);
         
         // Apply parametric EQ processing
-        let (mut left, mut right) = self.parametric_eq.process(left, right);
+        let (left, right) = self.parametric_eq.process(left, right);
+
+        // Apply compressor (after EQ)
+        let (mut left, mut right) = self.compressor.process(left, right);
 
         // Apply PAD attenuation (-24dB) if enabled (before gain)
         // -24dB = 10^(-24/20) ≈ 0.063095734
