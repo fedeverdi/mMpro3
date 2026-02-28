@@ -405,7 +405,7 @@ impl AudioEngine {
             router,
             input_stream: None,
             output_stream: None,
-            sample_rate: 44100,
+            sample_rate: 48000, // Default, will be overwritten by device native rate
         }
     }
 
@@ -443,37 +443,33 @@ impl AudioEngine {
 
         self.sample_rate = output_config.sample_rate.0;
         
-        // Log buffer configuration
+        // Get device name for logging
+        let output_device_name = output_device.name().unwrap_or_else(|_| "Unknown".to_string());
+        
+        // Log configuration
         let buffer_size = output_config.buffer_size;
         match buffer_size {
             cpal::BufferSize::Fixed(size) => {
                 let latency_ms = (size as f32 / self.sample_rate as f32) * 1000.0;
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
-                eprintln!("[Engine] CURRENT: {} frames → {:.2}ms latency @ {}Hz", 
-                    size, latency_ms, self.sample_rate);
+                eprintln!("[Engine] Audio Configuration (native device settings)");
                 eprintln!("[Engine] ───────────────────────────────────────────────────");
-                eprintln!("[Engine] Buffer size options (@ {}Hz):", self.sample_rate);
-                
-                let options = [(128, "ultra-low, può causare glitch"), 
-                               (256, "bassa, raccomandato per live"), 
-                               (512, "default, bilanciato"), 
-                               (1024, "alta, più stabile")];
-                
-                for (frames, desc) in options.iter() {
-                    let ms = (*frames as f32 / self.sample_rate as f32) * 1000.0;
-                    let marker = if *frames == size { " ← YOU ARE HERE" } else { "" };
-                    eprintln!("[Engine]   {} frames → {:5.2}ms ({}){}", 
-                        frames, ms, desc, marker);
-                }
-                
+                eprintln!("[Engine] Device: {}", output_device_name);
+                eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
+                eprintln!("[Engine] Buffer Size: {} frames ({:.2}ms latency)", size, latency_ms);
                 eprintln!("[Engine] ───────────────────────────────────────────────────");
-                eprintln!("[Engine] Buffer impostato dall'applicazione a 256 frames");
+                eprintln!("[Engine] ℹ️  Buffer e sample rate automatici dal dispositivo");
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
             },
             cpal::BufferSize::Default => {
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
-                eprintln!("[Engine] Buffer size: DEFAULT (system controlled)");
-                eprintln!("[Engine] To optimize latency: macOS → Audio MIDI Setup");
+                eprintln!("[Engine] Audio Configuration");
+                eprintln!("[Engine] ───────────────────────────────────────────────────");
+                eprintln!("[Engine] Device: {}", output_device_name);
+                eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
+                eprintln!("[Engine] Buffer Size: DEFAULT (system auto)");
+                eprintln!("[Engine] ───────────────────────────────────────────────────");
+                eprintln!("[Engine] ℹ️  Configurazione ottimale gestita dal sistema");
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
             },
         }

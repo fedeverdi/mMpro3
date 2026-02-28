@@ -203,11 +203,11 @@ impl Track {
             input_channel_selection: ChannelSelection::stereo(),
             signal_generator: None,
             file_player: None,
-            compressor: Compressor::new(44100.0),
-            gate: NoiseGate::new(44100.0),
-            equalizer: Equalizer::new(44100.0),
-            parametric_eq: ParametricEqualizer::new(44100.0),
-            hpf_filter: EQBand::new(FilterType::HighPass, 80.0, 44100.0),
+            compressor: Compressor::new(48000.0),
+            gate: NoiseGate::new(48000.0),
+            equalizer: Equalizer::new(48000.0),
+            parametric_eq: ParametricEqualizer::new(48000.0),
+            hpf_filter: EQBand::new(FilterType::HighPass, 80.0, 48000.0),
             level_l: 0.0,
             level_r: 0.0,
             aux_outputs: vec![(0.0, 0.0); MAX_AUX_BUSES], // Initialize all aux outputs
@@ -472,14 +472,14 @@ impl MasterBus {
         Self {
             gain: 1.0,
             mute: false,
-            parametric_eq: ParametricEqualizer::new(44100.0),
+            parametric_eq: ParametricEqualizer::new(48000.0),
             output_channel_selection: ChannelSelection::stereo(),
             level_l: 0.0,
             level_r: 0.0,
-            compressor: Compressor::new(44100.0),
-            limiter: Limiter::new(44100.0),
-            delay: Delay::new(44100.0),
-            reverb: Reverb::new(44100.0),
+            compressor: Compressor::new(48000.0),
+            limiter: Limiter::new(48000.0),
+            delay: Delay::new(48000.0),
+            reverb: Reverb::new(48000.0),
         }
     }
     
@@ -703,7 +703,7 @@ impl Router {
         let tracks = (0..num_tracks).map(Track::new).collect();
         
         // Initialize 6 aux buses by default
-        let aux_buses = (0..MAX_AUX_BUSES).map(|i| AuxBus::new(i, 44100.0)).collect();
+        let aux_buses = (0..MAX_AUX_BUSES).map(|i| AuxBus::new(i, 48000.0)).collect();
         
         Self {
             tracks,
