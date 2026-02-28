@@ -140,10 +140,10 @@ let rafId: number | null = null
 // Watch for parameter changes with throttling
 watchEffect(() => {
   // Track dependencies
-  threshold.value
-  attack.value
-  release.value
-  range.value
+  const t = threshold.value
+  const a = attack.value
+  const rel = release.value
+  const r = range.value
   
   // Throttle updates with requestAnimationFrame
   if (rafId !== null) {
@@ -151,10 +151,14 @@ watchEffect(() => {
   }
   
   rafId = requestAnimationFrame(() => {
-    // Only update gate node if it exists and gate is enabled
-    if (props.enabled && props.gateNode) {
-      updateGateNode()
-    }
+    // Emit params changed for Rust engine
+    emit('update-params', {
+      threshold: t,
+      attack: a,
+      release: rel,
+      range: r
+    })
+    
     updateThresholdPosition()
     rafId = null
   })
