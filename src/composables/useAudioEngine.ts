@@ -12,7 +12,12 @@ export interface AudioEngineState {
   devices: AudioDevice[]
   selectedInputDevice: string | null
   selectedOutputDevice: string | null
-  trackLevels: Map<number, { left: number, right: number }>
+  trackLevels: Map<number, { 
+    left: number, 
+    right: number,
+    compressorInputDb: number,
+    compressorReductionDb: number
+  }>
   trackWaveforms: Map<number, number[]>
   subgroupLevels: Map<number, { left: number, right: number }>
   masterLevels: { left: number, right: number }
@@ -76,7 +81,9 @@ export const useAudioEngine = () => {
             response.tracks.forEach((trackLevel: any) => {
               state.value.trackLevels.set(trackLevel.track, {
                 left: trackLevel.level_l,
-                right: trackLevel.level_r
+                right: trackLevel.level_r,
+                compressorInputDb: trackLevel.compressor_input_db || -90,
+                compressorReductionDb: trackLevel.compressor_reduction_db || 0
               })
 
               // Update waveform data if present

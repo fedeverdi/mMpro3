@@ -428,13 +428,13 @@ mod tests {
 
     #[test]
     fn test_eq_creation() {
-        let eq = Equalizer::new(48000.0);
+        let eq = Equalizer::new(44100.0);
         assert!(eq.enabled);
     }
 
     #[test]
     fn test_eq_passthrough() {
-        let mut eq = Equalizer::new(48000.0);
+        let mut eq = Equalizer::new(44100.0);
         eq.set_enabled(false);
         let (left, right) = eq.process(0.5, -0.5);
         assert_eq!(left, 0.5);
@@ -443,7 +443,7 @@ mod tests {
 
     #[test]
     fn test_parametric_eq() {
-        let mut peq = ParametricEqualizer::new(48000.0);
+        let mut peq = ParametricEqualizer::new(44100.0);
         assert_eq!(peq.band_count(), 0);
         
         peq.add_band(FilterType::Peaking, 1000.0, 6.0, 1.0);

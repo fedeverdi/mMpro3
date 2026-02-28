@@ -31,7 +31,7 @@ impl AudioFilePlayer {
             position: 0,
             looping: false,
             playing: false,
-            output_sample_rate: 48000,
+            output_sample_rate: 44100,
             resample_position: 0.0,
         }
     }
@@ -77,7 +77,7 @@ impl AudioFilePlayer {
         // Get audio specs
         let codec_params = &track.codec_params;
         self.channels = codec_params.channels.map(|c| c.count() as u16).unwrap_or(2);
-        self.sample_rate = codec_params.sample_rate.unwrap_or(48000);
+        self.sample_rate = codec_params.sample_rate.unwrap_or(44100);
         eprintln!("[FilePlayer] Track found: {} channels, {} Hz", self.channels, self.sample_rate);
 
         // Create decoder

@@ -8,6 +8,7 @@ use std::time::Instant;
 
 // Import our modules
 mod audio_io;
+mod compressor;
 mod equalizer;
 mod file_player;
 mod routing;
@@ -82,6 +83,26 @@ enum Command {
     SetTrackPad { track: usize, enabled: bool },
     #[serde(rename = "set_track_hpf")]
     SetTrackHPF { track: usize, enabled: bool },
+    
+    // Track dynamics controls
+    #[serde(rename = "set_compressor")]
+    SetCompressor {
+        track: usize,
+        enabled: bool,
+        threshold: f32,
+        ratio: f32,
+        attack: f32,
+        release: f32,
+    },
+    #[serde(rename = "set_gate")]
+    SetGate {
+        track: usize,
+        enabled: bool,
+        threshold: f32,
+        ratio: f32,
+        attack: f32,
+        release: f32,
+    },
     
     // Track EQ controls
     #[serde(rename = "set_eq")]
@@ -212,6 +233,8 @@ struct TrackLevels {
     level_l: f32,
     level_r: f32,
     waveform: Vec<f32>, // Waveform samples (downsampled to ~128 samples)
+    compressor_input_db: f32,
+    compressor_reduction_db: f32,
 }
 
 #[derive(Debug, Serialize)]
@@ -291,7 +314,7 @@ impl AudioEngine {
             router,
             input_stream: None,
             output_stream: None,
-            sample_rate: 48000,
+            sample_rate: 44100,
         }
     }
 
@@ -469,6 +492,8 @@ impl AudioEngine {
                                 level_l: t.level_l,
                                 level_r: t.level_r,
                                 waveform: t.get_waveform_buffer(128), // 128 samples for efficient streaming
+                                compressor_input_db: t.compressor.input_level_db,
+                                compressor_reduction_db: t.compressor.gain_reduction_db,
                             })
                             .collect();
                         
@@ -670,6 +695,26 @@ impl AudioEngine {
         track::set_hpf(&mut router, track, enabled);
     }
 
+    // Track dynamics controls
+    fn set_compressor(&self, track: usize, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.tracks.get_mut(track) {
+            t.compressor.set_enabled(enabled);
+            t.compressor.set_threshold(threshold);
+            t.compressor.set_ratio(ratio);
+            t.compressor.set_attack(attack);
+            t.compressor.set_release(release);
+        }
+    }
+
+    fn set_gate(&self, track: usize, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.tracks.get_mut(track) {
+            // Gate will be implemented later
+            eprintln!("[Engine] Gate not yet implemented for track {}", track);
+        }
+    }
+
     // Track EQ controls
     fn set_eq(&self, track: usize, low: f32, low_mid: f32, high_mid: f32, high: f32) {
         let mut router = self.router.lock().unwrap();
@@ -810,7 +855,6 @@ impl AudioEngine {
         let mut router = self.router.lock().unwrap();
         if let Some(sg) = router.get_subgroup_mut(subgroup) {
             sg.output_enabled = enabled;
-            eprintln!("[Subgroup {}] Output enabled: {}", subgroup, enabled);
         }
     }
 
@@ -818,7 +862,6 @@ impl AudioEngine {
         let mut router = self.router.lock().unwrap();
         if let Some(sg) = router.get_subgroup_mut(subgroup) {
             sg.route_to_master = route;
-            eprintln!("[Subgroup {}] Route to master: {}", subgroup, route);
         }
     }
 
@@ -836,12 +879,10 @@ impl AudioEngine {
                 // Add subgroup to routing if not already present
                 if !t.route_to_subgroups.contains(&subgroup) {
                     t.route_to_subgroups.push(subgroup);
-                    eprintln!("[Track {}] Added routing to subgroup {}", track, subgroup);
                 }
             } else {
                 // Remove subgroup from routing
                 t.route_to_subgroups.retain(|&sg| sg != subgroup);
-                eprintln!("[Track {}] Removed routing to subgroup {}", track, subgroup);
             }
         }
     }
@@ -884,11 +925,8 @@ impl AudioEngine {
                 None
             }
             Command::SetTrackSourceFile { track, file_path } => {
-                eprintln!("[Engine] Executing SetTrackSourceFile for track {}", track);
                 match self.set_track_source_file(track, &file_path) {
-                    Ok(_) => {
-                        eprintln!("[Engine] SetTrackSourceFile succeeded for track {}", track);
-                    }
+                    Ok(_) => {}
                     Err(e) => {
                         eprintln!("[Engine] SetTrackSourceFile FAILED for track {}: {}", track, e);
                     }
@@ -896,11 +934,8 @@ impl AudioEngine {
                 None
             }
             Command::PlayFile { track } => {
-                eprintln!("[Engine] Executing PlayFile for track {}", track);
                 match self.play_file(track) {
-                    Ok(_) => {
-                        eprintln!("[Engine] PlayFile succeeded for track {}", track);
-                    }
+                    Ok(_) => {}
                     Err(e) => {
                         eprintln!("[Engine] PlayFile FAILED for track {}: {}", track, e);
                     }
@@ -945,6 +980,28 @@ impl AudioEngine {
             }
             Command::SetTrackHPF { track, enabled } => {
                 self.set_hpf(track, enabled);
+                None
+            }
+            Command::SetCompressor {
+                track,
+                enabled,
+                threshold,
+                ratio,
+                attack,
+                release,
+            } => {
+                self.set_compressor(track, enabled, threshold, ratio, attack, release);
+                None
+            }
+            Command::SetGate {
+                track,
+                enabled,
+                threshold,
+                ratio,
+                attack,
+                release,
+            } => {
+                self.set_gate(track, enabled, threshold, ratio, attack, release);
                 None
             }
             Command::SetEQ {

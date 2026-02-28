@@ -215,7 +215,7 @@ export function useTrackAudioInput(callbacks: AudioInputCallbacks = {}) {
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
-          sampleRate: { ideal: 48000 },
+          sampleRate: { ideal: 44100 },
           channelCount: { min: 1, ideal: 8, max: 32 } // Request all available channels
         }
       })

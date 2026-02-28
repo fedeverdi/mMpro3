@@ -1086,7 +1086,7 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
     // Create new AudioContext targeting selected device
     const contextOptions: any = {
       latencyHint: 'interactive',
-      sampleRate: 48000  // Fixed sample rate (Rust backend uses 48kHz)
+      sampleRate: 44100  // Fixed sample rate (Rust backend uses 48kHz)
     }
 
     if (realDeviceId && realDeviceId !== '') {
@@ -1250,7 +1250,7 @@ function isTrackArmed(trackId: number): boolean {
 
 // Audio context info (reactive) - Now handled by Rust backend
 const sampleRate = computed(() => {
-  return 48000 // Fixed sample rate from Rust backend
+  return 44100 // Fixed sample rate from Rust backend
 })
 const bufferSize = computed(() => {
   return 256 // Fixed buffer size from Rust backend (5.33ms @ 48kHz)

@@ -26,9 +26,31 @@
           <button @click="showModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
         </div>
         <!-- Compression Curve Display -->
-        <div class="mb-6 bg-black/50 rounded-lg p-4 border border-green-600/30">
+        <div class="mb-4 bg-black/50 rounded-lg p-4 border border-green-600/30">
           <p class="text-xs text-green-300 font-bold mb-2 text-center">COMPRESSION CURVE</p>
           <canvas ref="curveCanvas" class="w-full rounded" style="height: 300px;"></canvas>
+        </div>
+
+        <!-- Real-time Levels Display -->
+        <div class="mb-4 grid grid-cols-3 gap-2 text-center">
+          <div class="bg-black/30 rounded p-2 border border-gray-700">
+            <div class="text-[10px] text-gray-400 font-mono mb-1">INPUT</div>
+            <div class="text-sm font-bold font-mono" :class="inputLevelDb > -20 ? 'text-yellow-400' : 'text-green-400'">
+              {{ inputLevelDb.toFixed(1) }} dB
+            </div>
+          </div>
+          <div class="bg-black/30 rounded p-2 border border-gray-700">
+            <div class="text-[10px] text-gray-400 font-mono mb-1">REDUCTION</div>
+            <div class="text-sm font-bold font-mono" :class="gainReductionDb > 3 ? 'text-red-400' : 'text-green-400'">
+              {{ gainReductionDb.toFixed(1) }} dB
+            </div>
+          </div>
+          <div class="bg-black/30 rounded p-2 border border-gray-700">
+            <div class="text-[10px] text-gray-400 font-mono mb-1">OUTPUT</div>
+            <div class="text-sm font-bold font-mono text-blue-400">
+              {{ (inputLevelDb - gainReductionDb).toFixed(1) }} dB
+            </div>
+          </div>
         </div>
 
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -50,6 +72,8 @@ import Knob from '../core/Knob.vue'
 interface Props {
   trackNumber: number
   enabled: boolean
+  inputLevelDb?: number
+  gainReductionDb?: number
   compressorNode?: any
   meter?: any
 }
@@ -69,6 +93,10 @@ const threshold = ref(-20)
 const ratio = ref(4)
 const attack = ref(0.1)
 const release = ref(0.25)
+
+// Real-time display values
+const inputLevelDb = ref(-90)
+const gainReductionDb = ref(0)
 
 let rafId: number | null = null
 
@@ -178,9 +206,17 @@ function startCompressorMonitoring() {
   if (compressorAnimationId) return
 
   function updateTrackLevels() {
-    if (!showModal.value || !props.meter) {
+    if (!showModal.value) {
       compressorAnimationId = null
       return
+    }
+
+    // Update display values from props
+    if (props.inputLevelDb !== undefined) {
+      inputLevelDb.value = props.inputLevelDb
+    }
+    if (props.gainReductionDb !== undefined) {
+      gainReductionDb.value = props.gainReductionDb
     }
 
     drawCompressionCurve()
@@ -287,18 +323,11 @@ function drawCompressionCurve() {
   ctx.stroke()
   ctx.setLineDash([])
 
-  // Draw current input level indicator
-  if (props.meter) {
-    let currentInputLevel = -60
-    try {
-      const meterValue = props.meter.getValue()
-      currentInputLevel = Array.isArray(meterValue) 
-        ? (meterValue[0] + meterValue[1]) / 2 
-        : meterValue
-      currentInputLevel = Math.max(-60, Math.min(0, currentInputLevel))
-    } catch {}
-
-    // Calculate output level based on compression curve
+  // Draw current input level indicator from Rust engine data
+  if (props.inputLevelDb !== undefined) {
+    const currentInputLevel = Math.max(-60, Math.min(0, props.inputLevelDb))
+    
+    // Calculate output level using CURRENT UI parameters (for instant feedback when knobs change)
     let currentOutputLevel = currentInputLevel
     if (currentInputLevel > threshold.value) {
       const excess = currentInputLevel - threshold.value
@@ -309,16 +338,30 @@ function drawCompressionCurve() {
     // Draw the point on the compression curve
     ctx.fillStyle = '#ef4444'
     ctx.beginPath()
-    ctx.arc(dbToX(currentInputLevel), dbToY(currentOutputLevel), 5, 0, Math.PI * 2)
+    ctx.arc(dbToX(currentInputLevel), dbToY(currentOutputLevel), 6, 0, Math.PI * 2)
     ctx.fill()
     
     // Add glow effect
-    ctx.shadowBlur = 10
+    ctx.shadowBlur = 15
     ctx.shadowColor = '#ef4444'
     ctx.beginPath()
-    ctx.arc(dbToX(currentInputLevel), dbToY(currentOutputLevel), 5, 0, Math.PI * 2)
+    ctx.arc(dbToX(currentInputLevel), dbToY(currentOutputLevel), 6, 0, Math.PI * 2)
     ctx.fill()
     ctx.shadowBlur = 0
+    
+    // Draw crosshair lines to show exact position
+    ctx.strokeStyle = '#ef444460'
+    ctx.lineWidth = 1
+    ctx.setLineDash([2, 2])
+    ctx.beginPath()
+    ctx.moveTo(dbToX(currentInputLevel), padding)
+    ctx.lineTo(dbToX(currentInputLevel), height - padding)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(padding, dbToY(currentOutputLevel))
+    ctx.lineTo(width - padding, dbToY(currentOutputLevel))
+    ctx.stroke()
+    ctx.setLineDash([])
   }
 
   // Labels

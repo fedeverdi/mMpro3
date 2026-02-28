@@ -85,6 +85,7 @@
         <TrackGate ref="trackGateRef" :track-number="trackNumber" :enabled="gateEnabled" @toggle="toggleGate"
           @update-params="handleGateParamsUpdate" />
         <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
+          :input-level-db="compressorInputDb" :gain-reduction-db="compressorReductionDb"
           @toggle="toggleCompressor" @params-changed="handleCompressorParamsChanged" />
       </div>
 
@@ -577,6 +578,10 @@ watch(pan, (newPan) => {
   }
 })
 
+// Compressor visualization data
+const compressorInputDb = ref(-90)
+const compressorReductionDb = ref(0)
+
 // Watch for meter level updates from audio engine
 watch(
   () => audioEngine?.state.value.trackLevels.get(props.trackNumber - 1),
@@ -586,6 +591,10 @@ watch(
       // dB = 20 * log10(linear)
       trackLevelL.value = levels.left > 0 ? 20 * Math.log10(levels.left) : -60
       trackLevelR.value = levels.right > 0 ? 20 * Math.log10(levels.right) : -60
+      
+      // Update compressor visualization data
+      compressorInputDb.value = levels.compressorInputDb || -90
+      compressorReductionDb.value = levels.compressorReductionDb || 0
     }
   },
   { deep: true }

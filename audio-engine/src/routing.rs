@@ -1,5 +1,6 @@
 /// Audio routing engine
 use crate::audio_io::ChannelSelection;
+use crate::compressor::Compressor;
 use crate::equalizer::{Equalizer, ParametricEqualizer, EQBand, FilterType};
 use crate::file_player::AudioFilePlayer;
 use crate::signal_gen::{SignalGenerator, WaveformType};
@@ -131,6 +132,9 @@ pub struct Track {
     // File player
     pub file_player: Option<AudioFilePlayer>,
     
+    // Compressor (before EQ)
+    pub compressor: Compressor,
+    
     // Equalizer (4-band fixed)
     pub equalizer: Equalizer,
     
@@ -166,9 +170,10 @@ impl Track {
             input_channel_selection: ChannelSelection::stereo(),
             signal_generator: None,
             file_player: None,
-            equalizer: Equalizer::new(48000.0),
-            parametric_eq: ParametricEqualizer::new(48000.0),
-            hpf_filter: EQBand::new(FilterType::HighPass, 80.0, 48000.0),
+            compressor: Compressor::new(44100.0),
+            equalizer: Equalizer::new(44100.0),
+            parametric_eq: ParametricEqualizer::new(44100.0),
+            hpf_filter: EQBand::new(FilterType::HighPass, 80.0, 44100.0),
             level_l: 0.0,
             level_r: 0.0,
             waveform_buffer_l: vec![0.0; WAVEFORM_BUFFER_SIZE],
@@ -245,6 +250,7 @@ impl Track {
 
     /// Update sample rate for all components
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
+        self.compressor.set_sample_rate(sample_rate);
         self.equalizer.set_sample_rate(sample_rate);
         self.parametric_eq.set_sample_rate(sample_rate);
         self.hpf_filter.set_sample_rate(sample_rate);
@@ -296,6 +302,9 @@ impl Track {
                 }
             }
         };
+
+        // Apply compressor (before EQ)
+        let (left, right) = self.compressor.process(left, right);
 
         // Apply 4-band EQ processing
         let (left, right) = self.equalizer.process(left, right);
@@ -393,7 +402,7 @@ impl MasterBus {
         Self {
             gain: 1.0,
             mute: false,
-            parametric_eq: ParametricEqualizer::new(48000.0),
+            parametric_eq: ParametricEqualizer::new(44100.0),
             output_channel_selection: ChannelSelection::stereo(),
             level_l: 0.0,
             level_r: 0.0,

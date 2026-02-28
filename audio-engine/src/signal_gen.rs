@@ -127,14 +127,14 @@ mod tests {
 
     #[test]
     fn test_sine_generator() {
-        let mut generator = SignalGenerator::new(WaveformType::Sine, 440.0, 48000.0);
+        let mut generator = SignalGenerator::new(WaveformType::Sine, 440.0, 44100.0);
         let sample = generator.next_sample();
         assert!(sample >= -1.0 && sample <= 1.0);
     }
 
     #[test]
     fn test_waveform_change() {
-        let mut generator = SignalGenerator::new(WaveformType::Sine, 440.0, 48000.0);
+        let mut generator = SignalGenerator::new(WaveformType::Sine, 440.0, 44100.0);
         generator.set_waveform(WaveformType::Square);
         let sample = generator.next_sample();
         assert!(sample == 1.0 || sample == -1.0);

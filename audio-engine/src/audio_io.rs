@@ -85,12 +85,12 @@ impl AudioIO {
             device
                 .default_input_config()
                 .map(|c| c.sample_rate().0)
-                .unwrap_or(48000)
+                .unwrap_or(44100)
         } else {
             device
                 .default_output_config()
                 .map(|c| c.sample_rate().0)
-                .unwrap_or(48000)
+                .unwrap_or(44100)
         };
 
         Ok(DeviceInfo {

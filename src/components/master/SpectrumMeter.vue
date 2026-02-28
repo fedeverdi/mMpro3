@@ -101,7 +101,7 @@ const displayMode = ref<'bars' | 'curve' | 'mirror' | 'dots'>('bars')
 // FFT data from backend
 const currentFFTLeft = ref<Float32Array | null>(null)
 const currentFFTRight = ref<Float32Array | null>(null)
-const currentSampleRate = ref<number>(48000)
+const currentSampleRate = ref<number>(44100)
 
 // Smoothed FFT data for fluid visualization
 let smoothedFFTLeft: Float32Array | null = null
