@@ -123,15 +123,16 @@ const ALLPASS_TUNING_R4: usize = 225 + 23;
 
 const SCALE_WET: f32 = 3.0;
 const SCALE_DAMPING: f32 = 0.4;
-const SCALE_ROOM: f32 = 0.28;
-const OFFSET_ROOM: f32 = 0.7;
+const SCALE_ROOM: f32 = 0.20;
+const OFFSET_ROOM: f32 = 0.4;
+const COMB_OUTPUT_GAIN: f32 = 0.15;
 
 impl Reverb {
     pub fn new(sample_rate: f32) -> Self {
         let mut reverb = Self {
             enabled: false,
             sample_rate,
-            room_size: 0.5,
+            room_size: 0.3,
             damping: 0.5,
             wet: 0.3,
             width: 1.0,
@@ -261,6 +262,10 @@ impl Reverb {
         for comb in &mut self.comb_r {
             out_r += comb.process(input);
         }
+        
+        // Apply gain compensation for parallel comb filters
+        out_l *= COMB_OUTPUT_GAIN;
+        out_r *= COMB_OUTPUT_GAIN;
         
         // Process through series all-pass filters
         for allpass in &mut self.allpass_l {

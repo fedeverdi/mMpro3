@@ -78,9 +78,9 @@ const emit = defineEmits<{
 const isEnabled = ref(props.enabled ?? false)
 const showModal = ref(false)
 
-const roomSize = ref(props.initialRoomSize ?? 0.7)
+const roomSize = ref(props.initialRoomSize ?? 0.3)
 const damping = ref(props.initialDamping ?? 0.5)
-const wet = ref(props.initialWet ?? 0.3)
+const wet = ref(props.initialWet ?? 0.2)
 const width = ref(props.initialWidth ?? 1.0)
 
 function toggleEffect() {

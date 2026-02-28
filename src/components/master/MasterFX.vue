@@ -182,9 +182,9 @@ const compressorParams = ref({
   release: 0.25
 })
 const reverbParams = ref({
-  roomSize: 0.7,
+  roomSize: 0.3,
   damping: 0.5,
-  wet: 0.3,
+  wet: 0.2,
   width: 1.0
 })
 const delayParams = ref({
@@ -220,9 +220,9 @@ const defaultParams = {
     release: 0.25
   },
   reverb: {
-    roomSize: 0.7,
+    roomSize: 0.3,
     damping: 0.5,
-    wet: 0.3,
+    wet: 0.2,
     width: 1.0
   },
   delay: {
@@ -256,7 +256,7 @@ onMounted(() => {
       audioEngine.setMasterCompressor(false, -24, 4, 30, 250)
       audioEngine.setMasterLimiter(false, -0.1, 100)
       audioEngine.setMasterDelay(false, 250, 250, 0.5, 0.3)
-      audioEngine.setMasterReverb(false, 0.7, 0.5, 0.3, 1.0)
+      audioEngine.setMasterReverb(false, 0.3, 0.5, 0.2, 1.0)
     }
   })
 })
