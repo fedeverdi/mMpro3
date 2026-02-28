@@ -1,5 +1,7 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
+const fs = require('fs');
+const path = require('path');
 
 module.exports = {
   packagerConfig: {
@@ -11,7 +13,24 @@ module.exports = {
       NSCameraUsageDescription: 'This application does not use the camera.',
       LSMinimumSystemVersion: '10.15.0',
       'com.apple.security.device.audio-input': true
-    }
+    },
+    extraResource: [
+      'audio-engine/target/release/mmpro3-engine'
+    ],
+    afterCopy: [
+      (buildPath, electronVersion, platform, arch, callback) => {
+        // Make the audio engine executable on Unix systems
+        const binaryName = platform === 'win32' ? 'mmpro3-engine.exe' : 'mmpro3-engine';
+        const enginePath = path.join(buildPath, '..', binaryName);
+        
+        if (fs.existsSync(enginePath) && platform !== 'win32') {
+          fs.chmodSync(enginePath, 0o755);
+          console.log('[Packager] Made audio engine executable:', enginePath);
+        }
+        
+        callback();
+      }
+    ]
   },
   rebuildConfig: {},
   makers: [

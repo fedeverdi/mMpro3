@@ -34,16 +34,16 @@ const startAudioEngine = () => {
 }
 
 const startAudioEngineInternal = () => {
+  // Get the binary name based on platform
+  const binaryName = process.platform === 'win32' ? 'mmpro3-engine.exe' : 'mmpro3-engine'
+  
   const enginePath = app.isPackaged
-    ? path.join(process.resourcesPath, 'audio-engine', 'mmpro3-engine')
-    : path.join(app.getAppPath(), 'audio-engine', 'target', 'release', 'mmpro3-engine')
-
-  console.log('[Main] App path:', app.getAppPath())
-  console.log('[Main] Starting audio engine:', enginePath)
-  console.log('[Main] Engine exists:', fs.existsSync(enginePath))
+    ? path.join(process.resourcesPath, binaryName)
+    : path.join(app.getAppPath(), 'audio-engine', 'target', 'release', binaryName)
   
   if (!fs.existsSync(enginePath)) {
     console.error('[Main] Engine not found! Skipping audio engine startup.')
+    console.error('[Main] Searched at:', enginePath)
     return
   }
   
@@ -93,7 +93,6 @@ const startAudioEngineInternal = () => {
 
 const stopAudioEngine = () => {
   if (audioEngineProcess) {
-    console.log('[Main] Stopping audio engine')
     
     // First, stop all file players gracefully
     try {
@@ -575,7 +574,7 @@ const createWindow = () => {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`))
   }
 
-  mainWindow.webContents.openDevTools()
+ // mainWindow.webContents.openDevTools()
 }
 
 app.whenReady().then(() => {

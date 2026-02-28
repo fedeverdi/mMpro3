@@ -5,6 +5,11 @@
 
 set -e
 
+echo "🦀 Building Rust audio engine..."
+cd audio-engine
+cargo build --release
+cd ..
+
 echo "🔨 Building app..."
 npm run package
 
