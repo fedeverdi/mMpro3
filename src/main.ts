@@ -503,6 +503,39 @@ const createWindow = () => {
 
   mainWindow.on('resize', debouncedSaveState)
   mainWindow.on('move', debouncedSaveState)
+  
+  // CRITICAL: Suspend audio engine updates during window resize to prevent stdout blocking
+  // This prevents audio glitches caused by println!() blocking in the audio callback
+  let resizeSuspendTimeout: NodeJS.Timeout | null = null
+  mainWindow.on('resize', () => {
+    // Suspend updates immediately when resize starts
+    if (audioEngineProcess && audioEngineProcess.stdin) {
+      try {
+        const cmd = JSON.stringify({ type: 'set_updates_suspended', suspended: true }) + '\n'
+        audioEngineProcess.stdin.write(cmd)
+      } catch (err) {
+        // Ignore errors, audio will continue
+      }
+    }
+    
+    // Clear existing timeout
+    if (resizeSuspendTimeout) {
+      clearTimeout(resizeSuspendTimeout)
+    }
+    
+    // Resume updates after 500ms of no resize activity
+    resizeSuspendTimeout = setTimeout(() => {
+      if (audioEngineProcess && audioEngineProcess.stdin) {
+        try {
+          const cmd = JSON.stringify({ type: 'set_updates_suspended', suspended: false }) + '\n'
+          audioEngineProcess.stdin.write(cmd)
+        } catch (err) {
+          // Ignore errors
+        }
+      }
+    }, 500)
+  })
+  
   mainWindow.on('maximize', () => saveWindowState(mainWindow))
   mainWindow.on('unmaximize', () => saveWindowState(mainWindow))
 

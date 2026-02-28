@@ -4,6 +4,7 @@ use cpal::Stream;
 use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead};
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 // Import our modules
@@ -271,6 +272,10 @@ enum Command {
         right_channel: u16,
     },
 
+    // Performance management
+    #[serde(rename = "set_updates_suspended")]
+    SetUpdatesSuspended { suspended: bool },
+
     // Device management
     #[serde(rename = "list_devices")]
     ListDevices,
@@ -393,12 +398,14 @@ struct AudioEngine {
     input_stream: Option<Stream>,
     output_stream: Option<Stream>,
     sample_rate: u32,
+    updates_suspended: Arc<AtomicBool>,
 }
 
 impl AudioEngine {
     fn new() -> Self {
         let audio_io = AudioIO::new();
         let router = Arc::new(Mutex::new(Router::new(24))); // Support up to 24 tracks
+        let updates_suspended = Arc::new(AtomicBool::new(false));
 
         Self {
             audio_io,
@@ -406,6 +413,7 @@ impl AudioEngine {
             input_stream: None,
             output_stream: None,
             sample_rate: 48000, // Default, will be overwritten by device native rate
+            updates_suspended,
         }
     }
 
@@ -516,6 +524,7 @@ impl AudioEngine {
 
         // Clone router for callbacks
         let router_output = Arc::clone(&self.router);
+        let updates_suspended_flag = Arc::clone(&self.updates_suspended);
 
         // Meter update counter and interval (send levels every ~50ms at 48kHz = 2400 frames)
         let meter_update_frames = Arc::new(Mutex::new(0_usize));
@@ -647,30 +656,36 @@ impl AudioEngine {
                 
                 drop(input_buf); // Release input buffer lock
                 
-                // Send meter updates outside the lock
-                if let Some((track_levels, subgroup_levels, master_l, master_r)) = levels_to_send {
-                    let response = Response::Levels {
-                        tracks: track_levels,
-                        subgroups: subgroup_levels,
-                        master_l,
-                        master_r,
-                    };
-                    
-                    if let Ok(json) = serde_json::to_string(&response) {
-                        println!("{}", json);
+                // CRITICAL: Check if updates are suspended (during window resize)
+                // This prevents blocking I/O on stdout which would freeze audio
+                let suspended = updates_suspended_flag.load(Ordering::Relaxed);
+                
+                if !suspended {
+                    // Send meter updates outside the lock
+                    if let Some((track_levels, subgroup_levels, master_l, master_r)) = levels_to_send {
+                        let response = Response::Levels {
+                            tracks: track_levels,
+                            subgroups: subgroup_levels,
+                            master_l,
+                            master_r,
+                        };
+                        
+                        if let Ok(json) = serde_json::to_string(&response) {
+                            println!("{}", json);
+                        }
                     }
-                }
 
-                // Send FFT data if available
-                if let Some((bins_left, bins_right)) = fft_data {
-                    let response = Response::FFTData {
-                        bins_left,
-                        bins_right,
-                        sample_rate: sample_rate_for_perf,
-                    };
-                    
-                    if let Ok(json) = serde_json::to_string(&response) {
-                        println!("{}", json);
+                    // Send FFT data if available
+                    if let Some((bins_left, bins_right)) = fft_data {
+                        let response = Response::FFTData {
+                            bins_left,
+                            bins_right,
+                            sample_rate: sample_rate_for_perf,
+                        };
+                        
+                        if let Ok(json) = serde_json::to_string(&response) {
+                            println!("{}", json);
+                        }
                     }
                 }
 
@@ -687,8 +702,8 @@ impl AudioEngine {
                 let mut stats = perf_stats_clone.lock().unwrap();
                 stats.record(process_time_us);
                 
-                // Send performance stats every 2-3 seconds
-                if stats.should_log() && stats.buffer_count > 0 {
+                // Send performance stats every 2-3 seconds (only if not suspended)
+                if !suspended && stats.should_log() && stats.buffer_count > 0 {
                     let avg_us = stats.total_process_time_us / stats.buffer_count as u128;
                     let avg_ms = avg_us as f32 / 1000.0;
                     let avg_cpu = (avg_us as f32 / buffer_duration_us as f32) * 100.0;
@@ -1409,6 +1424,10 @@ impl AudioEngine {
             } => {
                 self.set_aux_bus_output_channels(aux, left_channel, right_channel);
                 None
+            }
+            Command::SetUpdatesSuspended { suspended } => {
+                self.updates_suspended.store(suspended, Ordering::Relaxed);
+                None // No response needed, performance-critical
             }
             Command::ListDevices => match self.list_devices() {
                 Ok(devices) => Some(Response::Devices { devices }),
