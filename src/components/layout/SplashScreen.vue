@@ -38,7 +38,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
+
+interface Props {
+  engineReady: boolean
+}
+
+const props = defineProps<Props>()
 
 const visible = ref(true)
 const readyToStart = ref(false)
@@ -56,11 +62,11 @@ const handleStart = () => {
   hide()
 }
 
-// Show start button after a short delay
-onMounted(() => {
-  setTimeout(() => {
+// Show start button when engine is ready
+watch(() => props.engineReady, (isReady) => {
+  if (isReady) {
     readyToStart.value = true
-  }, 1500)
+  }
 })
 
 // Generate random styles for particles
