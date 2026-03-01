@@ -120,20 +120,24 @@
                             class="text-gray-400 hover:text-white text-2xl">&times;</button>
                     </div>
                     <div class="flex flex-wrap gap-4 justify-center">
-                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.decay || 2.5"
-                            @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'decay', val)"
-                            :min="0.1" :max="10" :step="0.1" label="Decay" unit="s" color="#10b981" />
-                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.preDelay || 0.01"
-                            @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'preDelay', val)"
-                            :min="0" :max="0.1" :step="0.001" label="Pre-Delay" unit="s" color="#f59e0b" />
+                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.roomSize || 0.5"
+                            @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'roomSize', val)"
+                            :min="0" :max="1" :step="0.01" label="Room Size" unit="" color="#10b981" />
+                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.damping || 0.5"
+                            @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'damping', val)"
+                            :min="0" :max="1" :step="0.01" label="Damping" unit="" color="#f59e0b" />
                         <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.wet ?? 1.0"
                             @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'wet', val)" :min="0"
                             :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
+                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.width || 1.0"
+                            @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'width', val)"
+                            :min="0" :max="1" :step="0.01" label="Width" unit="" color="#8b5cf6" />
                     </div>
                     <div class="mt-4 text-xs text-gray-400 text-center">
-                        <p><strong>Decay:</strong> Reverb tail length</p>
-                        <p><strong>Pre-Delay:</strong> Time before reverb starts</p>
+                        <p><strong>Room Size:</strong> Reverb length (0 = small, 1 = large)</p>
+                        <p><strong>Damping:</strong> High frequency absorption</p>
                         <p><strong>Wet:</strong> Effect amount (100% for aux send)</p>
+                        <p><strong>Width:</strong> Stereo spread of reverb</p>
                     </div>
                 </div>
             </div>
@@ -210,7 +214,7 @@ interface AuxBus {
     // FX Chain
     reverbNode?: any
     reverbEnabled?: boolean
-    reverbParams?: { decay: number, preDelay: number, wet: number }
+    reverbParams?: { roomSize: number, damping: number, wet: number, width: number }
     delayNode?: any
     delayEnabled?: boolean
     delayParams?: { delayTime: number, feedback: number, wet: number }
@@ -396,24 +400,26 @@ function showDelayModal(index: number) {
 }
 
 // Update single reverb parameter
-async function updateAuxReverbParam(index: number, param: 'decay' | 'preDelay' | 'wet', value: number) {
+async function updateAuxReverbParam(index: number, param: 'roomSize' | 'damping' | 'wet' | 'width', value: number) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = props.auxBuses[index]
 
     // Update internal params object
     if (!aux.reverbParams) {
-        aux.reverbParams = { decay: 2.5, preDelay: 0.01, wet: 1.0 }
+        aux.reverbParams = { roomSize: 0.5, damping: 0.5, wet: 1.0, width: 1.0 }
     }
     aux.reverbParams[param] = value
 
     // Send all parameters to Rust backend
     if (audioEngine && audioEngine.state.value.isRunning && aux.reverbEnabled) {
-        const roomSize = Math.min(aux.reverbParams.decay / 10, 1.0)  // Map decay (0.1-10s) to roomSize (0-1)
-        const damping = 0.5  // Default damping
-        const wet = aux.reverbParams.wet
-        const width = 1.0  // Default stereo width
-        
-        await audioEngine.setAuxBusReverb(index, true, roomSize, damping, wet, width)
+        await audioEngine.setAuxBusReverb(
+            index, 
+            true, 
+            aux.reverbParams.roomSize, 
+            aux.reverbParams.damping, 
+            aux.reverbParams.wet, 
+            aux.reverbParams.width
+        )
     }
 }
 
@@ -478,36 +484,6 @@ function handleTapTempo() {
             tapBpm.value = null
         }
     }, 2000)
-}
-
-// Update Reverb parameters
-function updateAuxReverbParams(index: number, params: { decay: number, preDelay: number, wet: number }) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = props.auxBuses[index]
-
-    if (aux.reverbNode) {
-        aux.reverbNode.decay = params.decay
-        aux.reverbNode.preDelay = params.preDelay
-        aux.reverbNode.wet.value = params.wet
-    }
-
-    const updatedAux = { ...aux, reverbParams: params }
-    emit('update-aux', index, updatedAux)
-}
-
-// Update Delay parameters
-function updateAuxDelayParams(index: number, params: { delayTime: number, feedback: number, wet: number }) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = props.auxBuses[index]
-
-    if (aux.delayNode) {
-        aux.delayNode.delayTime.value = params.delayTime
-        aux.delayNode.feedback.value = params.feedback
-        aux.delayNode.wet.value = params.wet
-    }
-
-    const updatedAux = { ...aux, delayParams: params }
-    emit('update-aux', index, updatedAux)
 }
 </script>
 

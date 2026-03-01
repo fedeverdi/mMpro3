@@ -298,7 +298,7 @@ interface AuxBus {
   // FX Chain
   reverbNode?: any
   reverbEnabled?: boolean
-  reverbParams?: { decay: number, preDelay: number, wet: number }
+  reverbParams?: { roomSize: number, damping: number, wet: number, width: number }
   delayNode?: any
   delayEnabled?: boolean
   delayParams?: { delayTime: number, feedback: number, wet: number }
@@ -738,7 +738,7 @@ function addAux() {
     // FX
     reverbNode: null,
     reverbEnabled: false,
-    reverbParams: { decay: 2.5, preDelay: 0.01, wet: 1.0 },
+    reverbParams: { roomSize: 0.5, damping: 0.5, wet: 1.0, width: 1.0 },
     delayNode: null,
     delayEnabled: false,
     delayParams: { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
@@ -786,12 +786,12 @@ async function updateAux(index: number, updatedAux: AuxBus) {
       // Update reverb enabled state
       if (updatedAux.reverbEnabled !== aux.reverbEnabled) {
         const enabled = updatedAux.reverbEnabled ?? false
-        // Map reverb params to Freeverb params or use defaults
+        // Use reverb params from updated aux or defaults
         const reverbParams = updatedAux.reverbParams
-        const roomSize = reverbParams?.decay ? Math.min(reverbParams.decay / 10, 1.0) : 0.5  // Map decay to roomSize
-        const damping = 0.5  // Default damping
+        const roomSize = reverbParams?.roomSize ?? 0.5
+        const damping = reverbParams?.damping ?? 0.5
         const wet = reverbParams?.wet ?? 1.0
-        const width = 1.0  // Default stereo width
+        const width = reverbParams?.width ?? 1.0
         
         await audioEngine.setAuxBusReverb(
           index,
