@@ -57,7 +57,6 @@ pub fn set_source_signal(
             _ => return Err(anyhow!("Unknown waveform: {}", waveform)),
         };
         t.set_signal_generator(wave, frequency, sample_rate as f32);
-        eprintln!("[Track {}] Source: Signal ({:?} @ {}Hz)", track, wave, frequency);
         Ok(())
     } else {
         Err(anyhow!("Track {} not found", track))

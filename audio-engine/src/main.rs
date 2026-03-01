@@ -970,9 +970,7 @@ impl AudioEngine {
         
         self.input_stream = Some(input_stream);
         self.current_input_device = requested_device.clone();
-        
-        eprintln!("[Engine] ✓ Audio input opened for track {} (device: {:?})", track_id, requested_device);
-        
+                
         Ok(())
     }
 
@@ -980,13 +978,10 @@ impl AudioEngine {
         // Remove track from users set
         self.input_users.remove(&track_id);
         
-        eprintln!("[Engine] Track {} stopped using audio input (remaining users: {})", track_id, self.input_users.len());
-
         // Only actually close the stream when no users remain
         if self.input_users.is_empty() {
             if let Some(stream) = self.input_stream.take() {
                 drop(stream);
-                eprintln!("[Engine] ✓ Audio input closed (no more users)");
             }
             
             // Clear input buffer

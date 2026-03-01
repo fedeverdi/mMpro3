@@ -231,12 +231,9 @@ impl Track {
 
     /// Set track source to signal generator
     pub fn set_signal_generator(&mut self, waveform: WaveformType, frequency: f32, sample_rate: f32) {
-        eprintln!("[Track {}] set_signal_generator called: {:?} @ {}Hz", self.id, waveform, frequency);
         self.source = TrackSource::SignalGenerator;
         self.signal_generator = Some(SignalGenerator::new(waveform, frequency, sample_rate));
         self.file_player = None;
-        eprintln!("[Track {}] Signal generator created. source={:?}, generator exists={}", 
-                 self.id, self.source, self.signal_generator.is_some());
     }
 
     /// Set track source to file player
@@ -334,9 +331,6 @@ impl Track {
                     // Debug first few samples
                     static SAMPLE_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
                     let count = SAMPLE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    if count < 3 {
-                        eprintln!("[Track {}] SignalGenerator producing sample: {:.6}", self.id, sample);
-                    }
                     (sample, sample)
                 } else {
                     (0.0, 0.0)

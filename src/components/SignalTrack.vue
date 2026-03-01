@@ -61,7 +61,7 @@
           <path d="M6 6h12v12H6z" />
         </svg>
       </button>
-      <button v-if="isOscillator" @click="toggleFrequencySweep"
+      <button v-if="isOscillator" @click.stop="toggleFrequencySweep"
         class="px-2 py-1 w-full text-xs rounded transition-colors flex items-center justify-center"
         :class="isSweeping ? 'bg-orange-600 hover:bg-orange-500 animate-pulse' : 'bg-gray-500 hover:bg-gray-600'">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="w-3 h-3" fill="currentColor">
@@ -130,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import FrequencyKnob from './core/FrequencyKnob.vue'
 import PanKnob from './audioTrack/PanKnob.vue'
 import TrackFader from './audioTrack/TrackFader.vue'
@@ -169,6 +169,13 @@ const pan = ref(0) // -1 to 1
 const isMuted = ref(false)
 const isSolo = ref(false)
 const routeToMaster = ref(true)
+
+// Frequency sweep state
+let sweepAnimationId: number | null = null
+let sweepDirection = 1 // 1 for up, -1 for down
+let sweepPosition = 0.5 // 0 to 1 (logarithmic position)
+let isUpdatingFromSweep = false // Flag to prevent watch loops
+let isTogglingFrequencySweep = false // Flag to prevent multiple rapid toggles
 
 // Meter levels (in dB)
 const trackLevelL = ref(-60)
@@ -212,16 +219,12 @@ async function selectSignal(signal: typeof selectedSignal.value) {
 
 async function toggleSignal() {
   isPlaying.value = !isPlaying.value
-  console.log('[SignalTrack] toggleSignal - isPlaying:', isPlaying.value)
   
   if (!audioEngine || !audioEngine.state.value.isRunning) {
-    console.log('[SignalTrack] Audio engine not ready')
     return
   }
   
   if (isPlaying.value) {
-    // START: Create signal generator
-    console.log('[SignalTrack] Starting signal generator')
     const waveformMap: Record<typeof selectedSignal.value, string> = {
       sine: 'sine',
       square: 'square',
@@ -235,19 +238,91 @@ async function toggleSignal() {
       waveformMap[selectedSignal.value],
       frequency.value
     )
-    console.log('[SignalTrack] Signal generator started')
   } else {
     // STOP: Clear signal generator
-    console.log('[SignalTrack] Stopping signal generator')
     await audioEngine.clearTrackSource(props.trackNumber - 1)
-    console.log('[SignalTrack] Signal generator stopped')
   }
 }
 
 function toggleFrequencySweep() {
+  // Prevent multiple rapid calls
+  if (isTogglingFrequencySweep) return
+  
   if (!isOscillator.value) return
+  
+  // Sweep only works when signal is playing
+  if (!isPlaying.value) return
+  
+  isTogglingFrequencySweep = true
+  
   isSweeping.value = !isSweeping.value
-  // TODO: Implement frequency sweep in backend
+  
+  if (isSweeping.value) {
+    startFrequencySweep()
+  } else {
+    stopFrequencySweep()
+  }
+  
+  // Reset flag after a short delay
+  setTimeout(() => {
+    isTogglingFrequencySweep = false
+  }, 100)
+}
+
+function startFrequencySweep() {
+  const minFreq = 20
+  const maxFreq = 20000
+  const logMin = Math.log(minFreq)
+  const logMax = Math.log(maxFreq)
+  
+  // Calculate initial position based on current frequency
+  const logFreq = Math.log(frequency.value)
+  sweepPosition = (logFreq - logMin) / (logMax - logMin)
+  
+  const sweepSpeed = 0.0005 // Position change per frame (adjust for speed)
+  
+  function animate() {
+    if (!isSweeping.value) {
+      return
+    }
+    
+    // Update position
+    sweepPosition += sweepDirection * sweepSpeed
+    
+    // Reverse direction at boundaries
+    if (sweepPosition >= 1.0) {
+      sweepPosition = 1.0
+      sweepDirection = -1
+    } else if (sweepPosition <= 0.0) {
+      sweepPosition = 0.0
+      sweepDirection = 1
+    }
+    
+    // Convert position to frequency (logarithmic)
+    const logFreq = logMin + sweepPosition * (logMax - logMin)
+    const newFreq = Math.round(Math.exp(logFreq))
+    
+    // Update frequency (with flag to prevent stopping sweep from watch)
+    isUpdatingFromSweep = true
+    frequency.value = newFreq
+    
+    // Reset flag after Vue's watch has been triggered
+    nextTick(() => {
+      isUpdatingFromSweep = false
+    })
+    
+    // Continue animation
+    sweepAnimationId = requestAnimationFrame(animate)
+  }
+  
+  sweepAnimationId = requestAnimationFrame(animate)
+}
+
+function stopFrequencySweep() {
+  if (sweepAnimationId !== null) {
+    cancelAnimationFrame(sweepAnimationId)
+    sweepAnimationId = null
+  }
 }
 
 async function toggleMute() {
@@ -273,17 +348,32 @@ async function toggleRouteToMaster() {
 
 // Watchers - Send changes to Rust engine
 watch(frequency, async (freq) => {
+  // Capture the flag value immediately (before any await)
+  const wasUpdatingFromSweep = isUpdatingFromSweep
+    
   if (audioEngine?.state.value.isRunning && audioEngine?.setSignalFrequency) {
     await audioEngine.setSignalFrequency(props.trackNumber - 1, freq)
+  }
+  
+  // Stop sweep if user manually changed frequency (not from sweep animation)
+  if (!wasUpdatingFromSweep && isSweeping.value) {
+    isSweeping.value = false
+    stopFrequencySweep()
+  }
+})
+
+// Stop sweep when signal is stopped
+watch(isPlaying, (playing) => {
+  if (!playing && isSweeping.value) {
+    isSweeping.value = false
+    stopFrequencySweep()
   }
 })
 
 watch(volume, async (newVolume) => {
-  console.log('[SignalTrack] Volume changed to:', newVolume, 'dB')
   if (audioEngine?.state.value.isRunning && audioEngine?.setTrackVolume) {
     // Convert dB to linear: linear = 10^(dB/20)
     const linearVolume = newVolume <= -85 ? 0 : Math.pow(10, newVolume / 20)
-    console.log('[SignalTrack] Setting backend volume to:', linearVolume, 'linear')
     await audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
   }
 })
@@ -311,21 +401,16 @@ watch(
 watch(
   () => audioEngine?.state.value.isRunning,
   async (isRunning) => {
-    console.log('[SignalTrack] Audio engine running state changed:', isRunning, 'initialized:', isInitialized.value)
     if (isRunning && !isInitialized.value) {
-      console.log('[SignalTrack] 🎯 Audio engine ready! Initializing track parameters...')
       isInitialized.value = true
       
       // Set initial parameters (volume, pan, routing)
       // Don't create signal generator yet - wait for user to press play
       const linearVolume = volume.value <= -85 ? 0 : Math.pow(10, volume.value / 20)
-      console.log('[SignalTrack] Setting volume:', volume.value, 'dB =', linearVolume, 'linear')
+
       await audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
       await audioEngine.setTrackPan(props.trackNumber - 1, pan.value)
-      await audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
-      
-      // Don't start the signal generator yet - wait for user to press play
-      console.log('[SignalTrack] ✅ Initialization complete! Press PLAY to start signal.')
+      await audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)      
     }
   },
   { immediate: true }
@@ -339,11 +424,7 @@ function updateFaderHeight() {
 }
 
 // Lifecycle
-onMounted(async () => {
-  console.log('[SignalTrack] onMounted START')
-  console.log('[SignalTrack] audioEngine exists?', !!audioEngine)
-  console.log('[SignalTrack] audioEngine.state.value.isRunning?', audioEngine?.state.value.isRunning)
-  
+onMounted(async () => { 
   const resizeObserver = new ResizeObserver(updateFaderHeight)
   if (faderContainer.value) {
     resizeObserver.observe(faderContainer.value)
@@ -354,6 +435,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  // Stop frequency sweep
+  stopFrequencySweep()
+  
   // Cleanup: mute the track
   if (audioEngine?.setTrackMute) {
     audioEngine.setTrackMute(props.trackNumber - 1, true)
