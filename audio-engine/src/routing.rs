@@ -719,7 +719,6 @@ impl Router {
     pub fn add_subgroup(&mut self) -> usize {
         let id = self.subgroups.len();
         self.subgroups.push(SubgroupBus::new(id));
-        eprintln!("[Router] Subgroup {} created", id);
         id
     }
 
@@ -741,7 +740,6 @@ impl Router {
                     }
                 }
             }
-            eprintln!("[Router] Subgroup {} removed and re-indexed", id);
         }
     }
 
@@ -846,7 +844,6 @@ impl Router {
                 let _ = track.stop_file();
             }
         }
-        eprintln!("[Router] All file players stopped");
     }
 }
 

@@ -2,9 +2,10 @@ use anyhow::Result;
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::Stream;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::io::{self, BufRead};
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Instant;
 
 // Import our modules
@@ -276,6 +277,12 @@ enum Command {
     #[serde(rename = "set_updates_suspended")]
     SetUpdatesSuspended { suspended: bool },
 
+    // Input stream management (on-demand for privacy)
+    #[serde(rename = "open_audio_input")]
+    OpenAudioInput { device_name: Option<String> },
+    #[serde(rename = "close_audio_input")]
+    CloseAudioInput,
+
     // Device management
     #[serde(rename = "list_devices")]
     ListDevices,
@@ -399,6 +406,9 @@ struct AudioEngine {
     output_stream: Option<Stream>,
     sample_rate: u32,
     updates_suspended: Arc<AtomicBool>,
+    input_buffer: Arc<Mutex<Vec<f32>>>,
+    input_channels: Arc<AtomicUsize>,
+    input_users: HashSet<usize>, // Track IDs that are using audio input
 }
 
 impl AudioEngine {
@@ -406,6 +416,8 @@ impl AudioEngine {
         let audio_io = AudioIO::new();
         let router = Arc::new(Mutex::new(Router::new(24))); // Support up to 24 tracks
         let updates_suspended = Arc::new(AtomicBool::new(false));
+        let input_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
+        let input_channels = Arc::new(AtomicUsize::new(2)); // Default stereo
 
         Self {
             audio_io,
@@ -414,6 +426,9 @@ impl AudioEngine {
             output_stream: None,
             sample_rate: 48000, // Default, will be overwritten by device native rate
             updates_suspended,
+            input_buffer,
+            input_channels,
+            input_users: HashSet::new(),
         }
     }
 
@@ -431,18 +446,26 @@ impl AudioEngine {
             return Ok(()); // Already running
         }
 
-        // Get devices
-        let input_device = if let Some(name) = input_device_name {
-            self.audio_io.find_device_by_name(&name, true)?
-        } else {
-            self.audio_io.default_input_device()?
-        };
-
+        // Get output device (REQUIRED)
         let output_device = if let Some(name) = output_device_name {
             self.audio_io.find_device_by_name(&name, false)?
         } else {
             self.audio_io.default_output_device()?
         };
+
+        // Input device is OPTIONAL - only get it if explicitly requested
+        // This prevents macOS from showing "microphone in use" indicator
+        // TODO: Implement on-demand input opening when track selects audio input
+        let _input_device_available = input_device_name.is_some();
+        
+        // Skip input device for now (privacy)
+        /*
+        let input_device = if let Some(name) = input_device_name {
+            Some(self.audio_io.find_device_by_name(&name, true)?)
+        } else {
+            None // Don't use default input unless explicitly requested
+        };
+        */
 
         // Detect Bluetooth devices and use larger buffer for stability
         let output_device_name = output_device.name().unwrap_or_else(|_| String::from("Unknown"));
@@ -460,7 +483,8 @@ impl AudioEngine {
             None  // Use device native buffer (typically 256-512)
         };
         
-        let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate, buffer_size)?;
+        // Skip input config for now (see TODO above about privacy)
+        // let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate, buffer_size)?;
         let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate, buffer_size)?;
 
         self.sample_rate = output_config.sample_rate.0;
@@ -517,7 +541,7 @@ impl AudioEngine {
             router.master.set_sample_rate(self.sample_rate as f32);
         }
 
-        let input_channels = input_config.channels as usize;
+        let input_channels = 2; // Default stereo (not used since input is disabled)
         let output_channels = output_config.channels as usize;
 
         let err_fn = |err| eprintln!("[Engine] Stream error: {}", err);
@@ -536,20 +560,13 @@ impl AudioEngine {
         let sample_rate_for_perf = self.sample_rate; // Save sample rate for performance calculation
 
         // === INPUT STREAM: capture audio ===
-        // For now, we capture but don't use it directly (tracks may use it later)
-        let input_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
-        let input_buffer_clone = Arc::clone(&input_buffer);
-
-        let input_stream = input_device.build_input_stream(
-            &input_config,
-            move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                let mut buffer = input_buffer_clone.lock().unwrap();
-                buffer.clear();
-                buffer.extend_from_slice(data);
-            },
-            err_fn,
-            None,
-        )?;
+        // Input stream is now managed on-demand via open_audio_input()/close_audio_input()
+        // when tracks select audio input sources. This preserves privacy by not opening
+        // the microphone unless actually needed.
+        
+        // Use the shared input buffer that will be populated by the input stream
+        let input_buffer = Arc::clone(&self.input_buffer);
+        let input_channels = Arc::clone(&self.input_channels);
 
         // === OUTPUT STREAM: process and output audio ===
         let output_stream = output_device.build_output_stream(
@@ -560,6 +577,7 @@ impl AudioEngine {
                 
                 let input_buf = input_buffer.lock().unwrap();
                 let frames = data.len() / output_channels;
+                let input_ch_count = input_channels.load(Ordering::Relaxed);
 
                 // Acquire lock, process audio, release lock quickly
                 let (levels_to_send, fft_data) = {
@@ -568,9 +586,9 @@ impl AudioEngine {
                     // Process all frames
                     for frame_idx in 0..frames {
                         // Prepare input frame if available
-                        let input_frame: Option<Vec<f32>> = if !input_buf.is_empty() && frame_idx < input_buf.len() / input_channels {
-                            let start = frame_idx * input_channels;
-                            let end = start + input_channels;
+                        let input_frame: Option<Vec<f32>> = if !input_buf.is_empty() && frame_idx < input_buf.len() / input_ch_count {
+                            let start = frame_idx * input_ch_count;
+                            let end = start + input_ch_count;
                             Some(input_buf[start..end].to_vec())
                         } else {
                             None
@@ -730,11 +748,11 @@ impl AudioEngine {
             None,
         )?;
 
-        // Start streams
-        input_stream.play()?;
+        // Start streams (input stream is disabled for privacy - see TODO above)
+        // input_stream.play()?;
         output_stream.play()?;
 
-        self.input_stream = Some(input_stream);
+        self.input_stream = None; // Keep None until we implement on-demand opening
         self.output_stream = Some(output_stream);
 
         Ok(())
@@ -751,18 +769,103 @@ impl AudioEngine {
         Ok(())
     }
 
+    fn open_audio_input(&mut self, track_id: usize, device_name: Option<String>) -> Result<()> {
+        // Add track to users set
+        let was_empty = self.input_users.is_empty();
+        self.input_users.insert(track_id);
+        
+        // If already open (had other users), just return
+        if !was_empty {
+            eprintln!("[Engine] Track {} using audio input (total users: {})", track_id, self.input_users.len());
+            return Ok(());
+        }
+
+        // Get input device
+        let input_device = if let Some(name) = device_name {
+            self.audio_io.find_device_by_name(&name, true)?
+        } else {
+            self.audio_io.default_input_device()?
+        };
+
+        // Use same buffer size as output for consistency
+        let buffer_size = None; // Use device native buffer
+        
+        let input_config = self.audio_io.get_supported_config(&input_device, true, Some(self.sample_rate), buffer_size)?;
+        
+        self.input_channels.store(input_config.channels as usize, Ordering::Relaxed);
+        
+        let input_buffer_clone = Arc::clone(&self.input_buffer);
+        let err_fn = |err| eprintln!("[Engine] Input stream error: {}", err);
+
+        let input_stream = input_device.build_input_stream(
+            &input_config,
+            move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                let mut buffer = input_buffer_clone.lock().unwrap();
+                buffer.clear();
+                buffer.extend_from_slice(data);
+            },
+            err_fn,
+            None,
+        )?;
+
+        input_stream.play()?;
+        
+        self.input_stream = Some(input_stream);
+        
+        eprintln!("[Engine] ✓ Audio input opened for track {} (first user)", track_id);
+        
+        Ok(())
+    }
+
+    fn close_audio_input(&mut self, track_id: usize) -> Result<()> {
+        // Remove track from users set
+        self.input_users.remove(&track_id);
+        
+        eprintln!("[Engine] Track {} stopped using audio input (remaining users: {})", track_id, self.input_users.len());
+
+        // Only actually close the stream when no users remain
+        if self.input_users.is_empty() {
+            if let Some(stream) = self.input_stream.take() {
+                drop(stream);
+                eprintln!("[Engine] ✓ Audio input closed (no more users)");
+            }
+            
+            // Clear input buffer
+            let mut buffer = self.input_buffer.lock().unwrap();
+            buffer.clear();
+        }
+        
+        Ok(())
+    }
+
     // Track source commands
-    fn set_track_source_input(&self, track: usize, left_ch: u16, right_ch: u16) -> Result<()> {
+    fn set_track_source_input(&mut self, track: usize, left_ch: u16, right_ch: u16) -> Result<()> {
+        // Open input stream when a track selects audio input
+        if let Err(e) = self.open_audio_input(track, None) {
+            eprintln!("[Engine] Failed to open audio input for track {}: {}", track, e);
+            return Err(e);
+        }
+        
         let mut router = self.router.lock().unwrap();
         track::set_source_input(&mut router, track, left_ch, right_ch)
     }
 
-    fn set_track_source_signal(&self, track: usize, waveform: &str, frequency: f32) -> Result<()> {
+    fn set_track_source_signal(&mut self, track: usize, waveform: &str, frequency: f32) -> Result<()> {
+        // Close input stream when track switches away from audio input
+        if let Err(e) = self.close_audio_input(track) {
+            eprintln!("[Engine] Failed to close audio input for track {}: {}", track, e);
+        }
+        
         let mut router = self.router.lock().unwrap();
         track::set_source_signal(&mut router, track, waveform, frequency, self.sample_rate)
     }
 
-    fn set_track_source_file(&self, track: usize, file_path: &str) -> Result<()> {
+    fn set_track_source_file(&mut self, track: usize, file_path: &str) -> Result<()> {
+        // Close input stream when track switches away from audio input
+        if let Err(e) = self.close_audio_input(track) {
+            eprintln!("[Engine] Failed to close audio input for track {}: {}", track, e);
+        }
+        
         let mut router = self.router.lock().unwrap();
         track::set_source_file(&mut router, track, file_path, self.sample_rate)
     }
@@ -1428,6 +1531,18 @@ impl AudioEngine {
             Command::SetUpdatesSuspended { suspended } => {
                 self.updates_suspended.store(suspended, Ordering::Relaxed);
                 None // No response needed, performance-critical
+            }
+            Command::OpenAudioInput { device_name } => {
+                // Note: This command is deprecated. Input is now managed automatically
+                // via SetTrackSourceInput. Kept for backwards compatibility.
+                eprintln!("[Engine] Warning: OpenAudioInput command is deprecated, use SetTrackSourceInput instead");
+                None
+            }
+            Command::CloseAudioInput => {
+                // Note: This command is deprecated. Input is now managed automatically
+                // via track source changes. Kept for backwards compatibility.
+                eprintln!("[Engine] Warning: CloseAudioInput command is deprecated, input is managed automatically");
+                None
             }
             Command::ListDevices => match self.list_devices() {
                 Ok(devices) => Some(Response::Devices { devices }),

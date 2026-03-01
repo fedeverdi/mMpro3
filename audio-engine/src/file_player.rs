@@ -38,9 +38,7 @@ impl AudioFilePlayer {
 
     /// Load audio file using Symphonia (supports MP3, FLAC, WAV, OGG, etc.)
     pub fn load_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
-        eprintln!("[FilePlayer] Loading file: {:?}", path.as_ref());
         let file = File::open(&path)?;
-        eprintln!("[FilePlayer] File opened successfully");
         let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
         // Create a hint for the format detection
@@ -48,7 +46,6 @@ impl AudioFilePlayer {
         if let Some(ext) = path.as_ref().extension() {
             if let Some(ext_str) = ext.to_str() {
                 hint.with_extension(ext_str);
-                eprintln!("[FilePlayer] File extension: {}", ext_str);
             }
         }
 
@@ -57,38 +54,30 @@ impl AudioFilePlayer {
         let metadata_opts = MetadataOptions::default();
         let decoder_opts = DecoderOptions::default();
 
-        eprintln!("[FilePlayer] Probing format...");
         let probed = symphonia::default::get_probe()
             .format(&hint, mss, &format_opts, &metadata_opts)?;
-        eprintln!("[FilePlayer] Format probed successfully");
-
         let mut format = probed.format;
 
         // Get the default track
-        eprintln!("[FilePlayer] Looking for audio track...");
         let track = format
             .tracks()
             .iter()
             .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
-            .ok_or_else(|| anyhow!("No supported audio track found"))?;
-
+            .ok_or_else(|| anyhow!("No supported audio track found"))?
+;
         let track_id = track.id;
         
         // Get audio specs
         let codec_params = &track.codec_params;
         self.channels = codec_params.channels.map(|c| c.count() as u16).unwrap_or(2);
         self.sample_rate = codec_params.sample_rate.unwrap_or(44100);
-        eprintln!("[FilePlayer] Track found: {} channels, {} Hz", self.channels, self.sample_rate);
 
         // Create decoder
-        eprintln!("[FilePlayer] Creating decoder...");
         let mut decoder = symphonia::default::get_codecs()
             .make(&codec_params, &decoder_opts)?;
-        eprintln!("[FilePlayer] Decoder created");
 
         // Decode all samples
         let mut all_samples = Vec::new();
-        eprintln!("[FilePlayer] Decoding samples...");
         
         loop {
             let packet = match format.next_packet() {
@@ -131,15 +120,6 @@ impl AudioFilePlayer {
         } else {
             -90.0
         };
-        
-        eprintln!(
-            "[FilePlayer] Loaded: {} samples, {} channels, {} Hz, peak level: {:.2} dB ({:.3} linear)",
-            self.samples.len() / self.channels as usize,
-            self.channels,
-            self.sample_rate,
-            peak_db,
-            peak
-        );
 
         Ok(())
     }
@@ -212,8 +192,6 @@ impl AudioFilePlayer {
     /// Set output sample rate for resampling
     pub fn set_output_sample_rate(&mut self, sample_rate: u32) {
         if self.output_sample_rate != sample_rate {
-            eprintln!("[FilePlayer] Changing output sample rate from {} Hz to {} Hz, resetting resample position",
-                self.output_sample_rate, sample_rate);
             self.output_sample_rate = sample_rate;
             // Reset resample position to avoid audio glitches when sample rate changes
             // This prevents the accumulated position from causing pitch/speed issues
