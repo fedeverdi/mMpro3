@@ -26,6 +26,7 @@ mod track;
 
 use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
 use routing::Router;
+use signal_gen::WaveformType;
 
 /// Parametric filter specification from frontend
 #[derive(Debug, Deserialize, Clone)]
@@ -64,6 +65,20 @@ enum Command {
         track: usize,
         waveform: String, // "sine", "square", "sawtooth", "triangle", "white", "pink"
         frequency: f32,
+    },
+    #[serde(rename = "set_signal_frequency")]
+    SetSignalFrequency {
+        track: usize,
+        frequency: f32,
+    },
+    #[serde(rename = "set_signal_waveform")]
+    SetSignalWaveform {
+        track: usize,
+        waveform: String, // "sine", "square", "sawtooth", "triangle", "white", "pink"
+    },
+    #[serde(rename = "clear_track_source")]
+    ClearTrackSource {
+        track: usize,
     },
     #[serde(rename = "set_track_source_file")]
     SetTrackSourceFile {
@@ -1109,6 +1124,49 @@ impl AudioEngine {
         track::set_source_signal(&mut router, track, waveform, frequency, self.sample_rate)
     }
 
+    fn set_signal_frequency(&mut self, track: usize, frequency: f32) -> Result<()> {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            if let Some(ref mut generator) = t.signal_generator {
+                generator.set_frequency(frequency);
+                Ok(())
+            } else {
+                Err(anyhow::anyhow!("Track {} has no signal generator", track))
+            }
+        } else {
+            Err(anyhow::anyhow!("Track {} not found", track))
+        }
+    }
+
+    fn set_signal_waveform(&mut self, track: usize, waveform: &str) -> Result<()> {
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            if let Some(ref mut generator) = t.signal_generator {
+                let wave = match waveform.to_lowercase().as_str() {
+                    "sine" => WaveformType::Sine,
+                    "square" => WaveformType::Square,
+                    "sawtooth" => WaveformType::Sawtooth,
+                    "triangle" => WaveformType::Triangle,
+                    "white" => WaveformType::WhiteNoise,
+                    "pink" => WaveformType::PinkNoise,
+                    _ => return Err(anyhow::anyhow!("Unknown waveform: {}", waveform)),
+                };
+                generator.set_waveform(wave);
+                eprintln!("[Track {}] Signal waveform: {:?}", track, wave);
+                Ok(())
+            } else {
+                Err(anyhow::anyhow!("Track {} has no signal generator", track))
+            }
+        } else {
+            Err(anyhow::anyhow!("Track {} not found", track))
+        }
+    }
+
+    fn clear_track_source(&mut self, track: usize) -> Result<()> {
+        let mut router = self.router.lock().unwrap();
+        track::clear_source(&mut router, track)
+    }
+
     fn set_track_source_file(&mut self, track: usize, file_path: &str) -> Result<()> {
         // Close input stream when track switches away from audio input
         if let Err(e) = self.close_audio_input(track) {
@@ -1554,6 +1612,21 @@ impl AudioEngine {
             } => {
                 // Fire-and-forget command, no response needed
                 let _ = self.set_track_source_signal(track, &waveform, frequency);
+                None
+            }
+            Command::SetSignalFrequency { track, frequency } => {
+                // Fire-and-forget command, no response needed
+                let _ = self.set_signal_frequency(track, frequency);
+                None
+            }
+            Command::SetSignalWaveform { track, waveform } => {
+                // Fire-and-forget command, no response needed
+                let _ = self.set_signal_waveform(track, &waveform);
+                None
+            }
+            Command::ClearTrackSource { track } => {
+                // Fire-and-forget command, no response needed
+                let _ = self.clear_track_source(track);
                 None
             }
             Command::SetTrackSourceFile { track, file_path } => {

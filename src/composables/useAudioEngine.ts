@@ -244,6 +244,24 @@ export const useAudioEngine = () => {
     await window.audioEngine.setTrackSourceSignal(track, waveform, frequency)
   }
 
+  const setSignalFrequency = async (track: number, frequency: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setSignalFrequency(track, frequency)
+  }
+
+  const setSignalWaveform = async (track: number, waveform: string) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setSignalWaveform(track, waveform)
+  }
+
+  const clearTrackSource = async (track: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.clearTrackSource(track)
+  }
+
   const setTrackSourceFile = async (track: number, filePath: string) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
@@ -511,6 +529,9 @@ export const useAudioEngine = () => {
     setTrackGate,
     setTrackSourceInput,
     setTrackSourceSignal,
+    setSignalFrequency,
+    setSignalWaveform,
+    clearTrackSource,
     setTrackSourceFile,
     playFile,
     pauseFile,

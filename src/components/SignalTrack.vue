@@ -103,14 +103,14 @@
     </div>
 
     <!-- Volume Fader and VU Meter -->
-    <div class="flex flex-col h-full">
-      <div class="text-[0.455rem] uppercase text-center">Volume</div>
+    <div class="flex flex-col flex-1 min-h-0 pb-6">
+      <div class="text-[0.455rem] uppercase text-center mb-6">Volume</div>
       <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
         <!-- Routing Button -->
         <button 
           @click="toggleRouteToMaster" 
           :title="'Route to Master'"
-          class="absolute left-[0.2rem] top-1/2 transform -translate-y-1/2 z-50 w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
+          class="absolute -left-[1.8rem] top-1/2 transform -translate-y-1/2 z-50 w-5 h-7 text-[8px] font-bold rounded transition-all flex items-center justify-center"
           :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
           M
         </button>
@@ -118,7 +118,7 @@
         <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
         
         <TrackMeter 
-          class="absolute right-[0.4rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3"
+          class="absolute -right-[1.8rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3"
           v-if="faderHeight > 0" 
           :levelL="trackLevelL" 
           :levelR="trackLevelR" 
@@ -152,6 +152,9 @@ const emit = defineEmits<{
 // Inject Rust audio engine
 const audioEngine = inject<any>('audioEngine', null)
 
+// State to track if initialization has been done
+const isInitialized = ref(false)
+
 // Reactive state
 const trackElement = ref<HTMLElement | null>(null)
 const faderContainer = ref<HTMLElement | null>(null)
@@ -161,15 +164,15 @@ const selectedSignal = ref<'sine' | 'square' | 'sawtooth' | 'triangle' | 'whiteN
 const isPlaying = ref(false)
 const isSweeping = ref(false)
 const frequency = ref(1000) // Hz
-const volume = ref(0.5) // 0-1 range
+const volume = ref(-6) // dB scale (-90 to +12), start at -6dB for reasonable level
 const pan = ref(0) // -1 to 1
 const isMuted = ref(false)
 const isSolo = ref(false)
 const routeToMaster = ref(true)
 
-// Meter levels (simulated for now)
-const trackLevelL = ref(0)
-const trackLevelR = ref(0)
+// Meter levels (in dB)
+const trackLevelL = ref(-60)
+const trackLevelR = ref(-60)
 
 // Computed
 const isOscillator = computed(() => 
@@ -189,27 +192,70 @@ const signalTypeLabel = computed(() => {
 })
 
 // Handlers
-function selectSignal(signal: typeof selectedSignal.value) {
+async function selectSignal(signal: typeof selectedSignal.value) {
   selectedSignal.value = signal
-  console.log(`[Signal Track ${props.trackNumber}] Selected signal:`, signal)
-  // TODO: Send to Rust engine
+  
+  // Convert UI signal name to backend format
+  const waveformMap: Record<typeof signal, string> = {
+    sine: 'sine',
+    square: 'square',
+    sawtooth: 'sawtooth',
+    triangle: 'triangle',
+    whiteNoise: 'white',
+    pinkNoise: 'pink'
+  }
+  
+  if (audioEngine?.setSignalWaveform) {
+    await audioEngine.setSignalWaveform(props.trackNumber - 1, waveformMap[signal])
+  }
 }
 
-function toggleSignal() {
+async function toggleSignal() {
   isPlaying.value = !isPlaying.value
-  console.log(`[Signal Track ${props.trackNumber}] ${isPlaying.value ? 'Started' : 'Stopped'}`)
-  // TODO: Send to Rust engine to start/stop signal generation
+  console.log('[SignalTrack] toggleSignal - isPlaying:', isPlaying.value)
+  
+  if (!audioEngine || !audioEngine.state.value.isRunning) {
+    console.log('[SignalTrack] Audio engine not ready')
+    return
+  }
+  
+  if (isPlaying.value) {
+    // START: Create signal generator
+    console.log('[SignalTrack] Starting signal generator')
+    const waveformMap: Record<typeof selectedSignal.value, string> = {
+      sine: 'sine',
+      square: 'square',
+      sawtooth: 'sawtooth',
+      triangle: 'triangle',
+      whiteNoise: 'white',
+      pinkNoise: 'pink'
+    }
+    await audioEngine.setTrackSourceSignal(
+      props.trackNumber - 1,
+      waveformMap[selectedSignal.value],
+      frequency.value
+    )
+    console.log('[SignalTrack] Signal generator started')
+  } else {
+    // STOP: Clear signal generator
+    console.log('[SignalTrack] Stopping signal generator')
+    await audioEngine.clearTrackSource(props.trackNumber - 1)
+    console.log('[SignalTrack] Signal generator stopped')
+  }
 }
 
 function toggleFrequencySweep() {
   if (!isOscillator.value) return
   isSweeping.value = !isSweeping.value
-  console.log(`[Signal Track ${props.trackNumber}] Sweep ${isSweeping.value ? 'enabled' : 'disabled'}`)
-  // TODO: Send to Rust engine
+  // TODO: Implement frequency sweep in backend
 }
 
-function toggleMute() {
+async function toggleMute() {
   isMuted.value = !isMuted.value
+  
+  if (audioEngine?.setTrackMute) {
+    await audioEngine.setTrackMute(props.trackNumber - 1, isMuted.value)
+  }
 }
 
 function toggleSolo() {
@@ -217,38 +263,73 @@ function toggleSolo() {
   emit('soloChange', { trackNumber: props.trackNumber, isSolo: isSolo.value })
 }
 
-function toggleRouteToMaster() {
+async function toggleRouteToMaster() {
   routeToMaster.value = !routeToMaster.value
+  
+  if (audioEngine?.setTrackRouteToMaster) {
+    await audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
+  }
 }
 
 // Watchers - Send changes to Rust engine
-watch(selectedSignal, (signal) => {
-  if (audioEngine?.state.value.isRunning && isPlaying.value) {
-    // TODO: Send to Rust engine
-    console.log(`[Signal Track ${props.trackNumber}] Signal changed to:`, signal)
+watch(frequency, async (freq) => {
+  if (audioEngine?.state.value.isRunning && audioEngine?.setSignalFrequency) {
+    await audioEngine.setSignalFrequency(props.trackNumber - 1, freq)
   }
 })
 
-watch(frequency, (freq) => {
-  if (audioEngine?.state.value.isRunning && isPlaying.value && isOscillator.value) {
-    // TODO: Send to Rust engine
-    console.log(`[Signal Track ${props.trackNumber}] Frequency changed to:`, freq, 'Hz')
+watch(volume, async (newVolume) => {
+  console.log('[SignalTrack] Volume changed to:', newVolume, 'dB')
+  if (audioEngine?.state.value.isRunning && audioEngine?.setTrackVolume) {
+    // Convert dB to linear: linear = 10^(dB/20)
+    const linearVolume = newVolume <= -85 ? 0 : Math.pow(10, newVolume / 20)
+    console.log('[SignalTrack] Setting backend volume to:', linearVolume, 'linear')
+    await audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
   }
 })
 
-watch(volume, (newVolume) => {
-  if (audioEngine?.state.value.isRunning) {
-    // TODO: Send to Rust engine
-    console.log(`[Signal Track ${props.trackNumber}] Volume changed to:`, newVolume)
+watch(pan, async (newPan) => {
+  if (audioEngine?.state.value.isRunning && audioEngine?.setTrackPan) {
+    await audioEngine.setTrackPan(props.trackNumber - 1, newPan)
   }
 })
 
-watch(isMuted, (muted) => {
-  if (audioEngine?.state.value.isRunning) {
-    // TODO: Send to Rust engine
-    console.log(`[Signal Track ${props.trackNumber}] Mute:`, muted)
-  }
-})
+// Watch for meter level updates from audio engine
+watch(
+  () => audioEngine?.state.value.trackLevels.get(props.trackNumber - 1),
+  (levels) => {
+    if (levels) {
+      // Convert linear (0-1) to dB (-60 to 0)
+      trackLevelL.value = levels.left > 0 ? 20 * Math.log10(levels.left) : -60
+      trackLevelR.value = levels.right > 0 ? 20 * Math.log10(levels.right) : -60
+    }
+  },
+  { deep: true }
+)
+
+// Watch for audio engine to become ready and initialize
+watch(
+  () => audioEngine?.state.value.isRunning,
+  async (isRunning) => {
+    console.log('[SignalTrack] Audio engine running state changed:', isRunning, 'initialized:', isInitialized.value)
+    if (isRunning && !isInitialized.value) {
+      console.log('[SignalTrack] 🎯 Audio engine ready! Initializing track parameters...')
+      isInitialized.value = true
+      
+      // Set initial parameters (volume, pan, routing)
+      // Don't create signal generator yet - wait for user to press play
+      const linearVolume = volume.value <= -85 ? 0 : Math.pow(10, volume.value / 20)
+      console.log('[SignalTrack] Setting volume:', volume.value, 'dB =', linearVolume, 'linear')
+      await audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
+      await audioEngine.setTrackPan(props.trackNumber - 1, pan.value)
+      await audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
+      
+      // Don't start the signal generator yet - wait for user to press play
+      console.log('[SignalTrack] ✅ Initialization complete! Press PLAY to start signal.')
+    }
+  },
+  { immediate: true }
+)
 
 // Fader height calculation
 function updateFaderHeight() {
@@ -258,16 +339,25 @@ function updateFaderHeight() {
 }
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
+  console.log('[SignalTrack] onMounted START')
+  console.log('[SignalTrack] audioEngine exists?', !!audioEngine)
+  console.log('[SignalTrack] audioEngine.state.value.isRunning?', audioEngine?.state.value.isRunning)
+  
   const resizeObserver = new ResizeObserver(updateFaderHeight)
   if (faderContainer.value) {
     resizeObserver.observe(faderContainer.value)
   }
   updateFaderHeight()
+  
+  // Note: Signal generator initialization is handled by the audioEngine running watch
 })
 
 onUnmounted(() => {
-  // Cleanup if needed
+  // Cleanup: mute the track
+  if (audioEngine?.setTrackMute) {
+    audioEngine.setTrackMute(props.trackNumber - 1, true)
+  }
 })
 </script>
 

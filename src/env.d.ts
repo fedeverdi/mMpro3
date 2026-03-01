@@ -50,6 +50,9 @@ interface AudioEngine {
   // Track Source Selection
   setTrackSourceInput: (trackIndex: number, leftChannel: number, rightChannel: number, deviceName?: string | null) => Promise<void>
   setTrackSourceSignal: (trackIndex: number, waveform: string, frequency: number) => Promise<void>
+  setSignalFrequency: (trackIndex: number, frequency: number) => Promise<void>
+  setSignalWaveform: (trackIndex: number, waveform: string) => Promise<void>
+  clearTrackSource: (trackIndex: number) => Promise<void>
   setTrackSourceFile: (trackIndex: number, filePath: string) => Promise<void>
   saveTempAudioFile: (arrayBuffer: ArrayBuffer, fileName: string) => Promise<string>
   

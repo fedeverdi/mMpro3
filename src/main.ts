@@ -218,6 +218,18 @@ ipcMain.handle('audio-engine:set-track-source-signal', async (_, track: number, 
   await sendCommandToEngine({ type: 'set_track_source_signal', track, waveform, frequency })
 })
 
+ipcMain.handle('audio-engine:set-signal-frequency', async (_, track: number, frequency: number) => {
+  await sendCommandToEngine({ type: 'set_signal_frequency', track, frequency })
+})
+
+ipcMain.handle('audio-engine:set-signal-waveform', async (_, track: number, waveform: string) => {
+  await sendCommandToEngine({ type: 'set_signal_waveform', track, waveform })
+})
+
+ipcMain.handle('audio-engine:clear-track-source', async (_, track: number) => {
+  await sendCommandToEngine({ type: 'clear_track_source', track })
+})
+
 ipcMain.handle('audio-engine:set-track-source-file', async (_, track: number, filePath: string) => {
   await sendCommandToEngine({ type: 'set_track_source_file', track, file_path: filePath })
 })

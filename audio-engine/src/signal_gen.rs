@@ -119,6 +119,28 @@ impl SignalGenerator {
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
     }
+
+    /// Set waveform type
+    pub fn set_waveform(&mut self, waveform: WaveformType) {
+        self.waveform = waveform;
+        // Reset phase when changing waveform for clean transition
+        self.phase = 0.0;
+    }
+
+    /// Set frequency
+    pub fn set_frequency(&mut self, frequency: f32) {
+        self.frequency = frequency.max(20.0).min(20000.0); // Clamp to audible range
+    }
+
+    /// Get current waveform type
+    pub fn waveform(&self) -> WaveformType {
+        self.waveform
+    }
+
+    /// Get current frequency
+    pub fn frequency(&self) -> f32 {
+        self.frequency
+    }
 }
 
 #[cfg(test)]

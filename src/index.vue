@@ -411,12 +411,15 @@ provide('fileManager', {
 function initializeTracks(): Track[] {
   const tracks: Track[] = []
 
-  // Start with just 1 audio track
+  // Start with 5 audio tracks
   tracks.push({ id: 1, type: 'audio', order: 1 })
   tracks.push({ id: 2, type: 'audio', order: 2 })
   tracks.push({ id: 3, type: 'audio', order: 3 })
   tracks.push({ id: 4, type: 'audio', order: 4 })
   tracks.push({ id: 5, type: 'audio', order: 5 })
+  
+  // Add one signal track at the end
+  tracks.push({ id: 6, type: 'signal', order: 6 })
 
   return tracks
 }

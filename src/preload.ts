@@ -38,6 +38,12 @@ contextBridge.exposeInMainWorld('audioEngine', {
     ipcRenderer.invoke('audio-engine:set-track-source-input', track, leftChannel, rightChannel, deviceName),
   setTrackSourceSignal: (track: number, waveform: string, frequency: number) => 
     ipcRenderer.invoke('audio-engine:set-track-source-signal', track, waveform, frequency),
+  setSignalFrequency: (track: number, frequency: number) => 
+    ipcRenderer.invoke('audio-engine:set-signal-frequency', track, frequency),
+  setSignalWaveform: (track: number, waveform: string) => 
+    ipcRenderer.invoke('audio-engine:set-signal-waveform', track, waveform),
+  clearTrackSource: (track: number) => 
+    ipcRenderer.invoke('audio-engine:clear-track-source', track),
   setTrackSourceFile: (track: number, filePath: string) => 
     ipcRenderer.invoke('audio-engine:set-track-source-file', track, filePath),
   saveTempAudioFile: (arrayBuffer: ArrayBuffer, fileName: string) => 

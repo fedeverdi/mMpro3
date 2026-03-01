@@ -231,9 +231,12 @@ impl Track {
 
     /// Set track source to signal generator
     pub fn set_signal_generator(&mut self, waveform: WaveformType, frequency: f32, sample_rate: f32) {
+        eprintln!("[Track {}] set_signal_generator called: {:?} @ {}Hz", self.id, waveform, frequency);
         self.source = TrackSource::SignalGenerator;
         self.signal_generator = Some(SignalGenerator::new(waveform, frequency, sample_rate));
         self.file_player = None;
+        eprintln!("[Track {}] Signal generator created. source={:?}, generator exists={}", 
+                 self.id, self.source, self.signal_generator.is_some());
     }
 
     /// Set track source to file player
@@ -328,6 +331,12 @@ impl Track {
             TrackSource::SignalGenerator => {
                 if let Some(generator) = &mut self.signal_generator {
                     let sample = generator.next_sample();
+                    // Debug first few samples
+                    static SAMPLE_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+                    let count = SAMPLE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if count < 3 {
+                        eprintln!("[Track {}] SignalGenerator producing sample: {:.6}", self.id, sample);
+                    }
                     (sample, sample)
                 } else {
                     (0.0, 0.0)
@@ -426,11 +435,18 @@ impl Track {
         self.waveform_write_index = (self.waveform_write_index + 1) % WAVEFORM_BUFFER_SIZE;
 
         // Apply mute after level calculation (so meters still work)
-        if self.mute {
+        let output = if self.mute {
+            static MUTE_LOG: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+            let count = MUTE_LOG.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if count < 3 && matches!(self.source, TrackSource::SignalGenerator) {
+                eprintln!("[Track {}] MUTED output (had signal: L={:.6}, R={:.6})", self.id, left, right);
+            }
             (0.0, 0.0)
         } else {
             (left, right)
-        }
+        };
+        
+        output
     }
 
     /// Get waveform buffer for visualization (returns samples in chronological order)

@@ -180,8 +180,8 @@ function onDrag(e: MouseEvent | TouchEvent) {
   const currentY = 'touches' in e ? e.touches[0].clientY : e.clientY
   const deltaY = startY.value - currentY
   
-  // Increased sensitivity: 200 pixels for full range
-  const sensitivity = 200
+  // Increased sensitivity: 500 pixels for full range (logarithmic feel)
+  const sensitivity = 500
   const deltaPosition = deltaY / sensitivity
   
   const currentPosition = freqToPosition(startValue.value)
@@ -227,7 +227,7 @@ function stopDrag() {
 
 function onWheel(e: WheelEvent) {
   const currentPosition = freqToPosition(props.modelValue)
-  const delta = e.deltaY > 0 ? -0.02 : 0.02 // 2% per scroll
+  const delta = e.deltaY > 0 ? -0.01 : 0.01 // 1% per scroll for fine control
   const newPosition = Math.max(0, Math.min(1, currentPosition + delta))
   const newFreq = positionToFreq(newPosition)
   
