@@ -22,7 +22,7 @@ interface RustAudioDevice {
 
 // Audio Engine API
 interface AudioEngine {
-  start: (inputDevice?: string, outputDevice?: string) => Promise<void>
+  start: (inputDevice?: string | null, outputDevice?: string | null, sampleRate?: number | null, bufferSize?: number | null) => Promise<void>
   stop: () => Promise<void>
   setGain: (track: number, gain: number) => Promise<void>
   setVolume: (track: number, volume: number) => Promise<void>

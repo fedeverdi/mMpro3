@@ -165,10 +165,14 @@ const sendCommandAndWaitForResponse = (command: any, responseType: string, timeo
 }
 
 // IPC Handlers
-ipcMain.handle('audio-engine:start', async (_, inputDevice?: string, outputDevice?: string) => {
+ipcMain.handle('audio-engine:start', async (_, inputDevice?: string | null, outputDevice?: string | null, sampleRate?: number | null, bufferSize?: number | null) => {
+  console.log('[Main IPC] Received start params:', { inputDevice, outputDevice, sampleRate, bufferSize })
   const command: any = { type: 'start' }
   if (inputDevice) command.input_device = inputDevice
   if (outputDevice) command.output_device = outputDevice
+  if (sampleRate) command.sample_rate = sampleRate
+  if (bufferSize) command.buffer_size = bufferSize
+  console.log('[Main IPC] Sending command to engine:', command)
   await sendCommandToEngine(command)
 })
 

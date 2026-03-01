@@ -152,35 +152,11 @@ impl AudioIO {
         let mut stream_config = default_config.config();
         let default_rate = default_config.sample_rate().0;
 
-        // If no sample rate specified, try to find the highest supported rate
+        // If no sample rate specified, use device default (most reliable)
         let target_sample_rate = if let Some(rate) = sample_rate {
             rate
         } else {
-            // Get maximum supported sample rate
-            let max_rate = if is_input {
-                device.supported_input_configs()
-                    .ok()
-                    .and_then(|configs| {
-                        configs
-                            .map(|config| config.max_sample_rate().0)
-                            .max()
-                    })
-                    .unwrap_or(default_rate)
-            } else {
-                device.supported_output_configs()
-                    .ok()
-                    .and_then(|configs| {
-                        configs
-                            .map(|config| config.max_sample_rate().0)
-                            .max()
-                    })
-                    .unwrap_or(default_rate)
-            };
-            
-            if max_rate != default_rate {
-                eprintln!("[AudioIO] Device supports max sample rate: {} Hz (default: {} Hz)", max_rate, default_rate);
-            }
-            max_rate
+            default_rate
         };
 
         // Verify the target sample rate is supported

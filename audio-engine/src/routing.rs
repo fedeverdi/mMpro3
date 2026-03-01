@@ -224,8 +224,8 @@ impl Track {
         self.signal_generator = None;
         self.file_player = None;
         
-        // Set default gain to 1.0 for microphone input
-        self.gain = 1.0;
+        // Set default gain to 0.7 for microphone input (to prevent clipping on hot signals)
+        self.gain = 0.7;
     }
 
     /// Set track source to signal generator

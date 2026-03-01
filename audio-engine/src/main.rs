@@ -43,6 +43,7 @@ enum Command {
         input_device: Option<String>,
         output_device: Option<String>,
         sample_rate: Option<u32>,
+        buffer_size: Option<u32>,
     },
     #[serde(rename = "stop")]
     Stop,
@@ -410,8 +411,10 @@ struct AudioEngine {
     input_stream: Option<Stream>,
     output_stream: Option<Stream>,
     sample_rate: u32,
+    input_sample_rate: u32, // Track input sample rate (may differ from output)
+    output_buffer_size: Option<u32>, // Track output buffer size for input matching
     updates_suspended: Arc<AtomicBool>,
-    input_buffer: Arc<Mutex<Vec<f32>>>,
+    input_buffer: Arc<Mutex<Vec<f32>>>, // Shared buffer - always contains latest input frame
     input_channels: Arc<AtomicUsize>,
     input_users: HashSet<usize>, // Track IDs that are using audio input
     current_input_device: Option<String>, // Currently open input device name
@@ -431,6 +434,8 @@ impl AudioEngine {
             input_stream: None,
             output_stream: None,
             sample_rate: 48000, // Default, will be overwritten by device native rate
+            input_sample_rate: 48000, // Default, will be overwritten when input opens
+            output_buffer_size: None,
             updates_suspended,
             input_buffer,
             input_channels,
@@ -448,7 +453,9 @@ impl AudioEngine {
         input_device_name: Option<String>,
         output_device_name: Option<String>,
         sample_rate: Option<u32>,
+        buffer_size: Option<u32>,
     ) -> Result<()> {
+        eprintln!("[Engine] start() called with: sample_rate={:?}, buffer_size={:?}", sample_rate, buffer_size);
         if self.input_stream.is_some() || self.output_stream.is_some() {
             return Ok(()); // Already running
         }
@@ -474,7 +481,7 @@ impl AudioEngine {
         };
         */
 
-        // Detect Bluetooth devices and use larger buffer for stability
+        // Get device name for logging
         let output_device_name = output_device.name().unwrap_or_else(|_| String::from("Unknown"));
         let output_device_name_lower = output_device_name.to_lowercase();
         
@@ -483,18 +490,17 @@ impl AudioEngine {
             || output_device_name_lower.contains("wireless")
             || output_device_name_lower.contains("bt");
         
-        // Use adaptive buffer sizing: larger for Bluetooth, default for wired
-        let buffer_size = if is_bluetooth {
-            Some(1024)  // ~21ms @ 48kHz - optimal for Bluetooth stability
-        } else {
-            None  // Use device native buffer (typically 256-512)
-        };
-        
         // Skip input config for now (see TODO above about privacy)
         // let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate, buffer_size)?;
         let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate, buffer_size)?;
 
         self.sample_rate = output_config.sample_rate.0;
+        
+        // Save buffer size for input stream matching
+        self.output_buffer_size = match output_config.buffer_size {
+            cpal::BufferSize::Fixed(size) => Some(size),
+            cpal::BufferSize::Default => None,
+        };
         
         // Log configuration
         let actual_buffer_size = output_config.buffer_size;
@@ -504,29 +510,22 @@ impl AudioEngine {
             cpal::BufferSize::Fixed(size) => {
                 let latency_ms = (size as f32 / self.sample_rate as f32) * 1000.0;
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
-                eprintln!("[Engine] Audio Configuration - {}", device_type);
+                eprintln!("[Engine] Audio Configuration");
                 eprintln!("[Engine] ───────────────────────────────────────────────────");
                 eprintln!("[Engine] Device: {}", output_device_name);
                 eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
                 eprintln!("[Engine] Buffer Size: {} frames ({:.2}ms latency)", size, latency_ms);
-                
-                if is_bluetooth {
-                    eprintln!("[Engine] ───────────────────────────────────────────────────");
-                    eprintln!("[Engine] ✓ Buffer ottimizzato per Bluetooth (1024 frames)");
-                    eprintln!("[Engine]   Riduce drasticamente click e interruzioni");
-                } else {
-                    eprintln!("[Engine] ───────────────────────────────────────────────────");
-                    eprintln!("[Engine] ✓ Buffer nativo del dispositivo");
-                }
+                eprintln!("[Engine] Type: {}", if is_bluetooth { "Bluetooth" } else { "Wired" });
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
             },
             cpal::BufferSize::Default => {
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
-                eprintln!("[Engine] Audio Configuration - {}", device_type);
+                eprintln!("[Engine] Audio Configuration");
                 eprintln!("[Engine] ───────────────────────────────────────────────────");
                 eprintln!("[Engine] Device: {}", output_device_name);
                 eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
                 eprintln!("[Engine] Buffer Size: DEFAULT (system auto)");
+                eprintln!("[Engine] Type: {}", if is_bluetooth { "Bluetooth" } else { "Wired" });
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
             },
         }
@@ -571,7 +570,7 @@ impl AudioEngine {
         // when tracks select audio input sources. This preserves privacy by not opening
         // the microphone unless actually needed.
         
-        // Use the shared input buffer that will be populated by the input stream
+        // Share input buffer with output callback
         let input_buffer = Arc::clone(&self.input_buffer);
         let input_channels = Arc::clone(&self.input_channels);
 
@@ -582,9 +581,11 @@ impl AudioEngine {
                 // Start performance measurement
                 let start_time = Instant::now();
                 
-                let input_buf = input_buffer.lock().unwrap();
                 let frames = data.len() / output_channels;
                 let input_ch_count = input_channels.load(Ordering::Relaxed);
+                
+                // Lock input buffer and copy the data (keep lock time minimal)
+                let input_buf = input_buffer.lock().unwrap();
 
                 // Acquire lock, process audio, release lock quickly
                 let (levels_to_send, fft_data) = {
@@ -592,11 +593,15 @@ impl AudioEngine {
                     
                     // Process all frames
                     for frame_idx in 0..frames {
-                        // Prepare input frame if available
-                        let input_frame: Option<Vec<f32>> = if !input_buf.is_empty() && frame_idx < input_buf.len() / input_ch_count {
+                        // Extract input frame from buffer (take latest available data)
+                        let input_frame: Option<Vec<f32>> = if input_ch_count > 0 && !input_buf.is_empty() {
                             let start = frame_idx * input_ch_count;
                             let end = start + input_ch_count;
-                            Some(input_buf[start..end].to_vec())
+                            if end <= input_buf.len() {
+                                Some(input_buf[start..end].to_vec())
+                            } else {
+                                None // Not enough data for this frame
+                            }
                         } else {
                             None
                         };
@@ -678,8 +683,6 @@ impl AudioEngine {
                     
                     (levels_to_send, fft_data)
                 }; // Lock is released here
-                
-                drop(input_buf); // Release input buffer lock
                 
                 // CRITICAL: Check if updates are suspended (during window resize)
                 // This prevents blocking I/O on stdout which would freeze audio
@@ -794,9 +797,10 @@ impl AudioEngine {
             if let Some(stream) = self.input_stream.take() {
                 drop(stream);
             }
-            // Clear input buffer
-            let mut buffer = self.input_buffer.lock().unwrap();
-            buffer.clear();
+            // Clear buffer when changing device
+            if let Ok(mut buffer) = self.input_buffer.lock() {
+                buffer.clear();
+            }
         }
         
         // If already open with the same device and had other users, just return
@@ -814,22 +818,40 @@ impl AudioEngine {
             self.audio_io.default_input_device()?
         };
 
-        // Use same buffer size as output for consistency
-        let buffer_size = None; // Use device native buffer
+        // Use device native sample rate and buffer size for best compatibility
+        // BUT: Force input to match output sample rate to avoid resampling issues
+        // AND: Use same buffer size as output for synchronized callbacks
+        let buffer_size = self.output_buffer_size;
         
         let input_config = self.audio_io.get_supported_config(&input_device, true, Some(self.sample_rate), buffer_size)?;
         
+        eprintln!("[Engine] Input device sample rate: {} Hz (output: {} Hz)", 
+            input_config.sample_rate.0, self.sample_rate);
+        
+        if let Some(size) = buffer_size {
+            eprintln!("[Engine] Input buffer size: {} frames (matched to output)", size);
+        } else {
+            eprintln!("[Engine] Input buffer size: DEFAULT (matched to output)");
+        }
+        
+        // Store input sample rate
+        self.input_sample_rate = input_config.sample_rate.0;
         self.input_channels.store(input_config.channels as usize, Ordering::Relaxed);
         
         let input_buffer_clone = Arc::clone(&self.input_buffer);
+        
+        eprintln!("[Engine] Using shared buffer for input audio");
+        
         let err_fn = |err| eprintln!("[Engine] Input stream error: {}", err);
 
         let input_stream = input_device.build_input_stream(
             &input_config,
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                let mut buffer = input_buffer_clone.lock().unwrap();
-                buffer.clear();
-                buffer.extend_from_slice(data);
+                // Replace buffer with latest input data (CPAL handles sample rate conversion)
+                if let Ok(mut buffer) = input_buffer_clone.lock() {
+                    buffer.clear();
+                    buffer.extend_from_slice(data);
+                }
             },
             err_fn,
             None,
@@ -859,8 +881,9 @@ impl AudioEngine {
             }
             
             // Clear input buffer
-            let mut buffer = self.input_buffer.lock().unwrap();
-            buffer.clear();
+            if let Ok(mut buffer) = self.input_buffer.lock() {
+                buffer.clear();
+            }
             
             // Clear current device
             self.current_input_device = None;
@@ -1263,7 +1286,8 @@ impl AudioEngine {
                 input_device,
                 output_device,
                 sample_rate,
-            } => match self.start(input_device, output_device, sample_rate) {
+                buffer_size,
+            } => match self.start(input_device, output_device, sample_rate, buffer_size) {
                 Ok(_) => Some(Response::Started),
                 Err(e) => Some(Response::Error {
                     message: format!("Start failed: {}", e),
