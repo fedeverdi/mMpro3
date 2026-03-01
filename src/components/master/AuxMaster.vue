@@ -199,10 +199,10 @@
 
                             <!-- Audio Output Devices -->
                             <div v-if="audioOutputDevices.length > 0" class="space-y-2">
-                                <button v-for="device in audioOutputDevices" :key="device.deviceId"
-                                    @click="selectOutputDevice(selectedAuxIndex, device.deviceId)" :class="[
+                                <button v-for="device in audioOutputDevices" :key="device.id"
+                                    @click="selectOutputDevice(selectedAuxIndex, device.id)" :class="[
                                         'w-full p-3 rounded border-2 transition-all text-left flex items-center gap-3',
-                                        auxBuses[selectedAuxIndex]?.selectedOutputDevice === device.deviceId
+                                        auxBuses[selectedAuxIndex]?.selectedOutputDevice === device.id
                                             ? 'bg-teal-900/30 border-teal-500'
                                             : 'bg-gray-800 border-gray-700 hover:border-gray-600'
                                     ]">
@@ -456,8 +456,8 @@ function selectOutputDevice(index: number, deviceId: string | null) {
 function getDeviceLabel(deviceId: string | null | undefined): string {
     if (!deviceId) return 'Default'
     if (deviceId === 'no-output') return 'No Output'
-    const device = audioOutputDevices.value.find(d => d.deviceId === deviceId)
-    return device?.label || 'Unknown Device'
+    const device = audioOutputDevices.value.find(d => d.id === deviceId)
+    return device?.name || 'Unknown Device'
 }
 
 // Toggle Reverb FX

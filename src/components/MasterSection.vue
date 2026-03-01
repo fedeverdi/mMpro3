@@ -149,9 +149,9 @@ async function onMasterOutputSelect(deviceId: string | null) {
       await audioEngine.restartWithDevices(undefined, undefined)
       console.log('[Master Output] Engine restarted with default output device')
     } else {
-      const device = audioOutputDevices.value.find(d => d.deviceId === deviceId)
+      const device = audioOutputDevices.value.find(d => d.id === deviceId)
       if (device) {
-        const deviceLabel = device.label || `Device ${deviceId.substring(0, 8)}`
+        const deviceLabel = device.name || `Device ${deviceId.substring(0, 8)}`
         console.log('[Master Output] Restarting engine with:', deviceLabel)
         await audioEngine.restartWithDevices(undefined, deviceLabel)
         console.log('[Master Output] Engine restarted with new output device')

@@ -74,10 +74,10 @@
             <!-- Audio Output Devices -->
             <button
               v-for="device in devices"
-              :key="device.deviceId"
-              @click="selectDevice(device.deviceId)"
+              :key="device.id"
+              @click="selectDevice(device.id)"
               class="w-full p-4 rounded-lg border-2 transition-all text-left"
-              :class="selectedDeviceId === device.deviceId 
+              :class="selectedDeviceId === device.id 
                 ? 'bg-blue-600 border-blue-500 text-white' 
                 : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500'"
             >
@@ -86,14 +86,14 @@
                   <div class="text-2xl">🔊</div>
                   <div>
                     <div class="font-semibold">
-                      {{ device.label || `Audio Output ${device.deviceId.substring(0, 12)}...` }}
+                      {{ device.name || `Audio Output ${device.id.substring(0, 12)}...` }}
                     </div>
                     <div class="text-xs opacity-70 font-mono">
-                      {{ device.deviceId.substring(0, 20) }}...
+                      {{ device.id.substring(0, 20) }}...
                     </div>
                   </div>
                 </div>
-                <div v-if="selectedDeviceId === device.deviceId" class="text-blue-300">
+                <div v-if="selectedDeviceId === device.id" class="text-blue-300">
                   <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                   </svg>
@@ -117,7 +117,7 @@
 const props = withDefaults(defineProps<{
   isOpen: boolean
   title: string
-  devices: MediaDeviceInfo[]
+  devices: RustAudioDevice[]
   selectedDeviceId: string
   defaultLabel?: string
   defaultDescription?: string
