@@ -654,7 +654,7 @@ impl AuxBus {
             id,
             gain: 1.0,
             mute: false,
-            route_to_master: true, // Route to master by default
+            route_to_master: false, // Not routed to master by default
             route_to_subgroups: Vec::new(), // No subgroup routing by default
             output_enabled: false, // No direct output by default
             output_channel_selection: ChannelSelection::stereo(),
