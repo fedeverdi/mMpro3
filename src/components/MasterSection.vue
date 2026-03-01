@@ -49,6 +49,9 @@
 
     <!-- Master Controls -->
     <div class="w-full mt-2 flex gap-1">
+      <!-- Recorder Button -->
+      <RecorderButton @open="$emit('open-recorder')" />
+      
       <!-- Master Mute Button -->
       <button @click="toggleMasterMute" class="flex-1 py-1 text-xs font-bold rounded transition-all"
         :class="masterMuted ? 'bg-red-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
@@ -86,6 +89,7 @@ import MasterFader from './master/MasterFader.vue'
 import MasterMeter from './master/MasterMeter.vue'
 import HeadphonesControl from './master/HeadphonesControl.vue'
 import OutputSelector from './master/OutputSelector.vue'
+import RecorderButton from './recorder/RecorderButton.vue'
 import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 import { useAudioDevices } from '../composables/useAudioDevices'
 
@@ -99,6 +103,11 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   loadedTracks: () => []
 })
+
+// Emits
+defineEmits<{
+  'open-recorder': []
+}>()
 
 // Inject Rust audio engine
 const audioEngine = inject<any>('audioEngine', null)

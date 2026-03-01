@@ -207,7 +207,7 @@
         <!-- Master Section -->
         <div class="flex-shrink-0 h-full mixer-fade-in">
           <MasterSection ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode"
-            :master-fx-component="masterFxComponent" :loaded-tracks="loadedTracks" />
+            :master-fx-component="masterFxComponent" :loaded-tracks="loadedTracks" @open-recorder="showRecorder = true" />
         </div>
       </div>
     </main>
@@ -309,6 +309,7 @@
 
     <!-- Audio Settings Modal -->
     <AudioSettingsModal :is-open="showAudioSettings" @close="showAudioSettings = false" @apply="handleAudioConfigApply" />
+    <Recorder v-model="showRecorder" :loaded-tracks="loadedTracks" />
 
     <!-- File Manager Modal -->
     <FileManagerModal v-model="showFileManager" @select-file="handleFileManagerSelect"
@@ -401,6 +402,7 @@ import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import { useAutomation } from '~/composables/useAutomation'
 import { getBuildLimits, canAddTrack, getTrackCounts, getBuildMode } from '~/config/buildLimits'
 import { channel } from 'diagnostics_channel'
+import Recorder from './components/recorder/Recorder.vue'
 
 const { audioOutputDevices, audioInputDevices, refreshAudioOutputs, refreshAudioInputs } = useAudioDevices()
 const audioEngine = useAudioEngine()
@@ -463,6 +465,7 @@ const showAudioFlowModal = ref(false)
 const showScenesModal = ref(false)
 const showFileManager = ref(false)
 const showAudioSettings = ref(false)
+const showRecorder = ref(false)
 const isLoadingScene = ref(false)
 const showLimitModal = ref(false)
 const limitModalMessage = ref('')

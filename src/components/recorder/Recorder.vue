@@ -18,7 +18,7 @@
             </div>
             <div>
               <h2 class="text-xl font-bold text-white">Master Recorder</h2>
-              <p class="text-xs text-gray-400">Record your master mix</p>
+              <p class="text-xs text-gray-400">Record your master mix (Coming Soon)</p>
             </div>
           </div>
           <button @click="closeModal" class="text-gray-400 hover:text-white transition-colors">
@@ -70,35 +70,33 @@
               />
             </div>
           </div>
-
-          
         </div>
-        <!-- Waveform Display -->
-        <WaveformDisplay 
-          ref="waveformDisplay"
-          :analyser-left="analyserNodeLeft" 
-          :analyser-right="analyserNodeRight"
-          :is-recording="isRecording" 
-          @level-update="(left, right) => { leftLevel = left; rightLevel = right }" 
-        />
 
-        <!-- Loaded Tracks Waveforms -->
+        <!-- Info Message -->
+        <div class="bg-blue-900/30 border border-blue-600/50 rounded-lg p-4 mb-4">
+          <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+            </svg>
+            <div class="text-sm text-blue-200">
+              <p class="font-semibold mb-1">Recorder Feature Status</p>
+              <p class="text-xs text-blue-300">Master recording will capture audio directly from the Rust audio engine. This feature requires implementing a tap point in the master bus to extract stereo samples at the configured sample rate.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loaded Tracks Info -->
         <div class="mt-4">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-sm font-bold text-white uppercase tracking-wider">Playing Tracks</h3>
             <div class="text-xs text-gray-500">{{ props.loadedTracks?.length || 0 }} track{{ (props.loadedTracks?.length || 0) !== 1 ? 's' : '' }}</div>
           </div>
-          <div v-if="props.loadedTracks && props.loadedTracks.length > 0" class="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar">
-            <StaticWaveform 
-              v-for="track in props.loadedTracks" 
-              :key="track.trackNumber"
-              :track-number="track.trackNumber"
-              :file-name="track.fileName"
-              :file-id="track.fileId"
-              :is-playing="track.isPlaying"
-              :current-time="track.currentTime"
-              :duration="track.duration"
-            />
+          <div v-if="props.loadedTracks && props.loadedTracks.length > 0" class="bg-gray-800/30 border border-gray-700 rounded-lg p-3">
+            <div class="space-y-1">
+              <div v-for="track in props.loadedTracks" :key="track.trackNumber" class="text-xs text-gray-400">
+                Track {{ track.trackNumber }}: {{ track.fileName }}
+              </div>
+            </div>
           </div>
           <div v-else class="text-center py-6 text-gray-500">
             <p class="text-xs">No tracks currently playing</p>
@@ -149,24 +147,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, toRaw, nextTick, type Ref } from 'vue'
-import WaveformDisplay from './components/WaveformDisplay.vue'
+import { ref, inject } from 'vue'
 import HorizontalStereoMeter from './components/HorizontalStereoMeter.vue'
 import QualitySelector from './components/QualitySelector.vue'
-import StaticWaveform from './components/StaticWaveform.vue'
 
 interface Props {
   modelValue: boolean
-  isRecording?: boolean
-  audioNode?: Ref<any> | any
-  tone?: Ref<any> | any
   loadedTracks?: Array<{ 
     trackNumber: number, 
     fileName: string, 
-    fileId: string,
-    isPlaying: boolean,
-    currentTime: number,
-    duration: number
+    fileId: string
   }>
 }
 
@@ -182,10 +172,13 @@ interface Recording {
 const props = withDefaults(defineProps<Props>(), {
   loadedTracks: () => []
 })
+
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'update:isRecording': [value: boolean]
 }>()
+
+// Inject Rust audio engine
+const audioEngine = inject<any>('audioEngine', null)
 
 // Recording state
 const isRecording = ref(false)
@@ -194,25 +187,13 @@ const recordingStartTime = ref(0)
 const recordings = ref<Recording[]>([])
 const recordingQuality = ref<string>('192') // Default: High quality
 
-// Level monitoring
+// Level monitoring (will be fed from Rust engine in future)
 const leftLevel = ref(-60)
 const rightLevel = ref(-60)
 
-// Recording internals
-let recorder: { mediaRecorder: MediaRecorder; dest: MediaStreamAudioDestinationNode } | null = null
 let recordingInterval: number | null = null
 
-// Waveform
-const waveformDisplay = ref<InstanceType<typeof WaveformDisplay> | null>(null)
-const analyserNodeLeft = ref<AnalyserNode | null>(null)
-const analyserNodeRight = ref<AnalyserNode | null>(null)
-
-// Computed values
-const toneValue = computed(() => props.tone?.value ?? props.tone)
-const audioNodeValue = computed(() => props.audioNode?.value ?? props.audioNode)
-
 function closeModal() {
-  // Allow closing even while recording
   emit('update:modelValue', false)
 }
 
@@ -225,165 +206,46 @@ function toggleRecording() {
 }
 
 async function startRecording() {
-  const tone = toneValue.value
-  const audioNode = audioNodeValue.value
+  console.log('[Recorder] Starting recording...')
+  console.log('[Recorder] Audio engine available:', !!audioEngine)
+  
+  // TODO: Implement recording with Rust audio engine
+  // Will need to:
+  // 1. Enable master tap in Rust engine
+  // 2. Stream PCM samples from Rust to renderer
+  // 3. Encode samples to WebM using MediaRecorder or FFmpeg
+  
+  isRecording.value = true
+  recordingStartTime.value = Date.now()
+  recordingTime.value = '00:00'
 
-  if (!tone || !audioNode) {
-    console.error('[Recorder] Tone.js or audioNode not available')
-    return
-  }
-
-  try {
-    // Ensure audio context is running
-    if (tone.context.state !== 'running') {
-      await tone.start()
-    }
-
-    // Create MediaStreamDestination from Web Audio context
-    const audioContext = tone.context.rawContext as AudioContext
-    const dest = audioContext.createMediaStreamDestination()
-
-    // Remove Vue reactivity and get native audio node
-    const rawNode = toRaw(audioNode)
+  // Start timer
+  recordingInterval = window.setInterval(() => {
+    const elapsed = Math.floor((Date.now() - recordingStartTime.value) / 1000)
+    const minutes = Math.floor(elapsed / 60)
+    const seconds = elapsed % 60
+    recordingTime.value = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
     
-    // Create channel splitter for separate L/R analysis
-    const splitter = audioContext.createChannelSplitter(2)
-    
-    // Create analysers for left and right channels
-    const analyserLeft = audioContext.createAnalyser()
-    analyserLeft.fftSize = 2048
-    analyserLeft.smoothingTimeConstant = 0.8
-    
-    const analyserRight = audioContext.createAnalyser()
-    analyserRight.fftSize = 2048
-    analyserRight.smoothingTimeConstant = 0.8
-    
-    analyserNodeLeft.value = analyserLeft
-    analyserNodeRight.value = analyserRight
-    
-    // Connect using Tone.js and native nodes properly
-    // Get the native output node from Tone.js Merge
-    try {
-      // Tone.js wraps nodes - we need to get the actual Web Audio ChannelMergerNode
-      const mergerOutput = rawNode.output ? toRaw(rawNode.output) : rawNode
-      
-      // Connect: Tone Merge output -> splitter -> analysers (L/R) -> dest
-      mergerOutput.connect(splitter)
-      splitter.connect(analyserLeft, 0) // Left channel
-      splitter.connect(analyserRight, 1) // Right channel
-      
-      // Merge analysers back to stereo for recording
-      const merger = audioContext.createChannelMerger(2)
-      analyserLeft.connect(merger, 0, 0)
-      analyserRight.connect(merger, 0, 1)
-      merger.connect(dest)
-      
-      // IMPORTANT: Also keep the Merge connected to Tone destination
-      // so the audio graph stays active in Tone.js
-      rawNode.toDestination()
-      
-    } catch (err) {
-      console.error('[Recorder] Connection error:', err)
-      throw err
-    }
-
-    // Create MediaRecorder
-    const mediaRecorder = new MediaRecorder(dest.stream, {
-      mimeType: 'audio/webm;codecs=opus',
-      audioBitsPerSecond: parseInt(recordingQuality.value) * 1000
-    })
-
-    const chunks: Blob[] = []
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        chunks.push(e.data)
-      }
-    }
-    
-    mediaRecorder.onerror = (e) => {
-      console.error('[Recorder] MediaRecorder error:', e)
-    }
-
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' })
-      const duration = recordingTime.value
-      const size = formatFileSize(blob.size)
-      
-      // Add to recordings list
-      const now = new Date()
-      const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5)
-      
-      recordings.value.unshift({
-        id: Date.now().toString(),
-        name: `Recording_${timestamp}`,
-        blob,
-        duration,
-        size,
-        timestamp: Date.now()
-      })
-
-      // Cleanup audio connections after recording is fully stopped
-      const audioNode = audioNodeValue.value
-      if (audioNode && recorder && recorder.dest) {
-        try {
-          const rawNode = toRaw(audioNode)
-          const mergerOutput = rawNode.output ? toRaw(rawNode.output) : rawNode
-          // Disconnect will be handled automatically when nodes are set to null
-        } catch (e) {
-          console.warn('[Recorder] Cleanup connection error:', e)
-        }
-      }
-
-      // Clear analyser and recorder references
-      analyserNodeLeft.value = null
-      analyserNodeRight.value = null
-      recorder = null
-    }
-
-    mediaRecorder.start()
-    recorder = { mediaRecorder, dest }
-
-    isRecording.value = true
-    emit('update:isRecording', true)
-    recordingStartTime.value = Date.now()
-    recordingTime.value = '00:00'
-
-    // Start timer
-    recordingInterval = window.setInterval(() => {
-      const elapsed = Math.floor((Date.now() - recordingStartTime.value) / 1000)
-      const minutes = Math.floor(elapsed / 60)
-      const seconds = elapsed % 60
-      recordingTime.value = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-    }, 1000)
-  } catch (error) {
-    console.error('[Recorder] Error starting recording:', error)
-    isRecording.value = false
-    emit('update:isRecording', false)
-  }
+    // Simulate level changes
+    leftLevel.value = -20 + Math.random() * 15
+    rightLevel.value = -20 + Math.random() * 15
+  }, 100)
 }
 
 function stopRecording() {
-  if (!recorder) return
-
-  try {
-    if (recorder.mediaRecorder.state !== 'inactive') {
-      recorder.mediaRecorder.stop()
-    }
-
-    // Clear timer
-    if (recordingInterval) {
-      clearInterval(recordingInterval)
-      recordingInterval = null
-    }
-
-    isRecording.value = false
-    emit('update:isRecording', false)
-  } catch (error) {
-    console.error('[Recorder] Error stopping recording:', error)
-    isRecording.value = false
-    emit('update:isRecording', false)
+  console.log('[Recorder] Stopping recording...')
+  
+  if (recordingInterval) {
+    clearInterval(recordingInterval)
+    recordingInterval = null
   }
+
+  isRecording.value = false
+  leftLevel.value = -60
+  rightLevel.value = -60
+  
+  // TODO: Finalize recording and add to list
+  console.log('[Recorder] Recording stopped at', recordingTime.value)
 }
 
 function downloadRecording(recording: Recording) {
@@ -398,43 +260,6 @@ function downloadRecording(recording: Recording) {
 function deleteRecording(id: string) {
   recordings.value = recordings.value.filter(r => r.id !== id)
 }
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-}
-
-// When modal reopens during active recording, restart waveform
-watch(() => props.modelValue, async (isOpen) => {
-  if (!isOpen) {
-    // Reset levels when modal closes
-    leftLevel.value = -60
-    rightLevel.value = -60
-  } else if (isOpen && isRecording.value) {
-    // Modal reopened during active recording - restart waveform
-    // Wait for component to be mounted after transition
-    await nextTick()
-    waveformDisplay.value?.restart()
-  }
-})
-
-// Cleanup
-onUnmounted(() => {
-  if (recorder) {
-    try {
-      if (recorder.mediaRecorder.state !== 'inactive') {
-        recorder.mediaRecorder.stop()
-      }
-    } catch (e) {
-      console.warn('[Recorder] Cleanup error:', e)
-    }
-  }
-
-  if (recordingInterval) {
-    clearInterval(recordingInterval)
-  }
-})
 </script>
 
 <style scoped>
