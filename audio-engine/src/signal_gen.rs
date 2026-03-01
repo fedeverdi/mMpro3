@@ -16,6 +16,8 @@ pub struct SignalGenerator {
     frequency: f32,
     phase: f32,
     sample_rate: f32,
+    // Noise generation seed
+    noise_seed: u32,
     // Pink noise filter state
     pink_b0: f32,
     pink_b1: f32,
@@ -33,6 +35,7 @@ impl SignalGenerator {
             frequency,
             phase: 0.0,
             sample_rate,
+            noise_seed: 1,
             pink_b0: 0.0,
             pink_b1: 0.0,
             pink_b2: 0.0,
@@ -60,6 +63,9 @@ impl SignalGenerator {
             if self.phase >= 1.0 {
                 self.phase -= 1.0;
             }
+        } else {
+            // Update noise seed for random generation
+            self.noise_seed = self.noise_seed.wrapping_mul(1103515245).wrapping_add(12345);
         }
 
         sample
@@ -90,10 +96,10 @@ impl SignalGenerator {
     }
 
     fn generate_white_noise(&self) -> f32 {
-        // Simple white noise using rand-like approach
-        // In production, use a proper RNG
-        let x = (self.phase * 12.9898).sin() * 43758.5453;
-        2.0 * (x - x.floor()) - 1.0
+        // Linear congruential generator for white noise
+        // Convert seed to float in range [-1, 1]
+        let normalized = (self.noise_seed as f32) / (u32::MAX as f32);
+        2.0 * normalized - 1.0
     }
 
     fn generate_pink_noise(&mut self) -> f32 {

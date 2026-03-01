@@ -158,7 +158,6 @@ pub fn set_volume(router: &mut Router, track: usize, volume: f32) {
     if let Some(t) = router.get_track_mut(track) {
         t.volume = volume.max(0.0); // No upper limit, but can't be negative
         let volume_db = if volume > 0.0 { 20.0 * volume.log10() } else { -90.0 };
-        eprintln!("[Track {}] Volume set to {} (linear) = {:.1} dB", track, volume, volume_db);
     }
 }
 
@@ -166,7 +165,6 @@ pub fn set_volume(router: &mut Router, track: usize, volume: f32) {
 pub fn set_mute(router: &mut Router, track: usize, mute: bool) {
     if let Some(t) = router.get_track_mut(track) {
         t.mute = mute;
-        eprintln!("[Track {}] Mute set to: {}", track, mute);
     }
 }
 
@@ -174,7 +172,6 @@ pub fn set_mute(router: &mut Router, track: usize, mute: bool) {
 pub fn set_route_to_master(router: &mut Router, track: usize, route: bool) {
     if let Some(t) = router.get_track_mut(track) {
         t.route_to_master = route;
-        eprintln!("[Track {}] Route to Master: {}", track, if route { "ON" } else { "OFF" });
     }
 }
 
