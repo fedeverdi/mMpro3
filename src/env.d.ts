@@ -39,6 +39,14 @@ interface AudioEngine {
   listAudioInputs: () => Promise<RustAudioDevice[]>
   onResponse: (callback: (response: any) => void) => void
   
+  // Master Tap (Recording) - Rust saves WAV file directly
+  enableMasterTap: (filePath: string) => Promise<void>
+  disableMasterTap: () => Promise<void>
+  generateRecordingPath: () => Promise<string>
+  getRecordingFileInfo: (filePath: string) => Promise<{ name: string, size: string }>
+  showRecordingInFolder: (filePath: string) => Promise<void>
+  deleteRecordingFile: (filePath: string) => Promise<void>
+  
   // Track Source Selection
   setTrackSourceInput: (trackIndex: number, leftChannel: number, rightChannel: number, deviceName?: string | null) => Promise<void>
   setTrackSourceSignal: (trackIndex: number, waveform: string, frequency: number) => Promise<void>

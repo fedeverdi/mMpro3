@@ -42,7 +42,7 @@ const state = ref<AudioEngineState>({
   trackLevels: new Map(),
   trackWaveforms: new Map(),
   subgroupLevels: new Map(),
-  masterLevels: { left: 0, right: 0 },
+  masterLevels: { left: -60, right: -60 },
   fftData: null,
   performanceStats: null
 })
@@ -115,11 +115,11 @@ export const useAudioEngine = () => {
             })
             state.value.subgroupLevels = newSubgroupLevels
           }
-          // Update master levels
+          // Update master levels - convert linear (0-1) to dB (-60 to 0)
           if (response.master_l !== undefined && response.master_r !== undefined) {
             state.value.masterLevels = {
-              left: response.master_l,
-              right: response.master_r
+              left: response.master_l > 0 ? 20 * Math.log10(response.master_l) : -60,
+              right: response.master_r > 0 ? 20 * Math.log10(response.master_r) : -60
             }
           }
           break

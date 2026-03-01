@@ -309,7 +309,11 @@
 
     <!-- Audio Settings Modal -->
     <AudioSettingsModal :is-open="showAudioSettings" @close="showAudioSettings = false" @apply="handleAudioConfigApply" />
-    <Recorder v-model="showRecorder" :loaded-tracks="loadedTracks" />
+    <Recorder 
+      v-model="showRecorder" 
+      :master-level-left="audioEngineState.masterLevels.left"
+      :master-level-right="audioEngineState.masterLevels.right"
+    />
 
     <!-- File Manager Modal -->
     <FileManagerModal v-model="showFileManager" @select-file="handleFileManagerSelect"

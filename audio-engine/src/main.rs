@@ -7,6 +7,9 @@ use std::io::{self, BufRead};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Instant;
+use std::fs::File;
+use std::io::Write;
+use std::path::PathBuf;
 
 // Import our modules
 mod audio_io;
@@ -222,6 +225,14 @@ enum Command {
         route: bool, // true = add to routing, false = remove from routing
     },
 
+    // Master tap (for recording) - Rust saves the file directly
+    #[serde(rename = "enable_master_tap")]
+    EnableMasterTap {
+        file_path: String, // Where to save the WAV file
+    },
+    #[serde(rename = "disable_master_tap")]
+    DisableMasterTap,
+
     // Aux bus controls
     #[serde(rename = "set_track_aux_send")]
     SetTrackAuxSend {
@@ -418,6 +429,9 @@ struct AudioEngine {
     input_channels: Arc<AtomicUsize>,
     input_users: HashSet<usize>, // Track IDs that are using audio input
     current_input_device: Option<String>, // Currently open input device name
+    master_tap_buffer: Arc<Mutex<Vec<f32>>>, // Master output tap for recording (stereo interleaved)
+    master_tap_enabled: Arc<AtomicBool>, // Enable/disable master tap
+    recording_path: Arc<Mutex<Option<PathBuf>>>, // Path where to save the recording
 }
 
 impl AudioEngine {
@@ -427,6 +441,14 @@ impl AudioEngine {
         let updates_suspended = Arc::new(AtomicBool::new(false));
         let input_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
         let input_channels = Arc::new(AtomicUsize::new(2)); // Default stereo
+        let audio_io = AudioIO::new();
+        let router = Arc::new(Mutex::new(Router::new(24))); // Support up to 24 tracks
+        let updates_suspended = Arc::new(AtomicBool::new(false));
+        let input_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
+        let input_channels = Arc::new(AtomicUsize::new(2)); // Default stereo
+        let master_tap_buffer = Arc::new(Mutex::new(Vec::<f32>::with_capacity(4800000))); // ~100 sec @ 48kHz stereo
+        let master_tap_enabled = Arc::new(AtomicBool::new(false));
+        let recording_path = Arc::new(Mutex::new(None));
 
         Self {
             audio_io,
@@ -441,6 +463,9 @@ impl AudioEngine {
             input_channels,
             input_users: HashSet::new(),
             current_input_device: None,
+            master_tap_buffer,
+            master_tap_enabled,
+            recording_path,
         }
     }
 
@@ -573,6 +598,8 @@ impl AudioEngine {
         // Share input buffer with output callback
         let input_buffer = Arc::clone(&self.input_buffer);
         let input_channels = Arc::clone(&self.input_channels);
+        let master_tap_buffer = Arc::clone(&self.master_tap_buffer);
+        let master_tap_enabled = Arc::clone(&self.master_tap_enabled);
 
         // === OUTPUT STREAM: process and output audio ===
         let output_stream = output_device.build_output_stream(
@@ -625,6 +652,30 @@ impl AudioEngine {
                         } else if output_channels == 1 {
                             // Mono: mix L+R
                             data[out_frame_start] = ((left + right) * 0.5).clamp(-1.0, 1.0);
+                        }
+                    }
+
+                    // Copy master output to tap buffer if enabled (for recording)
+                    // Do this AFTER writing to output to minimize audio callback latency
+                    if master_tap_enabled.load(Ordering::Relaxed) {
+                        if let Ok(mut tap_buffer) = master_tap_buffer.try_lock() {
+                            // Copy stereo interleaved samples (L, R, L, R, ...)
+                            // Limit to 10 minutes max (prevents memory issues for very long recordings)
+                            let max_samples = sample_rate_for_perf as usize * 2 * 600; // 10 min stereo
+                            if tap_buffer.len() < max_samples {
+                                for frame_idx in 0..frames {
+                                    let out_frame_start = frame_idx * output_channels;
+                                    if output_channels >= 2 {
+                                        tap_buffer.push(data[out_frame_start]);     // Left
+                                        tap_buffer.push(data[out_frame_start + 1]); // Right
+                                    } else if output_channels == 1 {
+                                        // Mono: duplicate to stereo
+                                        let sample = data[out_frame_start];
+                                        tap_buffer.push(sample);
+                                        tap_buffer.push(sample);
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -887,6 +938,95 @@ impl AudioEngine {
             
             // Clear current device
             self.current_input_device = None;
+        }
+        
+        Ok(())
+    }
+
+    // Master tap controls
+    fn enable_master_tap(&self, file_path: String) {
+        // Clear previous buffer
+        if let Ok(mut buffer) = self.master_tap_buffer.lock() {
+            buffer.clear();
+        }
+        // Set recording path
+        if let Ok(mut path) = self.recording_path.lock() {
+            *path = Some(PathBuf::from(file_path));
+        }
+        self.master_tap_enabled.store(true, Ordering::Relaxed);
+        eprintln!("[Engine] ✓ Master tap enabled - recording started");
+    }
+
+    fn disable_master_tap(&self) {
+        self.master_tap_enabled.store(false, Ordering::Relaxed);
+        
+        // Get samples and path
+        let samples = if let Ok(mut buffer) = self.master_tap_buffer.lock() {
+            let s = buffer.clone();
+            buffer.clear();
+            s
+        } else {
+            Vec::new()
+        };
+
+        let path = if let Ok(mut p) = self.recording_path.lock() {
+            p.take()
+        } else {
+            None
+        };
+
+        // Save WAV file if we have samples and path
+        if !samples.is_empty() && path.is_some() {
+            let file_path = path.unwrap();
+            match self.write_wav_file(&file_path, &samples) {
+                Ok(_) => eprintln!("[Engine] ✓ Recording saved: {:?} ({} samples)", file_path, samples.len()),
+                Err(e) => eprintln!("[Engine] ✗ Failed to save recording: {}", e),
+            }
+        } else {
+            eprintln!("[Engine] ✓ Master tap disabled (no recording to save)");
+        }
+    }
+
+    fn write_wav_file(&self, path: &PathBuf, samples: &[f32]) -> Result<()> {
+        let mut file = File::create(path)?;
+        
+        // Convert float32 to int16
+        let num_samples = samples.len();
+        let num_channels = 2u16; // Stereo
+        let sample_rate = self.sample_rate;
+        let bits_per_sample = 16u16;
+        let byte_rate = sample_rate * num_channels as u32 * (bits_per_sample / 8) as u32;
+        let block_align = num_channels * (bits_per_sample / 8);
+        let data_size = num_samples as u32 * (bits_per_sample / 8) as u32;
+        
+        // Write WAV header
+        file.write_all(b"RIFF")?;
+        file.write_all(&(36 + data_size).to_le_bytes())?;
+        file.write_all(b"WAVE")?;
+        
+        // fmt chunk
+        file.write_all(b"fmt ")?;
+        file.write_all(&16u32.to_le_bytes())?; // chunk size
+        file.write_all(&1u16.to_le_bytes())?; // PCM format
+        file.write_all(&num_channels.to_le_bytes())?;
+        file.write_all(&sample_rate.to_le_bytes())?;
+        file.write_all(&byte_rate.to_le_bytes())?;
+        file.write_all(&block_align.to_le_bytes())?;
+        file.write_all(&bits_per_sample.to_le_bytes())?;
+        
+        // data chunk
+        file.write_all(b"data")?;
+        file.write_all(&data_size.to_le_bytes())?;
+        
+        // Write samples (convert f32 to i16)
+        for sample in samples {
+            let s = sample.max(-1.0).min(1.0);
+            let i16_sample = if s < 0.0 {
+                (s * 32768.0) as i16
+            } else {
+                (s * 32767.0) as i16
+            };
+            file.write_all(&i16_sample.to_le_bytes())?;
         }
         
         Ok(())
@@ -1311,6 +1451,18 @@ impl AudioEngine {
                     message: format!("Stop failed: {}", e),
                 }),
             },
+            Command::EnableMasterTap { file_path } => {
+                self.enable_master_tap(file_path);
+                Some(Response::Ok {
+                    message: "Recording started".to_string(),
+                })
+            }
+            Command::DisableMasterTap => {
+                self.disable_master_tap();
+                Some(Response::Ok {
+                    message: "Recording stopped and saved".to_string(),
+                })
+            }
             Command::SetTrackSourceInput {
                 track,
                 left_channel,

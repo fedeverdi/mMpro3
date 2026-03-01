@@ -1,7 +1,8 @@
-import { app, BrowserWindow, screen, ipcMain } from 'electron'
+import { app, BrowserWindow, screen, ipcMain, shell } from 'electron'
 import { spawn, ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
+import os from 'node:os'
 import started from 'electron-squirrel-startup'
 
 // Disable Electron security warnings in development
@@ -418,6 +419,66 @@ ipcMain.handle('audio-engine:list-devices', async () => {
 ipcMain.handle('audio-engine:list-audio-inputs', async () => {
   const response = await sendCommandAndWaitForResponse({ type: 'list_audio_inputs' }, 'audio_inputs')
   return response.inputs
+})
+
+// Master Tap (Recording) - Rust saves WAV file directly
+ipcMain.handle('audio-engine:enable-master-tap', async (_event, filePath: string) => {
+  await sendCommandToEngine({ type: 'enable_master_tap', file_path: filePath })
+})
+
+ipcMain.handle('audio-engine:disable-master-tap', async () => {
+  await sendCommandToEngine({ type: 'disable_master_tap' })
+})
+
+// Recording file management
+ipcMain.handle('audio-engine:generate-recording-path', async () => {
+  const recordingsDir = path.join(os.homedir(), 'Music', 'MMpro3_Recordings')
+  
+  // Create directory if it doesn't exist
+  if (!fs.existsSync(recordingsDir)) {
+    fs.mkdirSync(recordingsDir, { recursive: true })
+  }
+  
+  const now = new Date()
+  const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5)
+  const fileName = `Recording_${timestamp}.wav`
+  
+  return path.join(recordingsDir, fileName)
+})
+
+ipcMain.handle('audio-engine:get-recording-file-info', async (_event, filePath: string) => {
+  try {
+    const stats = fs.statSync(filePath)
+    const name = path.basename(filePath, '.wav')
+    
+    let size = '0 KB'
+    if (stats.size < 1024) {
+      size = stats.size + ' B'
+    } else if (stats.size < 1024 * 1024) {
+      size = (stats.size / 1024).toFixed(1) + ' KB'
+    } else {
+      size = (stats.size / (1024 * 1024)).toFixed(1) + ' MB'
+    }
+    
+    return { name, size }
+  } catch (error) {
+    console.error('[Main] Error getting file info:', error)
+    return { name: 'Unknown', size: '0 KB' }
+  }
+})
+
+ipcMain.handle('audio-engine:show-recording-in-folder', async (_event, filePath: string) => {
+  shell.showItemInFolder(filePath)
+})
+
+ipcMain.handle('audio-engine:delete-recording-file', async (_event, filePath: string) => {
+  try {
+    fs.unlinkSync(filePath)
+    console.log('[Main] Recording file deleted:', filePath)
+  } catch (error) {
+    console.error('[Main] Error deleting file:', error)
+    throw error
+  }
 })
 
 // Window state management
