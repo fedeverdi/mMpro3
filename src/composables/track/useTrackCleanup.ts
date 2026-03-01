@@ -12,10 +12,6 @@
  * @returns Object with cleanup method
  */
 export function useTrackCleanup(callbacks: {
-  // Automation
-  getAutomationRecordingInterval: () => any
-  setAutomationRecordingInterval: (value: any) => void
-  
   // Audio input
   getAudioInputSource: () => any
   setAudioInputSource: (value: any) => void
@@ -69,13 +65,6 @@ export function useTrackCleanup(callbacks: {
    * Cleanup all track resources
    */
   function cleanup() {
-    // Clear automation recording interval
-    const automationInterval = callbacks.getAutomationRecordingInterval()
-    if (automationInterval) {
-      clearInterval(automationInterval)
-      callbacks.setAutomationRecordingInterval(null)
-    }
-
     // Disconnect audio input source if active
     const audioInputSource = callbacks.getAudioInputSource()
     if (audioInputSource) {

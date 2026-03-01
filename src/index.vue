@@ -155,7 +155,7 @@
                 @drag-start="handleTrackDragStart(track.id)" />
               <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
                 :master-channel="masterChannel" :subgroups="subgroups" :aux-buses="auxBuses"
-                :allow-subgroup-routing="buildLimits.allowSubgroupRouting" @toggle-arm="toggleTrackArm(track.id)"
+                :allow-subgroup-routing="buildLimits.allowSubgroupRouting"
                 @open-library="handleOpenLibrary" @remove="removeTrack(track.id)" />
             </div>
           </div>
@@ -187,84 +187,6 @@
         </div>
       </div>
     </main>
-
-    <!-- Automation Section (Resizable/Collapsible) - Fixed position overlay - NASCOSTO -->
-    <div v-if="false"
-      class="automation-section fixed left-0 right-0 transition-all duration-300 ease-out border-t border-gray-700 z-[90] bg-gray-900"
-      :style="{ height: automationCollapsed ? '17px' : automationHeight + 'px', bottom: '34px' }">
-
-      <!-- Resize Handle -->
-      <div
-        :class="['absolute left-0 right-0 top-0 h-4 z-10 group bg-gray-900/20', automationCollapsed ? 'cursor-default' : 'cursor-ns-resize']"
-        @mousedown.stop="startAutomationResize" :title="automationCollapsed ? 'Panel collapsed' : 'Drag to resize'">
-        <!-- Collapse/Expand Button -->
-        <button @click.stop="toggleAutomationCollapse"
-          class="absolute -mt-2 left-2 top-1/2 -translate-y-1/2 w-5 h-5 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg"
-          :title="automationCollapsed ? 'Expand automation panel' : 'Collapse automation panel'">
-          <svg class="w-3 h-3 text-gray-300 transition-transform" :class="{ 'rotate-180': automationCollapsed }"
-            fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd"
-              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-              clip-rule="evenodd" />
-          </svg>
-        </button>
-
-        <!-- Grip Dots -->
-        <div
-          class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity pointer-events-none">
-          <!-- Row 1 -->
-          <div class="flex gap-0.5">
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-          </div>
-          <!-- Row 2 -->
-          <div class="flex gap-0.5">
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-            <div class="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Automation Content (hidden when collapsed) -->
-      <div v-show="!automationCollapsed" class="h-full overflow-hidden pt-[1rem]">
-        <!-- Automation Timeline -->
-        <Timeline :transport="automation.transport.value" :playhead-position="automation.playheadPosition.value"
-          :is-recording="automation.isRecording.value" :loop-enabled="loopEnabled" @play="handlePlay"
-          @pause="handlePause" @stop="handleStop" @record="toggleRecordMode" @seek="automation.seek"
-          @update-bpm="(bpm) => automation.transport.value.bpm = bpm"
-          @update-time-signature="(num, den) => { automation.transport.value.timeSignature = { numerator: num, denominator: den } }"
-          @toggle-loop="loopEnabled = !loopEnabled" />
-
-        <!-- Automation Lanes -->
-        <div v-if="automation.automationLanes.value.length > 0"
-          class="automation-lanes-container bg-gray-950 border-t border-gray-700 overflow-y-auto"
-          :style="{ maxHeight: (automationHeight - 100) + 'px' }">
-          <AutomationLane v-for="lane in automation.automationLanes.value"
-            :key="`${lane.trackId}-${lane.parameter}-${lane.auxId || ''}`" :lane="lane"
-            :duration="automation.transport.value.duration" :playhead-position="automation.playheadPosition.value"
-            :min-value="lane.parameter === 'volume' ? -60 : -1" :max-value="lane.parameter === 'volume' ? 12 : 1"
-            :label="`Track ${lane.trackId} - ${lane.parameter.toUpperCase()}`"
-            @add-point="(time: number, value: number) => automation.addPoint(lane.trackId, lane.parameter, time, value, lane.auxId)"
-            @remove-point="(index: number) => automation.removePoint(lane.trackId, lane.parameter, index, lane.auxId)"
-            @update-point="(index: number, time: number, value: number) => automation.updatePoint(lane.trackId, lane.parameter, index, time, value, lane.auxId)"
-            @change-mode="(mode: any) => lane.mode = mode" />
-        </div>
-      </div>
-    </div>
 
     <!-- Audio Flow Modal -->
     <AudioFlowModal v-model="showAudioFlowModal" :subgroups="subgroups.map(s => ({ id: s.id, name: s.name }))"
@@ -333,11 +255,8 @@ import RightSection from './components/master/RightSection.vue'
 import MasterSection from './components/MasterSection.vue'
 import SubgroupsSection from './components/SubgroupsSection.vue'
 import ScenesModal from './components/layout/ScenesModal.vue'
-import Timeline from './components/automation/Timeline.vue'
-import AutomationLane from './components/automation/AutomationLane.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioEngine } from '~/composables/useAudioEngine'
-import { useAutomation } from '~/composables/useAutomation'
 import { getBuildLimits, canAddTrack, getTrackCounts, getBuildMode } from '~/config/buildLimits'
 import { channel } from 'diagnostics_channel'
 import Recorder from './components/recorder/Recorder.vue'
@@ -408,29 +327,10 @@ const isRecording = ref(false)
 const showLimitModal = ref(false)
 const limitModalMessage = ref('')
 
-// Automation System
-const automation = useAutomation()
-const loopEnabled = ref(false)
-const playbackLoopId = ref<number | null>(null)
-const armedTracks = ref<Set<number>>(new Set()) // Tracks armed for recording
-
 // Recording state handler
 function handleRecordingStateChange(state: boolean) {
   isRecording.value = state
 }
-
-// Automation panel resize/collapse
-const automationHeight = ref(220) // Default height in pixels
-const automationCollapsed = ref(true)
-const automationSavedHeight = ref(300)
-let automationResizing = false
-let automationStartY = 0
-let automationStartHeight = 0
-let automationResizeRafId: number | null = null
-let automationPendingHeight: number | null = null
-
-// Provide automation to child components
-provide('automation', automation)
 
 // File Manager for tracks (Electron only)
 const fileManagerTargetTrackId = ref<number | null>(null)
@@ -1031,11 +931,6 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
 
     const outputAudioContext = new AudioContext(contextOptions)
 
-    // Log device info
-    console.log(`[Aux ${aux.name}] Output AudioContext created`)
-    console.log(`[Aux ${aux.name}] Destination maxChannelCount:`, outputAudioContext.destination.maxChannelCount)
-    console.log(`[Aux ${aux.name}] SinkId:`, (outputAudioContext as any).sinkId)
-
     // Detect number of output channels from device capabilities
     let deviceChannelCount = outputAudioContext.destination.maxChannelCount
 
@@ -1045,9 +940,7 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
       // For Rubix44 we know it has 4 channels
       deviceChannelCount = Math.max(4, targetChannel + 1)
     }
-
-    console.log(`[Aux ${aux.name}] Device channel count: ${deviceChannelCount}`)
-
+  
     // Configure destination for multi-channel output
     try {
       outputAudioContext.destination.channelCount = deviceChannelCount
@@ -1135,26 +1028,6 @@ function handleSoloChange(data: { trackNumber: number, isSolo: boolean }) {
   })
 }
 
-// Level updates (for future visualizations)
-function handleLevelUpdate(data: { trackNumber: number, level: number }) {
-  // Can be used for additional visualizations if needed
-}
-
-// Track arming for automation recording
-function toggleTrackArm(trackId: number) {
-  if (armedTracks.value.has(trackId)) {
-    armedTracks.value.delete(trackId)
-  } else {
-    armedTracks.value.add(trackId)
-  }
-  // Trigger reactivity
-  armedTracks.value = new Set(armedTracks.value)
-}
-
-function isTrackArmed(trackId: number): boolean {
-  return armedTracks.value.has(trackId)
-}
-
 // Audio Configuration Handler
 async function handleAudioConfigApply(config: { sampleRate: number; bufferSize: number }) {
   console.log('[App] Applying audio config:', config)
@@ -1181,9 +1054,6 @@ async function handleAudioConfigApply(config: { sampleRate: number; bufferSize: 
 // Initialize audio
 onMounted(async () => {
   document.title = 'Audio Mixer Pro - Multi-Track Mixer'
-
-  // Load automation panel state
-  loadAutomationHeight()
 
   // Rust backend handles all audio routing - no Tone.js needed
   masterChannel.value = null
@@ -1218,279 +1088,6 @@ onMounted(async () => {
       showAddTrackMenu.value = false
     }
   })
-})
-
-// ========================================
-// AUTOMATION TRANSPORT CONTROLS
-// ========================================
-
-function handlePlay() {
-  automation.play()
-  startPlaybackLoop()
-
-  // Synchronize all audio track playback with automation transport
-  trackRefs.value.forEach((trackRef, trackId) => {
-    const track = tracks.value.find(t => t.id === trackId)
-    // Only sync audio tracks, not signal generators
-    if (track?.type === 'audio' && trackRef?.startPlayback) {
-      trackRef.startPlayback()
-    }
-  })
-}
-
-function handlePause() {
-  automation.pause()
-  stopPlaybackLoop()
-
-  // Pause all audio track playback
-  trackRefs.value.forEach((trackRef, trackId) => {
-    const track = tracks.value.find(t => t.id === trackId)
-    if (track?.type === 'audio' && trackRef?.pausePlayback) {
-      trackRef.pausePlayback()
-    }
-  })
-}
-
-function handleStop() {
-  automation.stop()
-  stopPlaybackLoop()
-
-  // Stop all audio track playback
-  trackRefs.value.forEach((trackRef, trackId) => {
-    const track = tracks.value.find(t => t.id === trackId)
-    if (track?.type === 'audio' && trackRef?.stopPlayback) {
-      trackRef.stopPlayback()
-    }
-  })
-}
-
-function toggleRecordMode() {
-  if (automation.isRecording.value) {
-    // Stop recording
-    automation.stopRecording()
-
-    // Set all lanes to READ mode
-    automation.automationLanes.value.forEach(lane => {
-      lane.mode = 'read'
-      lane.enabled = true
-    })
-  } else {
-    // Start recording - create/enable automation lanes only for armed tracks
-    const tracksToRecord = tracks.value.filter(track =>
-      track.type === 'audio' && armedTracks.value.has(track.id)
-    )
-
-    if (tracksToRecord.length === 0) {
-      // No tracks armed - show alert
-      alert('⚠️ Nessuna traccia armata!\n\nClicca il pulsante "ARM" su una o più tracce per registrare l\'automazione.')
-      return
-    }
-
-    tracksToRecord.forEach(track => {
-      // Create volume lane in WRITE mode
-      const volumeLane = automation.getOrCreateLane(track.id, 'volume')
-      volumeLane.mode = 'write'
-      volumeLane.enabled = true
-    })
-
-    automation.isRecording.value = true
-
-    // Auto-start playback if not already playing
-    if (!automation.transport.value.isPlaying) {
-      handlePlay()
-    }
-  }
-}
-
-function startPlaybackLoop() {
-  if (playbackLoopId.value) return // Already running
-
-  const updateInterval = 1000 / 60 // 60 Hz update rate
-  let lastTime = Date.now()
-
-  const loop = () => {
-    if (automation.transport.value.isPlaying) {
-      const now = Date.now()
-      const delta = (now - lastTime) / 1000 // seconds
-      lastTime = now
-
-      // Update transport time
-      automation.transport.value.currentTime += delta
-
-      // Check for loop
-      if (automation.transport.value.currentTime >= automation.transport.value.duration) {
-        if (loopEnabled.value) {
-          automation.transport.value.currentTime = 0
-        } else {
-          handleStop()
-          return
-        }
-      }
-
-      // Apply automation to tracks
-      applyAutomationToTracks()
-
-      playbackLoopId.value = requestAnimationFrame(loop)
-    }
-  }
-
-  playbackLoopId.value = requestAnimationFrame(loop)
-}
-
-function stopPlaybackLoop() {
-  if (playbackLoopId.value) {
-    cancelAnimationFrame(playbackLoopId.value)
-    playbackLoopId.value = null
-  }
-}
-
-function applyAutomationToTracks() {
-  const currentTime = automation.transport.value.currentTime
-
-  // Apply volume and pan automation to all audio tracks
-  tracks.value.forEach(track => {
-    if (track.type !== 'audio') return // Skip signal generator tracks
-
-    const volumeValue = automation.getValueAtTime(track.id, 'volume', currentTime)
-    if (volumeValue !== null && trackRefs.value.has(track.id)) {
-      const trackRef = trackRefs.value.get(track.id)
-      // Set volume without triggering automation recording
-      if (trackRef?.setVolume) {
-        trackRef.setVolume(volumeValue, true) // true = skip automation recording
-      }
-    }
-
-    // Apply pan automation
-    const panValue = automation.getValueAtTime(track.id, 'pan', currentTime)
-    if (panValue !== null && trackRefs.value.has(track.id)) {
-      const trackRef = trackRefs.value.get(track.id)
-      if (trackRef?.setPan) {
-        trackRef.setPan(panValue, true)
-      }
-    }
-  })
-}
-
-// Automation panel resize/collapse functions
-function toggleAutomationCollapse() {
-  if (automationCollapsed.value) {
-    // Expand
-    automationHeight.value = automationSavedHeight.value || 300
-    automationCollapsed.value = false
-  } else {
-    // Collapse
-    automationSavedHeight.value = automationHeight.value
-    automationHeight.value = 12 // Collapsed height (just the handle)
-    automationCollapsed.value = true
-  }
-  saveAutomationHeight()
-}
-
-function startAutomationResize(event: MouseEvent) {
-  if (automationCollapsed.value) return // Don't allow resize when collapsed
-
-  automationResizing = true
-  automationStartY = event.clientY
-  automationStartHeight = automationHeight.value
-
-  document.addEventListener('mousemove', onAutomationResize)
-  document.addEventListener('mouseup', stopAutomationResize)
-
-  // Prevent text selection during resize
-  event.preventDefault()
-  document.body.style.cursor = 'ns-resize'
-  document.body.style.userSelect = 'none'
-}
-
-function onAutomationResize(event: MouseEvent) {
-  if (!automationResizing) return
-
-  // Calculate new height (drag up = increase height, drag down = decrease height)
-  const deltaY = automationStartY - event.clientY
-  const maxHeight = window.innerHeight * 0.7 // Max: 70% of window height
-  const newHeight = Math.max(150, Math.min(maxHeight, automationStartHeight + deltaY)) // Min 150px
-
-  // Store pending height
-  automationPendingHeight = newHeight
-
-  // Use RAF to throttle updates to once per frame
-  if (automationResizeRafId === null) {
-    automationResizeRafId = requestAnimationFrame(() => {
-      if (automationPendingHeight !== null) {
-        automationHeight.value = automationPendingHeight
-        automationPendingHeight = null
-      }
-      automationResizeRafId = null
-    })
-  }
-}
-
-function stopAutomationResize() {
-  if (automationResizing) {
-    automationResizing = false
-    document.removeEventListener('mousemove', onAutomationResize)
-    document.removeEventListener('mouseup', stopAutomationResize)
-    document.body.style.cursor = ''
-    document.body.style.userSelect = ''
-
-    // Cancel any pending RAF and apply final height
-    if (automationResizeRafId !== null) {
-      cancelAnimationFrame(automationResizeRafId)
-      automationResizeRafId = null
-    }
-    if (automationPendingHeight !== null) {
-      automationHeight.value = automationPendingHeight
-      automationPendingHeight = null
-    }
-
-    // Save to localStorage
-    saveAutomationHeight()
-  }
-}
-
-function saveAutomationHeight() {
-  try {
-    localStorage.setItem('automationPanelHeight', automationHeight.value.toString())
-    localStorage.setItem('automationPanelCollapsed', automationCollapsed.value.toString())
-    if (!automationCollapsed.value) {
-      localStorage.setItem('automationPanelSavedHeight', automationSavedHeight.value.toString())
-    }
-  } catch (err) {
-    console.warn('Failed to save automation panel height:', err)
-  }
-}
-
-function loadAutomationHeight() {
-  try {
-    const saved = localStorage.getItem('automationPanelHeight')
-    const collapsed = localStorage.getItem('automationPanelCollapsed')
-    const savedHeightStr = localStorage.getItem('automationPanelSavedHeight')
-
-    const maxHeight = window.innerHeight * 0.7
-
-    if (saved) {
-      const height = Math.max(150, Math.min(maxHeight, parseInt(saved)))
-      automationHeight.value = height
-    }
-
-    if (collapsed === 'true') {
-      automationCollapsed.value = true
-      automationHeight.value = 12
-    } else if (collapsed === 'false') {
-      automationCollapsed.value = false
-    }
-
-    if (savedHeightStr) {
-      automationSavedHeight.value = Math.max(150, Math.min(maxHeight, parseInt(savedHeightStr)))
-    }
-  } catch (err) {
-    console.warn('Failed to load automation panel height:', err)
-  }
-}
-
-// Cleanup on unmount
-onUnmounted(() => {
-  stopPlaybackLoop()
 })
 </script>
 
