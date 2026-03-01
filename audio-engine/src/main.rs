@@ -286,6 +286,8 @@ enum Command {
     // Device management
     #[serde(rename = "list_devices")]
     ListDevices,
+    #[serde(rename = "list_audio_inputs")]
+    ListAudioInputs,
 }
 
 /// Risposta inviata a Electron via stdout
@@ -298,6 +300,8 @@ enum Response {
     Error { message: String },
     #[serde(rename = "devices")]
     Devices { devices: Vec<DeviceInfo> },
+    #[serde(rename = "audio_inputs")]
+    AudioInputs { inputs: Vec<DeviceInfo> },
     #[serde(rename = "started")]
     Started,
     #[serde(rename = "stopped")]
@@ -1549,6 +1553,45 @@ impl AudioEngine {
                 Err(e) => Some(Response::Error {
                     message: format!("List devices failed: {}", e),
                 }),
+            },
+            Command::ListAudioInputs => {
+                eprintln!("[Engine] Received ListAudioInputs command");
+                match self.audio_io.list_devices() {
+                    Ok(devices) => {
+                        // Filter only input devices and expand multi-channel devices
+                        let input_devices: Vec<DeviceInfo> = devices.into_iter()
+                            .filter(|d| d.input_channels > 0)
+                            .flat_map(|device| {
+                                if device.input_channels > 2 {
+                                    // Expand multi-channel device into individual channel entries
+                                    let channel_count = device.input_channels as usize;
+                                    eprintln!("[Engine] Expanding {} into {} channels", device.name, channel_count);
+                                    (0..channel_count).map(move |ch| {
+                                        DeviceInfo {
+                                            id: format!("{}:{}", device.id, ch),
+                                            name: format!("{} - Channel {}", device.name, ch + 1),
+                                            input_channels: device.input_channels,
+                                            output_channels: device.output_channels,
+                                            default_sample_rate: device.default_sample_rate,
+                                        }
+                                    }).collect::<Vec<_>>()
+                                } else {
+                                    // Single or stereo channel device
+                                    vec![device]
+                                }
+                            })
+                            .collect();
+                        
+                        eprintln!("[Engine] Found {} input channels", input_devices.len());
+                        Some(Response::AudioInputs { inputs: input_devices })
+                    },
+                    Err(e) => {
+                        eprintln!("[Engine] Error listing audio inputs: {}", e);
+                        Some(Response::Error {
+                            message: format!("Failed to list audio inputs: {}", e),
+                        })
+                    },
+                }
             },
         }
     }

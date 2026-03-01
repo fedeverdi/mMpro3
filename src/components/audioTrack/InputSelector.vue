@@ -27,7 +27,7 @@ import AudioInputModal from './AudioInputModal.vue'
 interface Props {
   icon?: string
   title: string
-  devices: MediaDeviceInfo[]
+  devices: RustAudioDevice[]
   selectedDeviceId: string | null
   defaultLabel: string
   defaultDescription: string
@@ -48,9 +48,9 @@ const showModal = ref(false)
 const deviceLabel = computed(() => {
   if (!props.selectedDeviceId) return props.defaultLabel
   if (props.selectedDeviceId === 'file') return 'Audio File'
-  const device = props.devices.find(d => d.deviceId === props.selectedDeviceId)
+  const device = props.devices.find(d => d.id === props.selectedDeviceId)
   if (!device) return props.defaultLabel
-  const name = device.label || 'Unknown'
+  const name = device.name || 'Unknown'
   return name.length > 8 ? name.substring(0, 8) + '...' : name
 })
 

@@ -9,8 +9,16 @@ declare module '*.vue' {
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string
 declare const MAIN_WINDOW_VITE_NAME: string
 
-declare module 'tone'
 declare module 'electron-squirrel-startup'
+
+// Rust Audio Device
+interface RustAudioDevice {
+  id: string
+  name: string
+  input_channels: number
+  output_channels: number
+  default_sample_rate: number
+}
 
 // Audio Engine API
 interface AudioEngine {
@@ -27,7 +35,8 @@ interface AudioEngine {
   clearParametricEQ: (track: number) => Promise<void>
   setCompressor: (track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => Promise<void>
   setGate: (track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => Promise<void>
-  listDevices: () => Promise<void>
+  listDevices: () => Promise<RustAudioDevice[]>
+  listAudioInputs: () => Promise<RustAudioDevice[]>
   onResponse: (callback: (response: any) => void) => void
   
   // Track Source Selection
@@ -67,6 +76,16 @@ interface AudioEngine {
   setSubgroupMute: (subgroup: number, mute: boolean) => Promise<void>  setSubgroupOutputEnabled: (subgroup: number, enabled: boolean) => Promise<void>  setSubgroupRouteToMaster: (subgroup: number, route: boolean) => Promise<void>
   setSubgroupOutputChannels: (subgroup: number, leftChannel: number, rightChannel: number) => Promise<void>
   setTrackRouteToSubgroup: (track: number, subgroup: number, route: boolean) => Promise<void>
+  
+  // Aux Bus Controls
+  setTrackAuxSend: (track: number, aux: number, level: number, preFader: boolean, muted: boolean) => Promise<void>
+  setAuxBusGain: (aux: number, gain: number) => Promise<void>
+  setAuxBusMute: (aux: number, mute: boolean) => Promise<void>
+  setAuxBusReverb: (aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => Promise<void>
+  setAuxBusDelay: (aux: number, enabled: boolean, time: number, feedback: number, mix: number) => Promise<void>
+  setAuxBusRouteToMaster: (aux: number, route: boolean) => Promise<void>
+  setAuxBusOutputEnabled: (aux: number, enabled: boolean) => Promise<void>
+  setAuxBusOutputChannels: (aux: number, leftChannel: number, rightChannel: number) => Promise<void>
 }
 
 interface Window {

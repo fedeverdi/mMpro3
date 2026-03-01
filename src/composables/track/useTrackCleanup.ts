@@ -223,9 +223,6 @@ export function useTrackCleanup(callbacks: {
     if (waveformDisplayRef) {
       waveformDisplayRef.stop()
     }
-
-    // Remove device change listener
-    navigator.mediaDevices.removeEventListener('devicechange', callbacks.refreshAudioInputs)
   }
 
   return {

@@ -406,6 +406,12 @@ ipcMain.handle('audio-engine:list-devices', async () => {
   const response = await sendCommandAndWaitForResponse({ type: 'list_devices' }, 'devices')
   return response.devices
 })
+
+ipcMain.handle('audio-engine:list-audio-inputs', async () => {
+  const response = await sendCommandAndWaitForResponse({ type: 'list_audio_inputs' }, 'audio_inputs')
+  return response.inputs
+})
+
 // Window state management
 interface WindowState {
   x?: number

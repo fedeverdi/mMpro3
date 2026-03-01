@@ -103,6 +103,7 @@ contextBridge.exposeInMainWorld('audioEngine', {
   
   // Device management
   listDevices: () => ipcRenderer.invoke('audio-engine:list-devices'),
+  listAudioInputs: () => ipcRenderer.invoke('audio-engine:list-audio-inputs'),
   
   // Response listener
   onResponse: (callback: (response: any) => void) => {

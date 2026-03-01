@@ -1,12 +1,12 @@
 import { ref } from 'vue'
 
 // Shared state for audio input devices
-const audioInputDevices = ref<MediaDeviceInfo[]>([])
+const audioInputDevices = ref<RustAudioDevice[]>([])
 let devicesEnumerated = false
 let enumerationPromise: Promise<void> | null = null
 
 // Shared state for audio output devices
-const audioOutputDevices = ref<MediaDeviceInfo[]>([])
+const audioOutputDevices = ref<RustAudioDevice[]>([])
 let outputDevicesEnumerated = false
 let outputEnumerationPromise: Promise<void> | null = null
 
@@ -22,68 +22,18 @@ export function useAudioDevices() {
       return
     }
 
-    // Check if mediaDevices API is available
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-      console.warn('[useAudioDevices] mediaDevices API not available')
-      devicesEnumerated = true
-      return
-    }
-    
-    // Start enumeration
+    // Start enumeration from Rust audio engine
     enumerationPromise = (async () => {
-      try {     
-        // Request microphone permission to unlock device labels
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-          stream.getTracks().forEach(track => track.stop())
-        } catch (permError) {
-          console.warn('[useAudioDevices] Permission denied for device labels, continuing with limited info')
-          // Continue anyway - we can still list devices without labels
-        }
+      try {
+        console.log('[useAudioDevices] Fetching audio inputs from Rust engine...')
         
-        const devices = await navigator.mediaDevices.enumerateDevices()
-        const inputDevices = devices.filter(device => device.kind === 'audioinput')
+        // Get input devices from Rust engine (already expanded with channels)
+        const devices = await window.audioEngine.listAudioInputs()
         
-        // Expand multi-channel input devices into separate channel entries
-        const expandedDevices: MediaDeviceInfo[] = []
+        console.log(`[useAudioDevices] Received ${devices.length} audio inputs from Rust`)
         
-        for (const device of inputDevices) {
-          const label = device.label.toLowerCase()
-          let channelCount = 1 // Default mono
-          
-          // Detect multi-channel devices by name
-          if (label.includes('rubix') || label.includes('4x4') || label.includes('quad')) {
-            channelCount = 4
-          } else if (label.includes('8x8') || label.includes('octo')) {
-            channelCount = 8
-          } else if (label.includes('audio interface') && label.includes('usb')) {
-            // Some USB audio interfaces might be multi-channel
-            channelCount = 4
-          }
-          
-          if (channelCount > 1) {
-            // Create a virtual device entry for each channel
-            for (let ch = 0; ch < channelCount; ch++) {
-              // Create a virtual MediaDeviceInfo-like object
-              const virtualDevice = {
-                deviceId: `${device.deviceId}:${ch}`, // Composite ID: realId:channelIndex
-                groupId: device.groupId,
-                kind: device.kind,
-                label: `${device.label} - Channel ${ch + 1}`,
-                toJSON: device.toJSON
-              } as MediaDeviceInfo
-              
-              expandedDevices.push(virtualDevice)
-            }
-            console.log(`[useAudioDevices] Expanded ${device.label} into ${channelCount} input channels`)
-          } else {
-            // Regular mono device, add as-is
-            expandedDevices.push(device)
-          }
-        }
-        
-        audioInputDevices.value = expandedDevices
-        devicesEnumerated = true        
+        audioInputDevices.value = devices
+        devicesEnumerated = true
       } catch (error) {
         console.error('[useAudioDevices] Error enumerating audio inputs:', error)
       } finally {
@@ -110,22 +60,16 @@ export function useAudioDevices() {
       return
     }
     
-    // Start enumeration
+    // Start enumeration from Rust audio engine
     outputEnumerationPromise = (async () => {
       try {
-        // Get devices from Rust audio engine instead of Web Audio API
-        const devices = await window.audioEngine.listDevices()
+        console.log('[useAudioDevices] Fetching audio outputs from Rust engine...')
         
-        // Filter only output devices and convert to MediaDeviceInfo-like structure
-        const outputDevices = devices
-          .filter((device: any) => device.output_channels > 0)
-          .map((device: any) => ({
-            deviceId: device.id,
-            groupId: '',
-            kind: 'audiooutput',
-            label: device.name,
-            toJSON: () => ({})
-          } as MediaDeviceInfo))
+        // Get all devices from Rust engine and filter only outputs
+        const allDevices = await window.audioEngine.listDevices()
+        const outputDevices = allDevices.filter((device: RustAudioDevice) => device.output_channels > 0)
+        
+        console.log(`[useAudioDevices] Received ${outputDevices.length} audio outputs from Rust`)
         
         audioOutputDevices.value = outputDevices
         outputDevicesEnumerated = true
