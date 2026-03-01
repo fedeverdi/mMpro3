@@ -30,21 +30,6 @@
               </div>
             </div>
           </template>
-
-          <!-- Quick Scene Access -->
-          <template v-if="pinnedScenes.length > 0">
-            <div class="w-px h-6 bg-gray-600"></div>
-            <div class="flex gap-1 items-center">
-              <span class="text-[10px] text-gray-400 font-semibold uppercase">Quick scenes:</span>
-              <button v-for="scene in pinnedScenes" :key="scene.id" @click="handleLoadScene(scene.id)"
-                class="px-2 py-0.5 text-[0.65rem] rounded transition-all uppercase border"
-                :class="scene.id === currentSceneId
-                  ? 'border-green-500 bg-green-500/20 text-green-400'
-                  : 'border-gray-600 hover:border-yellow-500 hover:bg-yellow-500/10 text-gray-300 hover:text-yellow-400'" :title="`Load scene: ${scene.name}`">
-                {{ scene.name }}
-              </button>
-            </div>
-          </template>
         </div>
         <div class="flex gap-2 items-center flex-wrap">
           <!-- Audio Settings Button -->
@@ -83,16 +68,6 @@
                 d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
             </svg>
             Library
-          </button>
-
-          <button @click="handleClearScene"
-            class="px-3 py-1.5 border border-gray-600 hover:border-orange-500 hover:bg-orange-500/10 rounded text-xs font-semibold text-gray-300 hover:text-orange-400 transition-all flex items-center gap-1.5"
-            title="Clear mixer - Reload page">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 640 512">
-              <path
-                d="M256.47 216.77l86.73 109.18s-16.6 102.36-76.57 150.12C206.66 523.85 0 510.19 0 510.19s3.8-23.14 11-55.43l94.62-112.17c3.97-4.7-.87-11.62-6.65-9.5l-60.4 22.09c14.44-41.66 32.72-80.04 54.6-97.47 59.97-47.76 163.3-40.94 163.3-40.94zM636.53 31.03l-19.86-25c-5.49-6.9-15.52-8.05-22.41-2.56l-232.48 177.8-34.14-42.97c-5.09-6.41-15.14-5.21-18.59 2.21l-25.33 54.55 86.73 109.18 58.8-12.45c8-1.69 11.42-11.2 6.34-17.6l-34.09-42.92 232.48-177.8c6.89-5.48 8.04-15.53 2.55-22.44z" />
-            </svg>
-            Clear
           </button>
 
           <div class="w-px h-6 bg-gray-600"></div>
@@ -309,9 +284,7 @@
       @select-playlist="handlePlaylistSelect" />
 
     <!-- Scenes Modal -->
-    <ScenesModal v-model="showScenesModal" :scenes="scenes" :current-scene-id="currentSceneId" @save="handleSaveScene"
-      @load="handleLoadScene" @update="handleUpdateScene" @delete="handleDeleteScene" @rename="handleRenameScene"
-      @toggle-pin="handleTogglePin" />
+    <ScenesModal v-model="showScenesModal" />
 
     <!-- Limit Reached Modal -->
     <Transition enter-from-class="opacity-0" enter-active-class="transition-opacity duration-200"
@@ -346,32 +319,6 @@
         </div>
       </div>
     </Transition>
-
-    <!-- Scene Loading Overlay -->
-    <Transition enter-from-class="opacity-0 scale-90 -translate-y-12"
-      enter-active-class="transition-all duration-500 ease-out" enter-to-class="opacity-100 scale-100 translate-y-0"
-      leave-from-class="opacity-100 scale-100 translate-y-0" leave-active-class="transition-all duration-300 ease-in"
-      leave-to-class="opacity-0 scale-90 -translate-y-8">
-      <div v-if="isLoadingScene" class="fixed inset-0 flex items-start justify-center pt-20 z-[9999]">
-        <div
-          class="bg-gradient-to-br from-gray-600 to-gray-700 border-2 border-blue-500/70 rounded-lg shadow-2xl px-6 py-3 flex items-center gap-3 whitespace-nowrap">
-          <div class="relative w-5 h-5">
-            <div class="absolute inset-0 border-2 border-blue-500/30 rounded-full"></div>
-            <div class="absolute inset-0 border-2 border-transparent border-t-blue-500 rounded-full animate-spin">
-            </div>
-          </div>
-          <span class="text-sm font-semibold text-white">Loading Scene</span>
-          <div class="flex gap-1 pt-2">
-            <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0ms">
-            </div>
-            <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 150ms">
-            </div>
-            <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 300ms">
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -390,8 +337,6 @@ import Timeline from './components/automation/Timeline.vue'
 import AutomationLane from './components/automation/AutomationLane.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioEngine } from '~/composables/useAudioEngine'
-import { useScenes, type Scene, type TrackSnapshot, type SubgroupSnapshot, type AuxSnapshot } from '~/composables/useScenes'
-import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 import { useAutomation } from '~/composables/useAutomation'
 import { getBuildLimits, canAddTrack, getTrackCounts, getBuildMode } from '~/config/buildLimits'
 import { channel } from 'diagnostics_channel'
@@ -460,7 +405,6 @@ const showFileManager = ref(false)
 const showAudioSettings = ref(false)
 const showRecorder = ref(false)
 const isRecording = ref(false)
-const isLoadingScene = ref(false)
 const showLimitModal = ref(false)
 const limitModalMessage = ref('')
 
@@ -1211,34 +1155,6 @@ function isTrackArmed(trackId: number): boolean {
   return armedTracks.value.has(trackId)
 }
 
-// Scene management
-const {
-  scenes,
-  currentSceneId,
-  loadScenesFromStorage,
-  createScene,
-  updateScene,
-  deleteScene,
-  renameScene,
-  setCurrentScene,
-  togglePinScene
-} = useScenes()
-
-const { deleteAudioFile } = useAudioFileStorage()
-
-// Helper function to restore subgroup snapshots
-function restoreSubgroupSnapshots(subgroupSnapshots: SubgroupSnapshot[]) {
-  subgroupSnapshots.forEach((subgroupSnapshot: SubgroupSnapshot) => {
-    const subgroup = subgroups.value.find(s => s.id === subgroupSnapshot.id)
-    if (subgroup && subgroup.ref && subgroup.ref.restoreSnapshot) {
-      subgroup.ref.restoreSnapshot(subgroupSnapshot)
-    } else {
-      console.warn(`[Scene Load] Cannot restore subgroup ${subgroupSnapshot.name} (ID: ${subgroupSnapshot.id})`,
-        { hasSubgroup: !!subgroup, hasRef: !!subgroup?.ref })
-    }
-  })
-}
-
 // Audio Configuration Handler
 async function handleAudioConfigApply(config: { sampleRate: number; bufferSize: number }) {
   console.log('[App] Applying audio config:', config)
@@ -1262,434 +1178,6 @@ async function handleAudioConfigApply(config: { sampleRate: number; bufferSize: 
   console.log('[App] Audio config applied successfully')
 }
 
-async function handleSaveScene(sceneName: string) {
-  // Collect snapshots from all tracks
-  const trackSnapshots: TrackSnapshot[] = []
-  tracks.value.forEach(track => {
-    const trackRef = trackRefs.value.get(track.id)
-    if (trackRef && trackRef.getSnapshot) {
-      trackSnapshots.push(trackRef.getSnapshot())
-    }
-  })
-
-  // Collect master snapshot from MasterSection
-  const masterSectionSnapshot = masterSectionRef.value?.getSnapshot?.() || {
-    leftVolume: 0,
-    rightVolume: 0,
-    headphonesVolume: 0,
-    isLinked: true,
-    compressorEnabled: false,
-    reverbEnabled: false,
-    delayEnabled: false,
-    limiterEnabled: false
-  }
-
-  const masterSnapshot = {
-    ...masterSectionSnapshot,
-    masterEQFilters: (rightSectionRef.value?.masterEqFiltersData || []).map((filter: any) => ({
-      type: filter.type,
-      frequency: filter.frequency,
-      gain: filter.gain,
-      Q: filter.Q,
-      color: filter.color
-    }))
-  }
-
-  // Collect subgroup snapshots
-  const subgroupSnapshots: SubgroupSnapshot[] = []
-  subgroups.value.forEach(subgroup => {
-    if (subgroup.ref && subgroup.ref.getSnapshot) {
-      const snapshot = subgroup.ref.getSnapshot()
-      subgroupSnapshots.push({
-        id: subgroup.id,
-        name: subgroup.name,
-        ...snapshot
-      })
-    } else {
-      console.warn(`[Scene Save] Subgroup ${subgroup.name} (ID: ${subgroup.id}) has no ref or getSnapshot`)
-    }
-  })
-
-  // Collect aux snapshots
-  const auxSnapshots: AuxSnapshot[] = []
-  auxBuses.value.forEach(aux => {
-    auxSnapshots.push({
-      id: aux.id,
-      name: aux.name,
-      volume: aux.volume,
-      muted: aux.muted,
-      soloed: aux.soloed,
-      routeToMaster: aux.routeToMaster,
-      selectedOutputDevice: aux.selectedOutputDevice,
-      // FX
-      reverbEnabled: aux.reverbEnabled,
-      reverbParams: aux.reverbParams,
-      delayEnabled: aux.delayEnabled,
-      delayParams: aux.delayParams
-    })
-  })
-
-  // Create and save scene
-  const scene = await createScene(
-    sceneName,
-    trackSnapshots,
-    masterSnapshot,
-    subgroupSnapshots,
-    auxSnapshots,
-    automation.exportAutomation() // Add automation data
-  )
-  setCurrentScene(scene.id)
-}
-
-function handleLoadScene(sceneId: string) {
-  const scene = scenes.value.find((s: Scene) => s.id === sceneId)
-  if (!scene) return
-
-  // Close the modal first
-  showScenesModal.value = false
-
-  // Show loading overlay
-  isLoadingScene.value = true
-
-  // Small delay before starting the animation
-  setTimeout(() => {
-    // Reset all tracks to defaults before loading scene
-    trackRefs.value.forEach((trackRef) => {
-      if (trackRef && trackRef.resetToDefaults) {
-        trackRef.resetToDefaults()
-      }
-    })
-
-    // Reset master section to defaults
-    if (masterSectionRef.value?.resetToDefaults) {
-      masterSectionRef.value.resetToDefaults()
-    }
-
-    // Reset subgroups to defaults
-    subgroups.value.forEach(subgroup => {
-      if (subgroup.ref && subgroup.ref.resetToDefaults) {
-        subgroup.ref.resetToDefaults()
-      }
-    })
-
-    // Clear master EQ filters
-    if (rightSectionRef.value?.masterEqFiltersData) {
-      rightSectionRef.value.masterEqFiltersData = []
-    }
-
-    // Animate faders to -∞ (mute) first (digital mixer effect)
-    trackRefs.value.forEach((trackRef) => {
-      if (trackRef && trackRef.getSnapshot) {
-        const snapshot = trackRef.getSnapshot()
-        // Create a temporary snapshot with volume at -90 (-∞ / muted)
-        const muteSnapshot = { ...snapshot, volume: -90 }
-        trackRef.restoreFromSnapshot(muteSnapshot)
-      }
-    })
-
-    // Wait before restoring actual values (give time to see the animation)
-    setTimeout(() => {
-      // Restore aux buses FIRST (before tracks, so aux nodes exist when tracks restore their sends)
-      if (scene.auxBuses) {
-        // Clean up existing aux buses
-        while (auxBuses.value.length > 0) {
-          const aux = auxBuses.value[0]
-
-          // Disconnect and close output
-          if (aux.outputSource) {
-            try {
-              aux.outputSource.disconnect()
-            } catch (e) { }
-          }
-          if (aux.outputAudioContext) {
-            try {
-              aux.outputAudioContext.close()
-            } catch (e) { }
-          }
-
-          auxBuses.value.shift()
-        }
-
-        // Create aux buses from scene (simplified - Rust backend handles audio)
-        scene.auxBuses.forEach((auxSnapshot: AuxSnapshot) => {
-          const newAux: AuxBus = {
-            id: auxSnapshot.id,
-            name: auxSnapshot.name,
-            volume: auxSnapshot.volume,
-            muted: auxSnapshot.muted,
-            soloed: auxSnapshot.soloed,
-            routeToMaster: auxSnapshot.routeToMaster,
-            selectedOutputDevice: auxSnapshot.selectedOutputDevice ?? 'no-output',
-            node: null,
-            outputNode: null,
-            outputStreamDest: null,
-            outputAudioContext: null,
-            outputSource: null,
-            // FX
-            reverbNode: null,
-            reverbEnabled: auxSnapshot.reverbEnabled || false,
-            reverbParams: auxSnapshot.reverbParams || { decay: 2.5, preDelay: 0.01, wet: 1.0 },
-            delayNode: null,
-            delayEnabled: auxSnapshot.delayEnabled || false,
-            delayParams: auxSnapshot.delayParams || { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
-          }
-
-          auxBuses.value.push(newAux)
-        })
-
-        // Update nextAuxId counter
-        if (scene.auxBuses.length > 0) {
-          const maxId = Math.max(...scene.auxBuses.map((a: AuxSnapshot) => {
-            const match = a.id.match(/aux-(\d+)/)
-            return match ? parseInt(match[1]) : 0
-          }))
-          nextAuxId = maxId + 1
-        }
-      }
-
-      // Wait for Vue to update props before restoring tracks
-      nextTick(() => {
-        // Restore each track's state (NOW aux buses exist and props are updated)
-        scene.tracks.forEach((trackSnapshot: TrackSnapshot) => {
-          const trackRef = trackRefs.value.get(trackSnapshot.trackNumber)
-          if (trackRef && trackRef.restoreFromSnapshot) {
-            trackRef.restoreFromSnapshot(trackSnapshot)
-          }
-
-          // Restore track order
-          const track = tracks.value.find(t => t.id === trackSnapshot.trackNumber)
-          if (track && trackSnapshot.order !== undefined) {
-            track.order = trackSnapshot.order
-          }
-        })
-      })
-
-      // Restore master EQ filters
-      if (scene.master.masterEQFilters && scene.master.masterEQFilters.length > 0) {
-        if (rightSectionRef.value?.masterEqFiltersData) {
-          rightSectionRef.value.masterEqFiltersData = scene.master.masterEQFilters.map((filter: any) => ({
-            type: filter.type,
-            frequency: filter.frequency,
-            gain: filter.gain,
-            Q: filter.Q,
-            color: filter.color || '#3b82f6'
-          }))
-        }
-      } else {
-        if (rightSectionRef.value?.masterEqFiltersData) {
-          rightSectionRef.value.masterEqFiltersData = []
-        }
-      }
-
-      // Restore master section state (volumes, FX)
-      if (masterSectionRef.value?.restoreSnapshot) {
-        masterSectionRef.value.restoreSnapshot(scene.master)
-      }
-
-      // Ensure we have enough subgroups to restore the scene
-      if (scene.subgroups && scene.subgroups.length > 0) {
-        // Create missing subgroups if needed
-        const existingIds = new Set(subgroups.value.map(s => s.id))
-        const missingSubgroups = scene.subgroups.filter(
-          (snapshot: SubgroupSnapshot) => !existingIds.has(snapshot.id)
-        )
-
-        if (missingSubgroups.length > 0) {
-          missingSubgroups.forEach((snapshot: SubgroupSnapshot) => {
-            // Subgroups now managed by Rust backend
-            subgroups.value.push({
-              id: snapshot.id,
-              name: snapshot.name,
-              channel: null,
-              ref: null
-            })
-          })
-
-          // Wait for components to mount
-          nextTick(() => {
-            setTimeout(() => {
-              restoreSubgroupSnapshots(scene.subgroups!)
-            }, 100)
-          })
-        } else {
-          restoreSubgroupSnapshots(scene.subgroups)
-        }
-      }
-
-      // Restore automation data
-      if (scene.automation) {
-        automation.importAutomation(scene.automation)
-      } else {
-        // No automation in scene, clear existing automation
-        automation.clearAll()
-      }
-
-      // Set as current scene
-      setCurrentScene(scene.id)
-
-      // Hide loading overlay after scene is restored and audio files have time to load
-      setTimeout(() => {
-        isLoadingScene.value = false
-      }, 1200) // Extra time for audio files to load silently
-    }, 600) // Wait 0.6 seconds at -∞ before restoring values
-  }, 200) // Initial delay after closing modal
-}
-
-async function handleUpdateScene(sceneId: string) {
-  // Get old scene to clean up orphaned files
-  const oldScene = scenes.value.find((s: Scene) => s.id === sceneId)
-
-  // Collect current state from tracks
-  const trackSnapshots: TrackSnapshot[] = []
-  tracks.value.forEach(track => {
-    const trackRef = trackRefs.value.get(track.id)
-    if (trackRef && trackRef.getSnapshot) {
-      trackSnapshots.push(trackRef.getSnapshot())
-    }
-  })
-
-  // Collect master snapshot from MasterSection
-  const masterSectionSnapshot = masterSectionRef.value?.getSnapshot?.() || {
-    leftVolume: 0,
-    rightVolume: 0,
-    headphonesVolume: 0,
-    isLinked: true,
-    compressorEnabled: false,
-    reverbEnabled: false,
-    delayEnabled: false,
-    limiterEnabled: false
-  }
-
-  const masterSnapshot = {
-    ...masterSectionSnapshot,
-    masterEQFilters: (rightSectionRef.value?.masterEqFiltersData || []).map((filter: any) => ({
-      type: filter.type,
-      frequency: filter.frequency,
-      gain: filter.gain,
-      Q: filter.Q,
-      color: filter.color
-    }))
-  }
-
-  // Collect subgroup snapshots
-  const subgroupSnapshots: SubgroupSnapshot[] = []
-  subgroups.value.forEach(subgroup => {
-    if (subgroup.ref && subgroup.ref.getSnapshot) {
-      const snapshot = subgroup.ref.getSnapshot()
-      subgroupSnapshots.push({
-        id: subgroup.id,
-        name: subgroup.name,
-        ...snapshot
-      })
-    } else {
-      console.warn(`[Scene Update] Subgroup ${subgroup.name} (ID: ${subgroup.id}) has no ref or getSnapshot`)
-    }
-  })
-
-  // Collect aux snapshots
-  const auxSnapshots: AuxSnapshot[] = []
-  auxBuses.value.forEach(aux => {
-    auxSnapshots.push({
-      id: aux.id,
-      name: aux.name,
-      volume: aux.volume,
-      muted: aux.muted,
-      soloed: aux.soloed,
-      routeToMaster: aux.routeToMaster,
-      selectedOutputDevice: aux.selectedOutputDevice,
-      // FX
-      reverbEnabled: aux.reverbEnabled,
-      reverbParams: aux.reverbParams,
-      delayEnabled: aux.delayEnabled,
-      delayParams: aux.delayParams
-    })
-  })
-
-  // Update scene
-  await updateScene(
-    sceneId,
-    trackSnapshots,
-    masterSnapshot,
-    subgroupSnapshots,
-    auxSnapshots,
-    automation.exportAutomation() // Add automation data
-  )
-
-  // Clean up old audio files that are no longer in the scene
-  if (oldScene) {
-    const oldFileIds = new Set(
-      oldScene.tracks
-        .filter((t: TrackSnapshot) => t.fileId)
-        .map((t: TrackSnapshot) => t.fileId!)
-    )
-    const newFileIds = new Set(
-      trackSnapshots
-        .filter(t => t.fileId)
-        .map(t => t.fileId!)
-    )
-
-    // Delete files that were in old scene but not in new scene
-    const filesToDelete = Array.from(oldFileIds).filter(id => !newFileIds.has(id))
-
-    for (const fileId of filesToDelete) {
-      try {
-        await deleteAudioFile(fileId)
-      } catch (err) {
-        console.warn(`Failed to delete orphaned file ${fileId}:`, err)
-      }
-    }
-  }
-}
-
-async function handleDeleteScene(sceneId: string) {
-  // Find scene to get file IDs before deletion
-  const scene = scenes.value.find((s: Scene) => s.id === sceneId)
-
-  if (scene) {
-    // Delete all audio files associated with this scene from IndexedDB
-    const fileDeletePromises: Promise<void>[] = []
-
-    scene.tracks.forEach((track: TrackSnapshot) => {
-      if (track.fileId) {
-        fileDeletePromises.push(
-          deleteAudioFile(track.fileId).catch((err: unknown) => {
-            console.warn(`Failed to delete file ${track.fileId}:`, err)
-          })
-        )
-      }
-    })
-
-    // Wait for all file deletions to complete
-    await Promise.all(fileDeletePromises)
-  }
-
-  // Delete scene from storage (this removes from both scenes array and IndexedDB)
-  await deleteScene(sceneId)
-
-  // If deleted scene was current, clear current
-  if (currentSceneId.value === sceneId) {
-    setCurrentScene(null)
-  }
-}
-
-async function handleRenameScene(sceneId: string, newName: string) {
-  await renameScene(sceneId, newName)
-}
-
-async function handleTogglePin(sceneId: string) {
-  await togglePinScene(sceneId)
-}
-
-function handleClearScene() {
-  // Reload the page to clear all mixer state
-  window.location.reload()
-}
-
-// Computed for pinned scenes
-const pinnedScenes = computed(() => {
-  return scenes.value.filter(scene => scene.pinned)
-})
-
 // Initialize audio
 onMounted(async () => {
   document.title = 'Audio Mixer Pro - Multi-Track Mixer'
@@ -1712,11 +1200,8 @@ onMounted(async () => {
     addAux()
   }
 
-  // Then load async resources in parallel
-  await Promise.all([
-    loadScenesFromStorage(),
-    refreshAudioOutputs()
-  ])
+  // Then refresh audio outputs
+  await refreshAudioOutputs()
 
   // Don't start connection here - wait for component to mount
 
