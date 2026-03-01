@@ -223,6 +223,9 @@ impl Track {
         self.input_channel_selection = channel_selection;
         self.signal_generator = None;
         self.file_player = None;
+        
+        // Set default gain to 1.0 for microphone input
+        self.gain = 1.0;
     }
 
     /// Set track source to signal generator
