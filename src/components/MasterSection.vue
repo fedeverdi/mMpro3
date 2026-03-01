@@ -148,24 +148,34 @@ function updateMetersHeight() {
 // Handle master output selection
 async function onMasterOutputSelect(deviceId: string | null) {
   selectedMasterOutput.value = deviceId
-  console.log('[Master Output] Selected:', deviceId)
   
   // Restart audio engine with new output device
   if (audioEngine) {
     // '' or null means default device (undefined in Rust)
     if (!deviceId || deviceId === '') {
-      console.log('[Master Output] Restarting engine with default output device')
       await audioEngine.restartWithDevices(undefined, undefined)
-      console.log('[Master Output] Engine restarted with default output device')
     } else {
-      const device = audioOutputDevices.value.find(d => d.id === deviceId)
+      // Parse device ID (format: "deviceId" or "deviceId:leftCh:rightCh")
+      const parts = deviceId.split(':')
+      const actualDeviceId = parts[0]
+      const leftChannel = parts[1] ? parseInt(parts[1]) : 0
+      const rightChannel = parts[2] ? parseInt(parts[2]) : 1
+
+      const device = audioOutputDevices.value.find(d => d.id === actualDeviceId)
       if (device) {
-        const deviceLabel = device.name || `Device ${deviceId.substring(0, 8)}`
-        console.log('[Master Output] Restarting engine with:', deviceLabel)
+        const deviceLabel = device.name || `Device ${actualDeviceId.substring(0, 8)}`
         await audioEngine.restartWithDevices(undefined, deviceLabel)
-        console.log('[Master Output] Engine restarted with new output device')
-      } else {
-        console.warn('[Master Output] Device not found:', deviceId)
+        
+        // Wait for engine to be ready (max 2 seconds)
+        const startTime = Date.now()
+        while (!audioEngine.state.value.isRunning && Date.now() - startTime < 2000) {
+          await new Promise(resolve => setTimeout(resolve, 50))
+        }
+        
+        if (audioEngine.state.value.isRunning) {
+          // Set channel selection after restart
+          await audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
+        }
       }
     }
   }

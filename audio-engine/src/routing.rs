@@ -699,6 +699,9 @@ pub struct Router {
     pub fft_analyzer: FFTAnalyzer,
     // Master bus output (before adding direct subgroups) for FFT analysis
     pub last_master_output: (f32, f32),
+    // Cached outputs for multi-channel routing (populated by process_frame)
+    pub last_subgroup_outputs: Vec<(f32, f32)>,
+    pub last_aux_outputs: Vec<(f32,f32)>,
 }
 
 impl Router {
@@ -715,6 +718,8 @@ impl Router {
             master: MasterBus::new(),
             fft_analyzer: FFTAnalyzer::new(),
             last_master_output: (0.0, 0.0),
+            last_subgroup_outputs: Vec::new(),
+            last_aux_outputs: Vec::new(),
         }
     }
 
@@ -785,6 +790,10 @@ impl Router {
             aux_outputs.push(aux_output);
         }
 
+        // Cache outputs for multi-channel routing
+        self.last_subgroup_outputs = subgroup_outputs.clone();
+        self.last_aux_outputs = aux_outputs.clone();
+
         // Process master bus (using cached track outputs)
         // Master processes all tracks with route_to_master enabled (parallel with subgroups)
         let mut master_output = self.master.process_cached(&self.tracks, &track_outputs);
@@ -812,27 +821,8 @@ impl Router {
         // Save master bus output for FFT analysis (before adding direct subgroups/aux)
         self.last_master_output = master_output;
 
-        // Start with master output (includes routed subgroups and aux)
-        let mut final_l = master_output.0;
-        let mut final_r = master_output.1;
-        
-        // Add subgroups with direct output enabled (regardless of route_to_master)
-        for (i, subgroup) in self.subgroups.iter().enumerate() {
-            if subgroup.output_enabled {
-                final_l += subgroup_outputs[i].0;
-                final_r += subgroup_outputs[i].1;
-            }
-        }
-        
-        // Add aux buses with direct output enabled (regardless of route_to_master)
-        for (i, aux_bus) in self.aux_buses.iter().enumerate() {
-            if aux_bus.output_enabled {
-                final_l += aux_outputs[i].0;
-                final_r += aux_outputs[i].1;
-            }
-        }
-
-        (final_l, final_r)
+        // Return ONLY master output (direct subgroups/aux are written separately in output callback)
+        master_output
     }
 
     /// Get track by id

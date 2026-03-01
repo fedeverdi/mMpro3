@@ -27,9 +27,7 @@
               v-if="showNoOutput"
               @click="selectDevice('no-output')"
               class="w-full p-4 rounded-lg border-2 transition-all text-left"
-              :class="selectedDeviceId === 'no-output' 
-                ? 'bg-blue-600 border-blue-500 text-white' 
-                : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500'"
+              :class="getDeviceSelectionClass('no-output')"
             >
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
@@ -39,7 +37,7 @@
                     <div class="text-xs opacity-70">Disable audio output</div>
                   </div>
                 </div>
-                <div v-if="selectedDeviceId === 'no-output'" class="text-blue-300">
+                <div v-if="isSelected('no-output')" class="text-blue-300">
                   <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                   </svg>
@@ -51,9 +49,7 @@
             <button
               @click="selectDevice('')"
               class="w-full p-4 rounded-lg border-2 transition-all text-left"
-              :class="selectedDeviceId === '' 
-                ? 'bg-blue-600 border-blue-500 text-white' 
-                : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500'"
+              :class="getDeviceSelectionClass('')"
             >
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
@@ -63,7 +59,7 @@
                     <div class="text-xs opacity-70">{{ defaultDescription }}</div>
                   </div>
                 </div>
-                <div v-if="selectedDeviceId === ''" class="text-blue-300">
+                <div v-if="isSelected('')" class="text-blue-300">
                   <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                   </svg>
@@ -71,35 +67,89 @@
               </div>
             </button>
 
-            <!-- Audio Output Devices -->
-            <button
-              v-for="device in devices"
-              :key="device.id"
-              @click="selectDevice(device.id)"
-              class="w-full p-4 rounded-lg border-2 transition-all text-left"
-              :class="selectedDeviceId === device.id 
-                ? 'bg-blue-600 border-blue-500 text-white' 
-                : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500'"
-            >
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <div class="text-2xl">🔊</div>
-                  <div>
-                    <div class="font-semibold">
-                      {{ device.name || `Audio Output ${device.id.substring(0, 12)}...` }}
+            <!-- Audio Output Devices with Channel Selection -->
+            <div v-for="device in devices" :key="device.id" class="space-y-1">
+              <!-- Device Button -->
+              <button
+                @click="toggleDevice(device)"
+                class="w-full p-4 rounded-lg border-2 transition-all text-left"
+                :class="getDeviceSelectionClass(device.id)"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <div class="text-2xl flex-shrink-0">🔊</div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-semibold">
+                        {{ device.name || `Audio Output ${device.id.substring(0, 12)}...` }}
+                      </div>
+                      <div class="text-xs opacity-70">
+                        {{ device.output_channels }} channel{{ device.output_channels > 1 ? 's' : '' }}
+                      </div>
                     </div>
-                    <div class="text-xs opacity-70 font-mono">
-                      {{ device.id.substring(0, 20) }}...
+                  </div>
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <div v-if="isSelected(device.id)" class="text-blue-300">
+                      <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                      </svg>
+                    </div>
+                    <!-- Expand icon if multi-channel device -->
+                    <div v-if="device.output_channels > 2" class="text-gray-400">
+                      <svg class="w-5 h-5 transition-transform" :class="{ 'rotate-180': expandedDevice === device.id }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                      </svg>
                     </div>
                   </div>
                 </div>
-                <div v-if="selectedDeviceId === device.id" class="text-blue-300">
-                  <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-                  </svg>
+              </button>
+
+              <!-- Channel Selection (for multi-channel devices) -->
+              <div v-if="expandedDevice === device.id && device.output_channels > 2" class="ml-4 space-y-1">
+                <!-- Stereo Mode: Channel Pairs -->
+                <div v-if="mode === 'stereo'">
+                  <button
+                    v-for="pair in getChannelPairs(device.output_channels)"
+                    :key="`${device.id}:${pair.left}:${pair.right}`"
+                    @click="selectDeviceWithChannels(device.id, pair.left, pair.right)"
+                    class="w-full p-3 rounded-lg border transition-all text-left text-sm"
+                    :class="isChannelPairSelected(device.id, pair.left, pair.right) 
+                      ? 'bg-blue-900/50 border-blue-500 text-white' 
+                      : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-gray-500'"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span>Channels {{ pair.left + 1 }}-{{ pair.right + 1 }}</span>
+                      <div v-if="isChannelPairSelected(device.id, pair.left, pair.right)" class="text-blue-300">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                <!-- Mono Mode: Individual Channels -->
+                <div v-else>
+                  <button
+                    v-for="channel in device.output_channels"
+                    :key="`${device.id}:${channel - 1}`"
+                    @click="selectDeviceWithChannels(device.id, channel - 1)"
+                    class="w-full p-3 rounded-lg border transition-all text-left text-sm"
+                    :class="isMonoChannelSelected(device.id, channel - 1) 
+                      ? 'bg-blue-900/50 border-blue-500 text-white' 
+                      : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-gray-500'"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span>Channel {{ channel }}</span>
+                      <div v-if="isMonoChannelSelected(device.id, channel - 1)" class="text-blue-300">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
                 </div>
               </div>
-            </button>
+            </div>
           </div>
 
           <!-- No devices message -->
@@ -114,6 +164,8 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed } from 'vue'
+
 const props = withDefaults(defineProps<{
   isOpen: boolean
   title: string
@@ -123,8 +175,10 @@ const props = withDefaults(defineProps<{
   defaultDescription?: string
   defaultIcon?: string
   showNoOutput?: boolean
+  mode?: 'stereo' | 'mono' // stereo for master/subgroups, mono for aux
 }>(), {
-  showNoOutput: false
+  showNoOutput: false,
+  mode: 'stereo'
 })
 
 const emit = defineEmits<{
@@ -132,9 +186,84 @@ const emit = defineEmits<{
   (e: 'select', deviceId: string): void
 }>()
 
+const expandedDevice = ref<string | null>(null)
+
+// Parse selected device ID (format: "deviceId" or "deviceId:leftCh:rightCh" or "deviceId:ch")
+const parsedSelection = computed(() => {
+  const parts = props.selectedDeviceId.split(':')
+  return {
+    deviceId: parts[0] || '',
+    leftChannel: parts[1] ? parseInt(parts[1]) : null,
+    rightChannel: parts[2] ? parseInt(parts[2]) : null
+  }
+})
+
+function toggleDevice(device: RustAudioDevice) {
+  if (device.output_channels <= 2) {
+    // Simple 2-channel device: select directly with default channels
+    if (props.mode === 'stereo') {
+      selectDeviceWithChannels(device.id, 0, 1)
+    } else {
+      selectDeviceWithChannels(device.id, 0)
+    }
+  } else {
+    // Multi-channel device: toggle expansion
+    if (expandedDevice.value === device.id) {
+      expandedDevice.value = null
+    } else {
+      expandedDevice.value = device.id
+    }
+  }
+}
+
 function selectDevice(deviceId: string) {
   emit('select', deviceId)
   emit('close')
+}
+
+function selectDeviceWithChannels(deviceId: string, leftChannel: number, rightChannel?: number) {
+  if (props.mode === 'stereo' && rightChannel !== undefined) {
+    // Stereo: deviceId:leftCh:rightCh
+    emit('select', `${deviceId}:${leftChannel}:${rightChannel}`)
+  } else {
+    // Mono: deviceId:ch
+    emit('select', `${deviceId}:${leftChannel}`)
+  }
+  emit('close')
+}
+
+function getChannelPairs(channelCount: number): Array<{ left: number; right: number }> {
+  const pairs: Array<{ left: number; right: number }> = []
+  for (let i = 0; i < channelCount - 1; i += 2) {
+    pairs.push({ left: i, right: i + 1 })
+  }
+  return pairs
+}
+
+function isSelected(deviceId: string): boolean {
+  return parsedSelection.value.deviceId === deviceId && 
+         parsedSelection.value.leftChannel === null
+}
+
+function isChannelPairSelected(deviceId: string, left: number, right: number): boolean {
+  return parsedSelection.value.deviceId === deviceId && 
+         parsedSelection.value.leftChannel === left &&
+         parsedSelection.value.rightChannel === right
+}
+
+function isMonoChannelSelected(deviceId: string, channel: number): boolean {
+  return parsedSelection.value.deviceId === deviceId && 
+         parsedSelection.value.leftChannel === channel &&
+         parsedSelection.value.rightChannel === null
+}
+
+function getDeviceSelectionClass(deviceId: string): string {
+  const selected = isSelected(deviceId) || 
+                   parsedSelection.value.deviceId === deviceId
+  
+  return selected
+    ? 'bg-blue-600 border-blue-500 text-white' 
+    : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500'
 }
 </script>
 

@@ -282,7 +282,7 @@ let nextSubgroupId = 1
 const buildLimits = computed(() => getBuildLimits())
 const buildMode = computed(() => getBuildMode())
 
-// Aux buses system
+// Aux buses system (Rust backend with zero latency direct output)
 interface AuxBus {
   id: string
   name: string
@@ -294,8 +294,6 @@ interface AuxBus {
   node?: any  // Input node (Channel)
   outputNode?: any  // Output node (final node of FX chain)
   outputStreamDest?: MediaStreamAudioDestinationNode | null
-  outputAudioContext?: AudioContext | null
-  outputSource?: MediaStreamAudioSourceNode | null
   // FX Chain
   reverbNode?: any
   reverbEnabled?: boolean
@@ -724,7 +722,7 @@ function addAux() {
   const id = `aux-${nextAuxId++}`
   const name = `AUX ${nextAuxId - 1}`
 
-  // Aux buses now managed by Rust backend
+  // Aux buses now managed by Rust backend with zero latency direct output
   const newAux: AuxBus = {
     id,
     name,
@@ -736,8 +734,6 @@ function addAux() {
     node: null,
     outputNode: null,
     outputStreamDest: null,
-    outputAudioContext: null,
-    outputSource: null,
     // FX
     reverbNode: null,
     reverbEnabled: false,
@@ -824,186 +820,41 @@ async function updateAux(index: number, updatedAux: AuxBus) {
       }
     }
 
-    // Update routing to master if changed (Web Audio for monitoring)
-    if (updatedAux.routeToMaster !== aux.routeToMaster) {
-      const outputNode = toRaw(aux.outputNode)  // Use outputNode (end of FX chain)
-      const masterChan = toRaw(masterChannel.value)
-      const outputStreamDest = toRaw(aux.outputStreamDest)
-
-      if (updatedAux.routeToMaster && masterChan) {
-        try {
-          outputNode.disconnect()
-        } catch (e) { }
-        // Connect to both master and stream destination
-        outputNode.connect(masterChan)
-        if (outputStreamDest) {
-          outputNode.connect(outputStreamDest as any)
-        }
+    // Handle output device selection via Rust backend (like subgroups)
+    if (updatedAux.selectedOutputDevice !== aux.selectedOutputDevice) {
+      const deviceId = updatedAux.selectedOutputDevice
+      
+      // Parse device ID (format: "deviceId" or "deviceId:ch" for mono)
+      const parts = deviceId?.split(':') || []
+      const actualDeviceId = parts[0]
+      const channel = parts[1] ? parseInt(parts[1]) : 0
+      
+      // If "no-output" is selected, disable direct output
+      if (actualDeviceId === 'no-output' || actualDeviceId === null) {
+        await audioEngine.setAuxBusOutputEnabled(index, false)
       } else {
-        try {
-          outputNode.disconnect()
-        } catch (e) { }
-        // Connect only to stream destination
-        if (outputStreamDest) {
-          outputNode.connect(outputStreamDest as any)
-        }
+        // Enable direct output when a device is selected
+        await audioEngine.setAuxBusOutputEnabled(index, true)
+        
+        // Aux are mono: use same channel for both L and R
+        await audioEngine.setAuxBusOutputChannels(index, channel, channel)
       }
     }
 
-    // Handle output device change BEFORE updating values
-    if (updatedAux.selectedOutputDevice !== aux.selectedOutputDevice) {
-      await changeAuxOutputDevice(index, updatedAux.selectedOutputDevice)
-    }
-
-    // Update values (preserve audio nodes and output routing objects that are managed separately)
+    // Update values (preserve audio nodes managed separately)
     auxBuses.value[index] = {
       ...updatedAux,
       node: auxBuses.value[index].node,
       outputNode: auxBuses.value[index].outputNode,
       reverbNode: auxBuses.value[index].reverbNode,
       delayNode: auxBuses.value[index].delayNode,
-      outputStreamDest: auxBuses.value[index].outputStreamDest,
-      outputAudioContext: auxBuses.value[index].outputAudioContext,
-      outputSource: auxBuses.value[index].outputSource
+      outputStreamDest: auxBuses.value[index].outputStreamDest
     }
   }
 }
 
-// Change aux output device
-async function changeAuxOutputDevice(index: number, deviceId: string | null | undefined) {
-  if (index < 0 || index >= auxBuses.value.length) return
-
-  const aux = auxBuses.value[index]
-  if (!aux.outputStreamDest) return
-
-  try {
-    // Disconnect and close existing output
-    if (aux.outputSource) {
-      console.log(`[Aux ${aux.name}] Disconnecting old source`)
-      try {
-        aux.outputSource.disconnect()
-      } catch (e) {
-        console.warn(`[Aux ${aux.name}] Error disconnecting source:`, e)
-      }
-      auxBuses.value[index].outputSource = null
-    }
-
-    if (aux.outputAudioContext) {
-      console.log(`[Aux ${aux.name}] Closing old AudioContext, state:`, aux.outputAudioContext.state)
-      try {
-        if (aux.outputAudioContext.state !== 'closed') {
-          await aux.outputAudioContext.close()
-        }
-      } catch (e) {
-        console.warn(`[Aux ${aux.name}] Error closing context:`, e)
-      }
-      auxBuses.value[index].outputAudioContext = null
-    }
-
-    // Small delay to ensure cleanup is complete
-    await new Promise(resolve => setTimeout(resolve, 50))
-
-    // If "no-output" is selected, don't create any output context
-    if (deviceId === 'no-output') {
-      return
-    }
-
-    // Parse composite deviceId (format: "realDeviceId:channelIndex")
-    let realDeviceId = deviceId || ''
-    let targetChannel: number | null = null
-
-    if (deviceId && deviceId.includes(':')) {
-      const parts = deviceId.split(':')
-      realDeviceId = parts[0]
-      targetChannel = parseInt(parts[1], 10)
-      console.log(`[Aux ${aux.name}] Parsed composite deviceId: device="${realDeviceId}", channel=${targetChannel + 1}`)
-    }
-
-    // Create new AudioContext targeting selected device
-    const contextOptions: any = {
-      latencyHint: 'interactive',
-      sampleRate: 48000  // Rust backend sample rate
-    }
-
-    if (realDeviceId && realDeviceId !== '') {
-      contextOptions.sinkId = realDeviceId
-    }
-
-    const outputAudioContext = new AudioContext(contextOptions)
-
-    // Detect number of output channels from device capabilities
-    let deviceChannelCount = outputAudioContext.destination.maxChannelCount
-
-    // If we have a target channel from composite ID, use that as indicator of multi-channel device
-    if (targetChannel !== null) {
-      // Target channel tells us the device has at least targetChannel+1 channels
-      // For Rubix44 we know it has 4 channels
-      deviceChannelCount = Math.max(4, targetChannel + 1)
-    }
-  
-    // Configure destination for multi-channel output
-    try {
-      outputAudioContext.destination.channelCount = deviceChannelCount
-      outputAudioContext.destination.channelCountMode = 'explicit'
-      outputAudioContext.destination.channelInterpretation = 'discrete'
-      console.log(`[Aux ${aux.name}] Set destination to ${deviceChannelCount} channels (discrete)`)
-    } catch (e) {
-      console.warn(`[Aux ${aux.name}] Could not configure destination:`, e)
-    }
-
-    // Create audio routing
-    const source = outputAudioContext.createMediaStreamSource(aux.outputStreamDest.stream)
-
-    // Check actual channel count from the source
-    const actualChannelCount = source.channelCount
-    console.log(`[Aux ${aux.name}] Source has ${actualChannelCount} channels`)
-
-    // If a specific channel was selected (from composite deviceId), route to that channel
-    if (targetChannel !== null && deviceChannelCount > 2) {
-      // Create a channel merger to route aux to specific output channels
-      const channelMerger = outputAudioContext.createChannelMerger(deviceChannelCount)
-
-      if (actualChannelCount === 2) {
-        // Stereo source - split and route to consecutive channels
-        const splitter = outputAudioContext.createChannelSplitter(2)
-        source.connect(splitter)
-
-        // Route left to target channel, right to target+1 (if stereo width allows)
-        splitter.connect(channelMerger, 0, targetChannel)
-        if (targetChannel + 1 < deviceChannelCount) {
-          splitter.connect(channelMerger, 1, targetChannel + 1)
-          console.log(`[Aux ${aux.name}] Routing stereo to output channels ${targetChannel + 1}-${targetChannel + 2} of ${deviceChannelCount}`)
-        } else {
-          console.log(`[Aux ${aux.name}] Routing mono (left) to output channel ${targetChannel + 1} of ${deviceChannelCount}`)
-        }
-      } else {
-        // Mono source - route directly to target channel
-        const monoGain = outputAudioContext.createGain()
-        source.connect(monoGain)
-        monoGain.connect(channelMerger, 0, targetChannel)
-        console.log(`[Aux ${aux.name}] Routing mono to output channel ${targetChannel + 1} of ${deviceChannelCount}`)
-      }
-
-      // Connect merger to destination
-      channelMerger.connect(outputAudioContext.destination)
-    } else {
-      // Default routing (stereo output or no specific channel selected)
-      source.connect(outputAudioContext.destination)
-      console.log(`[Aux ${aux.name}] Default stereo routing`)
-    }
-
-    // Resume if suspended
-    if (outputAudioContext.state === 'suspended') {
-      await outputAudioContext.resume()
-    }
-
-    // Store the new context and source
-    auxBuses.value[index].outputAudioContext = outputAudioContext
-    auxBuses.value[index].outputSource = source
-  } catch (error) {
-    console.error(`[Aux ${aux.name}] Error changing output device:`, error)
-  }
-}
+// Aux output now handled by Rust backend (ZERO latency like subgroups)
+// No Web Audio API needed - direct CPAL output with channel selection support
 
 // Solo handling
 const soloTracks = ref<Set<number>>(new Set())

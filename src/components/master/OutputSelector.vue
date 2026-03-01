@@ -17,7 +17,7 @@
 
   <AudioOutputModal :is-open="showModal" :title="title" :devices="devices" :selected-device-id="selectedDeviceId || ''"
     :default-label="defaultLabel" :default-description="defaultDescription" :default-icon="defaultIcon"
-    :show-no-output="showNoOutput" @close="showModal = false" @select="handleSelect" />
+    :show-no-output="showNoOutput" :mode="mode" @close="showModal = false" @select="handleSelect" />
 </template>
 
 <script setup lang="ts">
@@ -33,10 +33,12 @@ interface Props {
   defaultDescription: string
   defaultIcon: string
   showNoOutput?: boolean
+  mode?: 'stereo' | 'mono' // stereo for master/subgroups, mono for aux
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  showNoOutput: false
+  showNoOutput: false,
+  mode: 'stereo'
 })
 
 const emit = defineEmits<{
@@ -48,10 +50,33 @@ const showModal = ref(false)
 const deviceLabel = computed(() => {
   if (!props.selectedDeviceId) return props.defaultLabel
   if (props.selectedDeviceId === 'no-output') return 'No Output'
-  const device = props.devices.find(d => d.id === props.selectedDeviceId)
+  
+  // Parse device ID (format: "deviceId" or "deviceId:leftCh:rightCh" or "deviceId:ch")
+  const parts = props.selectedDeviceId.split(':')
+  const deviceId = parts[0]
+  const leftCh = parts[1] ? parseInt(parts[1]) : null
+  const rightCh = parts[2] ? parseInt(parts[2]) : null
+  
+  const device = props.devices.find(d => d.id === deviceId)
   if (!device) return props.defaultLabel
-  const name = device.name || 'Unknown'
-  return name.length > 8 ? name.substring(0, 8) + '...' : name
+  
+  let name = device.name || 'Unknown'
+  
+  // Add channel info if specific channels are selected
+  if (leftCh !== null) {
+    if (rightCh !== null) {
+      // Stereo: show L-R
+      name = `${name.substring(0, 6)}.. ${leftCh + 1}-${rightCh + 1}`
+    } else {
+      // Mono: show single channel
+      name = `${name.substring(0, 8)}.. Ch${leftCh + 1}`
+    }
+  } else {
+    // No channel info: truncate name
+    name = name.length > 8 ? name.substring(0, 8) + '..' : name
+  }
+  
+  return name
 })
 
 function handleSelect(deviceId: string | null) {

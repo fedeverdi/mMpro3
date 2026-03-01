@@ -80,19 +80,28 @@
                     </div>
                 </div>
 
-                <!-- Output routing -->
-                <div class="grid grid-cols-2 gap-1 mt-0.5">
-                    <button @click="showOutputModal(index)"
-                        class="py-0.5 text-[0.45rem] font-bold rounded bg-teal-600 hover:bg-teal-700 text-white transition-colors">
-                        OUT
-                    </button>
-                    <button @click="toggleAuxMute(index)" :class="[
-                        'py-0.5 text-[0.45rem] font-bold rounded transition-colors',
-                        aux.muted ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-400'
-                    ]">
-                        M
-                    </button>
+                <!-- Output Device Selector (like subgroups) -->
+                <div class="w-full bg-gray-900 rounded p-0.5 border border-teal-700/50 mt-0.5">
+                    <OutputSelector 
+                        title="Select Aux Output" 
+                        :devices="audioOutputDevices" 
+                        :selected-device-id="aux.selectedOutputDevice || 'no-output'"
+                        default-label="Default" 
+                        default-description="Default audio output" 
+                        default-icon="🔊" 
+                        :show-no-output="true"
+                        mode="mono"
+                        @select="(deviceId) => selectOutputDevice(index, deviceId)" 
+                    />
                 </div>
+
+                <!-- Mute Button -->
+                <button @click="toggleAuxMute(index)" :class="[
+                    'w-full py-0.5 text-[0.45rem] font-bold rounded transition-colors',
+                    aux.muted ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-400'
+                ]">
+                    M
+                </button>
             </div>
 
             <!-- Add Aux button inside grid -->
@@ -102,135 +111,6 @@
                 <span class="text-[0.6rem] mt-1">ADD</span>
             </button>
         </div>
-
-        <!-- Output Modal -->
-        <Teleport to="body">
-            <div v-if="selectedAuxIndex !== null"
-                class="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]"
-                @mousedown.self="selectedAuxIndex = null">
-                <div class="bg-gray-900 rounded-lg border-2 border-teal-600 p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto relative"
-                    @click.stop>
-                    <!-- Close button X in top right -->
-                    <button @click="selectedAuxIndex = null"
-                        class="absolute top-2 right-3 w-12 h-12  text-gray-400 hover:text-white font-bold flex items-center justify-center transition-colors"
-                        title="Close">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
-                            <path fill-rule="evenodd"
-                                d="M6.225 4.811a.75.75 0 011.06 0L12 9.525l4.715-4.714a.75.75 0 111.06 1.06L13.06 10.586l4.715 4.715a.75.75 0 11-1.06 1.06L12 11.646l-4.715 4.715a.75.75 0 11-1.06-1.06l4.715-4.715-4.715-4.715a.75.75 0 010-1.06z"
-                                clip-rule="evenodd" />
-                        </svg>
-                    </button>
-
-                    <h3 class="text-lg font-bold text-teal-300 mb-4 -mt-2">
-                        {{ auxBuses[selectedAuxIndex]?.name }} - Output Routing
-                    </h3>
-
-                    <div class="space-y-3">
-                        <!-- Route to Master - Toggle Switch -->
-                        <div class="flex items-center justify-between p-3 bg-gray-800 rounded">
-                            <span class="text-sm font-medium text-gray-300">Route to Master</span>
-                            <button @click="toggleAuxMasterRouting(selectedAuxIndex)" :class="[
-                                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-gray-900',
-                                auxBuses[selectedAuxIndex]?.routeToMaster ? 'bg-teal-600' : 'bg-gray-600'
-                            ]">
-                                <span :class="[
-                                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
-                                    auxBuses[selectedAuxIndex]?.routeToMaster ? 'translate-x-6' : 'translate-x-1'
-                                ]" />
-                            </button>
-                        </div>
-
-                        <!-- Divider -->
-                        <div class="border-t border-gray-700 my-4"></div>
-
-                        <!-- Output Device Selection -->
-                        <div>
-                            <h4 class="text-sm font-bold text-gray-400 mb-2">Select Output Device</h4>
-
-                            <!-- No Output Option -->
-                            <button @click="selectOutputDevice(selectedAuxIndex, 'no-output')" :class="[
-                                'w-full p-3 rounded border-2 transition-all mb-2 text-left flex items-center gap-3',
-                                auxBuses[selectedAuxIndex]?.selectedOutputDevice === 'no-output'
-                                    ? 'bg-teal-900/30 border-teal-500'
-                                    : 'bg-gray-800 border-gray-700 hover:border-gray-600'
-                            ]">
-                                <div class="text-2xl">🔇</div>
-                                <div class="flex-1">
-                                    <div class="text-sm font-bold text-gray-200">No Output</div>
-                                    <div class="text-xs text-gray-400">Disable audio output</div>
-                                </div>
-                                <div v-if="auxBuses[selectedAuxIndex]?.selectedOutputDevice === 'no-output'"
-                                    class="text-teal-400">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                            clip-rule="evenodd"></path>
-                                    </svg>
-                                </div>
-                            </button>
-
-                            <!-- Default Option -->
-                            <button @click="selectOutputDevice(selectedAuxIndex, '')" :class="[
-                                'w-full p-3 rounded border-2 transition-all mb-2 text-left flex items-center gap-3',
-                                (auxBuses[selectedAuxIndex]?.selectedOutputDevice === '' || 
-                                 auxBuses[selectedAuxIndex]?.selectedOutputDevice === null ||
-                                 auxBuses[selectedAuxIndex]?.selectedOutputDevice === undefined) &&
-                                auxBuses[selectedAuxIndex]?.selectedOutputDevice !== 'no-output'
-                                    ? 'bg-teal-900/30 border-teal-500'
-                                    : 'bg-gray-800 border-gray-700 hover:border-gray-600'
-                            ]">
-                                <div class="text-2xl">🔊</div>
-                                <div class="flex-1">
-                                    <div class="text-sm font-bold text-gray-200">Default Output</div>
-                                    <div class="text-xs text-gray-400">System default audio output</div>
-                                </div>
-                                <div v-if="(auxBuses[selectedAuxIndex]?.selectedOutputDevice === '' || 
-                                           auxBuses[selectedAuxIndex]?.selectedOutputDevice === null ||
-                                           auxBuses[selectedAuxIndex]?.selectedOutputDevice === undefined) &&
-                                          auxBuses[selectedAuxIndex]?.selectedOutputDevice !== 'no-output'"
-                                    class="text-teal-400">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                            clip-rule="evenodd"></path>
-                                    </svg>
-                                </div>
-                            </button>
-
-                            <!-- Audio Output Devices -->
-                            <div v-if="audioOutputDevices.length > 0" class="space-y-2">
-                                <button v-for="device in audioOutputDevices" :key="device.id"
-                                    @click="selectOutputDevice(selectedAuxIndex, device.id)" :class="[
-                                        'w-full p-3 rounded border-2 transition-all text-left flex items-center gap-3',
-                                        auxBuses[selectedAuxIndex]?.selectedOutputDevice === device.id
-                                            ? 'bg-teal-900/30 border-teal-500'
-                                            : 'bg-gray-800 border-gray-700 hover:border-gray-600'
-                                    ]">
-                                    <div class="text-2xl">🎧</div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="text-sm font-bold text-gray-200 truncate">{{ device.label ||
-                                            'Unknown Device' }}</div>
-                                        <div class="text-xs text-gray-400 truncate">{{ device.deviceId }}</div>
-                                    </div>
-                                    <div v-if="auxBuses[selectedAuxIndex]?.selectedOutputDevice === device.deviceId"
-                                        class="text-teal-400 flex-shrink-0">
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd"
-                                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                                clip-rule="evenodd"></path>
-                                        </svg>
-                                    </div>
-                                </button>
-                            </div>
-
-                            <div v-else class="text-center text-gray-500 text-sm py-4">
-                                No audio output devices found
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
 
         <!-- Reverb FX Modal -->
         <Teleport to="body">
@@ -318,6 +198,7 @@
 <script setup lang="ts">
 import { ref, watch, inject, toRaw, onMounted } from 'vue'
 import Knob from '../core/Knob.vue'
+import OutputSelector from './OutputSelector.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 
 interface AuxBus {
@@ -331,8 +212,6 @@ interface AuxBus {
     node?: any  // Input node
     outputNode?: any  // Output node (final node of FX chain)
     outputStreamDest?: MediaStreamAudioDestinationNode | null
-    outputAudioContext?: AudioContext | null
-    outputSource?: MediaStreamAudioSourceNode | null
     // FX Chain
     reverbNode?: any
     reverbEnabled?: boolean
@@ -356,7 +235,6 @@ const emit = defineEmits<{
 
 const { audioOutputDevices } = useAudioDevices()
 
-const selectedAuxIndex = ref<number | null>(null)
 const selectedReverbAux = ref<number | null>(null)
 const selectedDelayAux = ref<number | null>(null)
 const auxBuses = ref<AuxBus[]>(props.auxBuses || [])
@@ -430,31 +308,11 @@ function updateAuxName(index: number, name: string) {
     emit('update-aux', index, aux)
 }
 
-// Show output modal
-function showOutputModal(index: number) {
-    selectedAuxIndex.value = index
-}
-
-// Toggle master routing
-function toggleAuxMasterRouting(index: number) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = { ...props.auxBuses[index], routeToMaster: !props.auxBuses[index].routeToMaster }
-    emit('update-aux', index, aux)
-}
-
-// Select output device
+// Select output device (Rust backend - zero latency like subgroups)
 function selectOutputDevice(index: number, deviceId: string | null) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = { ...props.auxBuses[index], selectedOutputDevice: deviceId }
     emit('update-aux', index, aux)
-}
-
-// Get device label
-function getDeviceLabel(deviceId: string | null | undefined): string {
-    if (!deviceId) return 'Default'
-    if (deviceId === 'no-output') return 'No Output'
-    const device = audioOutputDevices.value.find(d => d.id === deviceId)
-    return device?.name || 'Unknown Device'
 }
 
 // Toggle Reverb FX

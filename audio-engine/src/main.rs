@@ -527,6 +527,9 @@ impl AudioEngine {
             cpal::BufferSize::Default => None,
         };
         
+        // Get channel count for logging
+        let output_channels = output_config.channels as usize;
+        
         // Log configuration
         let actual_buffer_size = output_config.buffer_size;
         let device_type = if is_bluetooth { "🎧 Bluetooth" } else { "🔌 Wired" };
@@ -539,6 +542,7 @@ impl AudioEngine {
                 eprintln!("[Engine] ───────────────────────────────────────────────────");
                 eprintln!("[Engine] Device: {}", output_device_name);
                 eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
+                eprintln!("[Engine] Output Channels: {}", output_channels);
                 eprintln!("[Engine] Buffer Size: {} frames ({:.2}ms latency)", size, latency_ms);
                 eprintln!("[Engine] Type: {}", if is_bluetooth { "Bluetooth" } else { "Wired" });
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
@@ -549,6 +553,7 @@ impl AudioEngine {
                 eprintln!("[Engine] ───────────────────────────────────────────────────");
                 eprintln!("[Engine] Device: {}", output_device_name);
                 eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
+                eprintln!("[Engine] Output Channels: {}", output_channels);
                 eprintln!("[Engine] Buffer Size: DEFAULT (system auto)");
                 eprintln!("[Engine] Type: {}", if is_bluetooth { "Bluetooth" } else { "Wired" });
                 eprintln!("[Engine] ═══════════════════════════════════════════════════");
@@ -573,7 +578,6 @@ impl AudioEngine {
         }
 
         let input_channels = 2; // Default stereo (not used since input is disabled)
-        let output_channels = output_config.channels as usize;
 
         let err_fn = |err| eprintln!("[Engine] Stream error: {}", err);
 
@@ -634,28 +638,62 @@ impl AudioEngine {
                         };
 
                         // Process one frame through router
-                        let (left, right) = router.process_frame(input_frame.as_deref());
+                        let (master_left, master_right) = router.process_frame(input_frame.as_deref());
 
                         // Push MASTER BUS samples to FFT analyzer (parallel tap, doesn't affect audio)
                         let (master_l, master_r) = router.last_master_output;
                         router.fft_analyzer.push_samples(master_l, master_r);
 
-                        // Write to output
+                        // Initialize output frame to silence
                         let out_frame_start = frame_idx * output_channels;
-                        if output_channels >= 2 {
-                            data[out_frame_start] = left.clamp(-1.0, 1.0);
-                            data[out_frame_start + 1] = right.clamp(-1.0, 1.0);
-                            // Extra channels: silence
-                            for ch in 2..output_channels {
-                                data[out_frame_start + ch] = 0.0;
+                        for ch in 0..output_channels {
+                            data[out_frame_start + ch] = 0.0;
+                        }
+
+                        // Write master output to its channels
+                        let master_left_ch = router.master.output_channel_selection.left as usize;
+                        let master_right_ch = router.master.output_channel_selection.right as usize;
+                        if master_left_ch < output_channels {
+                            data[out_frame_start + master_left_ch] += master_left.clamp(-1.0, 1.0);
+                        }
+                        if master_right_ch < output_channels {
+                            data[out_frame_start + master_right_ch] += master_right.clamp(-1.0, 1.0);
+                        }
+
+                        // Write subgroup outputs to their channels (if enabled)
+                        for (i, subgroup) in router.subgroups.iter().enumerate() {
+                            if subgroup.output_enabled && i < router.last_subgroup_outputs.len() {
+                                let (sg_l, sg_r) = router.last_subgroup_outputs[i];
+                                let sg_left_ch = subgroup.output_channel_selection.left as usize;
+                                let sg_right_ch = subgroup.output_channel_selection.right as usize;
+                                
+                                if sg_left_ch < output_channels {
+                                    data[out_frame_start + sg_left_ch] += sg_l.clamp(-1.0, 1.0);
+                                }
+                                if sg_right_ch < output_channels {
+                                    data[out_frame_start + sg_right_ch] += sg_r.clamp(-1.0, 1.0);
+                                }
                             }
-                        } else if output_channels == 1 {
-                            // Mono: mix L+R
-                            data[out_frame_start] = ((left + right) * 0.5).clamp(-1.0, 1.0);
+                        }
+
+                        // Write aux outputs to their channels (if enabled)
+                        for (i, aux_bus) in router.aux_buses.iter().enumerate() {
+                            if aux_bus.output_enabled && i < router.last_aux_outputs.len() {
+                                let (aux_l, aux_r) = router.last_aux_outputs[i];
+                                let aux_left_ch = aux_bus.output_channel_selection.left as usize;
+                                let aux_right_ch = aux_bus.output_channel_selection.right as usize;
+                                if aux_left_ch < output_channels {
+                                    data[out_frame_start + aux_left_ch] += aux_l.clamp(-1.0, 1.0);
+                                }
+                                if aux_right_ch < output_channels {
+                                    data[out_frame_start + aux_right_ch] += aux_r.clamp(-1.0, 1.0);
+                                }
+                            }
                         }
                     }
 
                     // Copy master output to tap buffer if enabled (for recording)
+                    // Record ONLY master bus (not direct subgroups/aux)
                     // Do this AFTER writing to output to minimize audio callback latency
                     if master_tap_enabled.load(Ordering::Relaxed) {
                         if let Ok(mut tap_buffer) = master_tap_buffer.try_lock() {
@@ -664,16 +702,10 @@ impl AudioEngine {
                             let max_samples = sample_rate_for_perf as usize * 2 * 600; // 10 min stereo
                             if tap_buffer.len() < max_samples {
                                 for frame_idx in 0..frames {
-                                    let out_frame_start = frame_idx * output_channels;
-                                    if output_channels >= 2 {
-                                        tap_buffer.push(data[out_frame_start]);     // Left
-                                        tap_buffer.push(data[out_frame_start + 1]); // Right
-                                    } else if output_channels == 1 {
-                                        // Mono: duplicate to stereo
-                                        let sample = data[out_frame_start];
-                                        tap_buffer.push(sample);
-                                        tap_buffer.push(sample);
-                                    }
+                                    // Record master output from router (before adding direct outputs)
+                                    let (master_l, master_r) = router.last_master_output;
+                                    tap_buffer.push(master_l.clamp(-1.0, 1.0));
+                                    tap_buffer.push(master_r.clamp(-1.0, 1.0));
                                 }
                             }
                         }

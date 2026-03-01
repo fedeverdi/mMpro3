@@ -15,7 +15,7 @@
     <div class="w-full bg-gray-900 rounded p-1.5 border border-gray-700">
       <OutputSelector title="Select Subgroup Output" :devices="audioOutputDevices" :selected-device-id="selectedOutput"
         default-label="Default" default-description="Default audio output" default-icon="🔊" :show-no-output="true"
-        @select="handleOutputSelect" />
+        mode="stereo" @select="handleOutputSelect" />
     </div>
 
     <!-- VU Meters and Faders -->
@@ -74,7 +74,8 @@ const audioEngine = inject<any>('audioEngine', null)
 
 // Subgroup volume
 const volume = ref(0) // dB
-const routeToMaster = ref(false)
+// Routing state
+const routeToMaster = ref(false) // Default: direct output only (not mixed to master)
 
 // VU meter levels (will be updated by Rust engine)
 const leftLevel = ref(-60)
@@ -106,13 +107,19 @@ function handleOutputSelect(deviceId: string | null) {
 
   if (!audioEngine || props.subgroupId === undefined) return
 
+  // Parse device ID (format: "deviceId" or "deviceId:leftCh:rightCh")
+  const parts = deviceId?.split(':') || []
+  const actualDeviceId = parts[0]
+  const leftChannel = parts[1] ? parseInt(parts[1]) : 0
+  const rightChannel = parts[2] ? parseInt(parts[2]) : 1
+
   // If "no-output" is selected, disable direct output
-  // The subgroup can still route to master if route_to_master is enabled
-  if (deviceId === 'no-output' || deviceId === null) {
+  if (actualDeviceId === 'no-output' || actualDeviceId === null) {
     audioEngine.setSubgroupOutputEnabled(props.subgroupId, false)
   } else {
-    // Enable direct output when a device is selected
+    // Enable direct output and set channel selection
     audioEngine.setSubgroupOutputEnabled(props.subgroupId, true)
+    audioEngine.setSubgroupOutputChannels(props.subgroupId, leftChannel, rightChannel)
   }
 }
 

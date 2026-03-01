@@ -71,14 +71,10 @@ pub fn set_source_file(
     file_path: &str,
     sample_rate: u32,
 ) -> Result<()> {
-    eprintln!("[Track {}] Attempting to load file: {}", track, file_path);
-    eprintln!("[Track {}] Router has {} tracks", track, router.tracks.len());
     
     if let Some(t) = router.get_track_mut(track) {
-        eprintln!("[Track {}] Track found in router", track);
         let mut player = AudioFilePlayer::new();
         player.set_output_sample_rate(sample_rate);
-        eprintln!("[Track {}] Loading file with output sample rate: {}", track, sample_rate);
         
         match player.load_file(file_path) {
             Ok(_) => {
@@ -86,11 +82,8 @@ pub fn set_source_file(
                 let sample_count = player.samples.len();
                 let duration_frames = sample_count / player.channels as usize;
                 let duration_sec = duration_frames as f32 / player.sample_rate as f32;
-                eprintln!("[Track {}] File loaded: {} samples, {} channels, {} Hz, {:.2}s duration", 
-                    track, sample_count, player.channels, player.sample_rate, duration_sec);
                 
                 t.set_file_player(player);
-                eprintln!("[Track {}] Source: File ({})", track, file_path);
                 Ok(())
             }
             Err(e) => {

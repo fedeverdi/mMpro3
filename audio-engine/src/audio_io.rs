@@ -152,6 +152,34 @@ impl AudioIO {
         let mut stream_config = default_config.config();
         let default_rate = default_config.sample_rate().0;
 
+        // Get maximum number of channels supported by the device
+        let max_channels = if is_input {
+            if let Ok(configs) = device.supported_input_configs() {
+                configs
+                    .filter_map(|c| Some(c.channels()))
+                    .max()
+                    .unwrap_or(stream_config.channels)
+            } else {
+                stream_config.channels
+            }
+        } else {
+            if let Ok(configs) = device.supported_output_configs() {
+                configs
+                    .filter_map(|c| Some(c.channels()))
+                    .max()
+                    .unwrap_or(stream_config.channels)
+            } else {
+                stream_config.channels
+            }
+        };
+
+        // Use maximum channels to support multi-channel routing
+        stream_config.channels = max_channels;
+        
+        eprintln!("[AudioIO] Device supports {} {} channels", 
+            max_channels, 
+            if is_input { "input" } else { "output" });
+
         // If no sample rate specified, use device default (most reliable)
         let target_sample_rate = if let Some(rate) = sample_rate {
             rate

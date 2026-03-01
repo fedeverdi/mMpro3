@@ -29,8 +29,6 @@ interface AuxBus {
   node?: any  // Input node
   outputNode?: any  // Output node
   outputStreamDest?: MediaStreamAudioDestinationNode | null
-  outputAudioContext?: AudioContext | null
-  outputSource?: MediaStreamAudioSourceNode | null
   // FX Chain
   reverbNode?: any
   reverbEnabled?: boolean
