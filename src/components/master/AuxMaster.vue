@@ -434,12 +434,12 @@ async function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback
     }
     aux.delayParams[param] = value
 
-    // Send all parameters to Rust backend
+    // Send all parameters to Rust backend (convert time from seconds to milliseconds)
     if (audioEngine && audioEngine.state.value.isRunning && aux.delayEnabled) {
         await audioEngine.setAuxBusDelay(
             index,
             true,
-            aux.delayParams.delayTime,
+            aux.delayParams.delayTime * 1000,  // Convert seconds to milliseconds
             aux.delayParams.feedback,
             aux.delayParams.wet
         )

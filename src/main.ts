@@ -219,7 +219,6 @@ ipcMain.handle('audio-engine:set-track-source-signal', async (_, track: number, 
 })
 
 ipcMain.handle('audio-engine:set-track-source-file', async (_, track: number, filePath: string) => {
-  console.log('[Main] Setting track source file:', { track, filePath })
   await sendCommandToEngine({ type: 'set_track_source_file', track, file_path: filePath })
 })
 

@@ -814,7 +814,7 @@ async function updateAux(index: number, updatedAux: AuxBus) {
         await audioEngine.setAuxBusDelay(
           index,
           enabled,
-          time,
+          time * 1000,  // Convert seconds to milliseconds
           feedback,
           wet
         )
