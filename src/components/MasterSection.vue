@@ -231,10 +231,9 @@ watch(
   () => audioEngine?.state.value.masterLevels,
   (levels) => {
     if (levels) {
-      // Convert linear (0-1) to dB (-60 to 0)
-      // dB = 20 * log10(linear)
-      leftLevel.value = levels.left > 0 ? 20 * Math.log10(levels.left) : -60
-      rightLevel.value = levels.right > 0 ? 20 * Math.log10(levels.right) : -60
+      // Values are already in dB from useAudioEngine
+      leftLevel.value = levels.left
+      rightLevel.value = levels.right
     }
   },
   { deep: true }
