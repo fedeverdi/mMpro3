@@ -5,31 +5,6 @@
       <div class="flex items-center justify-between gap-4 flex-wrap relative">
         <div class="flex items-center gap-2">
           <img src="./assets/logo_no_scritta.svg" alt="mMpro3" class="h-8" />
-
-          <!-- Performance Stats -->
-          <template v-if="audioEngineState.performanceStats">
-            <div class="w-px h-6 bg-gray-600"></div>
-            <div class="flex items-center gap-2 text-[10px] font-mono">
-              <div class="flex items-center gap-1">
-                <span class="text-gray-500">BUF:</span>
-                <span class="text-gray-300">{{ audioEngineState.performanceStats.bufferSize }}</span>
-              </div>
-              <div class="flex items-center gap-1">
-                <span class="text-gray-500">LAT:</span>
-                <span class="text-gray-300">{{ audioEngineState.performanceStats.latencyMs.toFixed(2) }}ms</span>
-              </div>
-              <div class="flex items-center gap-1">
-                <span class="text-gray-500">CPU:</span>
-                <span :class="audioEngineState.performanceStats.cpuPercent > 80 ? 'text-red-400 font-bold' : audioEngineState.performanceStats.cpuPercent > 60 ? 'text-yellow-400' : 'text-green-400'">
-                  {{ audioEngineState.performanceStats.cpuPercent.toFixed(1) }}%
-                </span>
-              </div>
-              <div class="flex items-center gap-1">
-                <span class="text-gray-500">AVG:</span>
-                <span class="text-gray-300">{{ audioEngineState.performanceStats.avgProcessMs.toFixed(2) }}ms</span>
-              </div>
-            </div>
-          </template>
         </div>
         <div class="flex gap-2 items-center flex-wrap">
           <!-- Audio Settings Button -->
@@ -242,6 +217,9 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Footer -->
+    <Footer :performance-stats="audioEngineState.performanceStats" />
   </div>
 </template>
 
@@ -256,6 +234,7 @@ import RightSection from './components/master/RightSection.vue'
 import MasterSection from './components/MasterSection.vue'
 import SubgroupsSection from './components/SubgroupsSection.vue'
 import ScenesModal from './components/layout/ScenesModal.vue'
+import Footer from './components/layout/Footer.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioEngine } from '~/composables/useAudioEngine'
 import { getBuildLimits, canAddTrack, getTrackCounts, getBuildMode } from '~/config/buildLimits'

@@ -26,6 +26,7 @@ export interface AudioEngineState {
   fftData: { binsLeft: Float32Array, binsRight: Float32Array, sampleRate: number } | null
   performanceStats: {
     bufferSize: number
+    sampleRate: number
     latencyMs: number
     avgProcessMs: number
     cpuPercent: number
@@ -139,6 +140,7 @@ export const useAudioEngine = () => {
           // Update performance stats
           state.value.performanceStats = {
             bufferSize: response.buffer_size,
+            sampleRate: response.sample_rate,
             latencyMs: response.latency_ms,
             avgProcessMs: response.avg_process_ms,
             cpuPercent: response.cpu_percent,

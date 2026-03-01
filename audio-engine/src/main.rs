@@ -363,6 +363,7 @@ enum Response {
     #[serde(rename = "performance")]
     PerformanceStats {
         buffer_size: usize,
+        sample_rate: u32,
         latency_ms: f32,
         avg_process_ms: f32,
         cpu_percent: f32,
@@ -849,6 +850,7 @@ impl AudioEngine {
                     
                     let response = Response::PerformanceStats {
                         buffer_size: frames,
+                        sample_rate: sample_rate_for_perf,
                         latency_ms: buffer_latency_ms,
                         avg_process_ms: avg_ms,
                         cpu_percent: avg_cpu,
