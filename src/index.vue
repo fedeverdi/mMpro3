@@ -416,10 +416,9 @@ function initializeTracks(): Track[] {
   tracks.push({ id: 2, type: 'audio', order: 2 })
   tracks.push({ id: 3, type: 'audio', order: 3 })
   tracks.push({ id: 4, type: 'audio', order: 4 })
-  tracks.push({ id: 5, type: 'audio', order: 5 })
   
   // Add one signal track at the end
-  tracks.push({ id: 6, type: 'signal', order: 6 })
+  tracks.push({ id: 5, type: 'signal', order: 5 })
 
   return tracks
 }
