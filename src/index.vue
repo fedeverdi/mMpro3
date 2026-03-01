@@ -207,7 +207,8 @@
         <!-- Master Section -->
         <div class="flex-shrink-0 h-full mixer-fade-in">
           <MasterSection ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode"
-            :master-fx-component="masterFxComponent" :loaded-tracks="loadedTracks" @open-recorder="showRecorder = true" />
+            :master-fx-component="masterFxComponent" :loaded-tracks="loadedTracks" :is-recording="isRecording"
+            @open-recorder="showRecorder = true" />
         </div>
       </div>
     </main>
@@ -313,6 +314,7 @@
       v-model="showRecorder" 
       :master-level-left="audioEngineState.masterLevels.left"
       :master-level-right="audioEngineState.masterLevels.right"
+      @recording-state="handleRecordingStateChange"
     />
 
     <!-- File Manager Modal -->
@@ -470,6 +472,7 @@ const showScenesModal = ref(false)
 const showFileManager = ref(false)
 const showAudioSettings = ref(false)
 const showRecorder = ref(false)
+const isRecording = ref(false)
 const isLoadingScene = ref(false)
 const showLimitModal = ref(false)
 const limitModalMessage = ref('')
@@ -479,6 +482,11 @@ const automation = useAutomation()
 const loopEnabled = ref(false)
 const playbackLoopId = ref<number | null>(null)
 const armedTracks = ref<Set<number>>(new Set()) // Tracks armed for recording
+
+// Recording state handler
+function handleRecordingStateChange(state: boolean) {
+  isRecording.value = state
+}
 
 // Automation panel resize/collapse
 const automationHeight = ref(220) // Default height in pixels

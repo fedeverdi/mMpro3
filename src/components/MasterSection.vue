@@ -50,7 +50,7 @@
     <!-- Master Controls -->
     <div class="w-full mt-2 flex gap-1">
       <!-- Recorder Button -->
-      <RecorderButton @open="$emit('open-recorder')" />
+      <RecorderButton :is-recording="isRecording" @open="$emit('open-recorder')" />
       
       <!-- Master Mute Button -->
       <button @click="toggleMasterMute" class="flex-1 py-1 text-xs font-bold rounded transition-all"
@@ -98,10 +98,12 @@ interface Props {
   masterFxOutputNode?: any
   masterFxComponent?: any
   loadedTracks?: Array<{ trackNumber: number, fileName: string, fileId: string }>
+  isRecording?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  loadedTracks: () => []
+  loadedTracks: () => [],
+  isRecording: false
 })
 
 // Emits

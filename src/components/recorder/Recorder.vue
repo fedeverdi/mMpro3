@@ -141,6 +141,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
+  'recording-state': [isRecording: boolean]
 }>()
 
 // Recording state
@@ -150,6 +151,11 @@ const recordingStartTime = ref(0)
 const recordings = ref<Recording[]>([])
 const recordingQuality = ref<string>('192') // Default: High quality
 const currentRecordingPath = ref<string>('')
+
+// Watch isRecording and emit state changes
+watch(isRecording, (newValue) => {
+  emit('recording-state', newValue)
+})
 
 // Safe level values with fallback
 const safeLeftLevel = computed(() => {
