@@ -159,8 +159,7 @@
                         <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.feedback || 0.3"
                             @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'feedback', val)"
                             :min="0" :max="0.95" :step="0.01" label="Feedback" unit="%" color="#8b5cf6" />
-                        <Knob
-                            :modelValue="auxBuses[selectedDelayAux]?.delayParams?.wet !== undefined ? auxBuses[selectedDelayAux].delayParams.wet : 1.0"
+                        <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.wet ?? 1.0"
                             @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'wet', val)" :min="0"
                             :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
                     </div>
@@ -332,9 +331,6 @@ function removeAux(index: number) {
 function updateAuxVolume(index: number, volume: number) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = { ...props.auxBuses[index], volume }
-    if (aux.node) {
-        aux.node.volume.value = volume
-    }
     emit('update-aux', index, aux)
 }
 
@@ -342,9 +338,6 @@ function updateAuxVolume(index: number, volume: number) {
 function toggleAuxMute(index: number) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = { ...props.auxBuses[index], muted: !props.auxBuses[index].muted }
-    if (aux.node) {
-        aux.node.mute = aux.muted
-    }
     emit('update-aux', index, aux)
 }
 
@@ -375,19 +368,7 @@ function toggleAuxReverb(index: number) {
     const aux = props.auxBuses[index]
     const newEnabled = !aux.reverbEnabled
 
-    // Toggle wet parameter (restore saved value when enabling, 0 when disabling)
-    if (aux.reverbNode) {
-        if (newEnabled) {
-            // Restore saved wet value (default 100% for professional aux bus setup)
-            const savedWet = aux.reverbParams?.wet ?? 1.0
-            aux.reverbNode.wet.value = savedWet
-        } else {
-            // Disable: set to 0
-            aux.reverbNode.wet.value = 0
-        }
-    }
-
-    // Update state
+    // Update state and send to backend
     const updatedAux = { ...aux, reverbEnabled: newEnabled }
     emit('update-aux', index, updatedAux)
 }
@@ -398,24 +379,10 @@ function toggleAuxDelay(index: number) {
     const aux = props.auxBuses[index]
     const newEnabled = !aux.delayEnabled
 
-    // Toggle wet parameter (restore saved value when enabling, 0 when disabling)
-    if (aux.delayNode) {
-        if (newEnabled) {
-            // Restore saved wet value (default 100% for professional aux bus setup)
-            const savedWet = aux.delayParams?.wet ?? 1.0
-            aux.delayNode.wet.value = savedWet
-        } else {
-            // Disable: set to 0
-            aux.delayNode.wet.value = 0
-        }
-    }
-
-    // Update state
+    // Update state and send to backend
     const updatedAux = { ...aux, delayEnabled: newEnabled }
     emit('update-aux', index, updatedAux)
 }
-
-// NOTE: reconnectAuxChain is no longer needed - FX are always connected, controlled via wet parameter
 
 // Show reverb modal
 function showReverbModal(index: number) {
@@ -429,49 +396,48 @@ function showDelayModal(index: number) {
 }
 
 // Update single reverb parameter
-function updateAuxReverbParam(index: number, param: 'decay' | 'preDelay' | 'wet', value: number) {
+async function updateAuxReverbParam(index: number, param: 'decay' | 'preDelay' | 'wet', value: number) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = props.auxBuses[index]
 
-    // Update the audio node directly (no emit = no lag)
-    if (aux.reverbNode) {
-        if (param === 'decay') {
-            aux.reverbNode.decay = value
-        } else if (param === 'preDelay') {
-            aux.reverbNode.preDelay = value
-        } else if (param === 'wet') {
-            aux.reverbNode.wet.value = value
-        }
-    }
-
-    // Update internal params object (for UI sync)
+    // Update internal params object
     if (!aux.reverbParams) {
         aux.reverbParams = { decay: 2.5, preDelay: 0.01, wet: 1.0 }
     }
     aux.reverbParams[param] = value
+
+    // Send all parameters to Rust backend
+    if (audioEngine && audioEngine.state.value.isRunning && aux.reverbEnabled) {
+        const roomSize = Math.min(aux.reverbParams.decay / 10, 1.0)  // Map decay (0.1-10s) to roomSize (0-1)
+        const damping = 0.5  // Default damping
+        const wet = aux.reverbParams.wet
+        const width = 1.0  // Default stereo width
+        
+        await audioEngine.setAuxBusReverb(index, true, roomSize, damping, wet, width)
+    }
 }
 
 // Update single delay parameter
-function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback' | 'wet', value: number) {
+async function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback' | 'wet', value: number) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = props.auxBuses[index]
 
-    // Update the audio node directly (no emit = no lag)
-    if (aux.delayNode) {
-        if (param === 'delayTime') {
-            aux.delayNode.delayTime.value = value
-        } else if (param === 'feedback') {
-            aux.delayNode.feedback.value = value
-        } else if (param === 'wet') {
-            aux.delayNode.wet.value = value
-        }
-    }
-
-    // Update internal params object (for UI sync)
+    // Update internal params object
     if (!aux.delayParams) {
         aux.delayParams = { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
     }
     aux.delayParams[param] = value
+
+    // Send all parameters to Rust backend
+    if (audioEngine && audioEngine.state.value.isRunning && aux.delayEnabled) {
+        await audioEngine.setAuxBusDelay(
+            index,
+            true,
+            aux.delayParams.delayTime,
+            aux.delayParams.feedback,
+            aux.delayParams.wet
+        )
+    }
 }
 
 // Tap tempo function
