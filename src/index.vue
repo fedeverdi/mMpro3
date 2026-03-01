@@ -176,7 +176,7 @@
               <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)"
                 :trackNumber="track.id" :order="track.order" :master-channel="masterChannel" :subgroups="subgroups"
                 :allow-subgroup-routing="buildLimits.allowSubgroupRouting" :is-dragging="draggedTrackId === track.id"
-                @soloChange="handleSoloChange" @levelUpdate="handleLevelUpdate" @remove="removeTrack(track.id)"
+                @soloChange="handleSoloChange" @remove="removeTrack(track.id)"
                 @drag-start="handleTrackDragStart(track.id)" />
               <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
                 :master-channel="masterChannel" :subgroups="subgroups" :aux-buses="auxBuses"
@@ -207,24 +207,11 @@
         <!-- Master Section -->
         <div class="flex-shrink-0 h-full mixer-fade-in">
           <MasterSection ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode"
-            :master-fx-component="masterFxComponent" :loaded-tracks="loadedTracks" :is-recording="isRecording"
+            :master-fx-component="masterFxComponent" :is-recording="isRecording"
             @open-recorder="showRecorder = true" />
         </div>
       </div>
     </main>
-
-    <!-- Footer Info - NASCOSTO -->
-    <footer v-if="false"
-      class="bg-black/50 backdrop-blur-sm border-t border-gray-700 px-6 py-2 fixed bottom-0 left-0 right-0 z-[100]">
-      <div class="flex justify-between items-center text-xs text-gray-500">
-        <div>
-          Built with Vue 3, Rust & Tailwind CSS
-        </div>
-        <div>
-          Sample Rate: {{ sampleRate }}Hz | Buffer Size: {{ bufferSize }}
-        </div>
-      </div>
-    </footer>
 
     <!-- Automation Section (Resizable/Collapsible) - Fixed position overlay - NASCOSTO -->
     <div v-if="false"
@@ -863,8 +850,7 @@ async function removeSubgroup(subgroupId: number) {
     }
 
     // Disconnect all tracks from this subgroup
-    loadedTracks.value.forEach(track => {
-      const trackRef = trackRefs.value.get(track.trackNumber)
+    trackRefs.value.forEach((trackRef, trackId) => {
       if (trackRef?.disconnectFromSubgroup) {
         trackRef.disconnectFromSubgroup(subgroupId)
       }
@@ -959,7 +945,7 @@ async function updateAux(index: number, updatedAux: AuxBus) {
       // Update reverb enabled state
       if (updatedAux.reverbEnabled !== aux.reverbEnabled) {
         const enabled = updatedAux.reverbEnabled ?? false
-        // Map Tone.js-style params to Freeverb params or use defaults
+        // Map reverb params to Freeverb params or use defaults
         const reverbParams = updatedAux.reverbParams
         const roomSize = reverbParams?.decay ? Math.min(reverbParams.decay / 10, 1.0) : 0.5  // Map decay to roomSize
         const damping = 0.5  // Default damping
@@ -1092,7 +1078,7 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
     // Create new AudioContext targeting selected device
     const contextOptions: any = {
       latencyHint: 'interactive',
-      sampleRate: 44100  // Fixed sample rate (Rust backend uses 48kHz)
+      sampleRate: 48000  // Rust backend sample rate
     }
 
     if (realDeviceId && realDeviceId !== '') {
@@ -1182,35 +1168,6 @@ async function changeAuxOutputDevice(index: number, deviceId: string | null | un
   }
 }
 
-// Loaded tracks for recorder waveform display
-const loadedTracks = computed(() => {
-  const tracks: Array<{
-    trackNumber: number,
-    fileName: string,
-    fileId: string,
-    isPlaying: boolean,
-    currentTime: number,
-    duration: number
-  }> = []
-  trackRefs.value.forEach((trackRef, trackId) => {
-    if (trackRef && typeof trackRef.getSnapshot === 'function') {
-      const snapshot = trackRef.getSnapshot()
-      // Only show tracks that are playing AND are file-based
-      if (snapshot.sourceType === 'file' && snapshot.fileName && snapshot.fileId && snapshot.isPlaying) {
-        tracks.push({
-          trackNumber: snapshot.trackNumber,
-          fileName: snapshot.fileName,
-          fileId: snapshot.fileId,
-          isPlaying: snapshot.isPlaying,
-          currentTime: snapshot.currentTime || 0,
-          duration: snapshot.duration || 0
-        })
-      }
-    }
-  })
-  return tracks.sort((a, b) => a.trackNumber - b.trackNumber)
-})
-
 // Solo handling
 const soloTracks = ref<Set<number>>(new Set())
 
@@ -1253,14 +1210,6 @@ function toggleTrackArm(trackId: number) {
 function isTrackArmed(trackId: number): boolean {
   return armedTracks.value.has(trackId)
 }
-
-// Audio context info (reactive) - Now handled by Rust backend
-const sampleRate = computed(() => {
-  return 44100 // Fixed sample rate from Rust backend
-})
-const bufferSize = computed(() => {
-  return 256 // Fixed buffer size from Rust backend (5.33ms @ 48kHz)
-})
 
 // Scene management
 const {
@@ -1442,7 +1391,7 @@ function handleLoadScene(sceneId: string) {
     setTimeout(() => {
       // Restore aux buses FIRST (before tracks, so aux nodes exist when tracks restore their sends)
       if (scene.auxBuses) {
-        // Clean up existing aux buses (simple cleanup - no Tone.js nodes)
+        // Clean up existing aux buses
         while (auxBuses.value.length > 0) {
           const aux = auxBuses.value[0]
 
@@ -1770,11 +1719,6 @@ onMounted(async () => {
   ])
 
   // Don't start connection here - wait for component to mount
-
-  // Ensure audio context is running (REMOVED - using Rust engine now)
-  // if (Tone.context.state !== 'running') {
-  //     await Tone.context.resume()
-  // }
 
   // Audio input devices are now enumerated during app initialization (in App.vue)
   // No need to enumerate them again here

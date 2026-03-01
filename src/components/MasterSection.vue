@@ -97,12 +97,10 @@ import { useAudioDevices } from '../composables/useAudioDevices'
 interface Props {
   masterFxOutputNode?: any
   masterFxComponent?: any
-  loadedTracks?: Array<{ trackNumber: number, fileName: string, fileId: string }>
   isRecording?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  loadedTracks: () => [],
   isRecording: false
 })
 
