@@ -122,6 +122,7 @@
         <AuxMaster 
           :aux-buses="auxBuses" 
           :master-channel="masterChannel"
+          :subgroups="props.subgroups"
           @add-aux="emit('add-aux')"
           @remove-aux="(index) => emit('remove-aux', index)"
           @update-aux="(index, aux) => emit('update-aux', index, aux)"
@@ -189,6 +190,7 @@ interface Props {
   masterSectionRef?: any
   masterFxOutputNode?: any
   auxBuses?: AuxBus[]
+  subgroups?: Array<{ id: number, name: string }>
 }
 
 const props = defineProps<Props>()

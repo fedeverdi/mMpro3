@@ -80,18 +80,18 @@
                     </div>
                 </div>
 
-                <!-- Output Device Selector (like subgroups) -->
-                <div class="w-full bg-gray-900 rounded p-0.5 border border-teal-700/50 mt-0.5">
-                    <OutputSelector 
-                        title="Select Aux Output" 
+                <!-- Output Device Selector with Routing (unified modal) -->
+                <div class="w-full bg-gray-900 rounded mt-0.5">
+                    <AuxOutputSelector 
+                        title="Aux Output & Routing" 
                         :devices="audioOutputDevices" 
                         :selected-device-id="aux.selectedOutputDevice || 'no-output'"
-                        default-label="Default" 
-                        default-description="Default audio output" 
-                        default-icon="🔊" 
-                        :show-no-output="true"
-                        mode="mono"
-                        @select="(deviceId) => selectOutputDevice(index, deviceId)" 
+                        :route-to-master="auxRouting[index]?.toMaster || false"
+                        :routed-subgroups="auxRouting[index]?.toSubgroups || new Set()"
+                        :subgroups="subgroups"
+                        @select-device="(deviceId) => selectOutputDevice(index, deviceId)"
+                        @toggle-master-routing="toggleRouteToMaster(index)"
+                        @toggle-subgroup-routing="(sgId) => toggleSubgroupRoute(index, sgId)"
                     />
                 </div>
 
@@ -198,7 +198,7 @@
 <script setup lang="ts">
 import { ref, watch, inject, toRaw, onMounted } from 'vue'
 import Knob from '../core/Knob.vue'
-import OutputSelector from './OutputSelector.vue'
+import AuxOutputSelector from './AuxOutputSelector.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 
 interface AuxBus {
@@ -224,6 +224,7 @@ interface AuxBus {
 interface Props {
     auxBuses?: AuxBus[]
     masterChannel?: any
+    subgroups?: Array<{ id: number, name: string }>
 }
 
 const props = defineProps<Props>()
@@ -234,10 +235,18 @@ const emit = defineEmits<{
 }>()
 
 const { audioOutputDevices } = useAudioDevices()
+const audioEngine = inject('audioEngine') as any
 
 const selectedReverbAux = ref<number | null>(null)
 const selectedDelayAux = ref<number | null>(null)
 const auxBuses = ref<AuxBus[]>(props.auxBuses || [])
+
+// Routing state for each aux
+interface AuxRoutingState {
+    toMaster: boolean
+    toSubgroups: Set<number>
+}
+const auxRouting = ref<Record<number, AuxRoutingState>>({})
 
 // Tap tempo state
 const tapTimes = ref<number[]>([])
@@ -263,6 +272,55 @@ watch(selectedDelayAux, (newVal) => {
         tapBpm.value = null
     }
 })
+
+// Initialize routing state for each aux
+watch(() => props.auxBuses, (newVal) => {
+    if (newVal) {
+        newVal.forEach((_, index) => {
+            if (!auxRouting.value[index]) {
+                auxRouting.value[index] = {
+                    toMaster: false,
+                    toSubgroups: new Set()
+                }
+            }
+        })
+    }
+}, { immediate: true, deep: true })
+
+// Routing functions
+function toggleRouteToMaster(auxIndex: number) {
+    const currentState = auxRouting.value[auxIndex]?.toMaster || false
+    const newState = !currentState
+    
+    if (!auxRouting.value[auxIndex]) {
+        auxRouting.value[auxIndex] = { toMaster: newState, toSubgroups: new Set() }
+    } else {
+        auxRouting.value[auxIndex].toMaster = newState
+    }
+    
+    if (audioEngine) {
+        audioEngine.setAuxBusRouteToMaster(auxIndex, newState)
+    }
+}
+
+function toggleSubgroupRoute(auxIndex: number, subgroupId: number) {
+    if (!auxRouting.value[auxIndex]) {
+        auxRouting.value[auxIndex] = { toMaster: false, toSubgroups: new Set() }
+    }
+    
+    const routes = auxRouting.value[auxIndex].toSubgroups
+    const isRouted = routes.has(subgroupId)
+    
+    if (isRouted) {
+        routes.delete(subgroupId)
+    } else {
+        routes.add(subgroupId)
+    }
+    
+    if (audioEngine) {
+        audioEngine.setAuxBusRouteToSubgroup(auxIndex, subgroupId, !isRouted)
+    }
+}
 
 // Add new aux
 function addAux() {

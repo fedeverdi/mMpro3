@@ -411,6 +411,14 @@ ipcMain.handle('audio-engine:set-aux-bus-output-channels', async (_, aux: number
   await sendCommandToEngine({ type: 'set_aux_bus_output_channels', aux, left_channel: leftChannel, right_channel: rightChannel })
 })
 
+ipcMain.handle('audio-engine:set-aux-bus-route-to-subgroup', async (_, aux: number, subgroup: number, route: boolean) => {
+  await sendCommandToEngine({ type: 'set_aux_bus_route_to_subgroup', aux, subgroup, route })
+})
+
+ipcMain.handle('audio-engine:set-track-source-aux-return', async (_, track: number, aux: number) => {
+  await sendCommandToEngine({ type: 'set_track_source_aux_return', track, aux })
+})
+
 ipcMain.handle('audio-engine:list-devices', async () => {
   const response = await sendCommandAndWaitForResponse({ type: 'list_devices' }, 'devices')
   return response.devices

@@ -16,6 +16,7 @@ pub enum TrackSource {
     AudioInput,
     SignalGenerator,
     FilePlayer,
+    AuxReturn(usize), // Aux bus ID for aux return/effect return
 }
 
 // Ring buffer size for waveform display (2048 samples = ~42ms @ 48kHz)
@@ -307,7 +308,7 @@ impl Track {
 
     /// Process audio for this track
     /// Returns (left, right) stereo samples
-    pub fn process(&mut self, input_frame: Option<&[f32]>) -> (f32, f32) {
+    pub fn process(&mut self, input_frame: Option<&[f32]>, aux_returns: &[(f32, f32)]) -> (f32, f32) {
         let (left, right) = match self.source {
             TrackSource::None => (0.0, 0.0),
             
@@ -339,6 +340,11 @@ impl Track {
                 } else {
                     (0.0, 0.0)
                 }
+            }
+            
+            TrackSource::AuxReturn(aux_id) => {
+                // Get aux bus output from previous frame (aux returns)
+                aux_returns.get(aux_id).copied().unwrap_or((0.0, 0.0))
             }
         };
 
@@ -578,8 +584,8 @@ impl SubgroupBus {
         }
     }
 
-    /// Process all tracks routed to this subgroup (using cached track outputs)
-    pub fn process_cached(&mut self, tracks: &[Track], track_outputs: &[(f32, f32)]) -> (f32, f32) {
+    /// Process all tracks and aux buses routed to this subgroup (using cached outputs)
+    pub fn process_cached(&mut self, tracks: &[Track], track_outputs: &[(f32, f32)], aux_buses: &[AuxBus], aux_outputs: &[(f32, f32)]) -> (f32, f32) {
         if self.mute {
             return (0.0, 0.0);
         }
@@ -591,6 +597,15 @@ impl SubgroupBus {
         for (i, track) in tracks.iter().enumerate() {
             if track.route_to_subgroups.contains(&self.id) {
                 let (l, r) = track_outputs[i];
+                mix_l += l;
+                mix_r += r;
+            }
+        }
+
+        // Sum all aux buses routed to this subgroup
+        for (i, aux_bus) in aux_buses.iter().enumerate() {
+            if aux_bus.route_to_subgroups.contains(&self.id) && i < aux_outputs.len() {
+                let (l, r) = aux_outputs[i];
                 mix_l += l;
                 mix_r += r;
             }
@@ -620,6 +635,7 @@ pub struct AuxBus {
     pub gain: f32,
     pub mute: bool,
     pub route_to_master: bool,
+    pub route_to_subgroups: Vec<usize>, // Which subgroups to route this aux to
     pub output_enabled: bool, // Controls direct output (independent from route_to_master)
     pub output_channel_selection: ChannelSelection,
     
@@ -639,6 +655,7 @@ impl AuxBus {
             gain: 1.0,
             mute: false,
             route_to_master: true, // Route to master by default
+            route_to_subgroups: Vec::new(), // No subgroup routing by default
             output_enabled: false, // No direct output by default
             output_channel_selection: ChannelSelection::stereo(),
             reverb: Reverb::new(sample_rate),
@@ -759,17 +776,11 @@ impl Router {
     /// Process one frame of audio
     pub fn process_frame(&mut self, input_frame: Option<&[f32]>) -> (f32, f32) {
         // Process all tracks once and cache their outputs
+        // Note: Tracks with AuxReturn source read from last_aux_outputs (1 frame latency)
         let mut track_outputs: Vec<(f32, f32)> = Vec::new();
         for track in self.tracks.iter_mut() {
-            let output = track.process(input_frame);
+            let output = track.process(input_frame, &self.last_aux_outputs);
             track_outputs.push(output);
-        }
-
-        // Process all subgroups (using cached track outputs)
-        let mut subgroup_outputs: Vec<(f32, f32)> = Vec::new();
-        for subgroup in self.subgroups.iter_mut() {
-            let output = subgroup.process_cached(&self.tracks, &track_outputs);
-            subgroup_outputs.push(output);
         }
 
         // Process all aux buses (sum all track aux sends for each aux)
@@ -788,6 +799,13 @@ impl Router {
             // Process through aux bus (reverb, delay, gain)
             let aux_output = self.aux_buses[aux_index].process(aux_sum_l, aux_sum_r);
             aux_outputs.push(aux_output);
+        }
+
+        // Process all subgroups (using cached track and aux outputs)
+        let mut subgroup_outputs: Vec<(f32, f32)> = Vec::new();
+        for subgroup in self.subgroups.iter_mut() {
+            let output = subgroup.process_cached(&self.tracks, &track_outputs, &self.aux_buses, &aux_outputs);
+            subgroup_outputs.push(output);
         }
 
         // Cache outputs for multi-channel routing

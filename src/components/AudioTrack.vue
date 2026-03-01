@@ -363,19 +363,26 @@ function handleInputSelect(deviceId: string | null) {
 
   if (audioEngine?.state.value.isRunning) {
     if (deviceId) {
-      // Find the device to get its name
-      const device = audioInputDevices.value.find(d => d.id === deviceId)
-      if (device) {
-        // Extract device name (remove "- Channel X" suffix if present)
-        const deviceName = device.name.replace(/ - Channel \d+$/, '')
-        // Extract channel indices from composite ID if present (format: "deviceId:channelIndex")
-        const channelMatch = deviceId.match(/:(\d+)$/)
-        const channelIndex = channelMatch ? parseInt(channelMatch[1]) : 0
-        
-        console.log(`[Track ${props.trackNumber}] Selected device: ${deviceName}, channel: ${channelIndex}`)
-        
-        // For stereo: use channel and channel+1
-        audioEngine.setTrackSourceInput(props.trackNumber - 1, channelIndex, channelIndex + 1, deviceName)
+      // Check if it's an aux return selection
+      if (deviceId.startsWith('aux-return-')) {
+        const auxIndex = parseInt(deviceId.replace('aux-return-', ''))
+        console.log(`[Track ${props.trackNumber}] Setting aux return: Aux ${auxIndex + 1}`)
+        audioEngine.setTrackSourceAuxReturn(props.trackNumber - 1, auxIndex)
+      } else {
+        // Find the device to get its name
+        const device = audioInputDevices.value.find(d => d.id === deviceId)
+        if (device) {
+          // Extract device name (remove "- Channel X" suffix if present)
+          const deviceName = device.name.replace(/ - Channel \d+$/, '')
+          // Extract channel indices from composite ID if present (format: "deviceId:channelIndex")
+          const channelMatch = deviceId.match(/:(\d+)$/)
+          const channelIndex = channelMatch ? parseInt(channelMatch[1]) : 0
+          
+          console.log(`[Track ${props.trackNumber}] Selected device: ${deviceName}, channel: ${channelIndex}`)
+          
+          // For stereo: use channel and channel+1
+          audioEngine.setTrackSourceInput(props.trackNumber - 1, channelIndex, channelIndex + 1, deviceName)
+        }
       }
     } else {
       // Clear input (deviceId is null = "No Input" selected)

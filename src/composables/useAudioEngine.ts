@@ -466,6 +466,18 @@ export const useAudioEngine = () => {
     await window.audioEngine.setAuxBusOutputChannels(aux, leftChannel, rightChannel)
   }
 
+  const setAuxBusRouteToSubgroup = async (aux: number, subgroup: number, route: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setAuxBusRouteToSubgroup(aux, subgroup, route)
+  }
+
+  const setTrackSourceAuxReturn = async (track: number, aux: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    await window.audioEngine.setTrackSourceAuxReturn(track, aux)
+  }
+
   const getInputDevices = () => {
     return state.value.devices.filter(d => d.input_channels > 0)
   }
@@ -529,6 +541,8 @@ export const useAudioEngine = () => {
     setAuxBusRouteToMaster,
     setAuxBusOutputEnabled,
     setAuxBusOutputChannels,
+    setAuxBusRouteToSubgroup,
+    setTrackSourceAuxReturn,
     getInputDevices,
     getOutputDevices
   }

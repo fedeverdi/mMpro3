@@ -285,6 +285,17 @@ enum Command {
         left_channel: u16,
         right_channel: u16,
     },
+    #[serde(rename = "set_aux_bus_route_to_subgroup")]
+    SetAuxBusRouteToSubgroup {
+        aux: usize,
+        subgroup: usize,
+        route: bool,
+    },
+    #[serde(rename = "set_track_source_aux_return")]
+    SetTrackSourceAuxReturn {
+        track: usize,
+        aux: usize,
+    },
 
     // Performance management
     #[serde(rename = "set_updates_suspended")]
@@ -1108,6 +1119,22 @@ impl AudioEngine {
         track::set_source_file(&mut router, track, file_path, self.sample_rate)
     }
 
+    fn set_track_source_aux_return(&mut self, track: usize, aux: usize) -> Result<()> {
+        // Close input stream when track switches away from audio input
+        if let Err(e) = self.close_audio_input(track) {
+            eprintln!("[Engine] Failed to close audio input for track {}: {}", track, e);
+        }
+        
+        let mut router = self.router.lock().unwrap();
+        if let Some(t) = router.get_track_mut(track) {
+            t.source = routing::TrackSource::AuxReturn(aux);
+            eprintln!("[Track {}] Source: Aux Return (Aux {})", track, aux);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Track {} not found", track))
+        }
+    }
+
     fn play_file(&self, track: usize) -> Result<()> {
         let mut router = self.router.lock().unwrap();
         track::play_file(&mut router, track, self.sample_rate)
@@ -1449,6 +1476,21 @@ impl AudioEngine {
         }
     }
 
+    fn set_aux_bus_route_to_subgroup(&self, aux: usize, subgroup: usize, route: bool) {
+        let mut router = self.router.lock().unwrap();
+        if aux < router.aux_buses.len() {
+            if route {
+                // Add subgroup to routing if not already present
+                if !router.aux_buses[aux].route_to_subgroups.contains(&subgroup) {
+                    router.aux_buses[aux].route_to_subgroups.push(subgroup);
+                }
+            } else {
+                // Remove subgroup from routing
+                router.aux_buses[aux].route_to_subgroups.retain(|&sg| sg != subgroup);
+            }
+        }
+    }
+
     fn set_aux_bus_output_enabled(&self, aux: usize, enabled: bool) {
         let mut router = self.router.lock().unwrap();
         if aux < router.aux_buses.len() {
@@ -1779,6 +1821,18 @@ impl AudioEngine {
             } => {
                 self.set_aux_bus_output_channels(aux, left_channel, right_channel);
                 None
+            }
+            Command::SetAuxBusRouteToSubgroup { aux, subgroup, route } => {
+                self.set_aux_bus_route_to_subgroup(aux, subgroup, route);
+                None
+            }
+            Command::SetTrackSourceAuxReturn { track, aux } => {
+                match self.set_track_source_aux_return(track, aux) {
+                    Ok(_) => None,
+                    Err(e) => Some(Response::Error {
+                        message: e.to_string(),
+                    }),
+                }
             }
             Command::SetUpdatesSuspended { suspended } => {
                 self.updates_suspended.store(suspended, Ordering::Relaxed);

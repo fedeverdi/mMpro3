@@ -17,7 +17,7 @@
 
   <AudioInputModal :is-open="showModal" :title="title" :devices="devices" :selected-device-id="selectedDeviceId || ''"
     :default-label="defaultLabel" :default-description="defaultDescription" :default-icon="defaultIcon"
-    :show-file-option="showFileOption" @close="showModal = false" @select="handleSelect" />
+    :show-file-option="showFileOption" :show-aux-returns="showAuxReturns" @close="showModal = false" @select="handleSelect" />
 </template>
 
 <script setup lang="ts">
@@ -33,10 +33,12 @@ interface Props {
   defaultDescription: string
   defaultIcon: string
   showFileOption?: boolean
+  showAuxReturns?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  showFileOption: false
+  showFileOption: false,
+  showAuxReturns: true
 })
 
 const emit = defineEmits<{
@@ -48,6 +50,10 @@ const showModal = ref(false)
 const deviceLabel = computed(() => {
   if (!props.selectedDeviceId) return props.defaultLabel
   if (props.selectedDeviceId === 'file') return 'Audio File'
+  if (props.selectedDeviceId.startsWith('aux-return-')) {
+    const auxIndex = parseInt(props.selectedDeviceId.replace('aux-return-', ''))
+    return `Aux ${auxIndex + 1} 🔄`
+  }
   const device = props.devices.find(d => d.id === props.selectedDeviceId)
   if (!device) return props.defaultLabel
   const name = device.name || 'Unknown'

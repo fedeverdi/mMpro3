@@ -94,6 +94,8 @@ interface AudioEngine {
   setAuxBusRouteToMaster: (aux: number, route: boolean) => Promise<void>
   setAuxBusOutputEnabled: (aux: number, enabled: boolean) => Promise<void>
   setAuxBusOutputChannels: (aux: number, leftChannel: number, rightChannel: number) => Promise<void>
+  setAuxBusRouteToSubgroup: (aux: number, subgroup: number, route: boolean) => Promise<void>
+  setTrackSourceAuxReturn: (track: number, aux: number) => Promise<void>
 }
 
 interface Window {

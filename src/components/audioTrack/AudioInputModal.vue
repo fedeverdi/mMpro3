@@ -100,6 +100,39 @@
                 </div>
               </div>
             </button>
+
+            <!-- Aux Returns Section -->
+            <div v-if="showAuxReturns" class="mt-4 pt-4 border-t-2 border-teal-600/50">
+              <div class="text-sm font-bold text-teal-300 mb-2 px-2">Aux Returns (Effect Returns)</div>
+              <button
+                v-for="auxIndex in 6"
+                :key="`aux-${auxIndex - 1}`"
+                @click="selectDevice(`aux-return-${auxIndex - 1}`)"
+                class="w-full p-4 rounded-lg border-2 transition-all text-left mb-2"
+                :class="selectedDeviceId === `aux-return-${auxIndex - 1}` 
+                  ? 'bg-teal-600 border-teal-500 text-white' 
+                  : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500'"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="text-2xl">🔄</div>
+                    <div>
+                      <div class="font-semibold">
+                        Aux {{ auxIndex }} Return
+                      </div>
+                      <div class="text-xs opacity-70">
+                        Use aux bus {{ auxIndex }} as input source
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="selectedDeviceId === `aux-return-${auxIndex - 1}`" class="text-teal-300">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                    </svg>
+                  </div>
+                </div>
+              </button>
+            </div>
           </div>
 
           <!-- No devices message -->
@@ -123,8 +156,10 @@ const props = withDefaults(defineProps<{
   defaultDescription?: string
   defaultIcon?: string
   showFileOption?: boolean
+  showAuxReturns?: boolean
 }>(), {
-  showFileOption: false
+  showFileOption: false,
+  showAuxReturns: true
 })
 
 const emit = defineEmits<{

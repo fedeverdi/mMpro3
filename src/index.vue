@@ -167,6 +167,7 @@
         <!-- Master EQ Display, Spectrum & FX -->
         <RightSection ref="rightSectionRef" :master-channel="masterChannel"
           :master-section-ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses"
+          :subgroups="subgroups"
           @master-fx-output-node="handleMasterFxOutputNode"
           @master-fx-component="handleMasterFxComponent" @update:master-eq-filters="handleMasterEQFiltersUpdate"
           @add-aux="addAux" @remove-aux="removeAux" @update-aux="updateAux" />
