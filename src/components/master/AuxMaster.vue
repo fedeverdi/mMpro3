@@ -44,14 +44,12 @@
                         'flex items-center justify-center gap-0.5 px-1 py-0.5 rounded transition-colors overflow-hidden',
                         aux.reverbEnabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'
                     ]">
-                        <button @click="toggleAuxReverb(index)" 
-                            class="flex-1 text-[0.5rem] font-bold hover:opacity-80"
+                        <button @click="toggleAuxReverb(index)" class="flex-1 text-[0.5rem] font-bold hover:opacity-80"
                             title="Toggle Reverb">
                             RV
                         </button>
-                        <button v-if="aux.reverbEnabled" @click.stop="showReverbModal(index)" 
-                            class="px-0.5 hover:bg-green-700 rounded"
-                            title="Reverb Settings">
+                        <button v-if="aux.reverbEnabled" @click.stop="showReverbModal(index)"
+                            class="px-0.5 hover:bg-green-700 rounded" title="Reverb Settings">
                             <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd"
                                     d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
@@ -63,14 +61,12 @@
                         'flex items-center justify-center gap-0.5 px-1 py-0.5 rounded transition-colors overflow-hidden',
                         aux.delayEnabled ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400'
                     ]">
-                        <button @click="toggleAuxDelay(index)" 
-                            class="flex-1 text-[0.5rem] font-bold hover:opacity-80"
+                        <button @click="toggleAuxDelay(index)" class="flex-1 text-[0.5rem] font-bold hover:opacity-80"
                             title="Toggle Delay">
                             DL
                         </button>
-                        <button v-if="aux.delayEnabled" @click.stop="showDelayModal(index)" 
-                            class="px-0.5 hover:bg-blue-700 rounded"
-                            title="Delay Settings">
+                        <button v-if="aux.delayEnabled" @click.stop="showDelayModal(index)"
+                            class="px-0.5 hover:bg-blue-700 rounded" title="Delay Settings">
                             <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd"
                                     d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
@@ -81,27 +77,25 @@
                 </div>
 
                 <!-- Output Device Selector with Routing (unified modal) -->
-                <div class="w-full bg-gray-900 rounded mt-0.5">
-                    <AuxOutputSelector 
-                        title="Aux Output & Routing" 
-                        :devices="audioOutputDevices" 
+                <div class="flex gap-1 bg-gray-900 rounded mt-0.5">
+                    <AuxOutputSelector class="w-2/3" title="Aux Output & Routing" :devices="audioOutputDevices"
                         :selected-device-id="aux.selectedOutputDevice || 'no-output'"
                         :route-to-master="auxRouting[index]?.toMaster || false"
-                        :routed-subgroups="auxRouting[index]?.toSubgroups || new Set()"
-                        :subgroups="subgroups"
+                        :routed-subgroups="auxRouting[index]?.toSubgroups || new Set()" :subgroups="subgroups"
                         @select-device="(deviceId) => selectOutputDevice(index, deviceId)"
                         @toggle-master-routing="toggleRouteToMaster(index)"
-                        @toggle-subgroup-routing="(sgId) => toggleSubgroupRoute(index, sgId)"
-                    />
+                        @toggle-subgroup-routing="(sgId) => toggleSubgroupRoute(index, sgId)" />
+
+                    <!-- Mute Button -->
+                    <button @click="toggleAuxMute(index)" :class="[
+                        'w-1/3 py-0.5 text-[0.45rem] font-bold rounded transition-colors',
+                        aux.muted ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-400'
+                    ]">
+                        M
+                    </button>
                 </div>
 
-                <!-- Mute Button -->
-                <button @click="toggleAuxMute(index)" :class="[
-                    'w-full py-0.5 text-[0.45rem] font-bold rounded transition-colors',
-                    aux.muted ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-400'
-                ]">
-                    M
-                </button>
+
             </div>
 
             <!-- Add Aux button inside grid -->
@@ -165,11 +159,12 @@
                         <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.feedback || 0.3"
                             @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'feedback', val)"
                             :min="0" :max="0.95" :step="0.01" label="Feedback" unit="%" color="#8b5cf6" />
-                        <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.wet !== undefined ? auxBuses[selectedDelayAux].delayParams.wet : 1.0"
+                        <Knob
+                            :modelValue="auxBuses[selectedDelayAux]?.delayParams?.wet !== undefined ? auxBuses[selectedDelayAux].delayParams.wet : 1.0"
                             @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'wet', val)" :min="0"
                             :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
                     </div>
-                    
+
                     <!-- Tap Tempo Button -->
                     <div class="mt-4 flex flex-col items-center gap-2">
                         <button @click="handleTapTempo"
@@ -177,13 +172,14 @@
                             TAP TEMPO
                         </button>
                         <div v-if="tapBpm !== null" class="text-sm text-blue-300 font-bold">
-                            {{ tapBpm }} BPM ({{ (auxBuses[selectedDelayAux]?.delayParams?.delayTime || 0).toFixed(3) }}s)
+                            {{ tapBpm }} BPM ({{ (auxBuses[selectedDelayAux]?.delayParams?.delayTime || 0).toFixed(3)
+                            }}s)
                         </div>
                         <div v-else class="text-xs text-gray-500">
                             Click button repeatedly at your desired tempo
                         </div>
                     </div>
-                    
+
                     <div class="mt-4 text-xs text-gray-400 text-center">
                         <p><strong>Time:</strong> Delay time (ms to seconds)</p>
                         <p><strong>Feedback:</strong> Number of repeats</p>
@@ -291,13 +287,13 @@ watch(() => props.auxBuses, (newVal) => {
 function toggleRouteToMaster(auxIndex: number) {
     const currentState = auxRouting.value[auxIndex]?.toMaster || false
     const newState = !currentState
-    
+
     if (!auxRouting.value[auxIndex]) {
         auxRouting.value[auxIndex] = { toMaster: newState, toSubgroups: new Set() }
     } else {
         auxRouting.value[auxIndex].toMaster = newState
     }
-    
+
     if (audioEngine) {
         audioEngine.setAuxBusRouteToMaster(auxIndex, newState)
     }
@@ -307,16 +303,16 @@ function toggleSubgroupRoute(auxIndex: number, subgroupId: number) {
     if (!auxRouting.value[auxIndex]) {
         auxRouting.value[auxIndex] = { toMaster: false, toSubgroups: new Set() }
     }
-    
+
     const routes = auxRouting.value[auxIndex].toSubgroups
     const isRouted = routes.has(subgroupId)
-    
+
     if (isRouted) {
         routes.delete(subgroupId)
     } else {
         routes.add(subgroupId)
     }
-    
+
     if (audioEngine) {
         audioEngine.setAuxBusRouteToSubgroup(auxIndex, subgroupId, !isRouted)
     }
@@ -378,7 +374,7 @@ function toggleAuxReverb(index: number) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = props.auxBuses[index]
     const newEnabled = !aux.reverbEnabled
-    
+
     // Toggle wet parameter (restore saved value when enabling, 0 when disabling)
     if (aux.reverbNode) {
         if (newEnabled) {
@@ -390,7 +386,7 @@ function toggleAuxReverb(index: number) {
             aux.reverbNode.wet.value = 0
         }
     }
-    
+
     // Update state
     const updatedAux = { ...aux, reverbEnabled: newEnabled }
     emit('update-aux', index, updatedAux)
@@ -401,7 +397,7 @@ function toggleAuxDelay(index: number) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = props.auxBuses[index]
     const newEnabled = !aux.delayEnabled
-    
+
     // Toggle wet parameter (restore saved value when enabling, 0 when disabling)
     if (aux.delayNode) {
         if (newEnabled) {
@@ -413,7 +409,7 @@ function toggleAuxDelay(index: number) {
             aux.delayNode.wet.value = 0
         }
     }
-    
+
     // Update state
     const updatedAux = { ...aux, delayEnabled: newEnabled }
     emit('update-aux', index, updatedAux)
@@ -436,7 +432,7 @@ function showDelayModal(index: number) {
 function updateAuxReverbParam(index: number, param: 'decay' | 'preDelay' | 'wet', value: number) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = props.auxBuses[index]
-    
+
     // Update the audio node directly (no emit = no lag)
     if (aux.reverbNode) {
         if (param === 'decay') {
@@ -447,7 +443,7 @@ function updateAuxReverbParam(index: number, param: 'decay' | 'preDelay' | 'wet'
             aux.reverbNode.wet.value = value
         }
     }
-    
+
     // Update internal params object (for UI sync)
     if (!aux.reverbParams) {
         aux.reverbParams = { decay: 2.5, preDelay: 0.01, wet: 1.0 }
@@ -459,7 +455,7 @@ function updateAuxReverbParam(index: number, param: 'decay' | 'preDelay' | 'wet'
 function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback' | 'wet', value: number) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = props.auxBuses[index]
-    
+
     // Update the audio node directly (no emit = no lag)
     if (aux.delayNode) {
         if (param === 'delayTime') {
@@ -470,7 +466,7 @@ function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback' | 'w
             aux.delayNode.wet.value = value
         }
     }
-    
+
     // Update internal params object (for UI sync)
     if (!aux.delayParams) {
         aux.delayParams = { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
@@ -481,15 +477,15 @@ function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback' | 'w
 // Tap tempo function
 function handleTapTempo() {
     if (selectedDelayAux.value === null) return
-    
+
     const now = Date.now()
     tapTimes.value.push(now)
-    
+
     // Keep only last 4 taps
     if (tapTimes.value.length > 4) {
         tapTimes.value.shift()
     }
-    
+
     // Need at least 2 taps to calculate interval
     if (tapTimes.value.length >= 2) {
         // Calculate average interval between taps
@@ -498,17 +494,17 @@ function handleTapTempo() {
             totalInterval += tapTimes.value[i] - tapTimes.value[i - 1]
         }
         const avgInterval = totalInterval / (tapTimes.value.length - 1)
-        
+
         // Convert to seconds and set delay time
         const delayTime = avgInterval / 1000
-        
+
         // Calculate BPM for display (60000ms per minute / interval in ms)
         tapBpm.value = Math.round(60000 / avgInterval)
-        
+
         // Update delay time
         updateAuxDelayParam(selectedDelayAux.value, 'delayTime', delayTime)
     }
-    
+
     // Reset tap times after 2 seconds of inactivity
     setTimeout(() => {
         if (tapTimes.value.length > 0 && Date.now() - tapTimes.value[tapTimes.value.length - 1] >= 2000) {
@@ -522,13 +518,13 @@ function handleTapTempo() {
 function updateAuxReverbParams(index: number, params: { decay: number, preDelay: number, wet: number }) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = props.auxBuses[index]
-    
+
     if (aux.reverbNode) {
         aux.reverbNode.decay = params.decay
         aux.reverbNode.preDelay = params.preDelay
         aux.reverbNode.wet.value = params.wet
     }
-    
+
     const updatedAux = { ...aux, reverbParams: params }
     emit('update-aux', index, updatedAux)
 }
@@ -537,13 +533,13 @@ function updateAuxReverbParams(index: number, params: { decay: number, preDelay:
 function updateAuxDelayParams(index: number, params: { delayTime: number, feedback: number, wet: number }) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = props.auxBuses[index]
-    
+
     if (aux.delayNode) {
         aux.delayNode.delayTime.value = params.delayTime
         aux.delayNode.feedback.value = params.feedback
         aux.delayNode.wet.value = params.wet
     }
-    
+
     const updatedAux = { ...aux, delayParams: params }
     emit('update-aux', index, updatedAux)
 }
