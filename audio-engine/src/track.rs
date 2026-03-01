@@ -2,8 +2,24 @@
 use anyhow::{anyhow, Result};
 use crate::audio_io::ChannelSelection;
 use crate::file_player::AudioFilePlayer;
-use crate::routing::Router;
+use crate::routing::{Router, TrackSource};
 use crate::signal_gen::WaveformType;
+
+/// Clear track source (set to None)
+pub fn clear_source(
+    router: &mut Router,
+    track: usize,
+) -> Result<()> {
+    if let Some(t) = router.get_track_mut(track) {
+        t.source = TrackSource::None;
+        t.signal_generator = None;
+        t.file_player = None;
+        eprintln!("[Track {}] Source: None (cleared)", track);
+        Ok(())
+    } else {
+        Err(anyhow!("Track {} not found", track))
+    }
+}
 
 /// Set track source to audio input
 pub fn set_source_input(

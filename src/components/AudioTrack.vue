@@ -361,21 +361,26 @@ function handleInputSelect(deviceId: string | null) {
   selectedAudioFile.value = null
   selectedFileName.value = null
 
-  // Send to Rust engine with device name
-  if (audioEngine?.state.value.isRunning && deviceId) {
-    // Find the device to get its name
-    const device = audioInputDevices.value.find(d => d.id === deviceId)
-    if (device) {
-      // Extract device name (remove "- Channel X" suffix if present)
-      const deviceName = device.name.replace(/ - Channel \d+$/, '')
-      // Extract channel indices from composite ID if present (format: "deviceId:channelIndex")
-      const channelMatch = deviceId.match(/:(\d+)$/)
-      const channelIndex = channelMatch ? parseInt(channelMatch[1]) : 0
-      
-      console.log(`[Track ${props.trackNumber}] Selected device: ${deviceName}, channel: ${channelIndex}`)
-      
-      // For stereo: use channel and channel+1
-      audioEngine.setTrackSourceInput(props.trackNumber - 1, channelIndex, channelIndex + 1, deviceName)
+  if (audioEngine?.state.value.isRunning) {
+    if (deviceId) {
+      // Find the device to get its name
+      const device = audioInputDevices.value.find(d => d.id === deviceId)
+      if (device) {
+        // Extract device name (remove "- Channel X" suffix if present)
+        const deviceName = device.name.replace(/ - Channel \d+$/, '')
+        // Extract channel indices from composite ID if present (format: "deviceId:channelIndex")
+        const channelMatch = deviceId.match(/:(\d+)$/)
+        const channelIndex = channelMatch ? parseInt(channelMatch[1]) : 0
+        
+        console.log(`[Track ${props.trackNumber}] Selected device: ${deviceName}, channel: ${channelIndex}`)
+        
+        // For stereo: use channel and channel+1
+        audioEngine.setTrackSourceInput(props.trackNumber - 1, channelIndex, channelIndex + 1, deviceName)
+      }
+    } else {
+      // Clear input (deviceId is null = "No Input" selected)
+      console.log(`[Track ${props.trackNumber}] Clearing audio input`)
+      audioEngine.setTrackSourceInput(props.trackNumber - 1, 0, 1, null)
     }
   }
 }

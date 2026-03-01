@@ -894,6 +894,18 @@ impl AudioEngine {
 
     // Track source commands
     fn set_track_source_input(&mut self, track: usize, left_ch: u16, right_ch: u16, device_name: Option<String>) -> Result<()> {
+        // If device_name is None, clear the track source and close input
+        if device_name.is_none() {
+            // Close audio input for this track
+            if let Err(e) = self.close_audio_input(track) {
+                eprintln!("[Engine] Failed to close audio input for track {}: {}", track, e);
+            }
+            
+            // Clear track source
+            let mut router = self.router.lock().unwrap();
+            return track::clear_source(&mut router, track);
+        }
+        
         // Open input stream when a track selects audio input
         if let Err(e) = self.open_audio_input(track, device_name) {
             eprintln!("[Engine] Failed to open audio input for track {}: {}", track, e);
