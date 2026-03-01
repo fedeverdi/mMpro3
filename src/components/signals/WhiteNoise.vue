@@ -24,7 +24,7 @@ const props = defineProps<{
   outputNode?: any
 }>()
 
-const ToneRef = inject<any>('Tone')
+const ToneRef = inject<any>('Tone', null)
 let Tone: any = null
 let noiseNode: any = null
 let volumeNode: any = null

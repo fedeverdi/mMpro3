@@ -354,9 +354,6 @@ const emit = defineEmits<{
     (e: 'update-aux', index: number, aux: AuxBus): void
 }>()
 
-const ToneRef = inject<any>('Tone')
-let Tone: any = null
-
 const { audioOutputDevices } = useAudioDevices()
 
 const selectedAuxIndex = ref<number | null>(null)

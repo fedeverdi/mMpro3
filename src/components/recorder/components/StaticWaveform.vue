@@ -43,7 +43,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const { getAudioFile } = useAudioFileStorage()
-const ToneRef = inject<any>('Tone')
+const ToneRef = inject<any>('Tone', null)
 let Tone: any = null
 
 // Calculate playback position as percentage
