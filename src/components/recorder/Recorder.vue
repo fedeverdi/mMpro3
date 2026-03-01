@@ -284,14 +284,6 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-// Cleanup when modal closes
-watch(() => props.modelValue, (isOpen) => {
-  if (!isOpen && isRecording.value) {
-    // Auto-stop recording if modal closes
-    stopRecording()
-  }
-})
-
 // Cleanup on unmount
 onUnmounted(async () => {
   if (recordingInterval) {
