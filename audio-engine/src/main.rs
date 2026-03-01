@@ -53,6 +53,7 @@ enum Command {
         track: usize,
         left_channel: u16,
         right_channel: u16,
+        device_name: Option<String>,
     },
     #[serde(rename = "set_track_source_signal")]
     SetTrackSourceSignal {
@@ -413,6 +414,7 @@ struct AudioEngine {
     input_buffer: Arc<Mutex<Vec<f32>>>,
     input_channels: Arc<AtomicUsize>,
     input_users: HashSet<usize>, // Track IDs that are using audio input
+    current_input_device: Option<String>, // Currently open input device name
 }
 
 impl AudioEngine {
@@ -433,6 +435,7 @@ impl AudioEngine {
             input_buffer,
             input_channels,
             input_users: HashSet::new(),
+            current_input_device: None,
         }
     }
 
@@ -778,16 +781,36 @@ impl AudioEngine {
         let was_empty = self.input_users.is_empty();
         self.input_users.insert(track_id);
         
-        // If already open (had other users), just return
-        if !was_empty {
+        // Determine the device name to use (None means default device)
+        let requested_device = device_name.clone();
+        
+        // Check if we need to change device
+        let device_changed = self.current_input_device != requested_device;
+        
+        // If device changed, close existing stream
+        if device_changed && self.input_stream.is_some() {
+            eprintln!("[Engine] Input device changed from {:?} to {:?}, reopening stream", 
+                self.current_input_device, requested_device);
+            if let Some(stream) = self.input_stream.take() {
+                drop(stream);
+            }
+            // Clear input buffer
+            let mut buffer = self.input_buffer.lock().unwrap();
+            buffer.clear();
+        }
+        
+        // If already open with the same device and had other users, just return
+        if !was_empty && !device_changed {
             eprintln!("[Engine] Track {} using audio input (total users: {})", track_id, self.input_users.len());
             return Ok(());
         }
 
         // Get input device
-        let input_device = if let Some(name) = device_name {
-            self.audio_io.find_device_by_name(&name, true)?
+        let input_device = if let Some(name) = &requested_device {
+            eprintln!("[Engine] Opening input device: {}", name);
+            self.audio_io.find_device_by_name(name, true)?
         } else {
+            eprintln!("[Engine] Opening default input device");
             self.audio_io.default_input_device()?
         };
 
@@ -815,8 +838,9 @@ impl AudioEngine {
         input_stream.play()?;
         
         self.input_stream = Some(input_stream);
+        self.current_input_device = requested_device.clone();
         
-        eprintln!("[Engine] ✓ Audio input opened for track {} (first user)", track_id);
+        eprintln!("[Engine] ✓ Audio input opened for track {} (device: {:?})", track_id, requested_device);
         
         Ok(())
     }
@@ -837,15 +861,18 @@ impl AudioEngine {
             // Clear input buffer
             let mut buffer = self.input_buffer.lock().unwrap();
             buffer.clear();
+            
+            // Clear current device
+            self.current_input_device = None;
         }
         
         Ok(())
     }
 
     // Track source commands
-    fn set_track_source_input(&mut self, track: usize, left_ch: u16, right_ch: u16) -> Result<()> {
+    fn set_track_source_input(&mut self, track: usize, left_ch: u16, right_ch: u16, device_name: Option<String>) -> Result<()> {
         // Open input stream when a track selects audio input
-        if let Err(e) = self.open_audio_input(track, None) {
+        if let Err(e) = self.open_audio_input(track, device_name) {
             eprintln!("[Engine] Failed to open audio input for track {}: {}", track, e);
             return Err(e);
         }
@@ -1252,9 +1279,10 @@ impl AudioEngine {
                 track,
                 left_channel,
                 right_channel,
+                device_name,
             } => {
                 // Fire-and-forget command, no response needed
-                let _ = self.set_track_source_input(track, left_channel, right_channel);
+                let _ = self.set_track_source_input(track, left_channel, right_channel, device_name);
                 None
             }
             Command::SetTrackSourceSignal {

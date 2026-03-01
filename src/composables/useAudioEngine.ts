@@ -232,10 +232,10 @@ export const useAudioEngine = () => {
   }
 
   // Track source selection
-  const setTrackSourceInput = async (track: number, leftChannel: number, rightChannel: number) => {
+  const setTrackSourceInput = async (track: number, leftChannel: number, rightChannel: number, deviceName?: string | null) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setTrackSourceInput(track, leftChannel, rightChannel)
+    await window.audioEngine.setTrackSourceInput(track, leftChannel, rightChannel, deviceName)
   }
 
   const setTrackSourceSignal = async (track: number, waveform: string, frequency: number) => {

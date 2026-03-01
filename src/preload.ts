@@ -34,8 +34,8 @@ contextBridge.exposeInMainWorld('audioEngine', {
     ipcRenderer.invoke('audio-engine:set-gate', track, enabled, threshold, range, attack, release),
   
   // Track source selection
-  setTrackSourceInput: (track: number, leftChannel: number, rightChannel: number) => 
-    ipcRenderer.invoke('audio-engine:set-track-source-input', track, leftChannel, rightChannel),
+  setTrackSourceInput: (track: number, leftChannel: number, rightChannel: number, deviceName?: string | null) => 
+    ipcRenderer.invoke('audio-engine:set-track-source-input', track, leftChannel, rightChannel, deviceName),
   setTrackSourceSignal: (track: number, waveform: string, frequency: number) => 
     ipcRenderer.invoke('audio-engine:set-track-source-signal', track, waveform, frequency),
   setTrackSourceFile: (track: number, filePath: string) => 

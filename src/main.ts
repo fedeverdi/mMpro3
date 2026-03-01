@@ -201,8 +201,12 @@ ipcMain.handle('audio-engine:set-gate', async (_, track: number, enabled: boolea
 })
 
 // Track source selection
-ipcMain.handle('audio-engine:set-track-source-input', async (_, track: number, leftChannel: number, rightChannel: number) => {
-  await sendCommandToEngine({ type: 'set_track_source_input', track, left_channel: leftChannel, right_channel: rightChannel })
+ipcMain.handle('audio-engine:set-track-source-input', async (_, track: number, leftChannel: number, rightChannel: number, deviceName?: string | null) => {
+  const command: any = { type: 'set_track_source_input', track, left_channel: leftChannel, right_channel: rightChannel }
+  if (deviceName) {
+    command.device_name = deviceName
+  }
+  await sendCommandToEngine(command)
 })
 
 ipcMain.handle('audio-engine:set-track-source-signal', async (_, track: number, waveform: string, frequency: number) => {
