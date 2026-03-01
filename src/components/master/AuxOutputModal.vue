@@ -3,24 +3,25 @@
     <Transition name="modal">
       <div 
         v-if="isOpen" 
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
         @click.self="$emit('close')"
       >
-        <div class="bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-teal-600 p-6 max-w-lg w-full mx-4 shadow-2xl max-h-[90vh] flex flex-col">
-          <!-- Modal Header -->
-          <div class="flex items-center justify-between mb-4 flex-shrink-0">
-            <h3 class="text-lg font-bold text-teal-400">{{ title }}</h3>
+        <div class="bg-gray-900 rounded-lg shadow-2xl max-w-lg w-full mx-4 border border-gray-700 max-h-[90vh] flex flex-col">
+          <!-- Header -->
+          <div class="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
+            <h3 class="text-lg font-semibold text-white">{{ title }}</h3>
             <button 
               @click="$emit('close')"
               class="text-gray-400 hover:text-white transition-colors"
             >
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          <div class="flex-1 overflow-y-auto custom-scrollbar space-y-6">
+          <!-- Content -->
+          <div class="p-6 flex-1 overflow-y-auto custom-scrollbar space-y-6">
             <!-- Output Device Section -->
             <div class="space-y-2">
               <h4 class="text-sm font-bold text-teal-300 uppercase tracking-wide">Physical Output</h4>

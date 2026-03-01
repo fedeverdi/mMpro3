@@ -3,25 +3,26 @@
     <Transition name="modal">
       <div 
         v-if="isOpen" 
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
         @click.self="$emit('close')"
       >
-        <div class="bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-blue-600 p-6 max-w-md w-full mx-4 shadow-2xl">
-          <!-- Modal Header -->
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold text-blue-400">{{ title }}</h3>
+        <div class="bg-gray-900 rounded-lg shadow-2xl max-w-md w-full mx-4 border border-gray-700">
+          <!-- Header -->
+          <div class="flex items-center justify-between p-4 border-b border-gray-700">
+            <h3 class="text-lg font-semibold text-white">{{ title }}</h3>
             <button 
               @click="$emit('close')"
               class="text-gray-400 hover:text-white transition-colors"
             >
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          <!-- Devices List -->
-          <div class="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
+          <!-- Content -->
+          <div class="p-6">
+            <div class="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
             <!-- File Option -->
             <button
               v-if="showFileOption"
@@ -133,14 +134,15 @@
                 </div>
               </button>
             </div>
-          </div>
-
-          <!-- No devices message -->
-          <div v-if="devices.length === 0" class="text-center py-8 text-gray-400">
-            <div class="text-4xl mb-2">🎤</div>
-            <div class="text-sm">No audio input devices found</div>
+            
+            <!-- No devices message -->
+            <div v-if="devices.length === 0" class="text-center py-8 text-gray-400">
+              <div class="text-4xl mb-2">🎤</div>
+              <div class="text-sm">No audio input devices found</div>
+            </div>
           </div>
         </div>
+      </div>
       </div>
     </Transition>
   </Teleport>

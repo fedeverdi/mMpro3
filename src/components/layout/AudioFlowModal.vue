@@ -1,18 +1,12 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="close">
-        <!-- Overlay -->
-        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
-        
+      <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="close">
         <!-- Modal -->
-        <div class="relative bg-gradient-to-br from-gray-900 via-gray-800 to-black border-2 border-purple-600/50 rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+        <div class="bg-gray-900 rounded-lg shadow-2xl max-w-6xl w-full max-h-[90vh] border border-gray-700 overflow-hidden">
           <!-- Header -->
-          <div class="bg-gradient-to-r from-purple-900/50 to-blue-900/50 px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-            <div>
-              <h2 class="text-2xl font-bold text-white">Signal Flow</h2>
-              <p class="text-sm text-gray-400 mt-1">Complete audio routing chain</p>
-            </div>
+          <div class="flex items-center justify-between p-4 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-white">🔀 Signal Flow</h2>
             <button @click="close" class="text-gray-400 hover:text-white transition-colors">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>

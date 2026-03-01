@@ -2,40 +2,37 @@
   <div>
     <Teleport to="body">
       <Transition name="modal">
-      <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="close">
-        <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
-        
+      <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="close">
         <!-- Modal Content -->
-        <div class="relative bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg border-2 border-gray-600 p-6 max-w-[95vw] w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-          
-          <!-- Action Buttons - Top Right -->
-          <div class="absolute top-4 right-4 flex gap-2 z-10">
-            <button
-              @click="reset"
-              class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-700/80 hover:bg-gray-600 text-gray-300 hover:text-white transition-colors text-sm font-medium"
-              title="Reset filters"
-            >
-              R
-            </button>
-            <button
-              @click="close"
-              class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-700/80 hover:bg-red-600 text-gray-300 hover:text-white transition-colors text-sm font-bold"
-              title="Close"
-            >
-              X
-            </button>
-          </div>
+        <div class="bg-gray-900 rounded-lg shadow-2xl max-w-[95vw] w-full max-h-[90vh] border border-gray-700 overflow-y-auto">
           
           <!-- Header -->
-          <div class="flex items-center justify-between mb-2">
-            <div>
-              <h2 class="text-lg font-bold text-blue-400">{{ titleText }}</h2>
+          <div class="flex items-center justify-between p-4 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-white">{{ titleText }}</h2>
+            <div class="flex items-center gap-2">
+              <button
+                @click="reset"
+                class="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-colors text-sm font-medium"
+                title="Reset filters"
+              >
+                Reset
+              </button>
+              <button
+                @click="close"
+                class="text-gray-400 hover:text-white transition-colors"
+                title="Close"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
           
-          <!-- EQ Curve Display -->
-          <div class="bg-gray-900 rounded-lg border border-gray-700 p-4 mb-4 relative">
+          <!-- Content -->
+          <div class="p-6 space-y-4">
+            <!-- EQ Curve Display -->
+            <div class="bg-gray-900 rounded-lg border border-gray-700 p-4 relative">
             <canvas
               ref="eqCanvas"
               class="w-full"
@@ -183,6 +180,7 @@
             </button>
           </div>
         </div>
+      </div>
       </div>
     </Transition>
   </Teleport>

@@ -256,7 +256,6 @@ ipcMain.handle('audio-engine:save-temp-audio-file', async (_, arrayBuffer: Array
     const buffer = Buffer.from(arrayBuffer)
     fs.writeFileSync(tempFilePath, buffer)
     
-    console.log('[Main] Saved temp audio file:', tempFilePath)
     return tempFilePath
   } catch (error) {
     console.error('[Main] Error saving temp audio file:', error)

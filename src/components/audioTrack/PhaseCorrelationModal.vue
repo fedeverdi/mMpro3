@@ -10,26 +10,15 @@
         >
             <div v-if="modelValue" 
                 @click="emit('update:modelValue', false)"
-                class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200]"
+                class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
             >
-                <Transition
-                    enter-active-class="transition-all duration-200 ease-out"
-                    enter-from-class="opacity-0 scale-90"
-                    enter-to-class="opacity-100 scale-100"
-                    leave-active-class="transition-all duration-150 ease-in"
-                    leave-from-class="opacity-100 scale-100"
-                    leave-to-class="opacity-0 scale-90"
-                >
                     <div v-if="modelValue"
                         @click.stop
-                        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border-2 border-gray-700 shadow-2xl p-6 w-[500px] max-w-[90vw]"
+                        class="bg-gray-900 rounded-lg shadow-2xl w-[500px] max-w-[90vw] border border-gray-700"
                     >
                         <!-- Header -->
-                        <div class="flex items-center justify-between mb-4">
-                            <div>
-                                <h3 class="text-lg font-bold text-white">Phase Correlation Meter</h3>
-                                <p class="text-xs text-gray-400 mt-0.5">Track {{ trackNumber }} - Stereo Width Analysis</p>
-                            </div>
+                        <div class="flex items-center justify-between p-4 border-b border-gray-700">
+                            <h3 class="text-lg font-semibold text-white">📊 Phase Correlation - Track {{ trackNumber }}</h3>
                             <div class="flex items-center gap-2">
                                 <!-- View Toggle -->
                                 <button

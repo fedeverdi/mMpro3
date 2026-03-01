@@ -1,20 +1,13 @@
 <template>
-  <div v-if="modelValue" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
+  <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
     @click.self="close">
-    <div class="bg-gray-800 rounded-lg shadow-2xl w-[1200px] max-w-[95vw] max-h-[85vh] flex flex-col border border-gray-700"
+    <div class="bg-gray-900 rounded-lg shadow-2xl w-[1200px] max-w-[95vw] max-h-[85vh] flex flex-col border border-gray-700"
       @click="showAddToPlaylistMenu = null">
       <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b border-gray-700">
-        <div class="flex items-center gap-2">
-          <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-          </svg>
-          <h2 class="text-xl font-bold text-white">Audio Library</h2>
-        </div>
-        <button @click="close"
-          class="text-gray-400 hover:text-white transition-colors">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <h2 class="text-lg font-semibold text-white">📁 Audio Library</h2>
+        <button @click="close" class="text-gray-400 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
