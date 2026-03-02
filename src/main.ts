@@ -14,12 +14,6 @@ if (started) {
   app.quit()
 }
 
-// Disable window occlusion and background throttling for audio continuity
-app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
-app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
-app.commandLine.appendSwitch('disable-renderer-backgrounding')
-// Disable window animations to prevent audio glitches during minimize
-app.commandLine.appendSwitch('wm-window-animations-disabled')
 if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('disable-smooth-scrolling')
 }
@@ -1088,8 +1082,7 @@ const createWindow = () => {
     show: false, // Don't show until ready
     ...(iconPath && { icon: iconPath }),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      backgroundThrottling: false // Prevent audio interruption when window is minimized
+      preload: path.join(__dirname, 'preload.js')
     }
   })
 
