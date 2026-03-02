@@ -567,6 +567,7 @@ export const useAudioEngine = () => {
     setAuxBusRouteToSubgroup,
     setTrackSourceAuxReturn,
     getInputDevices,
-    getOutputDevices
+    getOutputDevices,
+    showOpenFileDialog: () => window.audioEngine.showOpenFileDialog()
   }
 }

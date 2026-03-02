@@ -16,8 +16,7 @@
       <!-- Upload Section -->
       <div class="p-4 border-b border-gray-700">
         <div class="flex items-center gap-3">
-          <input type="file" ref="fileInput" @change="handleFileUpload" accept="audio/*" multiple class="hidden" />
-          <button @click="fileInput?.click()" :disabled="isUploading"
+          <button @click="openFilePicker" :disabled="isUploading"
             class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white font-semibold transition-colors">
             <svg v-if="!isUploading" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -600,7 +599,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useAudioFileStorage, type StoredAudioFile } from '~/composables/useAudioFileStorage'
+import { useAudioEngine } from '~/composables/useAudioEngine'
 import { usePlaylist, type Playlist } from '~/composables/usePlaylist'
+import { useNotifications } from '~/composables/useNotifications'
 import PlaylistFilesList from './PlaylistFilesList.vue'
 
 interface Props {
@@ -616,6 +617,7 @@ const emit = defineEmits<{
 }>()
 
 const { saveAudioFile, getAllAudioFiles, deleteAudioFile } = useAudioFileStorage()
+const audioEngine = useAudioEngine()
 const { 
   playlists, 
   createPlaylist, 
@@ -627,12 +629,12 @@ const {
   renamePlaylist,
   getPlaylistFiles 
 } = usePlaylist()
+const notify = useNotifications()
 
 const files = ref<StoredAudioFile[]>([])
 const isLoading = ref(false)
 const isUploading = ref(false)
 const uploadProgress = ref('')
-const fileInput = ref<HTMLInputElement | null>(null)
 const searchQuery = ref('')
 const viewMode = ref<'all' | 'byArtist' | 'playlists'>('all')
 const viewLayout = ref<'list' | 'grid'>('list')
@@ -648,6 +650,76 @@ const showAddToPlaylistMenu = ref<string | null>(null) // fileId of file with op
 const sortedFiles = computed(() => {
   return [...files.value].sort((a, b) => b.timestamp - a.timestamp)
 })
+
+// Open file picker using Electron dialog API - non-blocking
+async function openFilePicker() {
+  if (isUploading.value) return
+  
+  try {
+    const files = await audioEngine.showOpenFileDialog()
+    
+    if (!files || files.length === 0) return
+    
+    isUploading.value = true
+    const totalFiles = files.length
+    let uploadedCount = 0
+    let skippedCount = 0
+    let failedCount = 0
+    
+    // Process each file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      uploadProgress.value = `Checking ${file.name} (${i + 1}/${totalFiles})...`
+      
+      try {
+        // Check for duplicates
+        const isDuplicate = await checkIfDuplicate(file.buffer, file.name, file.buffer.byteLength)
+        
+        if (isDuplicate) {
+          uploadProgress.value = `Skipped: ${file.name} (already exists)`
+          skippedCount++
+          await new Promise(resolve => setTimeout(resolve, 500))
+          continue
+        }
+        
+        uploadProgress.value = `Uploading ${file.name} (${i + 1}/${totalFiles})...`
+        
+        // Create File object from ArrayBuffer
+        const blob = new Blob([file.buffer], { type: 'audio/*' })
+        const fileObj = new File([blob], file.name, { type: 'audio/*' })
+        await saveAudioFile(fileObj)
+        uploadedCount++
+        
+      } catch (error) {
+        console.error(`Failed to upload ${file.name}:`, error)
+        failedCount++
+      }
+    }
+    
+    // Show summary
+    const summaryParts = []
+    if (uploadedCount > 0) summaryParts.push(`${uploadedCount} uploaded`)
+    if (skippedCount > 0) summaryParts.push(`${skippedCount} skipped`)
+    if (failedCount > 0) summaryParts.push(`${failedCount} failed`)
+    
+    uploadProgress.value = summaryParts.join(', ') + '!'
+    
+    // Reload files list
+    await loadFiles()
+    
+    setTimeout(() => {
+      uploadProgress.value = ''
+    }, 3000)
+  } catch (error) {
+    console.error('Failed to open file dialog:', error)
+    uploadProgress.value = 'Failed to open file picker!'
+    setTimeout(() => {
+      uploadProgress.value = ''
+    }, 3000)
+  } finally {
+    isUploading.value = false
+  }
+}
 
 const filteredFiles = computed(() => {
   if (!searchQuery.value.trim()) {
@@ -708,78 +780,6 @@ async function loadFiles() {
   }
 }
 
-async function handleFileUpload(event: Event) {
-  const target = event.target as HTMLInputElement
-  const selectedFiles = target.files
-  if (!selectedFiles || selectedFiles.length === 0) return
-
-  isUploading.value = true
-  const totalFiles = selectedFiles.length
-  let uploadedCount = 0
-  let skippedCount = 0
-  let failedCount = 0
-
-  try {
-    // Process each file
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i]
-      uploadProgress.value = `Checking ${file.name} (${i + 1}/${totalFiles})...`
-
-      try {
-        // Check for duplicates
-        const fileArrayBuffer = await file.arrayBuffer()
-        const isDuplicate = await checkIfDuplicate(fileArrayBuffer, file.name, file.size)
-        
-        if (isDuplicate) {
-          uploadProgress.value = `Skipped: ${file.name} (already exists)`
-          skippedCount++
-          await new Promise(resolve => setTimeout(resolve, 500))
-          continue
-        }
-
-        uploadProgress.value = `Uploading ${file.name} (${i + 1}/${totalFiles})...`
-        
-        // Need to re-create File object from ArrayBuffer since we consumed it
-        const newFile = new File([fileArrayBuffer], file.name, { type: file.type })
-        await saveAudioFile(newFile)
-        uploadedCount++
-        
-      } catch (error) {
-        console.error(`Failed to upload ${file.name}:`, error)
-        failedCount++
-      }
-    }
-    
-    // Show summary
-    const summaryParts = []
-    if (uploadedCount > 0) summaryParts.push(`${uploadedCount} uploaded`)
-    if (skippedCount > 0) summaryParts.push(`${skippedCount} skipped`)
-    if (failedCount > 0) summaryParts.push(`${failedCount} failed`)
-    
-    uploadProgress.value = summaryParts.join(', ') + '!'
-    
-    // Reload files list
-    await loadFiles()
-    
-    // Clear input
-    if (fileInput.value) {
-      fileInput.value.value = ''
-    }
-
-    setTimeout(() => {
-      uploadProgress.value = ''
-    }, 3000)
-  } catch (error) {
-    console.error('Failed to upload files:', error)
-    uploadProgress.value = 'Upload failed!'
-    setTimeout(() => {
-      uploadProgress.value = ''
-    }, 3000)
-  } finally {
-    isUploading.value = false
-  }
-}
-
 // Check if file is already in library by comparing ArrayBuffers
 async function checkIfDuplicate(newBuffer: ArrayBuffer, fileName: string, fileSize: number): Promise<boolean> {
   // First check by file name and size for quick rejection
@@ -818,7 +818,8 @@ function areArrayBuffersEqual(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 async function confirmDelete(file: StoredAudioFile) {
-  if (!confirm(`Delete "${file.fileName}"?`)) return
+  const confirmed = await notify.confirm(`Delete "${file.fileName}"?`)
+  if (!confirmed) return
 
   try {
     await deleteAudioFile(file.id)
@@ -862,7 +863,7 @@ async function handleCreatePlaylist() {
     await loadPlaylists()
   } catch (error) {
     console.error('Failed to create playlist:', error)
-    alert('Failed to create playlist')
+    notify.error('Failed to create playlist')
   }
 }
 
@@ -888,19 +889,20 @@ async function savePlaylistRename(playlistId: string) {
     await loadPlaylists()
   } catch (error) {
     console.error('Failed to rename playlist:', error)
-    alert('Failed to rename playlist')
+    notify.error('Failed to rename playlist')
   }
 }
 
 async function confirmDeletePlaylist(playlist: Playlist) {
-  if (!confirm(`Delete playlist "${playlist.name}"? This will not delete the actual audio files.`)) return
+  const confirmed = await notify.confirm(`Delete playlist "${playlist.name}"? This will not delete the actual audio files.`)
+  if (!confirmed) return
 
   try {
     await deletePlaylist(playlist.id)
     await loadPlaylists()
   } catch (error) {
     console.error('Failed to delete playlist:', error)
-    alert('Failed to delete playlist')
+    notify.error('Failed to delete playlist')
   }
 }
 async function handleAddToPlaylist(fileId: string, playlistId: string) {
@@ -914,7 +916,7 @@ async function handleAddToPlaylist(fileId: string, playlistId: string) {
     }
   } catch (error) {
     console.error('Failed to add file to playlist:', error)
-    alert('Failed to add file to playlist')
+    notify.error('Failed to add file to playlist')
   }
 }
 async function loadPlaylists() {
@@ -925,11 +927,21 @@ async function loadPlaylists() {
   }
 }
 
-// Load files when modal opens
-watch(() => props.modelValue, async (isOpen) => {
+// Load files when modal opens - defer to avoid blocking audio thread
+watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
-    await loadFiles()
-    await loadPlaylists()
+    // Use requestIdleCallback to defer loading until browser is idle
+    // This prevents blocking the audio thread
+    const loadData = async () => {
+      await loadFiles()
+      await loadPlaylists()
+    }
+    
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(() => loadData(), { timeout: 100 })
+    } else {
+      setTimeout(() => loadData(), 0)
+    }
   }
 })
 

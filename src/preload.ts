@@ -126,5 +126,8 @@ contextBridge.exposeInMainWorld('audioEngine', {
   // Response listener
   onResponse: (callback: (response: any) => void) => {
     ipcRenderer.on('audio-engine-response', (_, data) => callback(data))
-  }
+  },
+  
+  // File dialog
+  showOpenFileDialog: () => ipcRenderer.invoke('show-open-file-dialog')
 })

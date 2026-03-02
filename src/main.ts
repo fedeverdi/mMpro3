@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, screen, ipcMain, shell, dialog } from 'electron'
 import { spawn, ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -437,6 +437,34 @@ ipcMain.handle('audio-engine:list-devices', async () => {
 ipcMain.handle('audio-engine:list-audio-inputs', async () => {
   const response = await sendCommandAndWaitForResponse({ type: 'list_audio_inputs' }, 'audio_inputs')
   return response.inputs
+})
+
+// File picker dialog - non-blocking
+ipcMain.handle('show-open-file-dialog', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: 'Audio Files', extensions: ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma', 'aiff'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  })
+  
+  if (result.canceled) {
+    return null
+  }
+  
+  // Read files and return as array buffers
+  const files = await Promise.all(
+    result.filePaths.map(async (filePath) => {
+      const buffer = await fs.promises.readFile(filePath)
+      return {
+        name: path.basename(filePath),
+        buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+      }
+    })
+  )
+  
+  return files
 })
 
 // Master Tap (Recording) - Rust saves WAV file directly

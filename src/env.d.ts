@@ -99,6 +99,9 @@ interface AudioEngine {
   setAuxBusOutputChannels: (aux: number, leftChannel: number, rightChannel: number) => Promise<void>
   setAuxBusRouteToSubgroup: (aux: number, subgroup: number, route: boolean) => Promise<void>
   setTrackSourceAuxReturn: (track: number, aux: number) => Promise<void>
+  
+  // File dialog
+  showOpenFileDialog: () => Promise<Array<{ name: string; buffer: ArrayBuffer }> | null>
 }
 
 interface Window {

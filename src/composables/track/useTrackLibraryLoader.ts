@@ -1,4 +1,5 @@
 import { nextTick, type Ref } from 'vue'
+import { error } from '../useNotifications'
 
 export interface LibraryLoaderCallbacks {
   getTone?: () => any
@@ -350,7 +351,7 @@ export function useTrackLibraryLoader(callbacks: LibraryLoaderCallbacks = {}) {
 
       const nodesForValidation = callbacks.getAudioNodes?.()
       if (!nodesForValidation?.gainNode || !nodesForValidation?.eq3 || !nodesForValidation?.volumeMerge) {
-        alert('Audio system not ready. Please refresh the page.')
+        error('Audio system not ready. Please refresh the page.')
         callbacks.setState?.({ isLoading: false })
         return
       }
@@ -370,9 +371,9 @@ export function useTrackLibraryLoader(callbacks: LibraryLoaderCallbacks = {}) {
       }
       
       await nextTick()
-    } catch (error) {
-      console.error('❌ Error loading audio from library:', error)
-      alert('Error loading audio from library: ' + error)
+    } catch (error_) {
+      console.error('❌ Error loading audio from library:', error_)
+      error('Error loading audio from library: ' + error_)
       callbacks.setState?.({ isLoading: false })
     }
   }
@@ -382,7 +383,7 @@ export function useTrackLibraryLoader(callbacks: LibraryLoaderCallbacks = {}) {
    */
   async function loadPlaylistFromLibrary(playlist: any) {
     if (!playlist || !playlist.fileIds || playlist.fileIds.length === 0) {
-      alert('Playlist is empty')
+      error('Playlist is empty')
       return
     }
 
@@ -400,7 +401,7 @@ export function useTrackLibraryLoader(callbacks: LibraryLoaderCallbacks = {}) {
       const files = await getPlaylistFiles(playlist.id)
       
       if (files.length === 0) {
-        alert('No files found in playlist')
+        error('No files found in playlist')
         return
       }
 
@@ -418,9 +419,9 @@ export function useTrackLibraryLoader(callbacks: LibraryLoaderCallbacks = {}) {
       const trackDisplay = files[0].artist ? `${files[0].artist} - ${trackName}` : trackName
       callbacks.setState?.({ fileName: `${playlist.name} (1/${files.length}) - ${trackDisplay}` })
       
-    } catch (error) {
-      console.error('❌ Error loading playlist:', error)
-      alert('Error loading playlist: ' + error)
+    } catch (error_) {
+      console.error('❌ Error loading playlist:', error_)
+      error('Error loading playlist: ' + error_)
     }
   }
 
@@ -451,7 +452,7 @@ export function useTrackLibraryLoader(callbacks: LibraryLoaderCallbacks = {}) {
 
       if (!storedFile) {
         console.error('File not found in IndexedDB')
-        alert('Could not restore audio file from scene. File may have been deleted.')
+        error('Could not restore audio file from scene. File may have been deleted.')
         if (!silent) {
           callbacks.setState?.({ isLoading: false })
         }
@@ -563,7 +564,7 @@ export function useTrackLibraryLoader(callbacks: LibraryLoaderCallbacks = {}) {
       // Verify audio chain is connected
       const nodesForValidation = callbacks.getAudioNodes?.()
       if (!nodesForValidation?.gainNode || !nodesForValidation?.eq3 || !nodesForValidation?.volumeMerge) {
-        alert('Audio system not ready. Please refresh the page.')
+        error('Audio system not ready. Please refresh the page.')
         if (!silent) {
           callbacks.setState?.({ isLoading: false })
         }
@@ -577,9 +578,9 @@ export function useTrackLibraryLoader(callbacks: LibraryLoaderCallbacks = {}) {
 
       // Force DOM update
       await nextTick()
-    } catch (error) {
-      console.error('❌ Error loading audio file from IndexedDB:', error)
-      alert('Error loading audio file from scene: ' + error)
+    } catch (error_) {
+      console.error('❌ Error loading audio file from IndexedDB:', error_)
+      error('Error loading audio file from scene: ' + error_)
       if (!silent) {
         callbacks.setState?.({ isLoading: false })
       }

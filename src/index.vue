@@ -220,6 +220,9 @@
 
     <!-- Footer -->
     <Footer :performance-stats="audioEngineState.performanceStats" />
+
+    <!-- Notification Toast -->
+    <NotificationToast />
   </div>
 </template>
 
@@ -235,8 +238,10 @@ import MasterSection from './components/MasterSection.vue'
 import SubgroupsSection from './components/SubgroupsSection.vue'
 import ScenesModal from './components/layout/ScenesModal.vue'
 import Footer from './components/layout/Footer.vue'
+import NotificationToast from './components/core/NotificationToast.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioEngine } from '~/composables/useAudioEngine'
+import { useNotifications } from '~/composables/useNotifications'
 import { getBuildLimits, canAddTrack, getTrackCounts, getBuildMode } from '~/config/buildLimits'
 import { channel } from 'diagnostics_channel'
 import Recorder from './components/recorder/Recorder.vue'
@@ -244,6 +249,7 @@ import Recorder from './components/recorder/Recorder.vue'
 const { audioOutputDevices, audioInputDevices, refreshAudioOutputs, refreshAudioInputs } = useAudioDevices()
 const audioEngine = useAudioEngine()
 const audioEngineState = audioEngine.state
+const notify = useNotifications()
 
 const masterChannel = ref<any>(null)
 
@@ -330,7 +336,7 @@ function handleFileManagerSelect(file: any) {
   if (targetTrackId === null) {
     targetTrackId = findFirstFreeAudioTrack()
     if (targetTrackId === null) {
-      alert('No free audio tracks available. All tracks have files loaded.')
+      notify.warning('No free audio tracks available. All tracks have files loaded.')
       showFileManager.value = false
       return
     }
@@ -352,7 +358,7 @@ function handlePlaylistSelect(playlist: any) {
   if (targetTrackId === null) {
     targetTrackId = findFirstFreeAudioTrack()
     if (targetTrackId === null) {
-      alert('No free audio tracks available. All tracks have files loaded.')
+      notify.warning('No free audio tracks available. All tracks have files loaded.')
       showFileManager.value = false
       return
     }
@@ -477,7 +483,7 @@ function addTrackOfType(type: 'audio' | 'signal') {
   showAddTrackMenu.value = false
 }
 
-function removeTrack(trackId: number) {
+async function removeTrack(trackId: number) {
   if (tracks.value.length <= 1) return
 
   const trackIndex = tracks.value.findIndex(t => t.id === trackId)
@@ -485,7 +491,8 @@ function removeTrack(trackId: number) {
 
   // Ask for confirmation
   const trackType = tracks.value[trackIndex].type === 'audio' ? 'Audio Track' : 'Signal Track'
-  if (!confirm(`Remove ${trackType} ${trackId}?`)) {
+  const confirmed = await notify.confirm(`Remove ${trackType} ${trackId}?`)
+  if (!confirmed) {
     return
   }
 
@@ -669,7 +676,8 @@ async function removeSubgroup(subgroupId: number) {
     const subgroup = subgroups.value[index]
 
     // Ask for confirmation
-    if (!confirm(`Remove ${subgroup.name}?`)) {
+    const confirmed = await notify.confirm(`Remove ${subgroup.name}?`)
+    if (!confirmed) {
       return
     }
 
@@ -728,12 +736,13 @@ function addAux() {
   auxBuses.value.push(newAux)
 }
 
-function removeAux(index: number) {
+async function removeAux(index: number) {
   if (index >= 0 && index < auxBuses.value.length) {
     const aux = auxBuses.value[index]
 
     // Ask for confirmation
-    if (!confirm(`Remove ${aux.name}?`)) {
+    const confirmed = await notify.confirm(`Remove ${aux.name}?`)
+    if (!confirmed) {
       return
     }
 

@@ -1,3 +1,5 @@
+import { error } from '../useNotifications'
+
 export interface AudioInputCallbacks {
   getTone?: () => any
   getAudioNodes?: () => {
@@ -303,10 +305,10 @@ export function useTrackAudioInput(callbacks: AudioInputCallbacks = {}) {
 
       // Note: No playback time tracking for audio input (it's live)
 
-    } catch (error) {
+    } catch (error_) {
       const trackNumber = callbacks.getTrackNumber?.() ?? 0
-      console.error(`[Track ${trackNumber}] Error connecting audio input:`, error)
-      alert('Error accessing audio input. Please check permissions and try again.')
+      console.error(`[Track ${trackNumber}] Error connecting audio input:`, error_)
+      error('Error accessing audio input. Please check permissions and try again.')
       callbacks.setState?.({
         audioLoaded: false,
         isPlaying: false
