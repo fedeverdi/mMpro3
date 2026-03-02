@@ -6,6 +6,8 @@ use std::collections::HashSet;
 use std::io::{self, BufRead};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::mpsc;
+use std::thread;
 use std::time::Instant;
 use std::fs::File;
 use std::io::Write;
@@ -573,6 +575,7 @@ struct AudioEngine {
     recording_sample_rate: Arc<Mutex<u32>>, // Recording sample rate (configurable)
     recording_bit_depth: Arc<Mutex<u32>>, // Recording bit depth (16, 24, or 32)
     recording_format: Arc<Mutex<String>>, // Recording format ("wav", "mp3", "opus")
+    output_sender: mpsc::SyncSender<String>, // Non-blocking channel for sending updates to frontend
 }
 
 impl AudioEngine {
@@ -591,6 +594,19 @@ impl AudioEngine {
         let recording_bit_depth = Arc::new(Mutex::new(16)); // Default 16-bit
         let recording_format = Arc::new(Mutex::new("wav".to_string())); // Default WAV
         let active_stream_id = Arc::new(AtomicUsize::new(0)); // Start with stream ID 0
+
+        // Create non-blocking channel for audio updates
+        // Capacity of 100 messages allows some buffering without accumulating too much latency
+        let (output_sender, output_receiver) = mpsc::sync_channel::<String>(100);
+
+        // Spawn dedicated I/O thread to handle stdout writes without blocking audio thread
+        thread::spawn(move || {
+            while let Ok(message) = output_receiver.recv() {
+                println!("{}", message);
+            }
+            // Channel closed, thread exits
+            eprintln!("[AudioEngine] Output thread terminated");
+        });
 
         Self {
             audio_io,
@@ -614,6 +630,7 @@ impl AudioEngine {
             recording_sample_rate,
             recording_bit_depth,
             recording_format,
+            output_sender,
         }
     }
 
@@ -828,6 +845,9 @@ impl AudioEngine {
         let recording_last_stats_time = Arc::clone(&self.recording_last_stats_time);
         let recording_path = Arc::clone(&self.recording_path);
         let recording_bit_depth = Arc::clone(&self.recording_bit_depth);
+        
+        // Clone output sender for non-blocking updates
+        let output_sender = self.output_sender.clone();
 
         // === OUTPUT STREAM: process and output audio ===
         let output_stream = output_device.build_output_stream(
@@ -1014,7 +1034,8 @@ impl AudioEngine {
                         };
                         
                         if let Ok(json) = serde_json::to_string(&response) {
-                            println!("{}", json);
+                            // Use try_send to avoid blocking audio thread if channel is full
+                            let _ = output_sender.try_send(json);
                         }
                     }
 
@@ -1027,7 +1048,8 @@ impl AudioEngine {
                         };
                         
                         if let Ok(json) = serde_json::to_string(&response) {
-                            println!("{}", json);
+                            // Use try_send to avoid blocking audio thread if channel is full
+                            let _ = output_sender.try_send(json);
                         }
                     }
                 }
@@ -1064,7 +1086,8 @@ impl AudioEngine {
                     };
                     
                     if let Ok(json) = serde_json::to_string(&response) {
-                        println!("{}", json);
+                        // Use try_send to avoid blocking audio thread if channel is full
+                        let _ = output_sender.try_send(json);
                     }
                     
                     stats.reset();
@@ -1122,7 +1145,8 @@ impl AudioEngine {
                                 };
                                 
                                 if let Ok(json) = serde_json::to_string(&response) {
-                                    println!("{}", json);
+                                    // Use try_send to avoid blocking audio thread if channel is full
+                                    let _ = output_sender.try_send(json);
                                 }
                                 
                                 // Update last stats time
