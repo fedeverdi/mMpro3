@@ -63,7 +63,7 @@ interface AudioEngine {
   saveTempAudioFile: (arrayBuffer: ArrayBuffer, fileName: string) => Promise<string>
   
   // File Playback Controls
-  playFile: (trackIndex: number) => Promise<void>
+  playFile: (trackIndex: number, fileId?: string) => Promise<void>
   pauseFile: (trackIndex: number) => Promise<void>
   stopFile: (trackIndex: number) => Promise<void>
   

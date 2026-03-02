@@ -422,9 +422,9 @@ function handlePlayFile() {
     return
   }
   
-  // Otherwise, just play the current file
+  // Otherwise, play the current file (pass ID to auto-load if needed)
   if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
-    audioEngine.playFile(props.trackNumber - 1)
+    audioEngine.playFile(props.trackNumber - 1, selectedAudioFile.value)
     isPlaying.value = true
   }
 }
@@ -442,25 +442,39 @@ function handleStopFile() {
   }
 }
 
-// Method to load file from library (called from parent)
-async function loadFileFromLibrary(storedFile: any) {
+// Method to load file from library by ID or file object
+async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = true) {
   try {
-    selectedAudioFile.value = storedFile.id
-    selectedFileName.value = storedFile.title || storedFile.fileName
+    // If string ID is passed, fetch file data from library
+    let fileData: any
+    if (typeof fileIdOrObject === 'string') {
+      fileData = await window.audioEngine.getLibraryFile(fileIdOrObject)
+      if (!fileData) {
+        throw new Error(`File not found in library: ${fileIdOrObject}`)
+      }
+    } else {
+      // File object passed directly (e.g., from playlist)
+      fileData = fileIdOrObject
+    }
+    
+    selectedAudioFile.value = fileData.id
+    selectedFileName.value = fileData.title || fileData.fileName
     audioSourceType.value = 'file'
 
     // Use file path directly from library (no need for temp file)
-    if (audioEngine?.state.value.isRunning && storedFile.filePath) {
-      await audioEngine.setTrackSourceFile(props.trackNumber - 1, storedFile.filePath)
+    if (audioEngine?.state.value.isRunning && fileData.filePath) {
+      await audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath)
       
       // Setup audio monitor for duration tracking (for playlist auto-advance)
       if (currentPlaylist.value && playlistFiles.value.length > 0) {
-        setupAudioMonitor(storedFile.filePath)
+        setupAudioMonitor(fileData.filePath)
       }
       
-      // Auto-play the file
-      await audioEngine.playFile(props.trackNumber - 1)
-      isPlaying.value = true
+      // Auto-play the file only if requested
+      if (autoPlay) {
+        await audioEngine.playFile(props.trackNumber - 1)
+        isPlaying.value = true
+      }
     }
   } catch (error) {
     console.error(`[Track ${props.trackNumber}] Error loading file from library:`, error)
@@ -932,13 +946,10 @@ defineExpose({
   }),
   setState: async (state: any) => {
     // Restore state
-    if (state.audioFile) {
-      // Load audio file from library
+    if (state.audioFile && state.audioFile.id) {
+      // Load audio file from library by ID (without auto-playing)
       try {
-        const fileData = await window.audioEngine.getLibraryFile(state.audioFile.id)
-        if (fileData) {
-          await loadFileFromLibrary(fileData)
-        }
+        await loadFileFromLibrary(state.audioFile.id, false)
       } catch (error) {
         console.error('[AudioTrack] Error loading file from scene:', error)
         // Fallback: just set the UI state

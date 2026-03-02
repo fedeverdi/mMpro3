@@ -50,7 +50,7 @@ contextBridge.exposeInMainWorld('audioEngine', {
     ipcRenderer.invoke('audio-engine:save-temp-audio-file', arrayBuffer, fileName),
   
   // File playback controls
-  playFile: (track: number) => ipcRenderer.invoke('audio-engine:play-file', track),
+  playFile: (track: number, fileId?: string) => ipcRenderer.invoke('audio-engine:play-file', track, fileId),
   pauseFile: (track: number) => ipcRenderer.invoke('audio-engine:pause-file', track),
   stopFile: (track: number) => ipcRenderer.invoke('audio-engine:stop-file', track),
   

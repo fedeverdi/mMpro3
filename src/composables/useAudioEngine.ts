@@ -286,10 +286,10 @@ export const useAudioEngine = () => {
   }
 
   // File playback controls
-  const playFile = async (track: number) => {
+  const playFile = async (track: number, fileId?: string) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.playFile(track)
+    await window.audioEngine.playFile(track, fileId)
   }
 
   const pauseFile = async (track: number) => {

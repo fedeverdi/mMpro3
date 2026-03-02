@@ -86,7 +86,10 @@ enum Command {
         file_path: String,
     },
     #[serde(rename = "play_file")]
-    PlayFile { track: usize },
+    PlayFile { 
+        track: usize,
+        file_path: Option<String>,
+    },
     #[serde(rename = "pause_file")]
     PauseFile { track: usize },
     #[serde(rename = "stop_file")]
@@ -1542,7 +1545,12 @@ impl AudioEngine {
         }
     }
 
-    fn play_file(&self, track: usize) -> Result<()> {
+    fn play_file(&mut self, track: usize, file_path: Option<&str>) -> Result<()> {
+        // If file_path is provided, set the source file first
+        if let Some(path) = file_path {
+            self.set_track_source_file(track, path)?;
+        }
+        
         let mut router = self.router.lock().unwrap();
         track::play_file(&mut router, track, self.sample_rate)
     }
@@ -1997,8 +2005,8 @@ impl AudioEngine {
                 }
                 None
             }
-            Command::PlayFile { track } => {
-                match self.play_file(track) {
+            Command::PlayFile { track, file_path } => {
+                match self.play_file(track, file_path.as_deref()) {
                     Ok(_) => {}
                     Err(e) => {
                         eprintln!("[Engine] PlayFile FAILED for track {}: {}", track, e);

@@ -264,8 +264,21 @@ ipcMain.handle('audio-engine:save-temp-audio-file', async (_, arrayBuffer: Array
 })
 
 // File playback controls
-ipcMain.handle('audio-engine:play-file', async (_, track: number) => {
-  await sendCommandToEngine({ type: 'play_file', track })
+ipcMain.handle('audio-engine:play-file', async (_, track: number, fileId?: string) => {
+  let filePath: string | undefined
+  
+  // If fileId is provided, resolve it to full path
+  if (fileId) {
+    const libraryDir = path.join(app.getPath('userData'), 'Library')
+    filePath = path.join(libraryDir, fileId)
+    
+    // Verify file exists
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found in library: ${fileId}`)
+    }
+  }
+  
+  await sendCommandToEngine({ type: 'play_file', track, file_path: filePath })
 })
 
 ipcMain.handle('audio-engine:pause-file', async (_, track: number) => {
