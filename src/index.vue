@@ -5,6 +5,10 @@
       <div class="flex items-center justify-between gap-4 flex-wrap relative">
         <div class="flex items-center gap-2">
           <img src="./assets/logo_no_scritta.svg" alt="mMpro3" class="h-8" />
+          
+          <!-- Quick Scenes in Header -->
+          <div class="w-px h-6 bg-gray-600"></div>
+          <QuickScenes @load-scene="handleLoadScene" />
         </div>
         <div class="flex gap-2 items-center flex-wrap">
           <!-- Audio Settings Button -->
@@ -278,6 +282,7 @@ import RightSection from './components/master/RightSection.vue'
 import MasterSection from './components/MasterSection.vue'
 import SubgroupsSection from './components/SubgroupsSection.vue'
 import ScenesModal from './components/layout/ScenesModal.vue'
+import QuickScenes from './components/layout/QuickScenes.vue'
 import Footer from './components/layout/Footer.vue'
 import NotificationToast from './components/core/NotificationToast.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'

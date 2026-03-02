@@ -60,6 +60,9 @@
                   >
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2">
+                        <svg v-if="scene.pinned" class="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 384 512">
+                          <path d="M32 32C32 14.3 46.3 0 64 0H320c17.7 0 32 14.3 32 32s-14.3 32-32 32H290.5l11.4 148.2c36.7 19.9 65.7 53.2 79.5 94.7l1 3c3.3 9.8 1.6 20.5-4.4 28.8s-15.7 13.3-26 13.3H32c-10.3 0-19.9-5-26-13.3s-7.7-19.1-4.4-28.8l1-3c13.8-41.5 42.8-74.8 79.5-94.7L93.5 64H64C46.3 64 32 49.7 32 32zM160 384h64v96c0 17.7-14.3 32-32 32s-32-14.3-32-32V384z"/>
+                        </svg>
                         <span class="text-sm font-medium text-white">{{ scene.name }}</span>
                         <span v-if="currentSceneId === scene.id" class="text-xs px-2 py-0.5 bg-green-600 text-white rounded">
                           LOADED
@@ -76,6 +79,21 @@
                         class="px-3 py-1 text-xs bg-green-600 hover:bg-green-500 text-white rounded font-semibold transition-colors"
                       >
                         Load
+                      </button>
+                      <button
+                        @click="handleTogglePin(scene)"
+                        :class="[
+                          'px-3 py-1 flex items-center gap-1.5 text-xs rounded font-semibold transition-colors',
+                          scene.pinned 
+                            ? 'bg-yellow-600 hover:bg-yellow-500 text-white' 
+                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300 border border-gray-600'
+                        ]"
+                        :title="scene.pinned ? 'Unpin from quick access' : 'Pin to quick access'"
+                      >
+                        <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 384 512">
+                          <path d="M32 32C32 14.3 46.3 0 64 0H320c17.7 0 32 14.3 32 32s-14.3 32-32 32H290.5l11.4 148.2c36.7 19.9 65.7 53.2 79.5 94.7l1 3c3.3 9.8 1.6 20.5-4.4 28.8s-15.7 13.3-26 13.3H32c-10.3 0-19.9-5-26-13.3s-7.7-19.1-4.4-28.8l1-3c13.8-41.5 42.8-74.8 79.5-94.7L93.5 64H64C46.3 64 32 49.7 32 32zM160 384h64v96c0 17.7-14.3 32-32 32s-32-14.3-32-32V384z"/>
+                        </svg>
+                        Pin
                       </button>
                       <button
                         v-if="currentSceneId === scene.id"
@@ -120,7 +138,7 @@ const emit = defineEmits<{
   'loadScene': [scene: any]
 }>()
 
-const { scenes, currentSceneId, saveScene, updateScene, loadAllScenes, deleteScene, createNewScene } = useScenes()
+const { scenes, currentSceneId, saveScene, updateScene, loadAllScenes, deleteScene, togglePinScene, createNewScene } = useScenes()
 const notify = useNotifications()
 
 const newSceneName = ref('')
@@ -184,6 +202,14 @@ async function confirmDeleteScene(scene: any) {
     await deleteScene(scene.id)
   } catch (error) {
     console.error('[ScenesModal] Error deleting scene:', error)
+  }
+}
+
+async function handleTogglePin(scene: any) {
+  try {
+    await togglePinScene(scene.id)
+  } catch (error) {
+    console.error('[ScenesModal] Error toggling pin:', error)
   }
 }
 

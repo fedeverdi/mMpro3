@@ -40,6 +40,7 @@ export interface Scene {
   id: string
   name: string
   timestamp: number
+  pinned: boolean
   tracks: SceneTrack[]
   // Future: master settings, subgroup settings, etc.
 }
@@ -123,11 +124,12 @@ export function useScenes() {
         throw new Error(`Scene not found: ${sceneId}`)
       }
       
-      // Create updated scene with same ID and name, new timestamp
+      // Create updated scene with same ID, name, pinned state, new timestamp
       const updatedScene: Scene = {
         id: sceneId,
         name: existingScene.name,
         timestamp: Date.now(),
+        pinned: existingScene.pinned || false,
         tracks: tracksData
       }
       
@@ -140,6 +142,28 @@ export function useScenes() {
   }
   
   /**
+   * Toggle pin state for a scene
+   */
+  async function togglePinScene(sceneId: string): Promise<void> {
+    try {
+      const scene = scenes.value.find(s => s.id === sceneId)
+      if (!scene) {
+        throw new Error(`Scene not found: ${sceneId}`)
+      }
+      
+      // Toggle pinned state
+      scene.pinned = !scene.pinned
+      
+      // Save updated scene
+      await saveScene(scene)
+      console.log(`[useScenes] Toggled pin for scene: ${scene.name} (pinned: ${scene.pinned})`)
+    } catch (error) {
+      console.error('[useScenes] Error toggling pin:', error)
+      throw error
+    }
+  }
+  
+  /**
    * Create a new scene from current state
    */
   function createNewScene(name: string, tracksData: SceneTrack[]): Scene {
@@ -147,6 +171,7 @@ export function useScenes() {
       id: `scene_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       name,
       timestamp: Date.now(),
+      pinned: false,
       tracks: tracksData
     }
   }
@@ -159,6 +184,7 @@ export function useScenes() {
     loadAllScenes,
     getScene,
     deleteScene,
+    togglePinScene,
     createNewScene
   }
 }
