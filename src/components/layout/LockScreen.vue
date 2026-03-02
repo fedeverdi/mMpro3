@@ -8,8 +8,18 @@
       <div class="wave wave-3"></div>
       
       <!-- Floating Particles -->
-      <div class="particles">
+      <div class="particles" v-once>
         <div v-for="i in 20" :key="i" class="particle" :style="getParticleStyle(i)"></div>
+      </div>
+      
+      <!-- VU Meters -->
+      <div class="vu-meters-container">
+        <HorizontalStereoMeter 
+          :left-level="levelLeft" 
+          :right-level="levelRight"
+          :height="12"
+          :segments="50"
+        />
       </div>
       
       <div class="lock-content">
@@ -54,12 +64,18 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import HorizontalStereoMeter from '../recorder/components/HorizontalStereoMeter.vue'
 
 interface Props {
   show: boolean
+  levelLeft?: number
+  levelRight?: number
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  levelLeft: -60,
+  levelRight: -60
+})
 const emit = defineEmits<{
   unlock: [password: string]
 }>()
@@ -132,14 +148,8 @@ const getParticleStyle = (index: number) => {
   height: 200%;
   background: radial-gradient(ellipse at center, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.1) 25%, transparent 50%);
   animation: rotateGradient 20s linear infinite;
-}
-
-/* Waves */
-.wave {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  opacity: 0.3;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .wave-1 {
@@ -161,10 +171,17 @@ const getParticleStyle = (index: number) => {
 
 /* Particles */
 .particles {
-  position: absolute;
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+  transform: translateZ(0);
+  isolation: isolate;
+  contain: layout style paint;
 }
 
 .particle {
@@ -174,6 +191,8 @@ const getParticleStyle = (index: number) => {
   border-radius: 50%;
   animation: float-up linear infinite;
   opacity: 0;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
 }
 
 .lock-content {
@@ -347,5 +366,17 @@ const getParticleStyle = (index: number) => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* VU Meters */
+.vu-meters-container {
+  position: absolute;
+  top: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateZ(1px);
+  width: 90%;
+  max-width: 800px;
+  z-index: 20;
+  contain: layout style;
 }
 </style>

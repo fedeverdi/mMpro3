@@ -209,7 +209,10 @@
     <!-- Lock System -->
     <SetLockPasswordModal :show="showSetPasswordModal" @close="showSetPasswordModal = false"
       @confirm="handleSetPassword" />
-    <LockScreen ref="lockScreenRef" :show="isLocked" @unlock="handleUnlock" />
+    <LockScreen ref="lockScreenRef" :show="isLocked" 
+      :level-left="audioEngineState.masterLevels.left"
+      :level-right="audioEngineState.masterLevels.right"
+      @unlock="handleUnlock" />
 
     <!-- Limit Reached Modal -->
     <Transition enter-from-class="opacity-0" enter-active-class="transition-opacity duration-200"
@@ -406,14 +409,12 @@ function handleSetPassword(password: string) {
   lockPassword.value = password
   isLocked.value = true
   showSetPasswordModal.value = false
-  notify.success('Interface locked')
 }
 
 function handleUnlock(password: string) {
   if (password === lockPassword.value) {
     isLocked.value = false
     lockPassword.value = null
-    notify.success('Interface unlocked')
   } else {
     // Show error in lock screen
     if (lockScreenRef.value && lockScreenRef.value.showError) {
