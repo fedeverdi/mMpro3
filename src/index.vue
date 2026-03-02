@@ -354,9 +354,9 @@ const recordingFileSize = computed(() => {
 })
 
 const availableDiskSpace = computed(() => {
-  if (!audioEngineState.value.recordingStats) return 'Unknown'
+  if (!audioEngineState.value.recordingStats) return 'Waiting...'
   const gb = audioEngineState.value.recordingStats.availableSpaceGb
-  return gb > 0 ? gb.toFixed(2) + ' GB' : 'Unknown'
+  return gb > 0 ? gb.toFixed(2) + ' GB' : 'Waiting...'
 })
 
 // File Manager for tracks (Electron only)

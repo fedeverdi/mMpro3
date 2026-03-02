@@ -153,7 +153,7 @@ const props = withDefaults(defineProps<Props>(), {
   masterLevelRight: -60,
   recordingTime: '00:00',
   recordingFileSize: '0 MB',
-  availableDiskSpace: 'Unknown'
+  availableDiskSpace: 'Waiting...'
 })
 
 const emit = defineEmits<{
