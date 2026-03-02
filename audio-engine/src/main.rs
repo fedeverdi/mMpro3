@@ -1525,8 +1525,22 @@ impl AudioEngine {
             eprintln!("[Engine] Failed to close audio input for track {}: {}", track, e);
         }
         
+        // CRITICAL: Load file WITHOUT holding router lock to avoid audio dropouts
+        // This operation can take 100-500ms for large files
+        let mut player = file_player::AudioFilePlayer::new();
+        player.load_file(file_path)?;
+        player.set_output_sample_rate(self.sample_rate);
+        
+        // Now quickly assign the pre-loaded player to the track (fast operation)
         let mut router = self.router.lock().unwrap();
-        track::set_source_file(&mut router, track, file_path, self.sample_rate)
+        if let Some(t) = router.get_track_mut(track) {
+            t.set_file_player(player);
+            t.source = routing::TrackSource::FilePlayer;
+            eprintln!("[Track {}] Source: File Player ({})", track, file_path);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Track {} not found", track))
+        }
     }
 
     fn set_track_source_aux_return(&mut self, track: usize, aux: usize) -> Result<()> {
