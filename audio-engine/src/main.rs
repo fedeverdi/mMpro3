@@ -579,11 +579,6 @@ impl AudioEngine {
         let updates_suspended = Arc::new(AtomicBool::new(false));
         let input_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
         let input_channels = Arc::new(AtomicUsize::new(2)); // Default stereo
-        let audio_io = AudioIO::new();
-        let router = Arc::new(Mutex::new(Router::new(24))); // Support up to 24 tracks
-        let updates_suspended = Arc::new(AtomicBool::new(false));
-        let input_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
-        let input_channels = Arc::new(AtomicUsize::new(2)); // Default stereo
         let master_tap_buffer = Arc::new(Mutex::new(Vec::<f32>::with_capacity(4800000))); // ~100 sec @ 48kHz stereo
         let master_tap_enabled = Arc::new(AtomicBool::new(false));
         let recording_path = Arc::new(Mutex::new(None));
