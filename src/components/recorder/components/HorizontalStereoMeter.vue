@@ -12,7 +12,7 @@
           <div 
             v-for="(segment, index) in leftSegments" 
             :key="index"
-            class="segment transition-all duration-75"
+            class="segment"
             :class="[
               segment.active ? segment.color : 'bg-gray-800',
               'rounded-[1px]'
@@ -42,7 +42,7 @@
           <div 
             v-for="(segment, index) in rightSegments" 
             :key="index"
-            class="segment transition-all duration-75"
+            class="segment"
             :class="[
               segment.active ? segment.color : 'bg-gray-800',
               'rounded-[1px]'

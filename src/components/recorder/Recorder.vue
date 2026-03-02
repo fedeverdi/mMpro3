@@ -207,24 +207,30 @@ watch(isRecording, (newValue) => {
   emit('recording-state', newValue)
 })
 
-// Safe level values with fallback
-const safeLeftLevel = computed(() => {
-  const val = props.masterLevelLeft
-  // Force to -60 if undefined, null, or suspicious high values
-  if (val === undefined || val === null || val > 0 || val < -60) {
-    return -60
-  }
-  return val
-})
+// Safe level values with smoothing to prevent flickering
+const smoothedLeftLevel = ref(-60)
+const smoothedRightLevel = ref(-60)
 
-const safeRightLevel = computed(() => {
-  const val = props.masterLevelRight
-  // Force to -60 if undefined, null, or suspicious high values
-  if (val === undefined || val === null || val > 0 || val < -60) {
-    return -60
+// Smoothing factor (0-1, higher = smoother but slower response)
+const SMOOTHING = 0.3
+
+// Update smoothed values when props change
+watch(() => props.masterLevelLeft, (newVal) => {
+  if (newVal !== undefined && newVal !== null && newVal <= 0 && newVal >= -60) {
+    // Apply exponential smoothing
+    smoothedLeftLevel.value = smoothedLeftLevel.value * SMOOTHING + newVal * (1 - SMOOTHING)
   }
-  return val
-})
+}, { immediate: true })
+
+watch(() => props.masterLevelRight, (newVal) => {
+  if (newVal !== undefined && newVal !== null && newVal <= 0 && newVal >= -60) {
+    // Apply exponential smoothing
+    smoothedRightLevel.value = smoothedRightLevel.value * SMOOTHING + newVal * (1 - SMOOTHING)
+  }
+}, { immediate: true })
+
+const safeLeftLevel = computed(() => smoothedLeftLevel.value)
+const safeRightLevel = computed(() => smoothedRightLevel.value)
 
 // Recording internals (no local timer - stats come from Rust)
 

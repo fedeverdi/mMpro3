@@ -63,15 +63,26 @@
           <!-- Bit Depth (only for WAV) -->
           <div v-if="localSettings.format === 'wav'">
             <label class="block text-sm font-semibold text-white mb-2">Bit Depth</label>
-            <select 
-              v-model="localSettings.bitDepth"
-              class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500"
-            >
-              <option value="16">16-bit (Standard)</option>
-              <option value="24">24-bit (Professional)</option>
-              <option value="32">32-bit Float (Maximum Dynamic Range)</option>
-            </select>
-            <p class="text-xs text-gray-500 mt-1">Higher bit depth = better dynamic range</p>
+            <div class="space-y-2">
+              <label 
+                v-for="depth in bitDepthOptions" 
+                :key="depth.value"
+                class="flex items-center p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-gray-600 cursor-pointer transition-colors"
+                :class="{ 'border-red-500 bg-red-500/10': localSettings.bitDepth === depth.value }"
+              >
+                <input 
+                  type="radio" 
+                  :value="depth.value"
+                  v-model="localSettings.bitDepth"
+                  class="w-4 h-4 text-red-600 focus:ring-red-500"
+                />
+                <div class="ml-3 flex-1">
+                  <div class="text-sm font-medium text-white">{{ depth.label }}</div>
+                  <div class="text-xs text-gray-400">{{ depth.description }}</div>
+                </div>
+              </label>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Higher bit depth provides better dynamic range and lower noise floor</p>
           </div>
 
           <!-- Bitrate (for compressed formats) -->
@@ -137,18 +148,24 @@ const formatOptions = [
     label: 'WAV (Uncompressed)',
     description: 'Lossless quality, larger file size',
     available: true
+  }
+]
+
+const bitDepthOptions = [
+  {
+    value: 16,
+    label: '16-bit',
+    description: 'Standard quality, compatible with all players'
   },
   {
-    value: 'mp3',
-    label: 'MP3 (Compressed)',
-    description: 'Good quality, smaller file size',
-    available: false
+    value: 24,
+    label: '24-bit',
+    description: 'Professional quality, ideal for production'
   },
   {
-    value: 'opus',
-    label: 'Opus/WebM (Modern)',
-    description: 'Best quality/size ratio, web-friendly',
-    available: false
+    value: 32,
+    label: '32-bit Float',
+    description: 'Maximum dynamic range, no clipping distortion'
   }
 ]
 
