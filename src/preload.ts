@@ -129,6 +129,13 @@ contextBridge.exposeInMainWorld('audioEngine', {
   deleteRecordingFile: (filePath: string) => ipcRenderer.invoke('audio-engine:delete-recording-file', filePath),
   listRecordings: () => ipcRenderer.invoke('audio-engine:list-recordings'),
   
+  // Library files
+  saveLibraryFile: (arrayBuffer: ArrayBuffer, fileName: string, metadata?: any) => 
+    ipcRenderer.invoke('audio-engine:save-library-file', arrayBuffer, fileName, metadata),
+  listLibraryFiles: () => ipcRenderer.invoke('audio-engine:list-library-files'),
+  getLibraryFile: (fileId: string) => ipcRenderer.invoke('audio-engine:get-library-file', fileId),
+  deleteLibraryFile: (fileId: string) => ipcRenderer.invoke('audio-engine:delete-library-file', fileId),
+  
   // Response listener
   onResponse: (callback: (response: any) => void) => {
     ipcRenderer.on('audio-engine-response', (_, data) => callback(data))

@@ -1,47 +1,22 @@
 /**
- * Composable for storing and retrieving audio files using IndexedDB
+ * Composable for storing and retrieving audio files using filesystem
  */
 import { parseBlob } from 'music-metadata'
-
-const DB_NAME = 'MMpro3_AudioFiles'
-const DB_VERSION = 1
-const STORE_NAME = 'audioFiles'
 
 export interface StoredAudioFile {
   id: string
   fileName: string
-  arrayBuffer: ArrayBuffer
+  arrayBuffer?: ArrayBuffer // Optional when listing files
   mimeType: string
   timestamp: number
+  size?: string // Pre-formatted size string from backend (e.g., "2.5 MB")
   artist?: string
   title?: string
   artwork?: string // base64 encoded image
 }
 
 export function useAudioFileStorage() {
-  let db: IDBDatabase | null = null
-
-  // Initialize IndexedDB
-  async function initDB(): Promise<IDBDatabase> {
-    if (db) return db
-
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION)
-
-      request.onerror = () => reject(request.error)
-      request.onsuccess = () => {
-        db = request.result
-        resolve(db)
-      }
-
-      request.onupgradeneeded = (event) => {
-        const database = (event.target as IDBOpenDBRequest).result
-        if (!database.objectStoreNames.contains(STORE_NAME)) {
-          database.createObjectStore(STORE_NAME, { keyPath: 'id' })
-        }
-      }
-    })
-  }
+  const api = (window as any).audioEngine
 
   // Extract metadata from audio file using music-metadata
   async function extractMetadata(file: File): Promise<{ artist: string; title: string; artwork?: string }> {
@@ -82,102 +57,65 @@ export function useAudioFileStorage() {
     }
   }
 
-  // Save audio file to IndexedDB
+  // Save audio file to filesystem
   async function saveAudioFile(file: File): Promise<string> {
-    const database = await initDB()
     const arrayBuffer = await file.arrayBuffer()
-    
-    const fileId = `audio_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
     const metadata = await extractMetadata(file)
     
-    const storedFile: StoredAudioFile = {
-      id: fileId,
-      fileName: file.name,
-      arrayBuffer,
+    const fileId = await api.saveLibraryFile(arrayBuffer, file.name, {
       mimeType: file.type,
-      timestamp: Date.now(),
       artist: metadata.artist,
       title: metadata.title,
       artwork: metadata.artwork
-    }
-
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction([STORE_NAME], 'readwrite')
-      const store = transaction.objectStore(STORE_NAME)
-      const request = store.add(storedFile)
-
-      request.onsuccess = () => resolve(fileId)
-      request.onerror = () => reject(request.error)
     })
+    
+    return fileId
   }
 
-  // Get audio file from IndexedDB
+  // Get audio file from filesystem
   async function getAudioFile(fileId: string): Promise<StoredAudioFile | null> {
-    const database = await initDB()
-
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction([STORE_NAME], 'readonly')
-      const store = transaction.objectStore(STORE_NAME)
-      const request = store.get(fileId)
-
-      request.onsuccess = () => resolve(request.result || null)
-      request.onerror = () => reject(request.error)
-    })
+    try {
+      const file = await api.getLibraryFile(fileId)
+      return file
+    } catch (error) {
+      console.error('[useAudioFileStorage] Error getting file:', error)
+      return null
+    }
   }
 
-  // Delete audio file from IndexedDB
+  // Delete audio file from filesystem
   async function deleteAudioFile(fileId: string): Promise<void> {
-    const database = await initDB()
-
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction([STORE_NAME], 'readwrite')
-      const store = transaction.objectStore(STORE_NAME)
-      const request = store.delete(fileId)
-
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-    })
+    try {
+      await api.deleteLibraryFile(fileId)
+    } catch (error) {
+      console.error('[useAudioFileStorage] Error deleting file:', error)
+      throw error
+    }
   }
 
-  // Clean up old files (optional - can be called periodically)
-  async function cleanupOldFiles(maxAge: number = 30 * 24 * 60 * 60 * 1000): Promise<void> {
-    const database = await initDB()
-    const cutoffTime = Date.now() - maxAge
-
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction([STORE_NAME], 'readwrite')
-      const store = transaction.objectStore(STORE_NAME)
-      const request = store.openCursor()
-
-      request.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest).result
-        if (cursor) {
-          const file = cursor.value as StoredAudioFile
-          if (file.timestamp < cutoffTime) {
-            cursor.delete()
-          }
-          cursor.continue()
-        } else {
-          resolve()
-        }
-      }
-
-      request.onerror = () => reject(request.error)
-    })
-  }
-
-  // Get all audio files from IndexedDB
+  // Get all audio files from filesystem
   async function getAllAudioFiles(): Promise<StoredAudioFile[]> {
-    const database = await initDB()
+    try {
+      const files = await api.listLibraryFiles()
+      return files
+    } catch (error) {
+      console.error('[useAudioFileStorage] Error listing files:', error)
+      return []
+    }
+  }
 
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction([STORE_NAME], 'readonly')
-      const store = transaction.objectStore(STORE_NAME)
-      const request = store.getAll()
-
-      request.onsuccess = () => resolve(request.result || [])
-      request.onerror = () => reject(request.error)
-    })
+  // Check if file already exists in library (by filename)
+  async function checkIfDuplicate(newBuffer: ArrayBuffer, fileName: string, fileSize: number): Promise<string | null> {
+    const allFiles = await getAllAudioFiles()
+    
+    // Check by file name only (simple and fast)
+    const existingFile = allFiles.find(f => f.fileName === fileName)
+    
+    if (existingFile) {
+      return existingFile.id // Return the ID of the existing file
+    }
+    
+    return null
   }
 
   // Compare two Uint8Arrays for equality (private helper)
@@ -191,32 +129,12 @@ export function useAudioFileStorage() {
     return true
   }
 
-  // Check if file already exists in library
-  async function checkIfDuplicate(newBuffer: ArrayBuffer, fileName: string, fileSize: number): Promise<string | null> {
-    const allFiles = await getAllAudioFiles()
-    
-    // First check by file name and size for quick rejection
-    const potentialDuplicates = allFiles.filter(
-      f => f.fileName === fileName && f.arrayBuffer.byteLength === fileSize
-    )
-    
-    if (potentialDuplicates.length === 0) {
-      return null
-    }
-    
-    // If name and size match, compare ArrayBuffers byte by byte
-    const newBytes = new Uint8Array(newBuffer)
-    
-    for (const existingFile of potentialDuplicates) {
-      const existingBytes = new Uint8Array(existingFile.arrayBuffer)
-      
-      // Compare buffers
-      if (areArrayBuffersEqual(newBytes, existingBytes)) {
-        return existingFile.id // Return the ID of the existing file
-      }
-    }
-    
-    return null
+  // Clean up old files (optional - can be called periodically)
+  // Note: This is a no-op for now, but can be implemented later
+  async function cleanupOldFiles(maxAge: number = 30 * 24 * 60 * 60 * 1000): Promise<void> {
+    // For filesystem storage, we could implement automatic cleanup later
+    // For now, users can manually delete files they don't need
+    console.log('[useAudioFileStorage] cleanupOldFiles is not implemented for filesystem storage')
   }
 
   return {

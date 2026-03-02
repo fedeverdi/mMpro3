@@ -598,6 +598,174 @@ ipcMain.handle('audio-engine:list-recordings', async () => {
   }
 })
 
+// ============================================================================
+// Library Files IPC Handlers
+// ============================================================================
+
+ipcMain.handle('audio-engine:save-library-file', async (_event, arrayBuffer: ArrayBuffer, fileName: string, metadata?: any) => {
+  try {
+    const libraryDir = path.join(os.homedir(), 'Music', 'MMpro3_Library')
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(libraryDir)) {
+      fs.mkdirSync(libraryDir, { recursive: true })
+    }
+    
+    // Generate unique file ID with original extension
+    const ext = path.extname(fileName)
+    const baseName = path.basename(fileName, ext)
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).substring(2, 9)
+    const fileId = `${timestamp}_${random}${ext}`
+    const filePath = path.join(libraryDir, fileId)
+    
+    // Write audio file
+    const buffer = Buffer.from(arrayBuffer)
+    fs.writeFileSync(filePath, buffer)
+    
+    // Save metadata if provided (exclude arrayBuffer - file is already on disk)
+    if (metadata) {
+      const metadataPath = path.join(libraryDir, `${fileId}.meta.json`)
+      const { arrayBuffer: _, ...metadataToSave } = metadata // Remove arrayBuffer if present
+      fs.writeFileSync(metadataPath, JSON.stringify({
+        id: fileId, // File ID for playlist references
+        ...metadataToSave,
+        originalFileName: fileName,
+        timestamp
+      }, null, 2))
+    }
+    
+    console.log('[Main] Library file saved:', filePath)
+    return fileId
+  } catch (error) {
+    console.error('[Main] Error saving library file:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('audio-engine:list-library-files', async () => {
+  try {
+    const libraryDir = path.join(os.homedir(), 'Music', 'MMpro3_Library')
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(libraryDir)) {
+      fs.mkdirSync(libraryDir, { recursive: true })
+      return []
+    }
+    
+    // Read all audio files (exclude metadata files)
+    const files = fs.readdirSync(libraryDir)
+      .filter(file => !file.endsWith('.meta.json'))
+      .map(file => {
+        const filePath = path.join(libraryDir, file)
+        const stats = fs.statSync(filePath)
+        
+        // Calculate size
+        let size = '0 KB'
+        if (stats.size < 1024) {
+          size = stats.size + ' B'
+        } else if (stats.size < 1024 * 1024) {
+          size = (stats.size / 1024).toFixed(1) + ' KB'
+        } else {
+          size = (stats.size / (1024 * 1024)).toFixed(1) + ' MB'
+        }
+        
+        // Load metadata if available
+        let metadata: any = {}
+        const metadataPath = path.join(libraryDir, `${file}.meta.json`)
+        if (fs.existsSync(metadataPath)) {
+          try {
+            metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'))
+          } catch (error) {
+            console.error('[Main] Error parsing metadata:', error)
+          }
+        }
+        
+        return {
+          id: metadata.id || file, // Use metadata ID if available, fallback to filename
+          fileName: metadata.originalFileName || file,
+          filePath,
+          mimeType: metadata.mimeType || 'audio/mpeg',
+          size,
+          timestamp: metadata.timestamp || stats.birthtimeMs,
+          artist: metadata.artist,
+          title: metadata.title,
+          artwork: metadata.artwork,
+          created: stats.birthtime.toISOString()
+        }
+      })
+      .sort((a, b) => b.timestamp - a.timestamp)
+    
+    return files
+  } catch (error) {
+    console.error('[Main] Error listing library files:', error)
+    return []
+  }
+})
+
+ipcMain.handle('audio-engine:get-library-file', async (_event, fileId: string) => {
+  try {
+    const libraryDir = path.join(os.homedir(), 'Music', 'MMpro3_Library')
+    const filePath = path.join(libraryDir, fileId)
+    
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found: ${fileId}`)
+    }
+    
+    // Read file and metadata
+    const buffer = fs.readFileSync(filePath)
+    const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+    
+    // Load metadata if available
+    let metadata: any = {}
+    const metadataPath = path.join(libraryDir, `${fileId}.meta.json`)
+    if (fs.existsSync(metadataPath)) {
+      try {
+        metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'))
+      } catch (error) {
+        console.error('[Main] Error parsing metadata:', error)
+      }
+    }
+    
+    return {
+      id: fileId,
+      fileName: metadata.originalFileName || fileId,
+      arrayBuffer,
+      mimeType: metadata.mimeType || 'audio/mpeg',
+      timestamp: metadata.timestamp || Date.now(),
+      artist: metadata.artist,
+      title: metadata.title,
+      artwork: metadata.artwork
+    }
+  } catch (error) {
+    console.error('[Main] Error getting library file:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('audio-engine:delete-library-file', async (_event, fileId: string) => {
+  try {
+    const libraryDir = path.join(os.homedir(), 'Music', 'MMpro3_Library')
+    const filePath = path.join(libraryDir, fileId)
+    const metadataPath = path.join(libraryDir, `${fileId}.meta.json`)
+    
+    // Delete audio file
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath)
+    }
+    
+    // Delete metadata file
+    if (fs.existsSync(metadataPath)) {
+      fs.unlinkSync(metadataPath)
+    }
+    
+    console.log('[Main] Library file deleted:', fileId)
+  } catch (error) {
+    console.error('[Main] Error deleting library file:', error)
+    throw error
+  }
+})
+
 // Window state management
 interface WindowState {
   x?: number

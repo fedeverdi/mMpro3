@@ -855,30 +855,12 @@ async function loadFiles() {
   }
 }
 
-// Check if file is already in library by comparing ArrayBuffers
+// Check if file is already in library (by filename)
 async function checkIfDuplicate(newBuffer: ArrayBuffer, fileName: string, fileSize: number): Promise<boolean> {
-  // First check by file name and size for quick rejection
-  const potentialDuplicates = files.value.filter(
-    f => f.fileName === fileName && f.arrayBuffer.byteLength === fileSize
-  )
+  // Check by file name only (simple and fast)
+  const existingFile = files.value.find(f => f.fileName === fileName)
   
-  if (potentialDuplicates.length === 0) {
-    return false
-  }
-  
-  // If name and size match, compare ArrayBuffers byte by byte
-  const newBytes = new Uint8Array(newBuffer)
-  
-  for (const existingFile of potentialDuplicates) {
-    const existingBytes = new Uint8Array(existingFile.arrayBuffer)
-    
-    // Compare buffers
-    if (areArrayBuffersEqual(newBytes, existingBytes)) {
-      return true
-    }
-  }
-  
-  return false
+  return existingFile !== undefined
 }
 
 // Compare two Uint8Arrays for equality
@@ -910,10 +892,20 @@ function formatDate(timestamp: number): string {
 }
 
 function formatSize(file: StoredAudioFile): string {
-  const bytes = file.arrayBuffer.byteLength
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  // Use pre-formatted size from backend if available
+  if (file.size) {
+    return file.size
+  }
+  
+  // Fallback: calculate from arrayBuffer if present (for newly uploaded files)
+  if (file.arrayBuffer) {
+    const bytes = file.arrayBuffer.byteLength
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
+  
+  return '0 KB'
 }
 
 function close() {

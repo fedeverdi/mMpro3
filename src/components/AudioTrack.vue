@@ -418,15 +418,9 @@ async function loadFileFromLibrary(storedFile: any) {
     selectedFileName.value = storedFile.title || storedFile.fileName
     audioSourceType.value = 'file'
 
-    // Save ArrayBuffer to temp file and get the file path
-    const tempFilePath = await window.audioEngine.saveTempAudioFile(
-      storedFile.arrayBuffer,
-      storedFile.fileName
-    )
-
-    // Set track source to file in Rust engine
-    if (audioEngine?.state.value.isRunning) {
-      await audioEngine.setTrackSourceFile(props.trackNumber - 1, tempFilePath)
+    // Use file path directly from library (no need for temp file)
+    if (audioEngine?.state.value.isRunning && storedFile.filePath) {
+      await audioEngine.setTrackSourceFile(props.trackNumber - 1, storedFile.filePath)
       // Auto-play the file
       await audioEngine.playFile(props.trackNumber - 1)
       isPlaying.value = true
