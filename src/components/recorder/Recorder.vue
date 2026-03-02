@@ -244,6 +244,9 @@ async function stopRecording() {
       await window.audioEngine.disableMasterTap()
       console.log('[Recorder] Recording stopped and saved')
       
+      // Wait a bit to ensure file is written to disk
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
       // Reload recordings list to include the new file
       await loadRecordings()
     } catch (err) {
