@@ -253,12 +253,12 @@ async function startRecording() {
     const filePath = await window.audioEngine.generateRecordingPath()
     currentRecordingPath.value = filePath
     
-    // Start recording in Rust with settings
+    // Start recording in Rust with settings (convert strings to numbers)
     await window.audioEngine.enableMasterTap(filePath, {
       format: recordingSettings.value.format,
-      sampleRate: recordingSettings.value.sampleRate,
-      bitDepth: recordingSettings.value.bitDepth,
-      bitrate: recordingSettings.value.bitrate
+      sampleRate: Number(recordingSettings.value.sampleRate),
+      bitDepth: Number(recordingSettings.value.bitDepth),
+      bitrate: Number(recordingSettings.value.bitrate)
     })
     console.log('[Recorder] Recording started with settings:', recordingSettings.value)
     

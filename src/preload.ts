@@ -116,7 +116,12 @@ contextBridge.exposeInMainWorld('audioEngine', {
   listAudioInputs: () => ipcRenderer.invoke('audio-engine:list-audio-inputs'),
   
   // Master Tap (Recording) - Rust saves WAV file directly
-  enableMasterTap: (filePath: string) => ipcRenderer.invoke('audio-engine:enable-master-tap', filePath),
+  enableMasterTap: (filePath: string, settings: {
+    format: 'wav' | 'mp3' | 'opus'
+    sampleRate: number
+    bitDepth: number
+    bitrate: number
+  }) => ipcRenderer.invoke('audio-engine:enable-master-tap', filePath, settings),
   disableMasterTap: () => ipcRenderer.invoke('audio-engine:disable-master-tap'),
   generateRecordingPath: () => ipcRenderer.invoke('audio-engine:generate-recording-path'),
   getRecordingFileInfo: (filePath: string) => ipcRenderer.invoke('audio-engine:get-recording-file-info', filePath),

@@ -48,19 +48,16 @@
             </div>
           </div>
 
-          <!-- Sample Rate (only for WAV) -->
-          <div v-if="localSettings.format === 'wav'">
-            <label class="block text-sm font-semibold text-white mb-2">Sample Rate</label>
-            <select 
-              v-model="localSettings.sampleRate"
-              class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2.5 text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500"
-            >
-              <option value="44100">44.1 kHz (CD Quality)</option>
-              <option value="48000">48 kHz (Professional)</option>
-              <option value="96000">96 kHz (High Resolution)</option>
-              <option value="192000">192 kHz (Ultra High Resolution)</option>
-            </select>
-            <p class="text-xs text-gray-500 mt-1">Higher sample rates produce larger files</p>
+          <!-- Sample Rate Info (always matches device) -->
+          <div v-if="localSettings.format === 'wav'" class="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
+            <div class="flex items-center gap-2 mb-1">
+              <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <label class="text-sm font-semibold text-white">Sample Rate</label>
+            </div>
+            <p class="text-sm text-gray-300">Uses audio device rate (typically 48 kHz)</p>
+            <p class="text-xs text-gray-500 mt-1">Recording uses the system audio device's native sample rate for optimal quality</p>
           </div>
 
           <!-- Bit Depth (only for WAV) -->
@@ -167,7 +164,13 @@ function closeModal() {
 }
 
 function saveSettings() {
-  emit('update:settings', { ...localSettings.value })
+  // Convert string values from <select> to numbers
+  emit('update:settings', {
+    format: localSettings.value.format,
+    sampleRate: Number(localSettings.value.sampleRate),
+    bitDepth: Number(localSettings.value.bitDepth),
+    bitrate: Number(localSettings.value.bitrate)
+  })
   closeModal()
 }
 </script>

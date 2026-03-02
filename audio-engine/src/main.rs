@@ -754,6 +754,7 @@ impl AudioEngine {
         let recording_start_time = Arc::clone(&self.recording_start_time);
         let recording_last_stats_time = Arc::clone(&self.recording_last_stats_time);
         let recording_path = Arc::clone(&self.recording_path);
+        let recording_bit_depth = Arc::clone(&self.recording_bit_depth);
 
         // === OUTPUT STREAM: process and output audio ===
         let output_stream = output_device.build_output_stream(
@@ -1000,7 +1001,19 @@ impl AudioEngine {
                                 } else {
                                     0
                                 };
-                                let file_size_bytes = num_samples * 2; // 16-bit = 2 bytes per sample
+                                
+                                // Get configured bit depth to calculate accurate file size
+                                let bytes_per_sample = if let Ok(bd) = recording_bit_depth.lock() {
+                                    match *bd {
+                                        16 => 2,
+                                        24 => 3,
+                                        32 => 4,
+                                        _ => 2, // fallback to 16-bit
+                                    }
+                                } else {
+                                    2 // fallback to 16-bit
+                                };
+                                let file_size_bytes = num_samples * bytes_per_sample;
                                 
                                 // Get available disk space for the recordings directory
                                 let available_space_gb = if let Ok(path) = recording_path.lock() {
@@ -1164,7 +1177,7 @@ impl AudioEngine {
     }
 
     // Master tap controls
-    fn enable_master_tap(&self, file_path: String, sample_rate: u32, bit_depth: u32, format: &str) {
+    fn enable_master_tap(&self, file_path: String, _sample_rate: u32, bit_depth: u32, format: &str) {
         // Clear previous buffer
         if let Ok(mut buffer) = self.master_tap_buffer.lock() {
             buffer.clear();
@@ -1174,8 +1187,11 @@ impl AudioEngine {
             *path = Some(PathBuf::from(file_path));
         }
         // Set recording parameters
+        // Note: We always record at the audio device's sample rate (self.sample_rate)
+        // because we capture samples directly from the audio callback.
+        // The requested sample_rate is ignored to avoid quality loss from resampling.
         if let Ok(mut sr) = self.recording_sample_rate.lock() {
-            *sr = sample_rate;
+            *sr = self.sample_rate; // Use device sample rate, not requested rate
         }
         if let Ok(mut bd) = self.recording_bit_depth.lock() {
             *bd = bit_depth;
@@ -1192,7 +1208,7 @@ impl AudioEngine {
             *last_stats_time = Some(now);
         }
         self.master_tap_enabled.store(true, Ordering::Relaxed);
-        eprintln!("[Engine] ✓ Master tap enabled - recording started ({}Hz, {}-bit, {})", sample_rate, bit_depth, format);
+        eprintln!("[Engine] ✓ Master tap enabled - recording started ({}Hz, {}-bit, {})", self.sample_rate, bit_depth, format);
     }
 
     fn disable_master_tap(&self) {
