@@ -128,6 +128,7 @@
 import { ref, computed, onUnmounted, watch } from 'vue'
 import HorizontalStereoMeter from './components/HorizontalStereoMeter.vue'
 import QualitySelector from './components/QualitySelector.vue'
+import { useNotifications } from '~/composables/useNotifications'
 
 interface Props {
   modelValue: boolean
@@ -159,6 +160,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'recording-state': [isRecording: boolean]
 }>()
+
+const { confirm } = useNotifications()
 
 // Recording state
 const isRecording = ref(false)
@@ -263,12 +266,19 @@ async function downloadRecording(recording: Recording) {
 async function deleteRecording(id: string) {
   const recording = recordings.value.find(r => r.id === id)
   if (recording) {
-    try {
-      await window.audioEngine.deleteRecordingFile(recording.filePath)
-      await loadRecordings() // Reload list after deletion
-      console.log('[Recorder] Recording deleted:', recording.filePath)
-    } catch (e) {
-      console.error('[Recorder] Failed to delete file:', e)
+    // Show confirmation modal
+    const confirmed = await confirm(
+      `Delete recording "${recording.name}"? This action cannot be undone.`
+    )
+    
+    if (confirmed) {
+      try {
+        await window.audioEngine.deleteRecordingFile(recording.filePath)
+        await loadRecordings() // Reload list after deletion
+        console.log('[Recorder] Recording deleted:', recording.filePath)
+      } catch (e) {
+        console.error('[Recorder] Failed to delete file:', e)
+      }
     }
   }
 }

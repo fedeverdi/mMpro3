@@ -3,7 +3,7 @@
     <div
       v-for="notification in notifications"
       :key="notification.id"
-      class="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      class="fixed inset-0 z-[20000] flex items-center justify-center p-4"
       @click="notification.type !== 'confirm' ? remove(notification.id) : null"
     >
       <!-- Backdrop -->

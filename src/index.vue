@@ -323,6 +323,11 @@ const limitModalMessage = ref('')
 // Recording state handler - just updates the recording flag
 function handleRecordingStateChange(state: boolean) {
   isRecording.value = state
+  
+  // Reset recording stats when stopping
+  if (!state) {
+    audioEngineState.value.recordingStats = null
+  }
   // All recording stats (time, size, disk space) come from Rust via RecordingStats events
 }
 
