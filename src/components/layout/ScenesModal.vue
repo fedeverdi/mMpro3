@@ -107,6 +107,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useScenes } from '~/composables/useScenes'
+import { useNotifications } from '~/composables/useNotifications'
 
 const props = defineProps<{
   modelValue: boolean
@@ -120,6 +121,7 @@ const emit = defineEmits<{
 }>()
 
 const { scenes, currentSceneId, saveScene, updateScene, loadAllScenes, deleteScene, createNewScene } = useScenes()
+const notify = useNotifications()
 
 const newSceneName = ref('')
 
@@ -152,9 +154,14 @@ async function saveCurrentScene() {
 function loadScene(scene: any) {
   emit('loadScene', scene)
   currentSceneId.value = scene.id
+  close() // Close modal after loading scene
 }
 
 async function updateCurrentScene(scene: any) {
+  // Confirm update with custom notification
+  const confirmed = await notify.confirm(`Update "${scene.name}" with current track settings?`)
+  if (!confirmed) return
+  
   try {
     // Collect current track states from parent
     const tracksData = props.tracks.map(track => {
@@ -163,18 +170,20 @@ async function updateCurrentScene(scene: any) {
     })
     
     await updateScene(scene.id, tracksData)
+    close() // Close modal after updating scene
   } catch (error) {
     console.error('[ScenesModal] Error updating scene:', error)
   }
 }
 
 async function confirmDeleteScene(scene: any) {
-  if (confirm(`Are you sure you want to delete "${scene.name}"?`)) {
-    try {
-      await deleteScene(scene.id)
-    } catch (error) {
-      console.error('[ScenesModal] Error deleting scene:', error)
-    }
+  const confirmed = await notify.confirm(`Are you sure you want to delete "${scene.name}"?`)
+  if (!confirmed) return
+  
+  try {
+    await deleteScene(scene.id)
+  } catch (error) {
+    console.error('[ScenesModal] Error deleting scene:', error)
   }
 }
 
