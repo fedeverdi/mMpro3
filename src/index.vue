@@ -498,18 +498,24 @@ provide('fileManager', {
 })
 
 // Tracks management
-// Initialize with 1 audio track by default
+// Initialize tracks based on build limits
 function initializeTracks(): Track[] {
   const tracks: Track[] = []
+  const limits = getBuildLimits()
 
-  // Start with 5 audio tracks
-  tracks.push({ id: 1, type: 'audio', order: 1 })
-  tracks.push({ id: 2, type: 'audio', order: 2 })
-  tracks.push({ id: 3, type: 'audio', order: 3 })
-  tracks.push({ id: 4, type: 'audio', order: 4 })
+  let trackId = 1
   
-  // Add one signal track at the end
-  tracks.push({ id: 5, type: 'signal', order: 5 })
+  // Add default audio tracks
+  for (let i = 0; i < limits.defaultAudioTracks; i++) {
+    tracks.push({ id: trackId, type: 'audio', order: trackId })
+    trackId++
+  }
+  
+  // Add default signal tracks
+  for (let i = 0; i < limits.defaultSignalTracks; i++) {
+    tracks.push({ id: trackId, type: 'signal', order: trackId })
+    trackId++
+  }
 
   return tracks
 }
