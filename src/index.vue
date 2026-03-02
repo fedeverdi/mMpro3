@@ -769,14 +769,28 @@ function getSubgroupsState(): any[] {
   })
 }
 
-function getAuxBusesState(): any[] {
-  return auxBuses.value.map(aux => ({
+function getAuxBusesState(): any {
+  // Get basic aux bus state
+  const auxState = auxBuses.value.map(aux => ({
     id: aux.id,
     name: aux.name,
     volume: aux.volume,
+    muted: aux.muted,
+    routeToMaster: aux.routeToMaster,
+    selectedOutputDevice: aux.selectedOutputDevice,
+    reverbEnabled: aux.reverbEnabled,
     reverbParams: aux.reverbParams,
+    delayEnabled: aux.delayEnabled,
     delayParams: aux.delayParams
   }))
+  
+  // Get routing state from AuxMaster component
+  const routingState = rightSectionRef.value?.auxMasterRef?.getRoutingState?.()
+  
+  return {
+    buses: auxState,
+    routing: routingState || {}
+  }
 }
 
 async function handleLoadScene(scene: any) {
@@ -849,8 +863,17 @@ async function handleLoadScene(scene: any) {
     // Reset aux buses to defaults
     for (const aux of auxBuses.value) {
       aux.volume = 0
-      aux.reverbParams = undefined
-      aux.delayParams = undefined
+      aux.muted = false
+      aux.routeToMaster = false
+      aux.selectedOutputDevice = null
+      aux.reverbEnabled = false
+      aux.reverbParams = { roomSize: 0.5, damping: 0.5, wet: 1, width: 1 }
+      aux.delayEnabled = false
+      aux.delayParams = { delayTime: 0.25, feedback: 0.3, wet: 1 }
+    }
+    // Reset aux routing
+    if (rightSectionRef.value?.auxMasterRef?.setRoutingState) {
+      rightSectionRef.value.auxMasterRef.setRoutingState({})
     }
     
     console.log('[Scene] Reset complete. Loading scene:', scene.name)
@@ -912,14 +935,98 @@ async function handleLoadScene(scene: any) {
     }
     
     // Load aux buses state
-    if (scene.auxBuses && Array.isArray(scene.auxBuses)) {
+    if (scene.auxBuses) {
+      // Handle both old format (array) and new format (object with buses and routing)
+      const auxData = Array.isArray(scene.auxBuses) ? { buses: scene.auxBuses, routing: {} } : scene.auxBuses
+      
       // Restore aux buses data
-      for (const auxState of scene.auxBuses) {
-        const aux = auxBuses.value.find(a => a.id === auxState.id)
-        if (aux) {
-          aux.volume = auxState.volume ?? 0
-          aux.reverbParams = auxState.reverbParams
-          aux.delayParams = auxState.delayParams
+      if (auxData.buses && Array.isArray(auxData.buses)) {
+        for (const auxState of auxData.buses) {
+          const auxIndex = auxBuses.value.findIndex(a => a.id === auxState.id)
+          if (auxIndex >= 0) {
+            const aux = auxBuses.value[auxIndex]
+            
+            // Update local state
+            aux.volume = auxState.volume ?? 0
+            aux.muted = auxState.muted ?? false
+            aux.routeToMaster = auxState.routeToMaster ?? false
+            aux.selectedOutputDevice = auxState.selectedOutputDevice ?? null
+            aux.reverbEnabled = auxState.reverbEnabled ?? false
+            aux.reverbParams = auxState.reverbParams
+            aux.delayEnabled = auxState.delayEnabled ?? false
+            aux.delayParams = auxState.delayParams
+            
+            // Apply to backend Rust
+            if (audioEngine.state.value.isRunning) {
+              // Apply volume
+              const linearGain = Math.pow(10, aux.volume / 20)
+              await audioEngine.setAuxBusGain(auxIndex, linearGain)
+              
+              // Apply mute
+              await audioEngine.setAuxBusMute(auxIndex, aux.muted)
+              
+              // Note: routeToMaster is applied later via setRoutingState()
+              
+              // Apply output device
+              if (aux.selectedOutputDevice) {
+                const parts = aux.selectedOutputDevice.split(':')
+                const actualDeviceId = parts[0]
+                const channel = parts[1] ? parseInt(parts[1]) : 0
+                
+                if (actualDeviceId === 'no-output' || actualDeviceId === null) {
+                  await audioEngine.setAuxBusOutputEnabled(auxIndex, false)
+                } else {
+                  await audioEngine.setAuxBusOutputEnabled(auxIndex, true)
+                  await audioEngine.setAuxBusOutputChannels(auxIndex, channel, channel)
+                }
+              } else {
+                await audioEngine.setAuxBusOutputEnabled(auxIndex, false)
+              }
+              
+              // Apply reverb
+              if (aux.reverbEnabled && aux.reverbParams) {
+                await audioEngine.setAuxBusReverb(
+                  auxIndex,
+                  true,
+                  aux.reverbParams.roomSize ?? 0.5,
+                  aux.reverbParams.damping ?? 0.5,
+                  aux.reverbParams.wet ?? 1.0,
+                  aux.reverbParams.width ?? 1.0
+                )
+              } else {
+                await audioEngine.setAuxBusReverb(auxIndex, false, 0.5, 0.5, 1.0, 1.0)
+              }
+              
+              // Apply delay
+              if (aux.delayEnabled && aux.delayParams) {
+                await audioEngine.setAuxBusDelay(
+                  auxIndex,
+                  true,
+                  aux.delayParams.delayTime * 1000,
+                  aux.delayParams.feedback ?? 0.3,
+                  aux.delayParams.wet ?? 1.0
+                )
+              } else {
+                await audioEngine.setAuxBusDelay(auxIndex, false, 250, 0.3, 1.0)
+              }
+            }
+          }
+        }
+      }
+      
+      // Restore routing state
+      if (auxData.routing && Object.keys(auxData.routing).length > 0 && rightSectionRef.value?.auxMasterRef?.setRoutingState) {
+        await nextTick()
+        rightSectionRef.value.auxMasterRef.setRoutingState(auxData.routing)
+        
+        // Sync aux.routeToMaster with auxRouting to keep them consistent
+        if (auxData.buses && Array.isArray(auxData.buses)) {
+          for (const auxState of auxData.buses) {
+            const auxIndex = auxBuses.value.findIndex(a => a.id === auxState.id)
+            if (auxIndex >= 0 && auxData.routing[auxIndex]) {
+              auxBuses.value[auxIndex].routeToMaster = auxData.routing[auxIndex].toMaster
+            }
+          }
         }
       }
     }

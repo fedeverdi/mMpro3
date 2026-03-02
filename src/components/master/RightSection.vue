@@ -120,6 +120,7 @@
           </div>
         </div>
         <AuxMaster 
+          ref="auxMasterRef"
           :aux-buses="auxBuses" 
           :master-channel="masterChannel"
           :subgroups="props.subgroups"
@@ -221,6 +222,9 @@ const rightSectionComponents = ref<RightSectionComponent[]>([
 
 const draggedComponent = ref<string | null>(null)
 const dragOverComponent = ref<string | null>(null)
+
+// Component refs
+const auxMasterRef = ref<any>(null)
 
 // Resize functionality
 const sectionWidth = ref(576) // Default: 36rem = 576px
@@ -476,6 +480,11 @@ function saveComponentsOrder() {
 watch(rightSectionComponents, () => {
   saveComponentsOrder()
 }, { deep: true })
+
+// Expose refs and methods for parent access
+defineExpose({
+  auxMasterRef
+})
 
 onMounted(() => {
   loadComponentsOrder()

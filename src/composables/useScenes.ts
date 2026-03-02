@@ -64,14 +64,22 @@ export interface Scene {
     routeToMaster: boolean
     selectedOutput: string | null
   }>
-  // Aux Buses
-  auxBuses?: Array<{
-    id: string
-    name: string
-    volume: number
-    reverbParams?: any
-    delayParams?: any
-  }>
+  // Aux Buses (with routing information)
+  auxBuses?: {
+    buses: Array<{
+      id: string
+      name: string
+      volume: number
+      muted?: boolean
+      routeToMaster?: boolean
+      selectedOutputDevice?: string | null
+      reverbEnabled?: boolean
+      reverbParams?: any
+      delayEnabled?: boolean
+      delayParams?: any
+    }>
+    routing: Record<number, { toMaster: boolean, toSubgroups: number[] }>
+  }
 }
 
 // Shared state (singleton pattern)

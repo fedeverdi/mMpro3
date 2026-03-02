@@ -275,12 +275,17 @@ watch(selectedDelayAux, (newVal) => {
 // Initialize routing state for each aux
 watch(() => props.auxBuses, (newVal) => {
     if (newVal) {
-        newVal.forEach((_, index) => {
+        newVal.forEach((aux, index) => {
             if (!auxRouting.value[index]) {
+                // Initialize if doesn't exist
                 auxRouting.value[index] = {
-                    toMaster: false,
+                    toMaster: aux.routeToMaster ?? false,  // Initialize from aux state
                     toSubgroups: new Set()
                 }
+            } else if (auxRouting.value[index].toMaster !== (aux.routeToMaster ?? false)) {
+                // Sync toMaster if it changed (keep toSubgroups unchanged)
+                // This ensures UI stays in sync with aux state during scene loads
+                auxRouting.value[index].toMaster = aux.routeToMaster ?? false
             }
         })
     }
@@ -299,6 +304,12 @@ function toggleRouteToMaster(auxIndex: number) {
 
     if (audioEngine) {
         audioEngine.setAuxBusRouteToMaster(auxIndex, newState)
+    }
+    
+    // Update aux.routeToMaster in parent to keep in sync
+    if (props.auxBuses && props.auxBuses[auxIndex]) {
+        const aux = { ...props.auxBuses[auxIndex], routeToMaster: newState }
+        emit('update-aux', auxIndex, aux)
     }
 }
 
@@ -485,6 +496,38 @@ function handleTapTempo() {
         }
     }, 2000)
 }
+
+// Expose methods for scene management
+defineExpose({
+    getRoutingState: () => {
+        // Convert routing state to serializable format
+        const result: Record<number, { toMaster: boolean, toSubgroups: number[] }> = {}
+        Object.entries(auxRouting.value).forEach(([index, state]) => {
+            result[parseInt(index)] = {
+                toMaster: state.toMaster,
+                toSubgroups: Array.from(state.toSubgroups)
+            }
+        })
+        return result
+    },
+    setRoutingState: (state: Record<number, { toMaster: boolean, toSubgroups: number[] }>) => {
+        // Restore routing state from serialized format
+        Object.entries(state).forEach(([index, routing]) => {
+            const idx = parseInt(index)
+            auxRouting.value[idx] = {
+                toMaster: routing.toMaster,
+                toSubgroups: new Set(routing.toSubgroups)
+            }
+            // Update backend
+            if (audioEngine) {
+                audioEngine.setAuxBusRouteToMaster(idx, routing.toMaster)
+                routing.toSubgroups.forEach(sgId => {
+                    audioEngine.setAuxBusRouteToSubgroup(idx, sgId, true)
+                })
+            }
+        })
+    }
+})
 </script>
 
 <style scoped>
