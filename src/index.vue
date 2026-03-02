@@ -47,6 +47,25 @@
 
           <div class="w-px h-6 bg-gray-600"></div>
 
+          <!-- Lock Button -->
+          <button @click="handleLockToggle"
+            :class="[
+              'px-3 py-1.5 border rounded text-xs font-semibold transition-all flex items-center gap-1.5',
+              isLocked
+                ? 'border-red-600 bg-red-600/20 text-red-400 hover:bg-red-600/30'
+                : 'border-gray-600 hover:border-yellow-500 hover:bg-yellow-500/10 text-gray-300 hover:text-yellow-400'
+            ]">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path v-if="isLocked" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+            </svg>
+            {{ isLocked ? 'Locked' : 'Lock' }}
+          </button>
+
+          <div class="w-px h-6 bg-gray-600"></div>
+
           <div class="relative -mt-[3px] z-[100]">
             <button @click="handleAddButtonClick"
               class="mt-1 px-3 h-full py-1.5 border border-gray-600 hover:border-emerald-500 hover:bg-emerald-500/10 rounded text-xs font-semibold text-gray-300 hover:text-emerald-400 transition-all flex items-center gap-1.5">
@@ -187,6 +206,11 @@
     <!-- Scenes Modal -->
     <ScenesModal v-model="showScenesModal" />
 
+    <!-- Lock System -->
+    <SetLockPasswordModal :show="showSetPasswordModal" @close="showSetPasswordModal = false"
+      @confirm="handleSetPassword" />
+    <LockScreen ref="lockScreenRef" :show="isLocked" @unlock="handleUnlock" />
+
     <!-- Limit Reached Modal -->
     <Transition enter-from-class="opacity-0" enter-active-class="transition-opacity duration-200"
       enter-to-class="opacity-100" leave-from-class="opacity-100" leave-active-class="transition-opacity duration-200"
@@ -254,6 +278,8 @@ import { useNotifications } from '~/composables/useNotifications'
 import { getBuildLimits, canAddTrack, getTrackCounts, getBuildMode } from '~/config/buildLimits'
 import { channel } from 'diagnostics_channel'
 import Recorder from './components/recorder/Recorder.vue'
+import SetLockPasswordModal from './components/layout/SetLockPasswordModal.vue'
+import LockScreen from './components/layout/LockScreen.vue'
 
 const { audioOutputDevices, audioInputDevices, refreshAudioOutputs, refreshAudioInputs } = useAudioDevices()
 const audioEngine = useAudioEngine()
@@ -318,6 +344,12 @@ const showAudioSettings = ref(false)
 const showRecorder = ref(false)
 const isRecording = ref(false)
 const showLimitModal = ref(false)
+
+// Lock system
+const isLocked = ref(false)
+const lockPassword = ref<string | null>(null)
+const showSetPasswordModal = ref(false)
+const lockScreenRef = ref<any>(null)
 const limitModalMessage = ref('')
 
 // Recording state handler - just updates the recording flag
@@ -358,6 +390,37 @@ const availableDiskSpace = computed(() => {
   const gb = audioEngineState.value.recordingStats.availableSpaceGb
   return gb > 0 ? gb.toFixed(2) + ' GB' : 'Waiting...'
 })
+
+// Lock system functions
+function handleLockToggle() {
+  if (isLocked.value) {
+    // Already locked, the lock screen is showing
+    return
+  } else {
+    // Show set password modal
+    showSetPasswordModal.value = true
+  }
+}
+
+function handleSetPassword(password: string) {
+  lockPassword.value = password
+  isLocked.value = true
+  showSetPasswordModal.value = false
+  notify.success('Interface locked')
+}
+
+function handleUnlock(password: string) {
+  if (password === lockPassword.value) {
+    isLocked.value = false
+    lockPassword.value = null
+    notify.success('Interface unlocked')
+  } else {
+    // Show error in lock screen
+    if (lockScreenRef.value && lockScreenRef.value.showError) {
+      lockScreenRef.value.showError('Incorrect password')
+    }
+  }
+}
 
 // File Manager for tracks (Electron only)
 const fileManagerTargetTrackId = ref<number | null>(null)

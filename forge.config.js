@@ -20,7 +20,9 @@ module.exports = {
       CFBundleDocumentTypes: []
     },
     extraResource: [
-      'audio-engine/target/release/mmpro3-engine'
+      'audio-engine/target/release/mmpro3-engine',
+      'splash.html',
+      'logo.svg'
     ],
     afterCopy: [
       (buildPath, electronVersion, platform, arch, callback) => {

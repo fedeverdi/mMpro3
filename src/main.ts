@@ -18,6 +18,9 @@ if (started) {
 // Audio Engine Process
 let audioEngineProcess: ChildProcess | null = null
 
+// Splash Window
+let splashWindow: BrowserWindow | null = null
+
 const startAudioEngine = () => {
   // If audio engine is already running, stop it first
   if (audioEngineProcess) {
@@ -660,6 +663,38 @@ const saveWindowState = (window: BrowserWindow): void => {
   }
 }
 
+const createSplashWindow = () => {
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize
+  const splashWidth = 800
+  const splashHeight = 500
+  
+  splashWindow = new BrowserWindow({
+    x: Math.floor((screenWidth - splashWidth) / 2),
+    y: Math.floor((screenHeight - splashHeight) / 2),
+    width: splashWidth,
+    height: splashHeight,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  })
+
+  // Load splash.html from app root in both dev and production
+  const splashPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'splash.html')
+    : path.join(app.getAppPath(), 'splash.html')
+  
+  splashWindow.loadFile(splashPath)
+  
+  splashWindow.on('closed', () => {
+    splashWindow = null
+  })
+}
+
 const createWindow = () => {
   // Load saved window state
   const windowState = loadWindowState()
@@ -678,10 +713,19 @@ const createWindow = () => {
     y: windowState.y,
     width: windowState.width,
     height: windowState.height,
+    show: false, // Don't show until ready
     ...(iconPath && { icon: iconPath }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js')
     }
+  })
+
+  // When main window is ready, close splash and show main
+  mainWindow.once('ready-to-show', () => {
+    if (splashWindow) {
+      splashWindow.close()
+    }
+    mainWindow.show()
   })
 
   // Restore maximized state if needed
@@ -811,11 +855,22 @@ const createWindow = () => {
 
 app.whenReady().then(() => {
   startAudioEngine()
-  createWindow()
+  
+  // Show splash screen first
+  createSplashWindow()
+  
+  // Create main window (hidden until ready)
+  // Add a small delay to ensure splash is visible first
+  setTimeout(() => {
+    createWindow()
+  }, 100)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+      createSplashWindow()
+      setTimeout(() => {
+        createWindow()
+      }, 100)
     }
   })
 })

@@ -30,7 +30,6 @@
             </svg>
             <span>Click to Start</span>
           </button>
-          <p class="text-xs text-gray-500 mt-3">Audio will be enabled after you click</p>
         </div>
       </div>
     </div>

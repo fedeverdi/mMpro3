@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loading mMpro3</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    .splash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #0a0a0a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Animated gradient background */
+    .bg-gradient-animated {
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(ellipse at center, rgba(96, 165, 250, 0.15) 0%, rgba(167, 139, 250, 0.1) 25%, transparent 50%);
+      animation: rotateGradient 20s linear infinite;
+    }
+
+    /* Waves */
+    .wave {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      opacity: 0.3;
+    }
+
+    .wave-1 {
+      background: radial-gradient(ellipse at 30% 50%, rgba(96, 165, 250, 0.1) 0%, transparent 50%);
+      animation: wave 8s ease-in-out infinite;
+    }
+
+    .wave-2 {
+      background: radial-gradient(ellipse at 70% 50%, rgba(167, 139, 250, 0.08) 0%, transparent 50%);
+      animation: wave 6s ease-in-out infinite reverse;
+      animation-delay: 1s;
+    }
+
+    .wave-3 {
+      background: radial-gradient(ellipse at 50% 80%, rgba(96, 165, 250, 0.06) 0%, transparent 50%);
+      animation: wave 10s ease-in-out infinite;
+      animation-delay: 2s;
+    }
+
+    /* Particles */
+    .particles {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .particle {
+      position: absolute;
+      bottom: -10px;
+      background: radial-gradient(circle, rgba(96, 165, 250, 0.8) 0%, rgba(167, 139, 250, 0.4) 100%);
+      border-radius: 50%;
+      animation: float-up linear infinite;
+      opacity: 0;
+    }
+
+    .splash-content {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3rem;
+    }
+
+    .logo-img {
+      height: 10rem;
+      width: auto;
+      max-width: 90%;
+      object-fit: contain;
+      animation: pulse 2s ease-in-out infinite;
+      filter: drop-shadow(0 0 30px rgba(96, 165, 250, 0.3));
+    }
+
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .spinner {
+      width: 56px;
+      height: 56px;
+      border: 5px solid rgba(96, 165, 250, 0.1);
+      border-top-color: #60a5fa;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loading-text {
+      color: #9ca3af;
+      font-size: 0.95rem;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      animation: pulse-text 1.5s ease-in-out infinite;
+    }
+
+    .version-text {
+      margin-top: 0.5rem;
+      color: #6b7280;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    /* Progress bar */
+    .progress-container {
+      width: 300px;
+      height: 4px;
+      background: rgba(96, 165, 250, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 1rem;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #60a5fa 0%, #a78bfa 100%);
+      border-radius: 2px;
+      animation: progressAnimation 2s ease-in-out infinite;
+      box-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.85;
+        transform: scale(1.03);
+      }
+    }
+
+    @keyframes pulse-text {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.6;
+      }
+    }
+
+    @keyframes rotateGradient {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes wave {
+      0%, 100% {
+        transform: translateY(0) scale(1);
+        opacity: 0.3;
+      }
+      50% {
+        transform: translateY(-20px) scale(1.1);
+        opacity: 0.5;
+      }
+    }
+
+    @keyframes float-up {
+      0% {
+        bottom: -10px;
+        opacity: 0;
+      }
+      10% {
+        opacity: 1;
+      }
+      90% {
+        opacity: 1;
+      }
+      100% {
+        bottom: 110vh;
+        opacity: 0;
+      }
+    }
+
+    @keyframes progressAnimation {
+      0% {
+        width: 0%;
+      }
+      50% {
+        width: 70%;
+      }
+      100% {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-screen">
+    <!-- Animated Background Effects -->
+    <div class="bg-gradient-animated"></div>
+    <div class="wave wave-1"></div>
+    <div class="wave wave-2"></div>
+    <div class="wave wave-3"></div>
+    
+    <!-- Floating Particles -->
+    <div class="particles" id="particles"></div>
+    
+    <div class="splash-content">
+      <!-- Logo -->
+      <img src="logo.svg" alt="mMpro3" class="logo-img" />
+      
+      <!-- Loading Animation -->
+      <div class="loading-container">
+        <div class="spinner"></div>
+        <p class="loading-text">Loading Engine...</p>
+        <p class="version-text">v1.0.0</p>
+        
+        <!-- Progress Bar -->
+        <div class="progress-container">
+          <div class="progress-bar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Generate particles dynamically
+    const particlesContainer = document.getElementById('particles');
+    for (let i = 0; i < 25; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'particle';
+      
+      const size = Math.random() * 4 + 2;
+      const left = Math.random() * 100;
+      const animationDuration = Math.random() * 3 + 2;
+      const animationDelay = Math.random() * 2;
+      
+      particle.style.width = `${size}px`;
+      particle.style.height = `${size}px`;
+      particle.style.left = `${left}%`;
+      particle.style.animationDuration = `${animationDuration}s`;
+      particle.style.animationDelay = `${animationDelay}s`;
+      
+      particlesContainer.appendChild(particle);
+    }
+  </script>
+</body>
+</html>
