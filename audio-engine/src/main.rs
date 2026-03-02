@@ -807,7 +807,6 @@ impl AudioEngine {
         
         // Mark this stream as the active one
         self.active_stream_id.store(stream_id, Ordering::SeqCst);
-        eprintln!("[Engine] Creating OUTPUT STREAM #{} at {} Hz (now ACTIVE)", stream_id, self.sample_rate);
         
         // Clone active_stream_id for callback to check if it's still the active stream
         let active_stream_id_check = Arc::clone(&self.active_stream_id);
@@ -1146,7 +1145,6 @@ impl AudioEngine {
         
         // Resume audio processing now that new streams are active
         self.updates_suspended.store(false, Ordering::Relaxed);
-        eprintln!("[Engine] Audio processing resumed");
 
         Ok(())
     }
@@ -1314,7 +1312,6 @@ impl AudioEngine {
             *last_stats_time = Some(now);
         }
         self.master_tap_enabled.store(true, Ordering::Relaxed);
-        eprintln!("[Engine] ✓ Master tap enabled - recording started ({}Hz, {}-bit, {})", self.sample_rate, bit_depth, format);
     }
 
     fn disable_master_tap(&self) {
@@ -1359,7 +1356,7 @@ impl AudioEngine {
         if !samples.is_empty() && path.is_some() {
             let file_path = path.unwrap();
             match self.write_wav_file(&file_path, &samples, sample_rate, bit_depth) {
-                Ok(_) => eprintln!("[Engine] ✓ Recording saved: {:?} ({} samples, {}Hz, {}-bit)", file_path, samples.len(), sample_rate, bit_depth),
+                Ok(_) => {},
                 Err(e) => eprintln!("[Engine] ✗ Failed to save recording: {}", e),
             }
         } else {

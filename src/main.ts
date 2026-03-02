@@ -2,7 +2,6 @@ import { app, BrowserWindow, screen, ipcMain, shell, dialog } from 'electron'
 import { spawn, ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
-import os from 'node:os'
 import started from 'electron-squirrel-startup'
 
 // Disable Electron security warnings in development
@@ -504,7 +503,7 @@ ipcMain.handle('audio-engine:disable-master-tap', async () => {
 
 // Recording file management
 ipcMain.handle('audio-engine:generate-recording-path', async () => {
-  const recordingsDir = path.join(os.homedir(), 'Music', 'MMpro3_Recordings')
+  const recordingsDir = path.join(app.getPath('userData'), 'Recordings')
   
   // Create directory if it doesn't exist
   if (!fs.existsSync(recordingsDir)) {
@@ -555,7 +554,7 @@ ipcMain.handle('audio-engine:delete-recording-file', async (_event, filePath: st
 
 ipcMain.handle('audio-engine:list-recordings', async () => {
   try {
-    const recordingsDir = path.join(os.homedir(), 'Music', 'MMpro3_Recordings')
+    const recordingsDir = path.join(app.getPath('userData'), 'Recordings')
     
     // Create directory if it doesn't exist
     if (!fs.existsSync(recordingsDir)) {
@@ -603,7 +602,7 @@ ipcMain.handle('audio-engine:list-recordings', async () => {
 
 ipcMain.handle('audio-engine:save-library-file', async (_event, arrayBuffer: ArrayBuffer, fileName: string, metadata?: any) => {
   try {
-    const libraryDir = path.join(os.homedir(), 'Music', 'MMpro3_Library')
+    const libraryDir = path.join(app.getPath('userData'), 'Library')
     
     // Create directory if it doesn't exist
     if (!fs.existsSync(libraryDir)) {
@@ -644,7 +643,7 @@ ipcMain.handle('audio-engine:save-library-file', async (_event, arrayBuffer: Arr
 
 ipcMain.handle('audio-engine:list-library-files', async () => {
   try {
-    const libraryDir = path.join(os.homedir(), 'Music', 'MMpro3_Library')
+    const libraryDir = path.join(app.getPath('userData'), 'Library')
     
     // Create directory if it doesn't exist
     if (!fs.existsSync(libraryDir)) {
@@ -704,7 +703,7 @@ ipcMain.handle('audio-engine:list-library-files', async () => {
 
 ipcMain.handle('audio-engine:get-library-file', async (_event, fileId: string) => {
   try {
-    const libraryDir = path.join(os.homedir(), 'Music', 'MMpro3_Library')
+    const libraryDir = path.join(app.getPath('userData'), 'Library')
     const filePath = path.join(libraryDir, fileId)
     
     if (!fs.existsSync(filePath)) {
@@ -744,7 +743,7 @@ ipcMain.handle('audio-engine:get-library-file', async (_event, fileId: string) =
 
 ipcMain.handle('audio-engine:delete-library-file', async (_event, fileId: string) => {
   try {
-    const libraryDir = path.join(os.homedir(), 'Music', 'MMpro3_Library')
+    const libraryDir = path.join(app.getPath('userData'), 'Library')
     const filePath = path.join(libraryDir, fileId)
     const metadataPath = path.join(libraryDir, `${fileId}.meta.json`)
     
@@ -771,7 +770,7 @@ ipcMain.handle('audio-engine:delete-library-file', async (_event, fileId: string
 
 ipcMain.handle('audio-engine:save-playlist', async (_event, playlist: any) => {
   try {
-    const playlistsDir = path.join(os.homedir(), 'Music', 'MMpro3_Playlists')
+    const playlistsDir = path.join(app.getPath('userData'), 'Playlists')
     
     // Create directory if it doesn't exist
     if (!fs.existsSync(playlistsDir)) {
@@ -790,7 +789,7 @@ ipcMain.handle('audio-engine:save-playlist', async (_event, playlist: any) => {
 
 ipcMain.handle('audio-engine:list-playlists', async () => {
   try {
-    const playlistsDir = path.join(os.homedir(), 'Music', 'MMpro3_Playlists')
+    const playlistsDir = path.join(app.getPath('userData'), 'Playlists')
     
     // Create directory if it doesn't exist
     if (!fs.existsSync(playlistsDir)) {
@@ -823,7 +822,7 @@ ipcMain.handle('audio-engine:list-playlists', async () => {
 
 ipcMain.handle('audio-engine:get-playlist', async (_event, playlistId: string) => {
   try {
-    const playlistsDir = path.join(os.homedir(), 'Music', 'MMpro3_Playlists')
+    const playlistsDir = path.join(app.getPath('userData'), 'Playlists')
     const playlistPath = path.join(playlistsDir, `${playlistId}.json`)
     
     if (!fs.existsSync(playlistPath)) {
@@ -840,7 +839,7 @@ ipcMain.handle('audio-engine:get-playlist', async (_event, playlistId: string) =
 
 ipcMain.handle('audio-engine:delete-playlist', async (_event, playlistId: string) => {
   try {
-    const playlistsDir = path.join(os.homedir(), 'Music', 'MMpro3_Playlists')
+    const playlistsDir = path.join(app.getPath('userData'), 'Playlists')
     const playlistPath = path.join(playlistsDir, `${playlistId}.json`)
     
     if (fs.existsSync(playlistPath)) {
