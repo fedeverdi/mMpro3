@@ -78,6 +78,13 @@
                         Load
                       </button>
                       <button
+                        v-if="currentSceneId === scene.id"
+                        @click="updateCurrentScene(scene)"
+                        class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded font-semibold transition-colors"
+                      >
+                        Update
+                      </button>
+                      <button
                         @click="confirmDeleteScene(scene)"
                         class="px-3 py-1 text-xs bg-red-600 hover:bg-red-500 text-white rounded font-semibold transition-colors"
                       >
@@ -112,7 +119,7 @@ const emit = defineEmits<{
   'loadScene': [scene: any]
 }>()
 
-const { scenes, currentSceneId, saveScene, loadAllScenes, deleteScene, createNewScene } = useScenes()
+const { scenes, currentSceneId, saveScene, updateScene, loadAllScenes, deleteScene, createNewScene } = useScenes()
 
 const newSceneName = ref('')
 
@@ -145,6 +152,20 @@ async function saveCurrentScene() {
 function loadScene(scene: any) {
   emit('loadScene', scene)
   currentSceneId.value = scene.id
+}
+
+async function updateCurrentScene(scene: any) {
+  try {
+    // Collect current track states from parent
+    const tracksData = props.tracks.map(track => {
+      const trackState = props.getTrackState(track.id)
+      return trackState || {}
+    })
+    
+    await updateScene(scene.id, tracksData)
+  } catch (error) {
+    console.error('[ScenesModal] Error updating scene:', error)
+  }
 }
 
 async function confirmDeleteScene(scene: any) {

@@ -114,6 +114,32 @@ export function useScenes() {
   }
   
   /**
+   * Update an existing scene with current state
+   */
+  async function updateScene(sceneId: string, tracksData: SceneTrack[]): Promise<void> {
+    try {
+      const existingScene = scenes.value.find(s => s.id === sceneId)
+      if (!existingScene) {
+        throw new Error(`Scene not found: ${sceneId}`)
+      }
+      
+      // Create updated scene with same ID and name, new timestamp
+      const updatedScene: Scene = {
+        id: sceneId,
+        name: existingScene.name,
+        timestamp: Date.now(),
+        tracks: tracksData
+      }
+      
+      await saveScene(updatedScene)
+      console.log(`[useScenes] Updated scene: ${existingScene.name}`)
+    } catch (error) {
+      console.error('[useScenes] Error updating scene:', error)
+      throw error
+    }
+  }
+  
+  /**
    * Create a new scene from current state
    */
   function createNewScene(name: string, tracksData: SceneTrack[]): Scene {
@@ -129,6 +155,7 @@ export function useScenes() {
     scenes,
     currentSceneId,
     saveScene,
+    updateScene,
     loadAllScenes,
     getScene,
     deleteScene,
