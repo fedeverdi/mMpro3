@@ -3,10 +3,15 @@
     <Transition name="modal">
       <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="close">
         <!-- Modal -->
-        <div class="bg-gray-900 rounded-lg shadow-2xl max-w-6xl w-full max-h-[90vh] border border-gray-700 overflow-hidden">
+        <div class="bg-gray-900 rounded-lg shadow-2xl max-w-7xl w-full max-h-[90vh] border border-gray-700 overflow-hidden">
           <!-- Header -->
           <div class="flex items-center justify-between p-4 border-b border-gray-700">
-            <h2 class="text-lg font-semibold text-white">🔀 Signal Flow</h2>
+            <div class="flex items-center gap-3">
+              <h2 class="text-xl font-bold text-white">🔀 System Architecture & Signal Flow</h2>
+              <div class="px-2 py-1 bg-orange-600/20 border border-orange-500 rounded text-xs font-semibold text-orange-400">
+                Rust DSP Engine
+              </div>
+            </div>
             <button @click="close" class="text-gray-400 hover:text-white transition-colors">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -15,650 +20,450 @@
           </div>
           
           <!-- Content -->
-          <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)] custom-scrollbar">
-            <!-- Audio Track Chain -->
+          <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)] custom-scrollbar bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+            
+            <!-- ============ SYSTEM OVERVIEW ============ -->
             <div class="mb-8">
-              <h3 class="text-lg font-bold text-purple-400 mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+              <h3 class="text-xl font-bold text-cyan-400 mb-6 flex items-center gap-2">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
                 </svg>
-                Audio Track Signal Chain
+                System Architecture Overview
               </h3>
               
-              <div class="flex flex-wrap items-center gap-3 text-sm">
-                <!-- Input -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-gradient-to-br from-green-600 to-green-700 text-white rounded-lg font-bold shadow-lg">
-                    Input
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">Audio Source</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- PAD -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-yellow-700 text-white rounded-lg font-semibold border-2 border-dashed border-yellow-400">
-                    PAD
-                  </div>
-                  <div class="text-xs text-orange-400 mt-1">-26dB if enabled</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Phase Invert -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold border-2 border-dashed border-purple-400">
-                    Ø
-                  </div>
-                  <div class="text-xs text-orange-400 mt-1">Phase Invert</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- HPF -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold border-2 border-dashed border-blue-400">
-                    HPF
-                  </div>
-                  <div class="text-xs text-orange-400 mt-1">80Hz if enabled</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Gain -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold">
-                    Gain
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">Input Level</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Gate with meter tap -->
-                <div class="flex flex-col items-center gap-2">
-                  <!-- Gate meter tap branching UP -->
-                  <div class="flex flex-col items-center gap-1">
-                    <div class="px-2 py-1 bg-purple-600 text-white rounded text-[10px] font-bold shadow-lg">
-                      Gate Meter
-                    </div>
-                    <svg class="w-4 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
-                    </svg>
-                    <div class="text-[9px] text-purple-500 font-bold">↓ TAP</div>
-                  </div>
-                  <!-- Gate main node -->
-                  <div class="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold border-2 border-dashed border-purple-400">
-                    Gate
-                  </div>
-                  <div class="text-xs text-orange-400">If Enabled</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- EQ3 with analysis taps -->
-                <div class="flex flex-col items-center gap-2">
-                  <!-- Analysis taps branching UP -->
-                  <div class="flex gap-3 items-end">
-                    <div class="flex flex-col items-center gap-1">
-                      <div class="px-2 py-1 bg-yellow-600 text-white rounded text-[10px] font-bold shadow-lg">
-                        VU L/R
-                      </div>
-                      <svg class="w-4 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
+              <div class="flex flex-col gap-4">
+                <!-- Top: ASIO Input -->
+                <div class="flex justify-center">
+                  <div class="bg-gradient-to-br from-green-600 to-emerald-700 border-2 border-green-400 rounded-xl p-4 shadow-2xl w-80">
+                    <div class="flex items-center justify-center gap-2 mb-2">
+                      <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                        <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
                       </svg>
-                      <div class="text-[9px] text-yellow-500 font-bold">↓ TAP</div>
+                      <h4 class="text-lg font-bold text-white">ASIO Audio Input</h4>
                     </div>
-                    <div class="flex flex-col items-center gap-1">
-                      <div class="px-2 py-1 bg-pink-600 text-white rounded text-[10px] font-bold shadow-lg">
-                        Phase Corr
-                      </div>
-                      <svg class="w-4 h-6 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
-                      </svg>
-                      <div class="text-[9px] text-pink-500 font-bold">↓ TAP</div>
-                    </div>
-                    <div class="flex flex-col items-center gap-1">
-                      <div class="px-2 py-1 bg-cyan-600 text-white rounded text-[10px] font-bold shadow-lg">
-                        Waveform
-                      </div>
-                      <svg class="w-4 h-6 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
-                      </svg>
-                      <div class="text-[9px] text-cyan-500 font-bold">↓ TAP</div>
+                    <p class="text-xs text-green-100 text-center">Hardware audio interface (via cpal library)</p>
+                    <div class="mt-2 flex justify-center gap-2">
+                      <div class="px-2 py-1 bg-white/20 rounded text-xs text-white font-mono">Input Channels 1-N</div>
                     </div>
                   </div>
-                  <!-- EQ3 main node -->
-                  <div class="px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold shadow-lg">
-                    EQ3
-                  </div>
-                  <div class="text-xs text-gray-500">3-band EQ</div>
-                </div>
+</div>
                 
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Compressor -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-indigo-700 text-white rounded-lg font-semibold border-2 border-dashed border-indigo-400">
-                    Compressor
-                  </div>
-                  <div class="text-xs text-orange-400 mt-1">If Enabled</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Reverb Send/Return (Parallel) -->
-                <div class="flex flex-col items-center border-2 border-green-500/50 rounded-lg p-3 bg-green-900/10 relative">
-                  <div class="text-xs text-green-300 font-bold mb-2 uppercase">Parallel Reverb</div>
-                  <div class="flex items-center gap-2">
-                    <!-- Dry path -->
-                    <div class="flex flex-col items-center gap-1">
-                      <div class="text-[9px] text-gray-400 font-bold">DRY</div>
-                      <svg class="w-4 h-12 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14"/>
-                      </svg>
-                      <div class="text-[9px] text-gray-400">Direct</div>
-                    </div>
-                    
-                    <!-- Wet path -->
-                    <div class="flex flex-col items-center gap-1">
-                      <div class="text-[9px] text-green-400 font-bold">WET</div>
-                      <div class="px-2 py-1 bg-green-700 text-white rounded text-[10px] font-semibold">Send</div>
-                      <svg class="w-3 h-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-                      </svg>
-                      <div class="px-2 py-1 bg-green-600 text-white rounded text-[10px] font-semibold">Reverb</div>
-                      <div class="text-[9px] text-green-400">Return</div>
-                    </div>
-                  </div>
-                  <div class="text-[9px] text-green-400 mt-1.5">Send gain controls wet level</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Balance -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-cyan-700 text-white rounded-lg font-semibold">
-                    Balance
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">Split→L/R→Merge</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Volume -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold">
-                    Volume
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">Split→L/R→Merge</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- To Master -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-gradient-to-br from-orange-600 to-red-600 text-white rounded-lg font-bold shadow-lg">
-                    Master
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">Stereo Bus</div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="border-t border-gray-700 my-6"></div>
-            
-            <!-- Subgroups Chain -->
-            <div v-if="props.subgroups && props.subgroups.length > 0" class="mb-8">
-              <h3 class="text-lg font-bold text-teal-400 mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-                </svg>
-                Subgroups Bus Signal Chain
-              </h3>
-              
-              <div class="space-y-4">
-                <div v-for="subgroup in props.subgroups.slice(0, 1)" :key="subgroup.id" class="flex flex-wrap items-center justify-between gap-3 text-sm bg-teal-900/10 p-3 rounded-lg border border-teal-700/30">
-                  <!-- Subgroup Label -->
-                  <div class="flex flex-col items-center w-full mb-2">
-                    <div class="px-3 py-1 bg-gradient-to-br from-teal-600 to-teal-700 text-white rounded-lg font-bold shadow-lg">
-                      {{ subgroup.name }}
-                    </div>
-                    <div class="text-xs text-gray-500 mt-1">Subgroup Bus</div>
-                  </div>
-                  
-                  <!-- Tracks Input -->
-                  <div class="flex flex-col items-center">
-                    <div class="px-4 py-2 bg-gradient-to-br from-gray-600 to-gray-700 text-white rounded-lg font-bold shadow-lg">
-                      Tracks
-                    </div>
-                    <div class="text-xs text-gray-500 mt-1">Routed tracks</div>
-                  </div>
-                  
-                  <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                <!-- Arrow Down -->
+                <div class="flex justify-center">
+                  <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
                   </svg>
-                  
-                  <!-- Subgroup Channel -->
-                  <div class="flex flex-col items-center">
-                    <div class="px-4 py-2 bg-teal-700 text-white rounded-lg font-semibold">
-                      Channel
-                    </div>
-                    <div class="text-xs text-gray-500 mt-1">Tone.Channel</div>
-                  </div>
-                  
-                  <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                  </svg>
-                  
-                  <!-- Subgroup FX Chain -->
-                  <div class="flex flex-col items-center border-2 border-dashed border-teal-400 rounded-lg p-3 bg-teal-900/10">
-                    <div class="text-xs text-teal-300 font-bold mb-2">SUBGROUP FX</div>
-                    <div class="flex flex-col gap-1.5">
-                      <div class="flex items-center gap-1">
-                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                        <div class="px-2 py-1 bg-teal-700/60 text-white rounded text-xs font-semibold">Compressor</div>
-                      </div>
-                      <div class="flex items-center gap-1">
-                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                        <div class="px-2 py-1 bg-teal-700/60 text-white rounded text-xs font-semibold">Reverb</div>
-                      </div>
-                      <div class="flex items-center gap-1">
-                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                        <div class="px-2 py-1 bg-teal-700/60 text-white rounded text-xs font-semibold">Delay</div>
-                      </div>
-                      <div class="flex items-center gap-1">
-                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                        <div class="px-2 py-1 bg-teal-700/60 text-white rounded text-xs font-semibold">Limiter</div>
-                      </div>
-                    </div>
-                    <div class="text-[9px] text-teal-400 mt-1">Green = if enabled</div>
-                  </div>
-                  
-                  <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                  </svg>
-                  
-                  <!-- Volume Fader -->
-                  <div class="flex flex-col items-center">
-                    <div class="px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold">
-                      Volume
-                    </div>
-                    <div class="text-xs text-gray-500 mt-1">Fader</div>
-                  </div>
-                  
-                  <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                  </svg>
-                  
-                  <!-- To Master/Output -->
-                  <div class="flex flex-col items-center">
-                    <div class="px-4 py-2 bg-gradient-to-br from-orange-600 to-red-600 text-white rounded-lg font-bold shadow-lg">
-                      Master/Output
-                    </div>
-                    <div class="text-xs text-gray-500 mt-1">Routing</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div v-if="props.subgroups && props.subgroups.length > 0" class="border-t border-gray-700 my-6"></div>
-            
-            <!-- Aux Buses Chain -->
-            <div v-if="props.auxBuses && props.auxBuses.length > 0" class="mb-8">
-              <h3 class="text-lg font-bold text-amber-400 mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"></path>
-                  <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"></path>
-                </svg>
-                Aux Buses Signal Chain
-              </h3>
-              
-              <div class="space-y-6">
-                <!-- Aux Send from Audio Track -->
-                <div class="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
-                  <div class="text-sm text-gray-400 italic mb-4 text-center">From Audio Track:</div>
-                  
-                  <div class="flex gap-8 items-start justify-center">
-                    <!-- Pre-Fader Send -->
-                    <div class="flex flex-col items-center gap-2">
-                      <div class="text-xs text-yellow-400 font-bold">PRE-FADER SEND</div>
-                      <div class="px-3 py-2 bg-yellow-600/80 text-white rounded text-xs font-semibold border-2 border-yellow-500">
-                        Tap @ Balance Merge
-                      </div>
-                      <div class="text-[9px] text-gray-400 text-center">Signal before track volume<br/>Unaffected by track fader</div>
-                    </div>
-                    
-                    <!-- Post-Fader Send -->
-                    <div class="flex flex-col items-center gap-2">
-                      <div class="text-xs text-amber-400 font-bold">POST-FADER SEND</div>
-                      <div class="px-3 py-2 bg-amber-600/80 text-white rounded text-xs font-semibold border-2 border-amber-500">
-                        Tap @ Volume Merge
-                      </div>
-                      <div class="text-[9px] text-gray-400 text-center">Signal after track volume<br/>Follows track fader level</div>
-                    </div>
-                  </div>
-                  
-                  <div class="text-xs text-gray-500 mt-3 text-center">↓</div>
-                  <div class="flex justify-center mt-2">
-                    <div class="px-3 py-1 bg-gray-700 text-white rounded text-xs">Aux Send Gain</div>
-                  </div>
                 </div>
                 
-                <!-- Aux Buses Loop -->
-                <div class="space-y-3">
-                  <div v-for="aux in props.auxBuses.slice(0, 1)" :key="aux.id" class="flex flex-wrap items-center justify-between gap-3 text-sm border-2 border-amber-500/50 rounded-lg p-3 bg-amber-900/10">
-                    <!-- Aux Name -->
-                    <div class="flex flex-col items-center">
-                      <div class="px-3 py-2 bg-gradient-to-br from-yellow-600 to-amber-600 text-white rounded-lg font-bold shadow-lg">
-                        {{ aux.name }}
-                      </div>
-                      <div class="text-xs text-gray-500 mt-1">Aux Bus</div>
-                    </div>
-                    
-                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                <!-- Middle: Rust DSP Engine (BIG BOX) -->
+                <div class="bg-gradient-to-br from-emerald-500 to-teal-600 border-4 border-emerald-400 rounded-2xl p-6 shadow-2xl">
+                  <div class="flex items-center justify-center gap-3 mb-4">
+                    <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
                     </svg>
-                    
-                    <!-- Tone Channel -->
-                    <div class="flex flex-col items-center">
-                      <div class="px-3 py-2 bg-gradient-to-r from-yellow-600 to-amber-600 text-white rounded text-xs font-bold">
-                        Tone.Channel
-                      </div>
-                      <div class="text-[9px] text-gray-400 mt-1">Vol, Pan, M, S</div>
-                    </div>
-                    
-                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                    </svg>
-                    
-                    <!-- Aux Volume -->
-                    <div class="flex flex-col items-center">
-                      <div class="px-3 py-1 bg-gray-700 text-white rounded text-xs">Aux Volume</div>
-                      <div class="text-[9px] text-gray-400 mt-1">Gain control</div>
-                    </div>
-                    
-                    <div class="text-xs text-gray-500">→ SPLIT</div>
-                    
-                    <!-- Route to Master -->
-                    <div class="flex flex-col items-center border-2 border-dashed border-orange-400 rounded-lg p-2 bg-orange-900/10">
-                      <div class="text-[10px] text-orange-400 font-bold mb-1">TO MASTER</div>
-                      <div class="px-2 py-1 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded text-[10px] font-semibold">
-                        Optional
-                      </div>
-                      <div class="text-[8px] text-gray-400 mt-1">If enabled</div>
-                    </div>
-                    
-                    <div class="text-xs text-gray-500">+</div>
-                    
-                    <!-- Independent Output -->
-                    <div class="flex items-center gap-2 border-2 border-green-500 rounded-lg p-2 bg-green-900/10">
-                      <div class="flex flex-col items-center gap-1">
-                        <div class="text-[10px] text-green-400 font-bold">OUTPUT</div>
-                        <div class="px-2 py-0.5 bg-gray-700 text-white rounded text-[9px]">MediaStream</div>
-                      </div>
-                      <div class="text-[10px] text-gray-500">→</div>
-                      <div class="flex flex-col items-center gap-1">
-                        <div class="px-2 py-0.5 bg-blue-600/80 text-white rounded text-[9px]">AudioContext</div>
-                        <div class="text-[8px] text-gray-400">sinkId</div>
-                      </div>
-                      <div class="text-[10px] text-gray-500">→</div>
-                      <div class="flex gap-1">
-                        <div class="px-1.5 py-1 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded text-[9px] font-bold">🔇</div>
-                        <div class="px-1.5 py-1 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded text-[9px] font-bold">🔊</div>
-                        <div class="px-1.5 py-1 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded text-[9px] font-bold">🎧</div>
-                      </div>
-                    </div>
+                    <h4 class="text-2xl font-black text-white">RUST DSP ENGINE</h4>
+                    <div class="px-2 py-1 bg-white/30 rounded-lg text-xs font-bold text-white">REALTIME AUDIO</div>
                   </div>
-                </div>
-                
-                <!-- Aux Buses Notes -->
-                <div class="mt-4 p-4 bg-gray-800/30 rounded-lg border border-gray-700 text-xs text-gray-400 space-y-2">
-                  <p><strong>Pre-Fader vs Post-Fader:</strong> Pre-fader sends tap the signal after panning but before the track volume control, ensuring consistent aux level regardless of the track fader position. Post-fader sends tap after the volume control, so the aux send level follows the track fader.</p>
-                  <p><strong>Dual Routing:</strong> Each Aux Bus can simultaneously route to the Master Bus (for mixing back into the main output) AND to an independent output device (for separate monitoring or recording).</p>
-                  <p><strong>Output Device Selection:</strong> Choose "No Output" to disable audio, "Default" for the system default output device, or select a specific audio device. Each aux can route to a different physical output.</p>
-                  <p><strong>Audio Architecture:</strong> Uses MediaStreamDestination to create a separate audio stream, then connects it to a dedicated AudioContext with setSinkId() for device-specific routing, independent of the main Tone.js context.</p>
-                </div>
-              </div>
-            </div>
-            
-            <div v-if="props.auxBuses && props.auxBuses.length > 0" class="border-t border-gray-700 my-6"></div>
-            
-            <!-- Master Chain -->
-            <div>
-              <h3 class="text-lg font-bold text-orange-400 mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
-                </svg>
-                Master Bus Signal Chain
-              </h3>
-              
-              <div class="flex flex-wrap items-center gap-3 text-sm">
-                <!-- Tracks Input -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-gradient-to-br from-gray-600 to-gray-700 text-white rounded-lg font-bold shadow-lg">
-                    Tracks
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">All tracks mixed</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Master Channel -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-orange-700 text-white rounded-lg font-semibold">
-                    Master Channel
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">Tone.Channel</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Parametric EQ -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow-lg">
-                    Parametric EQ
-                  </div>
-                  <div class="text-xs text-gray-500">5-band + outputNode</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Master FX Chain -->
-                <div class="flex flex-col items-center border-2 border-dashed border-orange-400 rounded-lg p-3 bg-orange-900/10">
-                  <div class="text-xs text-orange-300 font-bold mb-2">MASTER FX CHAIN</div>
-                  <div class="flex flex-col gap-1.5">
-                    <div class="flex items-center gap-1">
-                      <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                      <div class="px-2 py-1 bg-orange-700/60 text-white rounded text-xs font-semibold">Compressor</div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                      <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                      <div class="px-2 py-1 bg-orange-700/60 text-white rounded text-xs font-semibold">Reverb</div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                      <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                      <div class="px-2 py-1 bg-orange-700/60 text-white rounded text-xs font-semibold">Delay</div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                      <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                      <div class="px-2 py-1 bg-orange-700/60 text-white rounded text-xs font-semibold">Limiter</div>
-                    </div>
-                  </div>
-                  <div class="text-[9px] text-orange-400 mt-1">Green = if enabled</div>
-                  <div class="text-[9px] text-gray-400 mt-1">inputNode → outputNode</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Output Node with Spectrum tap -->
-                <div class="flex flex-col items-center gap-2">
-                  <!-- Spectrum analyzer tap branching UP -->
-                  <div class="flex flex-col items-center gap-1">
-                    <div class="px-2 py-1 bg-purple-600 text-white rounded text-[10px] font-bold shadow-lg">
-                      Spectrum
-                    </div>
-                    <svg class="w-4 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5"/>
-                    </svg>
-                    <div class="text-[9px] text-purple-500 font-bold">↓ TAP (POST-FX)</div>
-                  </div>
-                  <!-- MasterFX Output Node -->
-                  <div class="px-4 py-2 bg-orange-600 text-white rounded-lg font-semibold shadow-lg">
-                    FX Output
-                  </div>
-                  <div class="text-xs text-gray-500">Tone.Gain</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Split Node -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-cyan-600 text-white rounded-lg font-semibold">
-                    Split L/R
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">Tone.Split</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- L/R Faders and Meters -->
-                <div class="flex flex-col items-center border-2 border-blue-500 rounded-lg p-2 bg-blue-900/10">
-                  <div class="text-xs text-blue-300 font-bold mb-1">MASTER FADERS</div>
-                  <div class="flex gap-2">
-                    <div class="flex flex-col gap-1">
-                      <div class="px-2 py-1 bg-purple-600 text-white rounded text-xs font-semibold">L Gain</div>
-                      <div class="px-2 py-1 bg-yellow-600/80 text-white rounded text-xs">L Meter</div>
-                    </div>
-                    <div class="flex flex-col gap-1">
-                      <div class="px-2 py-1 bg-blue-600 text-white rounded text-xs font-semibold">R Gain</div>
-                      <div class="px-2 py-1 bg-yellow-600/80 text-white rounded text-xs">R Meter</div>
-                    </div>
-                  </div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Merge -->
-                <div class="flex flex-col items-center">
-                  <div class="px-4 py-2 bg-cyan-600 text-white rounded-lg font-semibold">
-                    Merge
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">Tone.Merge</div>
-                </div>
-                
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                </svg>
-                
-                <!-- Output Split -->
-                <div class="flex flex-col gap-3">                  
-                  <div class="flex gap-4">
-                    <!-- Main Output -->
-                    <div class="flex flex-col items-center gap-2">
-                      <div class="text-xs text-blue-400 font-bold">MAIN OUT</div>
-                      <div class="flex flex-col gap-2 border-2 border-blue-500 rounded-lg p-2 bg-blue-900/10">
-                        <div class="px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded text-xs font-bold">
-                          Speakers
+                  <p class="text-sm text-emerald-100 text-center mb-6">Dedicated audio processing engine running in separate Rust process</p>
+                  
+                  <!-- DSP Engine Internal Architecture -->
+                  <div class="bg-black/30 rounded-xl p-5 border-2 border-emerald-300/50">
+                    <div class="space-y-4">
+                      
+                      <!-- Router -->
+                      <div class="bg-gray-800/80 rounded-lg p-3 border border-gray-600">
+                        <div class="text-sm font-bold text-orange-300 mb-2 flex items-center gap-2">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                          </svg>
+                          Router Core
                         </div>
-                        <div class="text-[9px] text-gray-400">toDestination()</div>
+                        <p class="text-xs text-gray-400">Central routing manager orchestrating all audio paths</p>
                       </div>
-                    </div>
-                    
-                    <!-- Headphones -->
-                    <div class="flex flex-col items-center gap-2">
-                      <div class="text-xs text-green-400 font-bold">HEADPHONES</div>
-                      <div class="flex flex-col gap-1 border-2 border-green-500 rounded-lg p-2 bg-green-900/10">
-                        <div class="px-2 py-1 bg-gray-700 text-white rounded text-xs font-semibold">HP Gain</div>
-                        <div class="px-2 py-1 bg-yellow-600/80 text-white rounded text-xs">HP Meter</div>
-                        <div class="px-2 py-1 bg-gray-700 text-white rounded text-xs">MediaStream</div>
-                        <div class="px-2 py-1 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded text-xs font-bold">
-                          <div class="flex items-center gap-1 justify-center">
-                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z"/>
-                            </svg>
-                            <span>HP Out</span>
+                      
+                      <!-- Tracks Container -->
+                      <div class="bg-purple-900/40 rounded-lg p-4 border-2 border-purple-400/50">
+                        <div class="text-sm font-bold text-purple-300 mb-3 flex items-center gap-2">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM2 12a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2z"/>
+                          </svg>
+                          Audio Tracks (1-N)
+                        </div>
+                        
+                        <!-- Single Track Signal Chain (compact) -->
+                        <div class="bg-black/40 rounded p-3 text-xs">
+                          <div class="text-purple-200 font-semibold mb-2">Per-Track Signal Chain:</div>
+                          <div class="flex flex-wrap items-center gap-2 text-[10px]">
+                            <div class="px-2 py-1 bg-green-700 text-white rounded font-bold">Input</div>
+                            <span class="text-gray-500">→</span>
+                            <div class="px-2 py-1 bg-yellow-700 text-white rounded">PAD</div>
+                            <span class="text-gray-500">→</span>
+                            <div class="px-2 py-1 bg-gray-700 text-white rounded">Gain</div>
+                            <span class="text-gray-500">→</span>
+                            <div class="px-2 py-1 bg-blue-700 text-white rounded">HPF</div>
+                            <span class="text-gray-500">→</span>
+                            <div class="px-2 py-1 bg-purple-700 text-white rounded">Gate</div>
+                            <span class="text-gray-500">→</span>
+                            <div class="px-2 py-1 bg-indigo-700 text-white rounded">Compressor</div>
+                            <span class="text-gray-500">→</span>
+                            <div class="px-2 py-1 bg-blue-600 text-white rounded">EQ</div>
+                            <span class="text-gray-500">→</span>
+                            <div class="px-2 py-1 bg-cyan-700 text-white rounded">Pan</div>
+                            <span class="text-gray-500">→</span>
+                            <div class="px-2 py-1 bg-gray-700 text-white rounded">Volume</div>
+                            <span class="text-gray-500">→</span>
+                            <div class="px-2 py-1 bg-orange-600 text-white rounded font-bold">Routing</div>
                           </div>
+                          <div class="mt-2 text-gray-400">Sources: Audio Input / Signal Generator / File Player / Aux Return</div>
                         </div>
                       </div>
+                      
+                      <!-- Aux Buses -->
+                      <div class="bg-amber-900/40 rounded-lg p-4 border-2 border-amber-400/50">
+                        <div class="text-sm font-bold text-amber-300 mb-2 flex items-center gap-2">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                          </svg>
+                          Aux Buses (FX Send/Return)
+                        </div>
+                        <p class="text-xs text-amber-200">Pre/Post-fader sends from tracks → FX processing → Return to mix</p>
+                        <div class="mt-2 flex flex-wrap gap-2 text-[10px]">
+                          <div class="px-2 py-1 bg-amber-700 text-white rounded">Aux 1-6</div>
+                          <div class="px-2 py-1 bg-green-700 text-white rounded">Reverb</div>
+                          <div class="px-2 py-1 bg-blue-700 text-white rounded">Delay</div>
+                          <div class="px-2 py-1 bg-purple-700 text-white rounded">Custom FX</div>
+                        </div>
+                      </div>
+                      
+                      <!-- Subgroups -->
+                      <div class="bg-teal-900/40 rounded-lg p-4 border-2 border-teal-400/50">
+                        <div class="text-sm font-bold text-teal-300 mb-2 flex items-center gap-2">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4z"/>
+                          </svg>
+                          Subgroups (Stem Buses)
+                        </div>
+                        <p class="text-xs text-teal-200">Group multiple tracks → Process as single bus → Route to master</p>
+                        <div class="mt-2 text-[10px] text-gray-300">
+                          Signal: Tracks → Subgroup → Volume → Master
+                        </div>
+                      </div>
+                      
+                      <!-- Master Bus -->
+                      <div class="bg-red-900/40 rounded-lg p-4 border-2 border-red-400/50">
+                        <div class="text-sm font-bold text-red-300 mb-2 flex items-center gap-2">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clip-rule="evenodd"/>
+                          </svg>
+                          Master Bus
+                        </div>
+                        <p class="text-xs text-red-200 mb-2">Final mix bus combining all tracks/subgroups</p>
+                        <div class="flex flex-wrap gap-2 text-[10px]">
+                          <div class="px-2 py-1 bg-gray-700 text-white rounded">Master Volume</div>
+                          <div class="px-2 py-1 bg-blue-600 text-white rounded">Master EQ</div>
+                          <div class="px-2 py-1 bg-red-700 text-white rounded">Master Limiter</div>
+                        </div>
+                      </div>
+                      
+                    </div>
+                  </div>
+                  
+                  <!-- DSP Statistics -->
+                  <div class="mt-4 grid grid-cols-3 gap-3 text-xs">
+                    <div class="bg-black/40 rounded p-2 text-center border border-emerald-400/30">
+                      <div class="text-emerald-300 font-bold">Sample Rate</div>
+                      <div class="text-white font-mono">44.1/48/96 kHz</div>
+                    </div>
+                    <div class="bg-black/40 rounded p-2 text-center border border-emerald-400/30">
+                      <div class="text-emerald-300 font-bold">Bit Depth</div>
+                      <div class="text-white font-mono">32-bit float</div>
+                    </div>
+                    <div class="bg-black/40 rounded p-2 text-center border border-emerald-400/30">
+                      <div class="text-emerald-300 font-bold">Latency</div>
+                      <div class="text-white font-mono">Ultra-low</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Arrow Down -->
+                <div class="flex justify-center">
+                  <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                  </svg>
+                </div>
+                
+                <!-- Bottom: ASIO Output -->
+                <div class="flex justify-center">
+                  <div class="bg-gradient-to-br from-blue-600 to-indigo-700 border-2 border-blue-400 rounded-xl p-4 shadow-2xl w-80">
+                    <div class="flex items-center justify-center gap-2 mb-2">
+                      <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                      </svg>
+                      <h4 class="text-lg font-bold text-white">ASIO Audio Output</h4>
+                    </div>
+                    <p class="text-xs text-blue-100 text-center">Hardware audio interface (via cpal library)</p>
+                    <div class="mt-2 flex justify-center gap-2">
+                      <div class="px-2 py-1 bg-white/20 rounded text-xs text-white font-mono">Output Channels 1-N</div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             
-            <!-- Legend -->
-            <div class="mt-8 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-              <h4 class="text-sm font-bold text-gray-400 mb-3">Legend</h4>
-              <div class="grid grid-cols-2 gap-3 text-xs text-gray-500">
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-gray-700 rounded"></div>
-                  <span>Processing Node</span>
+            <div class="border-t-2 border-gray-700 my-8"></div>
+            
+            <!-- ============ COMMUNICATION LAYER ============ -->
+            <div class="mb-8">
+              <h3 class="text-xl font-bold text-blue-400 mb-6 flex items-center gap-2">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                </svg>
+                Inter-Process Communication (IPC)
+              </h3>
+              
+              <div class="bg-gray-800/50 rounded-xl p-6 border-2 border-blue-500/50">
+                <div class="flex items-center justify-between gap-8">
+                  <!-- Vue/Electron UI -->
+                  <div class="flex-1 bg-gradient-to-br from-cyan-600 to-blue-700 rounded-lg p-4 border-2 border-cyan-400">
+                    <div class="text-center">
+                      <div class="text-lg font-bold text-white mb-2">Vue.js / Electron UI</div>
+                      <div class="text-xs text-cyan-100 mb-3">Frontend Interface</div>
+                      <div class="space-y-1 text-[10px] text-left text-cyan-100">
+                        <div>• User controls & parameters</div>
+                        <div>• Visualization & metering</div>
+                        <div>• File management</div>
+                        <div>• Scene management</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Communication Channel -->
+                  <div class="flex flex-col items-center gap-2">
+                    <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                    </svg>
+                    <div class="bg-blue-900/50 rounded px-3 py-2 border border-blue-500">
+                      <div class="text-xs font-bold text-blue-300 text-center">JSON Commands</div>
+                      <div class="text-[9px] text-gray-400 text-center mt-1">stdin / stdout</div>
+                    </div>
+                    <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                    </svg>
+                  </div>
+                  
+                  <!-- Rust Engine -->
+                  <div class="flex-1 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg p-4 border-2 border-emerald-400">
+                    <div class="text-center">
+                      <div class="text-lg font-bold text-white mb-2">Rust Audio Engine</div>
+                      <div class="text-xs text-emerald-100 mb-3">Backend DSP</div>
+                      <div class="space-y-1 text-[10px] text-left text-emerald-100">
+                        <div>• Audio input/output (ASIO)</div>
+                        <div>• Realtime DSP processing</div>
+                        <div>• Routing & mixing</div>
+                        <div>• Effect processing</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-purple-600 rounded"></div>
-                  <span>Left Channel</span>
+                
+                <!-- Command Examples -->
+                <div class="mt-6 bg-black/40 rounded-lg p-4 border border-gray-700">
+                  <div class="text-sm font-bold text-blue-300 mb-3">Example Commands:</div>
+                  <div class="space-y-2 text-xs font-mono">
+                    <div class="flex items-start gap-2">
+                      <div class="text-cyan-400">→</div>
+                      <div class="flex-1 bg-gray-900 rounded p-2 text-cyan-300">
+                        {"type": "set_gain", "track": 0, "gain": 0.8}
+                      </div>
+                      <div class="text-gray-500 text-[10px] self-center">Set track gain</div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                      <div class="text-cyan-400">→</div>
+                      <div class="flex-1 bg-gray-900 rounded p-2 text-cyan-300">
+                        {"type": "play_file", "track": 1, "file_path": "/path/to/file.wav"}
+                      </div>
+                      <div class="text-gray-500 text-[10px] self-center">Play audio file</div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                      <div class="text-orange-400">←</div>
+                      <div class="flex-1 bg-gray-900 rounded p-2 text-orange-300">
+                        {"type": "meter_update", "track": 0, "level_l": -12.5, "level_r": -14.2}
+                      </div>
+                      <div class="text-gray-500 text-[10px] self-center">Meter data</div>
+                    </div>
+                  </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-blue-600 rounded"></div>
-                  <span>Right Channel</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 border-2 border-dashed border-orange-400 rounded"></div>
-                  <span>Conditional Chain</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                  <span>Active when enabled</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="text-xs font-bold text-yellow-500">↓ TAP</div>
-                  <span>Analysis tap (non-blocking)</span>
-                </div>
-              </div>
-              <div class="mt-3 pt-3 border-t border-gray-700 text-xs text-gray-400">
-                <p class="mb-1"><strong>Note:</strong> Analysis taps (VU, Waveform, Spectrum) are non-blocking connections that monitor the signal without affecting the main audio flow.</p>
-                <p class="mb-1"><strong>Master Architecture:</strong> MasterEQDisplay creates an outputNode that feeds into MasterFX. MasterFX processes effects and outputs to both SpectrumMeter (for visualization) and MasterSection (for audio output).</p>
-                <p><strong>FX Chain Order:</strong> Compressor → Reverb → Delay → Limiter (only if enabled via MasterFX controls). Spectrum analyzes the signal POST-FX processing.</p>
               </div>
             </div>
+            
+            <div class="border-t-2 border-gray-700 my-8"></div>
+            
+            <!-- ============ DETAILED TRACK SIGNAL CHAIN ============ -->
+            <div class="mb-8">
+              <h3 class="text-xl font-bold text-purple-400 mb-6 flex items-center gap-2">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                  <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+                </svg>
+                Detailed Audio Track Signal Chain
+              </h3>
+              
+              <div class="bg-purple-900/20 rounded-xl p-6 border-2 border-purple-500/50">
+                <div class="flex flex-wrap items-center gap-3 text-sm justify-center">
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-gradient-to-br from-green-600 to-green-700 text-white rounded-lg font-bold shadow-lg">Input</div>
+                    <div class="text-xs text-gray-400 mt-1">Audio Source</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-yellow-700 text-white rounded-lg font-semibold border-2 border-dashed border-yellow-400">PAD</div>
+                    <div class="text-xs text-yellow-400 mt-1">-24dB</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold">Gain</div>
+                    <div class="text-xs text-gray-400 mt-1">Preamp</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold border-2 border-dashed border-blue-400">HPF</div>
+                    <div class="text-xs text-blue-400 mt-1">80Hz</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold border-2 border-dashed border-purple-400">Gate</div>
+                    <div class="text-xs text-purple-400 mt-1">Noise gate</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-indigo-700 text-white rounded-lg font-semibold border-2 border-dashed border-indigo-400">Compressor</div>
+                    <div class="text-xs text-indigo-400 mt-1">Dynamics</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow-lg">EQ</div>
+                    <div class="text-xs text-gray-400 mt-1">3-band + Parametric</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-cyan-700 text-white rounded-lg font-semibold">Pan</div>
+                    <div class="text-xs text-gray-400 mt-1">Stereo position</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <div class="flex flex-col items-center border-2 border-amber-500 rounded-lg p-3 bg-amber-900/20">
+                    <div class="text-xs text-amber-300 font-bold mb-2">AUX SENDS</div>
+                    <div class="flex flex-col gap-1 text-[10px]">
+                      <div class="px-2 py-1 bg-amber-700 text-white rounded">Aux 1-6 Sends</div>
+                      <div class="text-amber-300 text-center">Pre/Post Fader</div>
+                    </div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <div class="flex flex-col items-center">
+                    <div class="px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold">Volume</div>
+                    <div class="text-xs text-gray-400 mt-1">Fader</div>
+                  </div>
+                  
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                  
+                  <div class="flex flex-col items-center border-2 border-orange-500 rounded-lg p-3 bg-orange-900/20">
+                    <div class="text-xs text-orange-300 font-bold mb-2">ROUTING</div>
+                    <div class="flex flex-col gap-1 text-[10px] text-center">
+                      <div class="px-2 py-1 bg-red-700 text-white rounded">Master</div>
+                      <div class="px-2 py-1 bg-teal-700 text-white rounded">Subgroups</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="mt-6 p-4 bg-black/40 rounded-lg border border-purple-600/30 text-xs text-gray-300 space-y-2">
+                  <p><strong class="text-purple-400">Processing Order:</strong> All processing happens in fixed order within Rust for optimal CPU efficiency and predictable results.</p>
+                  <p><strong class="text-purple-400">Dashed Borders:</strong> Indicate optional/bypassable processors. Solid borders are always in the signal path.</p>
+                  <p><strong class="text-purple-400">Aux Sends:</strong> Can tap signal at pre-fader (post-pan) or post-fader points for flexible FX routing.</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- ============ LEGEND & NOTES ============ -->
+            <div class="bg-gray-800/70 rounded-xl p-6 border-2 border-gray-600">
+              <h4 class="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+                System Notes & Key Features
+              </h4>
+              
+              <div class="grid md:grid-cols-2 gap-4 text-sm text-gray-300">
+                <div class="space-y-2">
+                  <div class="flex items-start gap-2">
+                    <div class="text-emerald-400 font-bold">•</div>
+                    <div><strong>Separation of Concerns:</strong> Rust handles all realtime audio processing while Vue.js provides the UI. This ensures low-latency audio performance unaffected by UI rendering.</div>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <div class="text-emerald-400 font-bold">•</div>
+                    <div><strong>ASIO via cpal:</strong> Direct ASIO driver communication for ultra-low latency audio I/O on Windows, with CoreAudio on macOS and ALSA/JACK on Linux.</div>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <div class="text-emerald-400 font-bold">•</div>
+                    <div><strong>Zero-Copy Processing:</strong> Audio samples are processed in-place where possible to minimize memory allocation and CPU cache misses.</div>
+                  </div>
+                </div>
+                
+                <div class="space-y-2">
+                  <div class="flex items-start gap-2">
+                    <div class="text-blue-400 font-bold">•</div>
+                    <div><strong>JSON Command Protocol:</strong> Simple text-based protocol over stdin/stdout enables easy debugging and extensibility.</div>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <div class="text-blue-400 font-bold">•</div>
+                    <div><strong>Realtime Safe:</strong> All audio processing uses lock-free data structures and pre-allocated buffers to prevent dropouts.</div>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <div class="text-blue-400 font-bold">•</div>
+                    <div><strong>Rust Safety:</strong> Memory safety and thread safety guaranteed at compile time, eliminating entire classes of audio bugs.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
           </div>
         </div>
       </div>
@@ -744,28 +549,28 @@ onUnmounted(() => {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(31, 41, 55, 0.5); /* gray-800 with opacity */
+  background: rgba(31, 41, 55, 0.5);
   border-radius: 6px;
   margin: 4px 0;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #9333ea 0%, #3b82f6 100%); /* purple-600 to blue-600 */
+  background: linear-gradient(180deg, #f97316 0%, #dc2626 100%);
   border-radius: 6px;
   border: 2px solid rgba(31, 41, 55, 0.5);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #a855f7 0%, #60a5fa 100%); /* purple-500 to blue-400 */
+  background: linear-gradient(180deg, #fb923c 0%, #ef4444 100%);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:active {
-  background: linear-gradient(180deg, #c084fc 0%, #93c5fd 100%); /* purple-400 to blue-300 */
+  background: linear-gradient(180deg, #fdba74 0%, #f87171 100%);
 }
 
 /* Firefox scrollbar */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #9333ea rgba(31, 41, 55, 0.5);
+  scrollbar-color: #f97316 rgba(31, 41, 55, 0.5);
 }
 </style>
