@@ -170,8 +170,8 @@ async function saveCurrentScene() {
 }
 
 function loadScene(scene: any) {
-  emit('loadScene', scene)
   currentSceneId.value = scene.id
+  emit('loadScene', scene)
   close() // Close modal after loading scene
 }
 
@@ -188,6 +188,8 @@ async function updateCurrentScene(scene: any) {
     })
     
     await updateScene(scene.id, tracksData)
+    // Reload scenes to update QuickScenes
+    await loadAllScenes()
     close() // Close modal after updating scene
   } catch (error) {
     console.error('[ScenesModal] Error updating scene:', error)
@@ -208,6 +210,8 @@ async function confirmDeleteScene(scene: any) {
 async function handleTogglePin(scene: any) {
   try {
     await togglePinScene(scene.id)
+    // Reload scenes to update QuickScenes
+    await loadAllScenes()
   } catch (error) {
     console.error('[ScenesModal] Error toggling pin:', error)
   }

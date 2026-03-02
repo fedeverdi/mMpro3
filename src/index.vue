@@ -288,6 +288,7 @@ import NotificationToast from './components/core/NotificationToast.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioEngine } from '~/composables/useAudioEngine'
 import { useNotifications } from '~/composables/useNotifications'
+import { useScenes } from '~/composables/useScenes'
 import { getBuildLimits, canAddTrack, getTrackCounts, getBuildMode } from '~/config/buildLimits'
 import { channel } from 'diagnostics_channel'
 import Recorder from './components/recorder/Recorder.vue'
@@ -748,6 +749,10 @@ async function handleLoadScene(scene: any) {
         await trackRef.setState(trackState)
       }
     }
+    
+    // Set current scene ID in the composable
+    const { setCurrentSceneId } = useScenes()
+    setCurrentSceneId(scene.id)
     
     console.log('[Scene] Scene loaded:', scene.name)
   } catch (error) {

@@ -14,8 +14,8 @@
       :class="[
         'px-2 pt-[0.09rem] pb-[0.1rem] border rounded text-[0.6rem] transition-all flex items-center gap-1.5',
         currentSceneId === scene.id
-          ? 'bg-green-600 text-white border-green-500 hover:bg-green-500'
-          : 'bg-gray-700 hover:bg-gray-600 text-gray-300 border-gray-600 hover:border-gray-500'
+          ? 'bg-emerald-500 text-white border-emerald-400 hover:bg-emerald-400'
+          : 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500 hover:border-blue-400'
       ]"
       :title="`${scene.name} (${scene.tracks.length} tracks)`"
     >
@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useScenes } from '~/composables/useScenes'
 
 const emit = defineEmits<{
@@ -38,10 +38,15 @@ const pinnedScenes = computed(() => {
   return scenes.value.filter(s => s.pinned).sort((a, b) => b.timestamp - a.timestamp)
 })
 
-// Load scenes when component mounts
+// Load scenes when component mounts and watch for changes
 onMounted(async () => {
   await loadAllScenes()
 })
+
+// Watch scenes array to reload when it changes
+watch(scenes, async () => {
+  // Scenes array is reactive, so this will trigger when scenes are updated
+}, { deep: true })
 
 function loadScene(scene: any) {
   emit('loadScene', scene)

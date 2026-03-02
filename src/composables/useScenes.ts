@@ -45,9 +45,11 @@ export interface Scene {
   // Future: master settings, subgroup settings, etc.
 }
 
+// Shared state (singleton pattern)
+const scenes = ref<Scene[]>([])
+const currentSceneId = ref<string | null>(null)
+
 export function useScenes() {
-  const scenes = ref<Scene[]>([])
-  const currentSceneId = ref<string | null>(null)
   
   /**
    * Save a scene to filesystem
@@ -176,6 +178,13 @@ export function useScenes() {
     }
   }
   
+  /**
+   * Set the current active scene ID
+   */
+  function setCurrentSceneId(sceneId: string | null): void {
+    currentSceneId.value = sceneId
+  }
+  
   return {
     scenes,
     currentSceneId,
@@ -185,6 +194,7 @@ export function useScenes() {
     getScene,
     deleteScene,
     togglePinScene,
-    createNewScene
+    createNewScene,
+    setCurrentSceneId
   }
 }
