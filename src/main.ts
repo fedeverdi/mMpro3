@@ -766,6 +766,94 @@ ipcMain.handle('audio-engine:delete-library-file', async (_event, fileId: string
   }
 })
 
+// ============================================================================
+// Playlist IPC Handlers
+// ============================================================================
+
+ipcMain.handle('audio-engine:save-playlist', async (_event, playlist: any) => {
+  try {
+    const playlistsDir = path.join(os.homedir(), 'Music', 'MMpro3_Playlists')
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(playlistsDir)) {
+      fs.mkdirSync(playlistsDir, { recursive: true })
+    }
+    
+    const playlistPath = path.join(playlistsDir, `${playlist.id}.json`)
+    fs.writeFileSync(playlistPath, JSON.stringify(playlist, null, 2))
+    
+    console.log('[Main] Playlist saved:', playlistPath)
+  } catch (error) {
+    console.error('[Main] Error saving playlist:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('audio-engine:list-playlists', async () => {
+  try {
+    const playlistsDir = path.join(os.homedir(), 'Music', 'MMpro3_Playlists')
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(playlistsDir)) {
+      fs.mkdirSync(playlistsDir, { recursive: true })
+      return []
+    }
+    
+    // Read all playlist JSON files
+    const files = fs.readdirSync(playlistsDir)
+      .filter(file => file.endsWith('.json'))
+      .map(file => {
+        const filePath = path.join(playlistsDir, file)
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8')
+          return JSON.parse(content)
+        } catch (error) {
+          console.error('[Main] Error parsing playlist:', file, error)
+          return null
+        }
+      })
+      .filter(playlist => playlist !== null)
+      .sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt))
+    
+    return files
+  } catch (error) {
+    console.error('[Main] Error listing playlists:', error)
+    return []
+  }
+})
+
+ipcMain.handle('audio-engine:get-playlist', async (_event, playlistId: string) => {
+  try {
+    const playlistsDir = path.join(os.homedir(), 'Music', 'MMpro3_Playlists')
+    const playlistPath = path.join(playlistsDir, `${playlistId}.json`)
+    
+    if (!fs.existsSync(playlistPath)) {
+      return null
+    }
+    
+    const content = fs.readFileSync(playlistPath, 'utf-8')
+    return JSON.parse(content)
+  } catch (error) {
+    console.error('[Main] Error getting playlist:', error)
+    return null
+  }
+})
+
+ipcMain.handle('audio-engine:delete-playlist', async (_event, playlistId: string) => {
+  try {
+    const playlistsDir = path.join(os.homedir(), 'Music', 'MMpro3_Playlists')
+    const playlistPath = path.join(playlistsDir, `${playlistId}.json`)
+    
+    if (fs.existsSync(playlistPath)) {
+      fs.unlinkSync(playlistPath)
+      console.log('[Main] Playlist deleted:', playlistId)
+    }
+  } catch (error) {
+    console.error('[Main] Error deleting playlist:', error)
+    throw error
+  }
+})
+
 // Window state management
 interface WindowState {
   x?: number

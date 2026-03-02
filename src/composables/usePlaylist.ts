@@ -12,45 +12,12 @@ export interface Playlist {
   updatedAt: number
 }
 
-const DB_NAME = 'MMpro3_Playlists'
-const STORE_NAME = 'playlists'
-const DB_VERSION = 1
-
-let db: IDBDatabase | null = null
-
-// Initialize IndexedDB
-async function initDB(): Promise<IDBDatabase> {
-  if (db) return db
-
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-
-    request.onerror = () => reject(request.error)
-    request.onsuccess = () => {
-      db = request.result
-      resolve(db)
-    }
-
-    request.onupgradeneeded = (event) => {
-      const database = (event.target as IDBOpenDBRequest).result
-
-      // Create playlists store
-      if (!database.objectStoreNames.contains(STORE_NAME)) {
-        const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' })
-        store.createIndex('name', 'name', { unique: false })
-        store.createIndex('updatedAt', 'updatedAt', { unique: false })
-      }
-    }
-  })
-}
-
 export function usePlaylist() {
   const playlists = ref<Playlist[]>([])
+  const api = (window as any).audioEngine
 
   // Create a new playlist
   async function createPlaylist(name: string, fileIds: string[] = []): Promise<Playlist> {
-    const database = await initDB()
-
     const playlist: Playlist = {
       id: `playlist_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name,
@@ -59,54 +26,26 @@ export function usePlaylist() {
       updatedAt: Date.now()
     }
 
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction([STORE_NAME], 'readwrite')
-      const store = transaction.objectStore(STORE_NAME)
-      const request = store.add(playlist)
-
-      request.onsuccess = () => {
-        playlists.value.push(playlist)
-        resolve(playlist)
-      }
-      request.onerror = () => reject(request.error)
-    })
+    await api.savePlaylist(playlist)
+    playlists.value.push(playlist)
+    return playlist
   }
 
   // Get all playlists
   async function getAllPlaylists(): Promise<Playlist[]> {
-    const database = await initDB()
-
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction([STORE_NAME], 'readonly')
-      const store = transaction.objectStore(STORE_NAME)
-      const request = store.getAll()
-
-      request.onsuccess = () => {
-        const allPlaylists = request.result as Playlist[]
-        playlists.value = allPlaylists.sort((a, b) => b.updatedAt - a.updatedAt)
-        resolve(playlists.value)
-      }
-      request.onerror = () => reject(request.error)
-    })
+    const allPlaylists = await api.listPlaylists()
+    playlists.value = allPlaylists
+    return playlists.value
   }
 
   // Get a specific playlist by ID
   async function getPlaylist(id: string): Promise<Playlist | null> {
-    const database = await initDB()
-
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction([STORE_NAME], 'readonly')
-      const store = transaction.objectStore(STORE_NAME)
-      const request = store.get(id)
-
-      request.onsuccess = () => resolve(request.result || null)
-      request.onerror = () => reject(request.error)
-    })
+    const playlist = await api.getPlaylist(id)
+    return playlist
   }
 
   // Update a playlist (rename or modify file list)
   async function updatePlaylist(id: string, updates: Partial<Omit<Playlist, 'id' | 'createdAt'>>): Promise<void> {
-    const database = await initDB()
     const existing = await getPlaylist(id)
     
     if (!existing) {
@@ -119,20 +58,12 @@ export function usePlaylist() {
       updatedAt: Date.now()
     }
 
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction([STORE_NAME], 'readwrite')
-      const store = transaction.objectStore(STORE_NAME)
-      const request = store.put(updated)
-
-      request.onsuccess = () => {
-        const index = playlists.value.findIndex(p => p.id === id)
-        if (index !== -1) {
-          playlists.value[index] = updated
-        }
-        resolve()
-      }
-      request.onerror = () => reject(request.error)
-    })
+    await api.savePlaylist(updated)
+    
+    const index = playlists.value.findIndex(p => p.id === id)
+    if (index !== -1) {
+      playlists.value[index] = updated
+    }
   }
 
   // Add files to a playlist
@@ -165,19 +96,8 @@ export function usePlaylist() {
 
   // Delete a playlist
   async function deletePlaylist(id: string): Promise<void> {
-    const database = await initDB()
-
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction([STORE_NAME], 'readwrite')
-      const store = transaction.objectStore(STORE_NAME)
-      const request = store.delete(id)
-
-      request.onsuccess = () => {
-        playlists.value = playlists.value.filter(p => p.id !== id)
-        resolve()
-      }
-      request.onerror = () => reject(request.error)
-    })
+    await api.deletePlaylist(id)
+    playlists.value = playlists.value.filter(p => p.id !== id)
   }
 
   // Get actual audio files from a playlist (resolves file IDs to StoredAudioFile objects)

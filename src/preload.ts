@@ -136,6 +136,12 @@ contextBridge.exposeInMainWorld('audioEngine', {
   getLibraryFile: (fileId: string) => ipcRenderer.invoke('audio-engine:get-library-file', fileId),
   deleteLibraryFile: (fileId: string) => ipcRenderer.invoke('audio-engine:delete-library-file', fileId),
   
+  // Playlists
+  savePlaylist: (playlist: any) => ipcRenderer.invoke('audio-engine:save-playlist', playlist),
+  listPlaylists: () => ipcRenderer.invoke('audio-engine:list-playlists'),
+  getPlaylist: (playlistId: string) => ipcRenderer.invoke('audio-engine:get-playlist', playlistId),
+  deletePlaylist: (playlistId: string) => ipcRenderer.invoke('audio-engine:delete-playlist', playlistId),
+  
   // Response listener
   onResponse: (callback: (response: any) => void) => {
     ipcRenderer.on('audio-engine-response', (_, data) => callback(data))
