@@ -283,7 +283,6 @@ let dragStartX = 0
 let dragStartQ = 0
 
 onMounted(async () => {
-  // Using Rust backend - no Tone.js needed
   await nextTick()
   
   setupCanvas()
@@ -399,7 +398,6 @@ function updateFilterNode(displayIndex: number) {
   
   if (userFilterIndex < 0 || userFilterIndex >= filters.value.length) return
   
-  // Emit update for Rust backend (no Tone.js nodes needed)
   emit('update', {
     input: null,
     output: null,
@@ -573,7 +571,6 @@ function handleCanvasMouseMove(e: MouseEvent) {
     const sensitivity = 0.05 // Q change per pixel
     const newQ = dragStartQ + (deltaX * sensitivity)
     filter.Q = parseFloat(Math.max(0.1, Math.min(20, newQ)).toFixed(2))
-    // Tone.js nodes removed - Rust backend handles audio
   } else {
     // Dragging main point - change frequency and gain
     // Convert x position to frequency (log scale)
@@ -587,7 +584,6 @@ function handleCanvasMouseMove(e: MouseEvent) {
     const height = 450
     const gain = 24 - (y / height) * 48 // -24 to +24 dB
     filter.gain = Math.max(-24, Math.min(24, Math.round(gain * 2) / 2))
-    // Tone.js nodes removed - Rust backend handles audio
   }
   
   // Always emit update during drag for real-time processing in Rust backend

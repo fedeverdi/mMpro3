@@ -47,9 +47,6 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'update:filtersData', value: any[]): void
 }>()
-
-// No longer using Tone.js - audio processing handled by Rust backend
-
 const showMasterEQ = ref(false)
 const masterEqCanvas = ref<HTMLCanvasElement | null>(null)
 const internalFiltersData = ref<any[]>([])

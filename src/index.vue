@@ -1004,7 +1004,6 @@ async function handleAudioConfigApply(config: { sampleRate: number; bufferSize: 
 onMounted(async () => {
   document.title = 'Audio Mixer Pro - Multi-Track Mixer'
 
-  // Rust backend handles all audio routing - no Tone.js needed
   masterChannel.value = null
 
   // Add initial subgroup and aux buses FIRST (before async operations) for immediate rendering

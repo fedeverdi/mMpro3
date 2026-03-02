@@ -23,7 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, inject, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAudioFileStorage } from '~/composables/useAudioFileStorage'
 
 interface Props {
@@ -43,8 +43,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const { getAudioFile } = useAudioFileStorage()
-const ToneRef = inject<any>('Tone', null)
-let Tone: any = null
 
 // Calculate playback position as percentage
 const playbackPosition = computed(() => {
@@ -53,19 +51,22 @@ const playbackPosition = computed(() => {
 })
 
 onMounted(async () => {
-  Tone = ToneRef?.value ?? ToneRef
-  if (!Tone || !canvasRef.value) return
+  if (!canvasRef.value) return
 
   try {
-    // Load audio file from IndexedDB
+    // Load audio file from filesystem
     const storedFile = await getAudioFile(props.fileId)
-    if (!storedFile) {
-      console.error('[StaticWaveform] File not found:', props.fileId)
+    if (!storedFile || !storedFile.arrayBuffer) {
+      console.error('[StaticWaveform] File not found or no arrayBuffer:', props.fileId)
       return
     }
 
-    // Decode audio data
-    const audioBuffer = await Tone.context.decodeAudioData(storedFile.arrayBuffer.slice(0))
+    // Use native Web Audio API to decode audio data
+    const audioContext = new AudioContext()
+    const audioBuffer = await audioContext.decodeAudioData(storedFile.arrayBuffer.slice(0))
+    
+    // Close context to free resources
+    audioContext.close()
     
     // Draw waveform
     drawWaveform(audioBuffer)

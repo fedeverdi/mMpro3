@@ -251,9 +251,15 @@ const faderContainer = ref<HTMLElement | null>(null)
 const faderHeight = ref(0)
 const selectedAudioFile = ref<string | null>(null)
 const selectedFileName = ref<string | null>(null)
+const audioMonitorElement = ref<HTMLAudioElement | null>(null)
 
 const audioSourceType = ref<'input' | 'file'>('input')
 const selectedAudioInput = ref<string>('')
+
+// Playlist state
+const playlistFiles = ref<any[]>([])
+const currentPlaylistIndex = ref(0)
+const currentPlaylist = ref<any | null>(null)
 
 // Control values
 const volume = ref(0) // dB (-90 to +12)
@@ -408,6 +414,12 @@ function handleStopFile() {
   if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
     audioEngine.stopFile(props.trackNumber - 1)
     isPlaying.value = false
+    
+    // Stop audio monitor if present
+    if (audioMonitorElement.value) {
+      audioMonitorElement.value.pause()
+      audioMonitorElement.value.currentTime = 0
+    }
   }
 }
 
@@ -421,6 +433,12 @@ async function loadFileFromLibrary(storedFile: any) {
     // Use file path directly from library (no need for temp file)
     if (audioEngine?.state.value.isRunning && storedFile.filePath) {
       await audioEngine.setTrackSourceFile(props.trackNumber - 1, storedFile.filePath)
+      
+      // Setup audio monitor for duration tracking (for playlist auto-advance)
+      if (currentPlaylist.value && playlistFiles.value.length > 0) {
+        setupAudioMonitor(storedFile.filePath)
+      }
+      
       // Auto-play the file
       await audioEngine.playFile(props.trackNumber - 1)
       isPlaying.value = true
@@ -428,6 +446,75 @@ async function loadFileFromLibrary(storedFile: any) {
   } catch (error) {
     console.error(`[Track ${props.trackNumber}] Error loading file from library:`, error)
   }
+}
+
+// Method to load playlist from library (called from parent)
+async function loadPlaylistFromLibrary(playlist: any) {
+  try {
+    // Import usePlaylist to get files
+    const { usePlaylist } = await import('~/composables/usePlaylist')
+    const { getPlaylistFiles } = usePlaylist()
+    const files = await getPlaylistFiles(playlist.id)
+    
+    if (files.length === 0) {
+      console.error('Playlist is empty')
+      return
+    }
+
+    // Store playlist state
+    currentPlaylist.value = playlist
+    playlistFiles.value = files
+    currentPlaylistIndex.value = 0
+    
+    // Load and play first file
+    const firstFile = files[0]
+    const trackName = firstFile.title || firstFile.fileName
+    const trackDisplay = firstFile.artist ? `${firstFile.artist} - ${trackName}` : trackName
+    
+    selectedFileName.value = `${playlist.name} (1/${files.length}) - ${trackDisplay}`
+    audioSourceType.value = 'file'
+    
+    await loadFileFromLibrary(firstFile)
+  } catch (error) {
+    console.error('Error loading playlist:', error)
+  }
+}
+
+// Setup audio monitor for tracking file duration
+function setupAudioMonitor(filePath: string) {
+  // Create or reuse hidden audio element
+  if (!audioMonitorElement.value) {
+    audioMonitorElement.value = new Audio()
+    audioMonitorElement.value.volume = 0 // Silent
+    
+    // When file ends, load next in playlist
+    audioMonitorElement.value.onended = () => {
+      playNextInPlaylist()
+    }
+  }
+  
+  // Load the same file that Rust engine is playing
+  audioMonitorElement.value.src = `file://${filePath}`
+  audioMonitorElement.value.play().catch(err => {
+    console.error('Audio monitor play error:', err)
+  })
+}
+
+// Play next file in playlist
+async function playNextInPlaylist() {
+  if (!currentPlaylist.value || playlistFiles.value.length === 0) return
+  
+  const nextIndex = (currentPlaylistIndex.value + 1) % playlistFiles.value.length
+  currentPlaylistIndex.value = nextIndex
+  
+  const nextFile = playlistFiles.value[nextIndex]
+  if (!nextFile) return
+  
+  const trackName = nextFile.title || nextFile.fileName
+  const trackDisplay = nextFile.artist ? `${nextFile.artist} - ${trackName}` : trackName
+  selectedFileName.value = `${currentPlaylist.value.name} (${nextIndex + 1}/${playlistFiles.value.length}) - ${trackDisplay}`
+  
+  await loadFileFromLibrary(nextFile)
 }
 
 function toggleMute() {
@@ -762,12 +849,18 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // Cleanup if needed
+  // Cleanup audio monitor
+  if (audioMonitorElement.value) {
+    audioMonitorElement.value.pause()
+    audioMonitorElement.value.src = ''
+    audioMonitorElement.value = null
+  }
 })
 
 // Expose methods to parent
 defineExpose({
-  loadFileFromLibrary
+  loadFileFromLibrary,
+  loadPlaylistFromLibrary
 })
 </script>
 
