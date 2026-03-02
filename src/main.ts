@@ -266,7 +266,6 @@ ipcMain.handle('audio-engine:save-temp-audio-file', async (_, arrayBuffer: Array
 
 // File playback controls
 ipcMain.handle('audio-engine:play-file', async (_, track: number) => {
-  console.log('[Main] Playing file on track:', track)
   await sendCommandToEngine({ type: 'play_file', track })
 })
 

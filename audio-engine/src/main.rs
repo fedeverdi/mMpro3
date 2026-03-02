@@ -2319,7 +2319,6 @@ impl AudioEngine {
                             })
                             .collect();
                         
-                        eprintln!("[Engine] Found {} input channels", input_devices.len());
                         Some(Response::AudioInputs { inputs: input_devices })
                     },
                     Err(e) => {

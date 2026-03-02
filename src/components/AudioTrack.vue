@@ -523,6 +523,21 @@ function setupAudioMonitor(filePath: string) {
 async function playNextInPlaylist() {
   if (!currentPlaylist.value || playlistFiles.value.length === 0) return
   
+  // Stop audio monitor first
+  if (audioMonitorElement.value) {
+    audioMonitorElement.value.pause()
+    audioMonitorElement.value.currentTime = 0
+  }
+
+  // Stop current playback
+  if (audioEngine?.state.value.isRunning) {
+    await audioEngine.stopFile(props.trackNumber - 1)
+    isPlaying.value = false
+  }
+
+  // Wait a bit for the audio buffer to clear
+  await new Promise(resolve => setTimeout(resolve, 500))
+  
   const nextIndex = (currentPlaylistIndex.value + 1) % playlistFiles.value.length
   currentPlaylistIndex.value = nextIndex
   
