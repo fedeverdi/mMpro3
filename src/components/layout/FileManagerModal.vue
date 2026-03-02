@@ -42,12 +42,28 @@
               <p class="text-white font-semibold mb-1">
                 {{ isUploading ? 'Uploading files...' : 'Drag & drop audio files here' }}
               </p>
-              <p v-if="!isUploading" class="text-sm text-gray-400">
+              <p v-if="!isUploading" class="text-sm text-gray-400 mb-3">
                 Supports MP3, WAV, FLAC, M4A, AAC, OGG, WMA, AIFF
               </p>
+              <button 
+                v-if="!isUploading"
+                @click="triggerFilePicker"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white text-sm font-semibold transition-colors"
+              >
+                Or click to browse files
+              </button>
               <p v-if="uploadProgress" class="text-sm text-blue-400 mt-2">
                 {{ uploadProgress }}
               </p>
+              <!-- Hidden file input -->
+              <input 
+                ref="fileInput"
+                type="file"
+                multiple
+                accept="audio/mp3,audio/wav,audio/flac,audio/m4a,audio/aac,audio/ogg,audio/x-m4a,audio/mpeg,.mp3,.wav,.flac,.m4a,.aac,.ogg,.wma,.aiff"
+                @change="handleFileInput"
+                class="hidden"
+              />
             </div>
           </div>
         </div>
@@ -648,6 +664,7 @@ const {
 } = usePlaylist()
 const notify = useNotifications()
 
+const fileInput = ref<HTMLInputElement | null>(null)
 const files = ref<StoredAudioFile[]>([])
 const isLoading = ref(false)
 const isUploading = ref(false)
@@ -756,6 +773,27 @@ async function processFiles(filesToProcess: File[]) {
   } finally {
     isUploading.value = false
   }
+}
+
+// Trigger file input click
+function triggerFilePicker() {
+  if (isUploading.value) return
+  fileInput.value?.click()
+}
+
+// Handle file input change
+function handleFileInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  const selectedFiles = target.files
+  
+  if (!selectedFiles || selectedFiles.length === 0) return
+  
+  // Convert FileList to File array and process
+  const filesArray = Array.from(selectedFiles)
+  processFiles(filesArray)
+  
+  // Clear input so same file can be selected again
+  target.value = ''
 }
 
 const filteredFiles = computed(() => {
