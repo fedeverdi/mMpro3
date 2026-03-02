@@ -52,7 +52,8 @@
         <button @click="handlePlayFile" :disabled="!selectedFileName"
           class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
           :class="isPlaying ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-          ▶ PLAY
+          <span v-if="isPlaylistMode && isPlaying">⏭ NEXT</span>
+          <span v-else>▶ PLAY</span>
         </button>
         <button @click="handleStopFile" :disabled="!selectedFileName"
           class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all flex items-center justify-center gap-1 bg-gray-700 hover:bg-gray-600 text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -273,6 +274,11 @@ const phaseInverted = ref(false)
 const routeToMaster = ref(true)
 const routedSubgroups = ref<Set<number>>(new Set()) // Track which subgroups this track is routed to
 
+// Computed - Check if we're in playlist mode
+const isPlaylistMode = computed(() => {
+  return currentPlaylist.value !== null && playlistFiles.value.length > 0
+})
+
 // Aux sends state
 const auxSendsData = ref<Record<string, { level: number, preFader: boolean, muted: boolean }>>({})
 const showAuxSendsPanel = ref(false)
@@ -404,6 +410,13 @@ function openLibrary() {
 
 // File playback controls
 function handlePlayFile() {
+  // If in playlist mode and already playing, go to next track
+  if (isPlaylistMode.value && isPlaying.value) {
+    playNextInPlaylist()
+    return
+  }
+  
+  // Otherwise, just play the current file
   if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
     audioEngine.playFile(props.trackNumber - 1)
     isPlaying.value = true
