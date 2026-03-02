@@ -894,7 +894,88 @@ onUnmounted(() => {
 // Expose methods to parent
 defineExpose({
   loadFileFromLibrary,
-  loadPlaylistFromLibrary
+  loadPlaylistFromLibrary,
+  getState: () => ({
+    // Audio source
+    audioFile: selectedAudioFile.value ? {
+      id: selectedAudioFile.value,
+      fileName: selectedFileName.value || ''
+    } : undefined,
+    
+    // Basic controls
+    gain: gain.value,
+    volume: volume.value,
+    pan: pan.value,
+    mute: isMuted.value,
+    solo: isSolo.value,
+    phaseInvert: phaseInverted.value,
+    padEnabled: padEnabled.value,
+    hpfEnabled: hpfEnabled.value,
+    
+    // Routing
+    routeToMaster: routeToMaster.value,
+    routedSubgroups: Array.from(routedSubgroups.value),
+    
+    // Effects enabled state (detailed params are in Rust)
+    gateEnabled: gateEnabled.value,
+    compressorEnabled: compressorEnabled.value,
+    
+    // EQ (4-band)
+    eqEnabled: eqEnabled.value,
+    eqLow: eqLow.value,
+    eqLowMid: eqLowMid.value,
+    eqHighMid: eqHighMid.value,
+    eqHigh: eqHigh.value,
+    
+    // Parametric EQ
+    parametricEQFilters: parametricEQFilters.value
+  }),
+  setState: async (state: any) => {
+    // Restore state
+    if (state.audioFile) {
+      // Load audio file from library
+      try {
+        const fileData = await window.audioEngine.getLibraryFile(state.audioFile.id)
+        if (fileData) {
+          await loadFileFromLibrary(fileData)
+        }
+      } catch (error) {
+        console.error('[AudioTrack] Error loading file from scene:', error)
+        // Fallback: just set the UI state
+        selectedAudioFile.value = state.audioFile.id
+        selectedFileName.value = state.audioFile.fileName
+        audioSourceType.value = 'file'
+      }
+    }
+    
+    // Basic controls
+    gain.value = state.gain ?? 0
+    volume.value = state.volume ?? 0
+    pan.value = state.pan ?? 0
+    isMuted.value = state.mute ?? false
+    isSolo.value = state.solo ?? false
+    phaseInverted.value = state.phaseInvert ?? false
+    padEnabled.value = state.padEnabled ?? false
+    hpfEnabled.value = state.hpfEnabled ?? false
+    
+    // Routing
+    routeToMaster.value = state.routeToMaster ?? true
+    routedSubgroups.value = new Set(state.routedSubgroups ?? [])
+    
+    // Effects
+    gateEnabled.value = state.gateEnabled ?? false
+    compressorEnabled.value = state.compressorEnabled ?? false
+    
+    // EQ
+    eqEnabled.value = state.eqEnabled ?? false
+    eqLow.value = state.eqLow ?? 0
+    eqLowMid.value = state.eqLowMid ?? 0
+    eqHighMid.value = state.eqHighMid ?? 0
+    eqHigh.value = state.eqHigh ?? 0
+    
+    // Parametric EQ
+    parametricEQFilters.value = state.parametricEQFilters ?? []
+  }
 })
 </script>
 

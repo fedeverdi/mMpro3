@@ -142,6 +142,12 @@ contextBridge.exposeInMainWorld('audioEngine', {
   getPlaylist: (playlistId: string) => ipcRenderer.invoke('audio-engine:get-playlist', playlistId),
   deletePlaylist: (playlistId: string) => ipcRenderer.invoke('audio-engine:delete-playlist', playlistId),
   
+  // Scenes
+  saveScene: (scene: any) => ipcRenderer.invoke('audio-engine:save-scene', scene),
+  listScenes: () => ipcRenderer.invoke('audio-engine:list-scenes'),
+  getScene: (sceneId: string) => ipcRenderer.invoke('audio-engine:get-scene', sceneId),
+  deleteScene: (sceneId: string) => ipcRenderer.invoke('audio-engine:delete-scene', sceneId),
+  
   // Response listener
   onResponse: (callback: (response: any) => void) => {
     ipcRenderer.on('audio-engine-response', (_, data) => callback(data))

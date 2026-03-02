@@ -108,6 +108,24 @@ interface AudioEngine {
   setAuxBusRouteToSubgroup: (aux: number, subgroup: number, route: boolean) => Promise<void>
   setTrackSourceAuxReturn: (track: number, aux: number) => Promise<void>
   
+  // Library Files
+  saveLibraryFile: (arrayBuffer: ArrayBuffer, fileName: string, metadata?: any) => Promise<{ id: string, filePath: string }>
+  listLibraryFiles: () => Promise<Array<any>>
+  getLibraryFile: (fileId: string) => Promise<any>
+  deleteLibraryFile: (fileId: string) => Promise<void>
+  
+  // Playlists
+  savePlaylist: (playlist: any) => Promise<void>
+  listPlaylists: () => Promise<Array<any>>
+  getPlaylist: (playlistId: string) => Promise<any>
+  deletePlaylist: (playlistId: string) => Promise<void>
+  
+  // Scenes
+  saveScene: (scene: any) => Promise<void>
+  listScenes: () => Promise<Array<any>>
+  getScene: (sceneId: string) => Promise<any>
+  deleteScene: (sceneId: string) => Promise<void>
+  
   // File dialog
   showOpenFileDialog: () => Promise<Array<{ name: string; path: string }> | null>
   readFileAsBuffer: (filePath: string) => Promise<{ name: string; buffer: ArrayBuffer }>

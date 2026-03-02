@@ -851,6 +851,94 @@ ipcMain.handle('audio-engine:delete-playlist', async (_event, playlistId: string
   }
 })
 
+// ============================================================================
+// Scenes IPC Handlers
+// ============================================================================
+
+ipcMain.handle('audio-engine:save-scene', async (_event, scene: any) => {
+  try {
+    const scenesDir = path.join(app.getPath('userData'), 'Scenes')
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(scenesDir)) {
+      fs.mkdirSync(scenesDir, { recursive: true })
+    }
+    
+    const scenePath = path.join(scenesDir, `${scene.id}.json`)
+    fs.writeFileSync(scenePath, JSON.stringify(scene, null, 2))
+    
+    console.log('[Main] Scene saved:', scenePath)
+  } catch (error) {
+    console.error('[Main] Error saving scene:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('audio-engine:list-scenes', async () => {
+  try {
+    const scenesDir = path.join(app.getPath('userData'), 'Scenes')
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(scenesDir)) {
+      fs.mkdirSync(scenesDir, { recursive: true })
+      return []
+    }
+    
+    // Read all scene JSON files
+    const files = fs.readdirSync(scenesDir)
+      .filter(file => file.endsWith('.json'))
+      .map(file => {
+        const filePath = path.join(scenesDir, file)
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8')
+          return JSON.parse(content)
+        } catch (error) {
+          console.error('[Main] Error parsing scene:', file, error)
+          return null
+        }
+      })
+      .filter(scene => scene !== null)
+      .sort((a, b) => b.timestamp - a.timestamp) // Most recent first
+    
+    return files
+  } catch (error) {
+    console.error('[Main] Error listing scenes:', error)
+    return []
+  }
+})
+
+ipcMain.handle('audio-engine:get-scene', async (_event, sceneId: string) => {
+  try {
+    const scenesDir = path.join(app.getPath('userData'), 'Scenes')
+    const scenePath = path.join(scenesDir, `${sceneId}.json`)
+    
+    if (!fs.existsSync(scenePath)) {
+      return null
+    }
+    
+    const content = fs.readFileSync(scenePath, 'utf-8')
+    return JSON.parse(content)
+  } catch (error) {
+    console.error('[Main] Error getting scene:', error)
+    return null
+  }
+})
+
+ipcMain.handle('audio-engine:delete-scene', async (_event, sceneId: string) => {
+  try {
+    const scenesDir = path.join(app.getPath('userData'), 'Scenes')
+    const scenePath = path.join(scenesDir, `${sceneId}.json`)
+    
+    if (fs.existsSync(scenePath)) {
+      fs.unlinkSync(scenePath)
+      console.log('[Main] Scene deleted:', sceneId)
+    }
+  } catch (error) {
+    console.error('[Main] Error deleting scene:', error)
+    throw error
+  }
+})
+
 // Window state management
 interface WindowState {
   x?: number

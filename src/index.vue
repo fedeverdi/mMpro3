@@ -204,7 +204,12 @@
       @select-playlist="handlePlaylistSelect" />
 
     <!-- Scenes Modal -->
-    <ScenesModal v-model="showScenesModal" />
+    <ScenesModal 
+      v-model="showScenesModal" 
+      :tracks="tracks"
+      :get-track-state="getTrackState"
+      @load-scene="handleLoadScene"
+    />
 
     <!-- Lock System -->
     <SetLockPasswordModal :show="showSetPasswordModal" @close="showSetPasswordModal = false"
@@ -712,6 +717,36 @@ function setTrackRef(trackId: number, el: any | null) {
   } else {
     // Remove ref when component is unmounted
     trackRefs.value.delete(trackId)
+  }
+}
+
+// Scene management
+function getTrackState(trackId: number): any {
+  const trackRef = trackRefs.value.get(trackId)
+  if (!trackRef || !trackRef.getState) {
+    console.warn('[Scene] Track ref not found or no getState method:', trackId)
+    return null
+  }
+  return trackRef.getState()
+}
+
+async function handleLoadScene(scene: any) {
+  try {
+    // Load each track's state
+    for (let i = 0; i < scene.tracks.length; i++) {
+      const trackState = scene.tracks[i]
+      const track = tracks.value[i]
+      if (!track) continue
+      
+      const trackRef = trackRefs.value.get(track.id)
+      if (trackRef && trackRef.setState) {
+        await trackRef.setState(trackState)
+      }
+    }
+    
+    console.log('[Scene] Scene loaded:', scene.name)
+  } catch (error) {
+    console.error('[Scene] Error loading scene:', error)
   }
 }
 
