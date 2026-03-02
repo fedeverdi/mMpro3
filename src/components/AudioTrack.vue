@@ -52,7 +52,13 @@
         <button @click="handlePlayFile" :disabled="!selectedFileName"
           class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
           :class="isPlaying ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-          <span v-if="isPlaylistMode && isPlaying">⏭ NEXT</span>
+          <span v-if="isPlaylistMode && isPlaying" class="flex items-center gap-0.5">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 4l8 8-8 8V4z"/>
+              <path d="M14 4l8 8-8 8V4z"/>
+            </svg>
+            NEXT
+          </span>
           <span v-else>▶ PLAY</span>
         </button>
         <button @click="handleStopFile" :disabled="!selectedFileName"
