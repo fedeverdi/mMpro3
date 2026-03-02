@@ -877,7 +877,7 @@ async function handleLoadScene(scene: any) {
     // Clear all subgroups before loading scene
     // Remove from backend first
     for (const subgroup of subgroups.value) {
-      await audioEngine.removeSubgroup(subgroup.id)
+      audioEngine.removeSubgroup(subgroup.id)
     }
     // Clear frontend array
     subgroups.value = []
@@ -935,8 +935,8 @@ async function handleLoadScene(scene: any) {
           
           // Apply backend state
           const linearVolume = Math.pow(10, tempSubgroup.volume / 20)
-          await audioEngine.setSubgroupGain(id, linearVolume)
-          await audioEngine.setSubgroupRouteToMaster(id, tempSubgroup.routeToMaster)
+          audioEngine.setSubgroupGain(id, linearVolume)
+          audioEngine.setSubgroupRouteToMaster(id, tempSubgroup.routeToMaster)
           
           // Apply output device
           if (tempSubgroup.selectedOutput && tempSubgroup.selectedOutput !== 'no-output') {
@@ -945,10 +945,10 @@ async function handleLoadScene(scene: any) {
             const leftCh = parts[1] ? parseInt(parts[1]) : 0
             const rightCh = parts[2] ? parseInt(parts[2]) : 1
             
-            await audioEngine.setSubgroupOutputEnabled(id, true)
-            await audioEngine.setSubgroupOutputChannels(id, leftCh, rightCh)
+            audioEngine.setSubgroupOutputEnabled(id, true)
+            audioEngine.setSubgroupOutputChannels(id, leftCh, rightCh)
           } else {
-            await audioEngine.setSubgroupOutputEnabled(id, false)
+            audioEngine.setSubgroupOutputEnabled(id, false)
           }
         }
       }
@@ -1039,13 +1039,13 @@ async function handleLoadScene(scene: any) {
             if (audioEngine.state.value.isRunning) {
               // Apply volume
               const linearGain = Math.pow(10, aux.volume / 20)
-              await audioEngine.setAuxBusGain(auxIndex, linearGain)
+              audioEngine.setAuxBusGain(auxIndex, linearGain)
               
               // Apply mute
-              await audioEngine.setAuxBusMute(auxIndex, aux.muted)
+              audioEngine.setAuxBusMute(auxIndex, aux.muted)
               
               // Apply routeToMaster directly from aux state
-              await audioEngine.setAuxBusRouteToMaster(auxIndex, aux.routeToMaster)
+              audioEngine.setAuxBusRouteToMaster(auxIndex, aux.routeToMaster)
               
               // Apply output device
               if (aux.selectedOutputDevice) {
@@ -1054,18 +1054,18 @@ async function handleLoadScene(scene: any) {
                 const channel = parts[1] ? parseInt(parts[1]) : 0
                 
                 if (actualDeviceId === 'no-output' || actualDeviceId === null) {
-                  await audioEngine.setAuxBusOutputEnabled(auxIndex, false)
+                  audioEngine.setAuxBusOutputEnabled(auxIndex, false)
                 } else {
-                  await audioEngine.setAuxBusOutputEnabled(auxIndex, true)
-                  await audioEngine.setAuxBusOutputChannels(auxIndex, channel, channel)
+                  audioEngine.setAuxBusOutputEnabled(auxIndex, true)
+                  audioEngine.setAuxBusOutputChannels(auxIndex, channel, channel)
                 }
               } else {
-                await audioEngine.setAuxBusOutputEnabled(auxIndex, false)
+                audioEngine.setAuxBusOutputEnabled(auxIndex, false)
               }
               
               // Apply reverb
               if (aux.reverbEnabled && aux.reverbParams) {
-                await audioEngine.setAuxBusReverb(
+                audioEngine.setAuxBusReverb(
                   auxIndex,
                   true,
                   aux.reverbParams.roomSize ?? 0.5,
@@ -1074,12 +1074,12 @@ async function handleLoadScene(scene: any) {
                   aux.reverbParams.width ?? 1.0
                 )
               } else {
-                await audioEngine.setAuxBusReverb(auxIndex, false, 0.5, 0.5, 1.0, 1.0)
+                audioEngine.setAuxBusReverb(auxIndex, false, 0.5, 0.5, 1.0, 1.0)
               }
               
               // Apply delay
               if (aux.delayEnabled && aux.delayParams) {
-                await audioEngine.setAuxBusDelay(
+                audioEngine.setAuxBusDelay(
                   auxIndex,
                   true,
                   aux.delayParams.delayTime * 1000,
@@ -1087,7 +1087,7 @@ async function handleLoadScene(scene: any) {
                   aux.delayParams.wet ?? 1.0
                 )
               } else {
-                await audioEngine.setAuxBusDelay(auxIndex, false, 250, 0.3, 1.0)
+                audioEngine.setAuxBusDelay(auxIndex, false, 250, 0.3, 1.0)
               }
             }
           }
@@ -1205,7 +1205,7 @@ async function removeSubgroup(subgroupId: number) {
     })
 
     // Remove from backend
-    await audioEngine.removeSubgroup(subgroupId)
+    audioEngine.removeSubgroup(subgroupId)
 
     // Remove from array - Vue will handle unmounting and cleanup via onUnmounted
     subgroups.value.splice(index, 1)
@@ -1276,17 +1276,17 @@ async function updateAux(index: number, updatedAux: AuxBus) {
       // Update volume (gain)
       if (updatedAux.volume !== aux.volume) {
         const linearGain = Math.pow(10, updatedAux.volume / 20)
-        await audioEngine.setAuxBusGain(index, linearGain)
+        audioEngine.setAuxBusGain(index, linearGain)
       }
 
       // Update mute
       if (updatedAux.muted !== aux.muted) {
-        await audioEngine.setAuxBusMute(index, updatedAux.muted)
+        audioEngine.setAuxBusMute(index, updatedAux.muted)
       }
 
       // Update routing to master
       if (updatedAux.routeToMaster !== aux.routeToMaster) {
-        await audioEngine.setAuxBusRouteToMaster(index, updatedAux.routeToMaster)
+        audioEngine.setAuxBusRouteToMaster(index, updatedAux.routeToMaster)
       }
 
       // Update reverb enabled state
@@ -1299,7 +1299,7 @@ async function updateAux(index: number, updatedAux: AuxBus) {
         const wet = reverbParams?.wet ?? 1.0
         const width = reverbParams?.width ?? 1.0
         
-        await audioEngine.setAuxBusReverb(
+        audioEngine.setAuxBusReverb(
           index,
           enabled,
           roomSize,
@@ -1317,7 +1317,7 @@ async function updateAux(index: number, updatedAux: AuxBus) {
         const feedback = delayParams?.feedback ?? 0.3
         const wet = delayParams?.wet ?? 0.5
         
-        await audioEngine.setAuxBusDelay(
+        audioEngine.setAuxBusDelay(
           index,
           enabled,
           time * 1000,  // Convert seconds to milliseconds
@@ -1338,13 +1338,13 @@ async function updateAux(index: number, updatedAux: AuxBus) {
       
       // If "no-output" is selected, disable direct output
       if (actualDeviceId === 'no-output' || actualDeviceId === null) {
-        await audioEngine.setAuxBusOutputEnabled(index, false)
+        audioEngine.setAuxBusOutputEnabled(index, false)
       } else {
         // Enable direct output when a device is selected
-        await audioEngine.setAuxBusOutputEnabled(index, true)
+        audioEngine.setAuxBusOutputEnabled(index, true)
         
         // Aux are mono: use same channel for both L and R
-        await audioEngine.setAuxBusOutputChannels(index, channel, channel)
+        audioEngine.setAuxBusOutputChannels(index, channel, channel)
       }
     }
 

@@ -183,7 +183,7 @@ async function onMasterOutputSelect(deviceId: string | null) {
         
         if (audioEngine.state.value.isRunning) {
           // Set channel selection after restart
-          await audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
+          audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
         }
       }
     }

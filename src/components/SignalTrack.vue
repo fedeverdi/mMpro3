@@ -130,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import FrequencyKnob from './core/FrequencyKnob.vue'
 import PanKnob from './audioTrack/PanKnob.vue'
 import TrackFader from './audioTrack/TrackFader.vue'
@@ -199,7 +199,7 @@ const signalTypeLabel = computed(() => {
 })
 
 // Handlers
-async function selectSignal(signal: typeof selectedSignal.value) {
+function selectSignal(signal: typeof selectedSignal.value) {
   selectedSignal.value = signal
   
   // Convert UI signal name to backend format
@@ -213,11 +213,11 @@ async function selectSignal(signal: typeof selectedSignal.value) {
   }
   
   if (audioEngine?.setSignalWaveform) {
-    await audioEngine.setSignalWaveform(props.trackNumber - 1, waveformMap[signal])
+    audioEngine.setSignalWaveform(props.trackNumber - 1, waveformMap[signal])
   }
 }
 
-async function toggleSignal() {
+function toggleSignal() {
   isPlaying.value = !isPlaying.value
   
   if (!audioEngine || !audioEngine.state.value.isRunning) {
@@ -233,14 +233,14 @@ async function toggleSignal() {
       whiteNoise: 'white',
       pinkNoise: 'pink'
     }
-    await audioEngine.setTrackSourceSignal(
+    audioEngine.setTrackSourceSignal(
       props.trackNumber - 1,
       waveformMap[selectedSignal.value],
       frequency.value
     )
   } else {
     // STOP: Clear signal generator
-    await audioEngine.clearTrackSource(props.trackNumber - 1)
+    audioEngine.clearTrackSource(props.trackNumber - 1)
   }
 }
 
@@ -325,11 +325,11 @@ function stopFrequencySweep() {
   }
 }
 
-async function toggleMute() {
+function toggleMute() {
   isMuted.value = !isMuted.value
   
   if (audioEngine?.setTrackMute) {
-    await audioEngine.setTrackMute(props.trackNumber - 1, isMuted.value)
+    audioEngine.setTrackMute(props.trackNumber - 1, isMuted.value)
   }
 }
 
@@ -338,21 +338,21 @@ function toggleSolo() {
   emit('soloChange', { trackNumber: props.trackNumber, isSolo: isSolo.value })
 }
 
-async function toggleRouteToMaster() {
+function toggleRouteToMaster() {
   routeToMaster.value = !routeToMaster.value
   
   if (audioEngine?.setTrackRouteToMaster) {
-    await audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
+    audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
   }
 }
 
 // Watchers - Send changes to Rust engine
-watch(frequency, async (freq) => {
+watch(frequency, (freq) => {
   // Capture the flag value immediately (before any await)
   const wasUpdatingFromSweep = isUpdatingFromSweep
     
   if (audioEngine?.state.value.isRunning && audioEngine?.setSignalFrequency) {
-    await audioEngine.setSignalFrequency(props.trackNumber - 1, freq)
+    audioEngine.setSignalFrequency(props.trackNumber - 1, freq)
   }
   
   // Stop sweep if user manually changed frequency (not from sweep animation)
@@ -370,17 +370,17 @@ watch(isPlaying, (playing) => {
   }
 })
 
-watch(volume, async (newVolume) => {
+watch(volume, (newVolume) => {
   if (audioEngine?.state.value.isRunning && audioEngine?.setTrackVolume) {
     // Convert dB to linear: linear = 10^(dB/20)
     const linearVolume = newVolume <= -85 ? 0 : Math.pow(10, newVolume / 20)
-    await audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
+    audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
   }
 })
 
-watch(pan, async (newPan) => {
+watch(pan, (newPan) => {
   if (audioEngine?.state.value.isRunning && audioEngine?.setTrackPan) {
-    await audioEngine.setTrackPan(props.trackNumber - 1, newPan)
+    audioEngine.setTrackPan(props.trackNumber - 1, newPan)
   }
 })
 
@@ -400,7 +400,7 @@ watch(
 // Watch for audio engine to become ready and initialize
 watch(
   () => audioEngine?.state.value.isRunning,
-  async (isRunning) => {
+  (isRunning) => {
     if (isRunning && !isInitialized.value) {
       isInitialized.value = true
       
@@ -408,9 +408,9 @@ watch(
       // Don't create signal generator yet - wait for user to press play
       const linearVolume = volume.value <= -85 ? 0 : Math.pow(10, volume.value / 20)
 
-      await audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
-      await audioEngine.setTrackPan(props.trackNumber - 1, pan.value)
-      await audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)      
+      audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
+      audioEngine.setTrackPan(props.trackNumber - 1, pan.value)
+      audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)      
     }
   },
   { immediate: true }

@@ -411,7 +411,7 @@ function showDelayModal(index: number) {
 }
 
 // Update single reverb parameter
-async function updateAuxReverbParam(index: number, param: 'roomSize' | 'damping' | 'wet' | 'width', value: number) {
+function updateAuxReverbParam(index: number, param: 'roomSize' | 'damping' | 'wet' | 'width', value: number) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = props.auxBuses[index]
 
@@ -423,7 +423,7 @@ async function updateAuxReverbParam(index: number, param: 'roomSize' | 'damping'
 
     // Send all parameters to Rust backend
     if (audioEngine && audioEngine.state.value.isRunning && aux.reverbEnabled) {
-        await audioEngine.setAuxBusReverb(
+        audioEngine.setAuxBusReverb(
             index, 
             true, 
             aux.reverbParams.roomSize, 
@@ -435,7 +435,7 @@ async function updateAuxReverbParam(index: number, param: 'roomSize' | 'damping'
 }
 
 // Update single delay parameter
-async function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback' | 'wet', value: number) {
+function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback' | 'wet', value: number) {
     if (!props.auxBuses || !props.auxBuses[index]) return
     const aux = props.auxBuses[index]
 
@@ -447,7 +447,7 @@ async function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback
 
     // Send all parameters to Rust backend (convert time from seconds to milliseconds)
     if (audioEngine && audioEngine.state.value.isRunning && aux.delayEnabled) {
-        await audioEngine.setAuxBusDelay(
+        audioEngine.setAuxBusDelay(
             index,
             true,
             aux.delayParams.delayTime * 1000,  // Convert seconds to milliseconds

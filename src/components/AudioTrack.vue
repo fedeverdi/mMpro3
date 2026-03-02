@@ -212,7 +212,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, inject, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import HPFButton from './audioTrack/HPFButton.vue'
 import InputSelector from './audioTrack/InputSelector.vue'
@@ -468,7 +468,7 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = true
 
     // Use file path directly from library (no need for temp file)
     if (audioEngine?.state.value.isRunning && fileData.filePath) {
-      await audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath)
+      audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath)
       
       // Setup audio monitor for duration tracking (for playlist auto-advance)
       if (currentPlaylist.value && playlistFiles.value.length > 0) {
@@ -477,7 +477,7 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = true
       
       // Auto-play the file only if requested
       if (autoPlay) {
-        await audioEngine.playFile(props.trackNumber - 1)
+        audioEngine.playFile(props.trackNumber - 1)
         isPlaying.value = true
       }
     }
@@ -550,7 +550,7 @@ async function playNextInPlaylist() {
 
   // Stop current playback
   if (audioEngine?.state.value.isRunning) {
-    await audioEngine.stopFile(props.trackNumber - 1)
+    audioEngine.stopFile(props.trackNumber - 1)
     isPlaying.value = false
   }
 
@@ -1041,13 +1041,13 @@ defineExpose({
     // Apply routing to backend
     if (audioEngine?.state.value.isRunning) {
       // Apply route to master
-      await audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
+      audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
       
       // Apply routes to subgroups
       if (state.routedSubgroups && Array.isArray(state.routedSubgroups)) {
         for (const subgroupId of state.routedSubgroups) {
           console.log(`[Track ${props.trackNumber}] Applying routing to subgroup ${subgroupId}`)
-          await audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, true)
+          audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, true)
         }
       }
     }
@@ -1061,7 +1061,7 @@ defineExpose({
         if (auxIndex !== undefined && auxIndex >= 0) {
           const send = sendData as { level: number, preFader: boolean, muted: boolean }
           const linearGain = Math.pow(10, send.level / 20)
-          await audioEngine.setTrackAuxSend(
+          audioEngine.setTrackAuxSend(
             props.trackNumber - 1,
             auxIndex,
             linearGain,

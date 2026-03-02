@@ -348,7 +348,7 @@ function handleEffectUpdate(index: number, params: any) {
 }
 
 // Compressor functions (Rust Engine)
-async function toggleCompressor(enabled: boolean, params?: any) {
+function toggleCompressor(enabled: boolean, params?: any) {
   const threshold = params?.threshold ?? compressorParams.value.threshold
   const ratio = params?.ratio ?? compressorParams.value.ratio
   const attack = params?.attack ?? compressorParams.value.attack
@@ -358,7 +358,7 @@ async function toggleCompressor(enabled: boolean, params?: any) {
   const attackMs = attack * 1000
   const releaseMs = release * 1000
   
-  await audioEngine.setMasterCompressor(enabled, threshold, ratio, attackMs, releaseMs)
+  audioEngine.setMasterCompressor(enabled, threshold, ratio, attackMs, releaseMs)
 }
 
 function updateCompressor(params: any) {
@@ -383,13 +383,13 @@ function updateCompressor(params: any) {
 
 // Reverb functions
 // Reverb functions (Rust Engine)
-async function toggleReverb(enabled: boolean, params?: any) {
+function toggleReverb(enabled: boolean, params?: any) {
   const roomSize = params?.roomSize ?? reverbParams.value.roomSize
   const damping = params?.damping ?? reverbParams.value.damping
   const wet = params?.wet ?? reverbParams.value.wet
   const width = params?.width ?? reverbParams.value.width
   
-  await audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width)
+  audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width)
 }
 
 function updateReverb(params: any) {
@@ -410,7 +410,7 @@ function updateReverb(params: any) {
 }
 
 // Delay functions (Rust Engine)
-async function toggleDelay(enabled: boolean, params?: any) {
+function toggleDelay(enabled: boolean, params?: any) {
   const delayTime = params?.delayTime ?? delayParams.value.delayTime
   const feedback = params?.feedback ?? delayParams.value.feedback
   const wet = params?.wet ?? delayParams.value.wet
@@ -419,7 +419,7 @@ async function toggleDelay(enabled: boolean, params?: any) {
   const delayTimeMs = delayTime * 1000
   
   // Rust engine uses stereo delay, use same time for both channels
-  await audioEngine.setMasterDelay(enabled, delayTimeMs, delayTimeMs, feedback, wet)
+  audioEngine.setMasterDelay(enabled, delayTimeMs, delayTimeMs, feedback, wet)
 }
 
 function updateDelay(params: any) {
@@ -445,12 +445,12 @@ function updateDelay(params: any) {
 }
 
 // Limiter functions (Rust Engine)
-async function toggleLimiter(enabled: boolean, params?: any) {
+function toggleLimiter(enabled: boolean, params?: any) {
   const threshold = params?.threshold ?? limiterParams.value.threshold
   
   // Rust engine limiter uses "ceiling" parameter (max output level)
   // Threshold in UI is the ceiling, release is fixed at 100ms in Rust
-  await audioEngine.setMasterLimiter(enabled, threshold, 100)
+  audioEngine.setMasterLimiter(enabled, threshold, 100)
 }
 
 function updateLimiter(params: any) {

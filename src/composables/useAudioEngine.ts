@@ -212,189 +212,189 @@ export const useAudioEngine = () => {
     await start(inputDevice, outputDevice)
   }
 
-  const setTrackGain = async (track: number, gain: number) => {
+  const setTrackGain = (track: number, gain: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setGain(track, gain)
+    window.audioEngine.setGain(track, gain)
   }
 
-  const setTrackVolume = async (track: number, volume: number) => {
+  const setTrackVolume = (track: number, volume: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setVolume(track, volume)
+    window.audioEngine.setVolume(track, volume)
   }
 
-  const setTrackMute = async (track: number, mute: boolean) => {
+  const setTrackMute = (track: number, mute: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setMute(track, mute)
+    window.audioEngine.setMute(track, mute)
   }
 
-  const setTrackRouteToMaster = async (track: number, route: boolean) => {
+  const setTrackRouteToMaster = (track: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setRouteToMaster(track, route)
+    window.audioEngine.setRouteToMaster(track, route)
   }
 
-  const setTrackCompressor = async (track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
+  const setTrackCompressor = (track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setCompressor(track, enabled, threshold, ratio, attack, release)
+    window.audioEngine.setCompressor(track, enabled, threshold, ratio, attack, release)
   }
 
-  const setTrackGate = async (track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => {
+  const setTrackGate = (track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setGate(track, enabled, threshold, range, attack, release)
+    window.audioEngine.setGate(track, enabled, threshold, range, attack, release)
   }
 
   // Track source selection
-  const setTrackSourceInput = async (track: number, leftChannel: number, rightChannel: number, deviceName?: string | null) => {
+  const setTrackSourceInput = (track: number, leftChannel: number, rightChannel: number, deviceName?: string | null) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setTrackSourceInput(track, leftChannel, rightChannel, deviceName)
+    window.audioEngine.setTrackSourceInput(track, leftChannel, rightChannel, deviceName)
   }
 
-  const setTrackSourceSignal = async (track: number, waveform: string, frequency: number) => {
+  const setTrackSourceSignal = (track: number, waveform: string, frequency: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setTrackSourceSignal(track, waveform, frequency)
+    window.audioEngine.setTrackSourceSignal(track, waveform, frequency)
   }
 
-  const setSignalFrequency = async (track: number, frequency: number) => {
+  const setSignalFrequency = (track: number, frequency: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setSignalFrequency(track, frequency)
+    window.audioEngine.setSignalFrequency(track, frequency)
   }
 
-  const setSignalWaveform = async (track: number, waveform: string) => {
+  const setSignalWaveform = (track: number, waveform: string) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setSignalWaveform(track, waveform)
+    window.audioEngine.setSignalWaveform(track, waveform)
   }
 
-  const clearTrackSource = async (track: number) => {
+  const clearTrackSource = (track: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.clearTrackSource(track)
+    window.audioEngine.clearTrackSource(track)
   }
 
-  const setTrackSourceFile = async (track: number, filePath: string) => {
+  const setTrackSourceFile = (track: number, filePath: string) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setTrackSourceFile(track, filePath)
+    window.audioEngine.setTrackSourceFile(track, filePath)
   }
 
   // File playback controls
-  const playFile = async (track: number, fileId?: string) => {
+  const playFile = (track: number, fileId?: string) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.playFile(track, fileId)
+    window.audioEngine.playFile(track, fileId)
   }
 
-  const pauseFile = async (track: number) => {
+  const pauseFile = (track: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.pauseFile(track)
+    window.audioEngine.pauseFile(track)
   }
 
-  const stopFile = async (track: number) => {
+  const stopFile = (track: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.stopFile(track)
+    window.audioEngine.stopFile(track)
   }
 
-  const setTrackPan = async (track: number, pan: number) => {
+  const setTrackPan = (track: number, pan: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setPan(track, pan)
+    window.audioEngine.setPan(track, pan)
   }
 
-  const setTrackPad = async (track: number, enabled: boolean) => {
+  const setTrackPad = (track: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setTrackPad(track, enabled)
+    window.audioEngine.setTrackPad(track, enabled)
   }
 
-  const setTrackHPF = async (track: number, enabled: boolean) => {
+  const setTrackHPF = (track: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setTrackHPF(track, enabled)
+    window.audioEngine.setTrackHPF(track, enabled)
   }
 
-  const setTrackEQ = async (track: number, low: number, lowMid: number, highMid: number, high: number) => {
+  const setTrackEQ = (track: number, low: number, lowMid: number, highMid: number, high: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setEQ(track, low, lowMid, highMid, high)
+    window.audioEngine.setEQ(track, low, lowMid, highMid, high)
   }
 
-  const setTrackEQEnabled = async (track: number, enabled: boolean) => {
+  const setTrackEQEnabled = (track: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setEQEnabled(track, enabled)
+    window.audioEngine.setEQEnabled(track, enabled)
   }
 
   // Parametric EQ controls
-  const setParametricEQFilters = async (track: number, filters: Array<{ type: string, frequency: number, gain: number, q: number }>) => {
+  const setParametricEQFilters = (track: number, filters: Array<{ type: string, frequency: number, gain: number, q: number }>) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setParametricEQFilters(track, filters)
+    window.audioEngine.setParametricEQFilters(track, filters)
   }
 
-  const setParametricEQEnabled = async (track: number, enabled: boolean) => {
+  const setParametricEQEnabled = (track: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setParametricEQEnabled(track, enabled)
+    window.audioEngine.setParametricEQEnabled(track, enabled)
   }
 
-  const clearParametricEQ = async (track: number) => {
+  const clearParametricEQ = (track: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.clearParametricEQ(track)
+    window.audioEngine.clearParametricEQ(track)
   }
 
   // Master controls
-  const setMasterGain = async (gain: number) => {
+  const setMasterGain = (gain: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setMasterGain(gain)
+    window.audioEngine.setMasterGain(gain)
   }
 
-  const setMasterMute = async (mute: boolean) => {
+  const setMasterMute = (mute: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setMasterMute(mute)
+    window.audioEngine.setMasterMute(mute)
   }
 
-  const setMasterOutputChannels = async (leftChannel: number, rightChannel: number) => {
+  const setMasterOutputChannels = (leftChannel: number, rightChannel: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
+    window.audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
   }
 
   // Master FX controls
-  const setMasterCompressor = async (enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
+  const setMasterCompressor = (enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setMasterCompressor(enabled, threshold, ratio, attack, release)
+    window.audioEngine.setMasterCompressor(enabled, threshold, ratio, attack, release)
   }
 
-  const setMasterLimiter = async (enabled: boolean, ceiling: number, release: number) => {
+  const setMasterLimiter = (enabled: boolean, ceiling: number, release: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setMasterLimiter(enabled, ceiling, release)
+    window.audioEngine.setMasterLimiter(enabled, ceiling, release)
   }
 
-  const setMasterDelay = async (enabled: boolean, timeL: number, timeR: number, feedback: number, mix: number) => {
+  const setMasterDelay = (enabled: boolean, timeL: number, timeR: number, feedback: number, mix: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setMasterDelay(enabled, timeL, timeR, feedback, mix)
+    window.audioEngine.setMasterDelay(enabled, timeL, timeR, feedback, mix)
   }
 
-  const setMasterReverb = async (enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
+  const setMasterReverb = (enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width)
+    window.audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width)
   }
 
   // Subgroup methods
@@ -410,107 +410,107 @@ export const useAudioEngine = () => {
     }
   }
 
-  const removeSubgroup = async (subgroup: number) => {
+  const removeSubgroup = (subgroup: number) => {
     if (!window.audioEngine) return
 
-    await window.audioEngine.removeSubgroup(subgroup)
+    window.audioEngine.removeSubgroup(subgroup)
   }
 
-  const setSubgroupGain = async (subgroup: number, gain: number) => {
+  const setSubgroupGain = (subgroup: number, gain: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setSubgroupGain(subgroup, gain)
+    window.audioEngine.setSubgroupGain(subgroup, gain)
   }
 
-  const setSubgroupMute = async (subgroup: number, mute: boolean) => {
+  const setSubgroupMute = (subgroup: number, mute: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setSubgroupMute(subgroup, mute)
+    window.audioEngine.setSubgroupMute(subgroup, mute)
   }
 
-  const setSubgroupOutputEnabled = async (subgroup: number, enabled: boolean) => {
+  const setSubgroupOutputEnabled = (subgroup: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setSubgroupOutputEnabled(subgroup, enabled)
+    window.audioEngine.setSubgroupOutputEnabled(subgroup, enabled)
   }
 
-  const setSubgroupRouteToMaster = async (subgroup: number, route: boolean) => {
+  const setSubgroupRouteToMaster = (subgroup: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setSubgroupRouteToMaster(subgroup, route)
+    window.audioEngine.setSubgroupRouteToMaster(subgroup, route)
   }
 
-  const setSubgroupOutputChannels = async (subgroup: number, leftChannel: number, rightChannel: number) => {
+  const setSubgroupOutputChannels = (subgroup: number, leftChannel: number, rightChannel: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setSubgroupOutputChannels(subgroup, leftChannel, rightChannel)
+    window.audioEngine.setSubgroupOutputChannels(subgroup, leftChannel, rightChannel)
   }
 
-  const setTrackRouteToSubgroup = async (track: number, subgroup: number, route: boolean) => {
+  const setTrackRouteToSubgroup = (track: number, subgroup: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setTrackRouteToSubgroup(track, subgroup, route)
+    window.audioEngine.setTrackRouteToSubgroup(track, subgroup, route)
   }
 
   // Aux bus methods
-  const setTrackAuxSend = async (track: number, aux: number, level: number, preFader: boolean, muted: boolean) => {
+  const setTrackAuxSend = (track: number, aux: number, level: number, preFader: boolean, muted: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setTrackAuxSend(track, aux, level, preFader, muted)
+    window.audioEngine.setTrackAuxSend(track, aux, level, preFader, muted)
   }
 
-  const setAuxBusGain = async (aux: number, gain: number) => {
+  const setAuxBusGain = (aux: number, gain: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setAuxBusGain(aux, gain)
+    window.audioEngine.setAuxBusGain(aux, gain)
   }
 
-  const setAuxBusMute = async (aux: number, mute: boolean) => {
+  const setAuxBusMute = (aux: number, mute: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setAuxBusMute(aux, mute)
+    window.audioEngine.setAuxBusMute(aux, mute)
   }
 
-  const setAuxBusReverb = async (aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
+  const setAuxBusReverb = (aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setAuxBusReverb(aux, enabled, roomSize, damping, wet, width)
+    window.audioEngine.setAuxBusReverb(aux, enabled, roomSize, damping, wet, width)
   }
 
-  const setAuxBusDelay = async (aux: number, enabled: boolean, time: number, feedback: number, mix: number) => {
+  const setAuxBusDelay = (aux: number, enabled: boolean, time: number, feedback: number, mix: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setAuxBusDelay(aux, enabled, time, feedback, mix)
+    window.audioEngine.setAuxBusDelay(aux, enabled, time, feedback, mix)
   }
 
-  const setAuxBusRouteToMaster = async (aux: number, route: boolean) => {
+  const setAuxBusRouteToMaster = (aux: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setAuxBusRouteToMaster(aux, route)
+    window.audioEngine.setAuxBusRouteToMaster(aux, route)
   }
 
-  const setAuxBusOutputEnabled = async (aux: number, enabled: boolean) => {
+  const setAuxBusOutputEnabled = (aux: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setAuxBusOutputEnabled(aux, enabled)
+    window.audioEngine.setAuxBusOutputEnabled(aux, enabled)
   }
 
-  const setAuxBusOutputChannels = async (aux: number, leftChannel: number, rightChannel: number) => {
+  const setAuxBusOutputChannels = (aux: number, leftChannel: number, rightChannel: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setAuxBusOutputChannels(aux, leftChannel, rightChannel)
+    window.audioEngine.setAuxBusOutputChannels(aux, leftChannel, rightChannel)
   }
 
-  const setAuxBusRouteToSubgroup = async (aux: number, subgroup: number, route: boolean) => {
+  const setAuxBusRouteToSubgroup = (aux: number, subgroup: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setAuxBusRouteToSubgroup(aux, subgroup, route)
+    window.audioEngine.setAuxBusRouteToSubgroup(aux, subgroup, route)
   }
 
-  const setTrackSourceAuxReturn = async (track: number, aux: number) => {
+  const setTrackSourceAuxReturn = (track: number, aux: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
-    await window.audioEngine.setTrackSourceAuxReturn(track, aux)
+    window.audioEngine.setTrackSourceAuxReturn(track, aux)
   }
 
   const getInputDevices = () => {
