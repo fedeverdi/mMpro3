@@ -301,6 +301,11 @@ impl Reverb {
             allpass.clear();
         }
     }
+    
+    /// Reset reverb buffers (public API)
+    pub fn reset(&mut self) {
+        self.clear();
+    }
 }
 
 // Scale tuning values based on sample rate (44100 is reference)

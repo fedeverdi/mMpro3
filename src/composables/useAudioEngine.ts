@@ -207,8 +207,8 @@ export const useAudioEngine = () => {
     if (!window.audioEngine) return
 
     await stop()
-    // Small delay to ensure streams are closed
-    await new Promise(resolve => setTimeout(resolve, 100))
+    // Increased delay to ensure streams are fully closed before restart
+    await new Promise(resolve => setTimeout(resolve, 250))
     await start(inputDevice, outputDevice)
   }
 

@@ -557,6 +557,7 @@ struct AudioEngine {
     input_sample_rate: u32, // Track input sample rate (may differ from output)
     output_buffer_size: Option<u32>, // Track output buffer size for input matching
     updates_suspended: Arc<AtomicBool>,
+    active_stream_id: Arc<AtomicUsize>, // ID of the currently active output stream
     input_buffer: Arc<Mutex<Vec<f32>>>, // Shared buffer - always contains latest input frame
     input_channels: Arc<AtomicUsize>,
     input_users: HashSet<usize>, // Track IDs that are using audio input
@@ -591,6 +592,7 @@ impl AudioEngine {
         let recording_sample_rate = Arc::new(Mutex::new(48000)); // Default 48kHz
         let recording_bit_depth = Arc::new(Mutex::new(16)); // Default 16-bit
         let recording_format = Arc::new(Mutex::new("wav".to_string())); // Default WAV
+        let active_stream_id = Arc::new(AtomicUsize::new(0)); // Start with stream ID 0
 
         Self {
             audio_io,
@@ -601,6 +603,7 @@ impl AudioEngine {
             input_sample_rate: 48000, // Default, will be overwritten when input opens
             output_buffer_size: None,
             updates_suspended,
+            active_stream_id,
             input_buffer,
             input_channels,
             input_users: HashSet::new(),
@@ -628,8 +631,53 @@ impl AudioEngine {
         buffer_size: Option<u32>,
     ) -> Result<()> {
         eprintln!("[Engine] start() called with: sample_rate={:?}, buffer_size={:?}", sample_rate, buffer_size);
+        
+        // Force stop if streams are still active (restart scenario)
         if self.input_stream.is_some() || self.output_stream.is_some() {
-            return Ok(()); // Already running
+            eprintln!("[Engine] Streams still active, forcing stop before restart...");
+            
+            // CRITICAL: Suspend updates to prevent race conditions during device/sample rate change
+            // This stops the audio callback from processing while we're changing sample rates
+            self.updates_suspended.store(true, Ordering::Relaxed);
+            eprintln!("[Engine] Audio processing suspended");
+            
+            // Wait for any in-flight callbacks to complete
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            
+            // CRITICAL: Call pause() BEFORE dropping to actually stop the stream
+            if let Some(stream) = &self.input_stream {
+                let _ = stream.pause();
+                eprintln!("[Engine] Input stream paused");
+            }
+            if let Some(stream) = &self.output_stream {
+                let _ = stream.pause();
+                eprintln!("[Engine] Output stream paused");
+            }
+            
+            // Wait for pause to take effect
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            
+            // Now drop the streams
+            {
+                let _input = self.input_stream.take();
+                let _output = self.output_stream.take();
+                // Drops happen here when variables go out of scope
+            }
+            eprintln!("[Engine] Streams dropped");
+            
+            // Clear input buffer when stopping
+            if let Ok(mut buffer) = self.input_buffer.lock() {
+                buffer.clear();
+            }
+            
+            // Clear master tap buffer to avoid old audio data
+            if let Ok(mut buffer) = self.master_tap_buffer.lock() {
+                buffer.clear();
+            }
+            
+            // Wait for OS to release audio hardware
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            eprintln!("[Engine] System cleanup complete");
         }
 
         // Get output device (REQUIRED)
@@ -666,7 +714,16 @@ impl AudioEngine {
         // let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate, buffer_size)?;
         let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate, buffer_size)?;
 
-        self.sample_rate = output_config.sample_rate.0;
+        // Check if sample rate changed
+        let old_sample_rate = self.sample_rate;
+        let new_sample_rate = output_config.sample_rate.0;
+        let sample_rate_changed = old_sample_rate != new_sample_rate;
+        
+        if sample_rate_changed {
+            eprintln!("[Engine] Sample rate changing from {} Hz to {} Hz", old_sample_rate, new_sample_rate);
+        }
+
+        self.sample_rate = new_sample_rate;
         
         // Save buffer size for input stream matching
         self.output_buffer_size = match output_config.buffer_size {
@@ -712,6 +769,8 @@ impl AudioEngine {
             let mut router = self.router.lock().unwrap();
             for track in router.tracks.iter_mut() {
                 track.set_sample_rate(self.sample_rate as f32);
+                // Note: set_sample_rate already calls player.set_output_sample_rate()
+                // which resets resample_position to avoid pitch/speed issues
             }
             
             // Update aux buses
@@ -722,6 +781,11 @@ impl AudioEngine {
             // Update master bus (EQ + FX chain)
             router.master.parametric_eq.set_sample_rate(self.sample_rate as f32);
             router.master.set_sample_rate(self.sample_rate as f32);
+            
+            // Log sample rate change completion
+            if sample_rate_changed {
+                eprintln!("[Engine] All components updated to {} Hz", self.sample_rate);
+            }
         }
 
         let input_channels = 2; // Default stereo (not used since input is disabled)
@@ -740,6 +804,18 @@ impl AudioEngine {
         let perf_stats = Arc::new(Mutex::new(PerformanceStats::new()));
         let perf_stats_clone = Arc::clone(&perf_stats);
         let sample_rate_for_perf = self.sample_rate; // Save sample rate for performance calculation
+        
+        // Stream ID for debugging (increment for each new stream)
+        use std::sync::atomic::AtomicUsize;
+        static STREAM_COUNTER: AtomicUsize = AtomicUsize::new(0);
+        let stream_id = STREAM_COUNTER.fetch_add(1, Ordering::SeqCst);
+        
+        // Mark this stream as the active one
+        self.active_stream_id.store(stream_id, Ordering::SeqCst);
+        eprintln!("[Engine] Creating OUTPUT STREAM #{} at {} Hz (now ACTIVE)", stream_id, self.sample_rate);
+        
+        // Clone active_stream_id for callback to check if it's still the active stream
+        let active_stream_id_check = Arc::clone(&self.active_stream_id);
 
         // === INPUT STREAM: capture audio ===
         // Input stream is now managed on-demand via open_audio_input()/close_audio_input()
@@ -760,6 +836,22 @@ impl AudioEngine {
         let output_stream = output_device.build_output_stream(
             &output_config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                // CRITICAL: Check if this is still the active stream
+                // If another stream was created, this one should die silently
+                let current_active = active_stream_id_check.load(Ordering::SeqCst);
+                if stream_id != current_active {
+                    // This is an old stream that should be dead - output silence and return
+                    data.fill(0.0);
+                    return;
+                }
+                
+                // CRITICAL: Check if updates are suspended (during sample rate change)
+                // If suspended, output silence to prevent race conditions
+                if updates_suspended_flag.load(Ordering::Relaxed) {
+                    data.fill(0.0);
+                    return;
+                }
+                
                 // Start performance measurement
                 let start_time = Instant::now();
                 
@@ -1053,6 +1145,13 @@ impl AudioEngine {
 
         self.input_stream = None; // Keep None until we implement on-demand opening
         self.output_stream = Some(output_stream);
+        
+        // Wait before resuming to ensure stream stability
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        
+        // Resume audio processing now that new streams are active
+        self.updates_suspended.store(false, Ordering::Relaxed);
+        eprintln!("[Engine] Audio processing resumed");
 
         Ok(())
     }
@@ -1063,6 +1162,18 @@ impl AudioEngine {
         }
         if let Some(stream) = self.output_stream.take() {
             drop(stream);
+        }
+        
+        // Reset input state
+        self.input_users.clear();
+        self.current_input_device = None;
+        
+        // Clear buffers
+        if let Ok(mut buffer) = self.input_buffer.lock() {
+            buffer.clear();
+        }
+        if let Ok(mut buffer) = self.master_tap_buffer.lock() {
+            buffer.clear();
         }
         
         Ok(())

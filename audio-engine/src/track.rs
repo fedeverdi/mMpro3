@@ -73,10 +73,14 @@ pub fn set_source_file(
     
     if let Some(t) = router.get_track_mut(track) {
         let mut player = AudioFilePlayer::new();
-        player.set_output_sample_rate(sample_rate);
         
+        // CRITICAL: Load file FIRST to get its native sample rate
+        // BEFORE setting output sample rate (otherwise ratio calculation is wrong)
         match player.load_file(file_path) {
             Ok(_) => {
+                // Now set output sample rate (after file is loaded and has correct sample_rate)
+                player.set_output_sample_rate(sample_rate);
+                
                 // Debug: log loaded samples info
                 let sample_count = player.samples.len();
                 let duration_frames = sample_count / player.channels as usize;

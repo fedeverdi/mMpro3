@@ -191,12 +191,10 @@ impl AudioFilePlayer {
 
     /// Set output sample rate for resampling
     pub fn set_output_sample_rate(&mut self, sample_rate: u32) {
-        if self.output_sample_rate != sample_rate {
-            self.output_sample_rate = sample_rate;
-            // Reset resample position to avoid audio glitches when sample rate changes
-            // This prevents the accumulated position from causing pitch/speed issues
-            self.resample_position = self.position as f64;
-        }
+        self.output_sample_rate = sample_rate;
+        // Note: resample_position is NOT reset here because it represents
+        // the current position in the source file, which is independent
+        // of the output sample rate. The resampling ratio adjusts automatically.
     }
 }
 

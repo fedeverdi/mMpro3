@@ -289,11 +289,20 @@ impl Track {
 
     /// Update sample rate for all components
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
+        // Update sample rate for all processors
         self.compressor.set_sample_rate(sample_rate);
         self.gate.set_sample_rate(sample_rate);
         self.equalizer.set_sample_rate(sample_rate);
         self.parametric_eq.set_sample_rate(sample_rate);
         self.hpf_filter.set_sample_rate(sample_rate);
+        
+        // CRITICAL: Reset all effect buffers to clear old audio at previous sample rate
+        // This prevents pitch/speed artifacts when switching devices
+        self.compressor.reset();
+        self.gate.reset();
+        self.equalizer.reset();
+        self.parametric_eq.reset();
+        self.hpf_filter.reset();
         
         // Update file player output sample rate
         if let Some(player) = &mut self.file_player {
@@ -504,11 +513,20 @@ impl MasterBus {
     
     /// Set sample rate for all master FX
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
+        // Update sample rate
         self.parametric_eq.set_sample_rate(sample_rate);
         self.compressor.set_sample_rate(sample_rate);
         self.limiter.set_sample_rate(sample_rate);
         self.delay.set_sample_rate(sample_rate);
         self.reverb.set_sample_rate(sample_rate);
+        
+        // CRITICAL: Reset all effect buffers to clear old audio at previous sample rate
+        // This prevents pitch/speed artifacts when switching devices
+        self.parametric_eq.reset();
+        self.compressor.reset();
+        self.limiter.reset();
+        self.delay.reset();
+        self.reverb.reset();
     }
 
     /// Mix all tracks and apply master processing (using cached track outputs)
@@ -715,6 +733,10 @@ impl AuxBus {
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.reverb.set_sample_rate(sample_rate);
         self.delay.set_sample_rate(sample_rate);
+        
+        // CRITICAL: Reset effect buffers to clear old audio at previous sample rate
+        self.reverb.reset();
+        self.delay.reset();
     }
 }
 
