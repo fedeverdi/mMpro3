@@ -441,7 +441,10 @@ ipcMain.handle('audio-engine:list-audio-inputs', async () => {
 
 // File picker dialog - non-blocking
 ipcMain.handle('show-open-file-dialog', async () => {
-  const result = await dialog.showOpenDialog({
+  // Get the focused window to avoid blocking the main process
+  const focusedWindow = BrowserWindow.getFocusedWindow()
+  
+  const result = await dialog.showOpenDialog(focusedWindow || undefined, {
     properties: ['openFile', 'multiSelections'],
     filters: [
       { name: 'Audio Files', extensions: ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma', 'aiff'] },
@@ -453,18 +456,25 @@ ipcMain.handle('show-open-file-dialog', async () => {
     return null
   }
   
-  // Read files and return as array buffers
-  const files = await Promise.all(
-    result.filePaths.map(async (filePath) => {
-      const buffer = await fs.promises.readFile(filePath)
-      return {
-        name: path.basename(filePath),
-        buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-      }
-    })
-  )
-  
-  return files
+  // Return only paths - file reading will happen in chunks in renderer
+  return result.filePaths.map(filePath => ({
+    path: filePath,
+    name: path.basename(filePath)
+  }))
+})
+
+// Read file as array buffer (called after dialog closes to avoid blocking)
+ipcMain.handle('read-file-as-buffer', async (_event, filePath: string) => {
+  try {
+    const buffer = await fs.promises.readFile(filePath)
+    return {
+      name: path.basename(filePath),
+      buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+    }
+  } catch (error) {
+    console.error('Failed to read file:', error)
+    throw error
+  }
 })
 
 // Master Tap (Recording) - Rust saves WAV file directly

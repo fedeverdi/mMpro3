@@ -568,6 +568,7 @@ export const useAudioEngine = () => {
     setTrackSourceAuxReturn,
     getInputDevices,
     getOutputDevices,
-    showOpenFileDialog: () => window.audioEngine.showOpenFileDialog()
+    showOpenFileDialog: () => window.audioEngine.showOpenFileDialog(),
+    readFileAsBuffer: (filePath: string) => window.audioEngine.readFileAsBuffer(filePath)
   }
 }

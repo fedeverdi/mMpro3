@@ -15,23 +15,40 @@
 
       <!-- Upload Section -->
       <div class="p-4 border-b border-gray-700">
-        <div class="flex items-center gap-3">
-          <button @click="openFilePicker" :disabled="isUploading"
-            class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white font-semibold transition-colors">
-            <svg v-if="!isUploading" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div 
+          @drop.prevent="handleFileDrop"
+          @dragover.prevent="isDragging = true"
+          @dragleave.prevent="isDragging = false"
+          @dragenter.prevent="isDragging = true"
+          :class="[
+            'border-2 border-dashed rounded-lg p-6 transition-all',
+            isDragging 
+              ? 'border-blue-500 bg-blue-500/10' 
+              : 'border-gray-600 bg-gray-800/50 hover:border-gray-500'
+          ]"
+        >
+          <div class="flex flex-col items-center gap-3">
+            <svg v-if="!isUploading" class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
-            <svg v-else class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <svg v-else class="w-12 h-12 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor"
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
               </path>
             </svg>
-            <span>{{ isUploading ? 'Uploading...' : 'Upload Audio Files' }}</span>
-          </button>
-          <div v-if="uploadProgress" class="text-sm text-gray-400">
-            {{ uploadProgress }}
+            <div class="text-center">
+              <p class="text-white font-semibold mb-1">
+                {{ isUploading ? 'Uploading files...' : 'Drag & drop audio files here' }}
+              </p>
+              <p v-if="!isUploading" class="text-sm text-gray-400">
+                Supports MP3, WAV, FLAC, M4A, AAC, OGG, WMA, AIFF
+              </p>
+              <p v-if="uploadProgress" class="text-sm text-blue-400 mt-2">
+                {{ uploadProgress }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -636,6 +653,7 @@ const isLoading = ref(false)
 const isUploading = ref(false)
 const uploadProgress = ref('')
 const searchQuery = ref('')
+const isDragging = ref(false)
 const viewMode = ref<'all' | 'byArtist' | 'playlists'>('all')
 const viewLayout = ref<'list' | 'grid'>('list')
 const expandedArtists = ref<Set<string>>(new Set())
@@ -651,43 +669,62 @@ const sortedFiles = computed(() => {
   return [...files.value].sort((a, b) => b.timestamp - a.timestamp)
 })
 
-// Open file picker using Electron dialog API - non-blocking
-async function openFilePicker() {
+// Handle file drop - completely non-blocking, no native dialogs
+async function handleFileDrop(event: DragEvent) {
+  isDragging.value = false
+  
   if (isUploading.value) return
   
+  const droppedFiles = event.dataTransfer?.files
+  if (!droppedFiles || droppedFiles.length === 0) return
+  
+  // Filter audio files
+  const audioFiles = Array.from(droppedFiles).filter(file => {
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    return ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma', 'aiff'].includes(ext || '')
+  })
+  
+  if (audioFiles.length === 0) {
+    notify.warning('No valid audio files found. Supported formats: MP3, WAV, FLAC, M4A, AAC, OGG, WMA, AIFF')
+    return
+  }
+  
+  await processFiles(audioFiles)
+}
+
+// Process uploaded files - works with both drag-drop and file picker
+async function processFiles(filesToProcess: File[]) {
+  if (isUploading.value) return
+  
+  isUploading.value = true
+  const totalFiles = filesToProcess.length
+  let uploadedCount = 0
+  let skippedCount = 0
+  let failedCount = 0
+  
   try {
-    const files = await audioEngine.showOpenFileDialog()
-    
-    if (!files || files.length === 0) return
-    
-    isUploading.value = true
-    const totalFiles = files.length
-    let uploadedCount = 0
-    let skippedCount = 0
-    let failedCount = 0
-    
-    // Process each file
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const file = filesToProcess[i]
       uploadProgress.value = `Checking ${file.name} (${i + 1}/${totalFiles})...`
       
       try {
+        // Read file as array buffer
+        const arrayBuffer = await file.arrayBuffer()
+        
         // Check for duplicates
-        const isDuplicate = await checkIfDuplicate(file.buffer, file.name, file.buffer.byteLength)
+        const isDuplicate = await checkIfDuplicate(arrayBuffer, file.name, file.size)
         
         if (isDuplicate) {
           uploadProgress.value = `Skipped: ${file.name} (already exists)`
           skippedCount++
-          await new Promise(resolve => setTimeout(resolve, 500))
+          await new Promise(resolve => setTimeout(resolve, 300))
           continue
         }
         
         uploadProgress.value = `Uploading ${file.name} (${i + 1}/${totalFiles})...`
         
-        // Create File object from ArrayBuffer
-        const blob = new Blob([file.buffer], { type: 'audio/*' })
-        const fileObj = new File([blob], file.name, { type: 'audio/*' })
-        await saveAudioFile(fileObj)
+        // Save to library
+        await saveAudioFile(file)
         uploadedCount++
         
       } catch (error) {
@@ -711,8 +748,8 @@ async function openFilePicker() {
       uploadProgress.value = ''
     }, 3000)
   } catch (error) {
-    console.error('Failed to open file dialog:', error)
-    uploadProgress.value = 'Failed to open file picker!'
+    console.error('Failed to process files:', error)
+    uploadProgress.value = 'Upload failed!'
     setTimeout(() => {
       uploadProgress.value = ''
     }, 3000)

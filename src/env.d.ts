@@ -101,7 +101,8 @@ interface AudioEngine {
   setTrackSourceAuxReturn: (track: number, aux: number) => Promise<void>
   
   // File dialog
-  showOpenFileDialog: () => Promise<Array<{ name: string; buffer: ArrayBuffer }> | null>
+  showOpenFileDialog: () => Promise<Array<{ name: string; path: string }> | null>
+  readFileAsBuffer: (filePath: string) => Promise<{ name: string; buffer: ArrayBuffer }>
 }
 
 interface Window {

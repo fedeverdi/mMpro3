@@ -129,5 +129,6 @@ contextBridge.exposeInMainWorld('audioEngine', {
   },
   
   // File dialog
-  showOpenFileDialog: () => ipcRenderer.invoke('show-open-file-dialog')
+  showOpenFileDialog: () => ipcRenderer.invoke('show-open-file-dialog'),
+  readFileAsBuffer: (filePath: string) => ipcRenderer.invoke('read-file-as-buffer', filePath)
 })
