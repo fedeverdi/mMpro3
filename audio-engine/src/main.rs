@@ -2289,7 +2289,6 @@ impl AudioEngine {
                 }),
             },
             Command::ListAudioInputs => {
-                eprintln!("[Engine] Received ListAudioInputs command");
                 match self.audio_io.list_devices() {
                     Ok(devices) => {
                         // Filter only input devices and expand multi-channel devices

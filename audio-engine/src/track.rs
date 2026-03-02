@@ -189,7 +189,6 @@ pub fn set_pan(router: &mut Router, track: usize, pan: f32) {
 pub fn set_pad(router: &mut Router, track: usize, enabled: bool) {
     if let Some(t) = router.get_track_mut(track) {
         t.pad_enabled = enabled;
-        eprintln!("[Track {}] PAD: {}", track, if enabled { "ON (-24dB)" } else { "OFF" });
     }
 }
 
@@ -197,6 +196,5 @@ pub fn set_pad(router: &mut Router, track: usize, enabled: bool) {
 pub fn set_hpf(router: &mut Router, track: usize, enabled: bool) {
     if let Some(t) = router.get_track_mut(track) {
         t.hpf_enabled = enabled;
-        eprintln!("[Track {}] HPF: {}", track, if enabled { "ON (80Hz)" } else { "OFF" });
     }
 }

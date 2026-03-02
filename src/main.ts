@@ -780,7 +780,6 @@ ipcMain.handle('audio-engine:save-playlist', async (_event, playlist: any) => {
     const playlistPath = path.join(playlistsDir, `${playlist.id}.json`)
     fs.writeFileSync(playlistPath, JSON.stringify(playlist, null, 2))
     
-    console.log('[Main] Playlist saved:', playlistPath)
   } catch (error) {
     console.error('[Main] Error saving playlist:', error)
     throw error
