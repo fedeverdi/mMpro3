@@ -370,6 +370,12 @@ enum Response {
         min_process_ms: f32,
         max_process_ms: f32,
     },
+    #[serde(rename = "recording_stats")]
+    RecordingStats {
+        elapsed_seconds: u64,
+        file_size_bytes: u64,
+        available_space_gb: f32,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -442,6 +448,102 @@ impl PerformanceStats {
     }
 }
 
+/// Get available disk space in GB for the given path
+fn get_available_disk_space_gb(path: &PathBuf) -> f32 {
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        
+        // Get the parent directory (recordings folder)
+        let dir = path.parent().unwrap_or(path.as_path());
+        
+        // Use df -k to get available space in KB
+        match Command::new("df")
+            .arg("-k")
+            .arg(dir)
+            .output()
+        {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                // Parse output: df -k returns KB in 4th column of last line
+                // Example: /dev/disk1s1  488555536 123456789 364098747    26%    1234567  9876543210   0%   /System/Volumes/Data
+                if let Some(line) = stdout.lines().nth(1) {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 4 {
+                        if let Ok(available_kb) = parts[3].parse::<f64>() {
+                            return (available_kb / (1024.0 * 1024.0)) as f32;
+                        }
+                    }
+                }
+                0.0
+            }
+            Err(_) => 0.0,
+        }
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+        
+        let dir = path.parent().unwrap_or(path.as_path());
+        
+        match Command::new("df")
+            .arg("-k")
+            .arg(dir)
+            .output()
+        {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if let Some(line) = stdout.lines().nth(1) {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 4 {
+                        if let Ok(available_kb) = parts[3].parse::<f64>() {
+                            return (available_kb / (1024.0 * 1024.0)) as f32;
+                        }
+                    }
+                }
+                0.0
+            }
+            Err(_) => 0.0,
+        }
+    }
+    
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        
+        // Get drive letter
+        let path_str = path.to_string_lossy();
+        if path_str.len() >= 2 {
+            let drive = &path_str[0..2];
+            
+            // Use wmic to get free space
+            match Command::new("wmic")
+                .args(&["logicaldisk", "where", &format!("DeviceID='{}'", drive), "get", "FreeSpace"])
+                .output()
+            {
+                Ok(output) => {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    for line in stdout.lines() {
+                        if let Ok(free_bytes) = line.trim().parse::<f64>() {
+                            return (free_bytes / (1024.0 * 1024.0 * 1024.0)) as f32;
+                        }
+                    }
+                    0.0
+                }
+                Err(_) => 0.0,
+            }
+        } else {
+            0.0
+        }
+    }
+    
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        0.0
+    }
+}
+
 /// Engine audio principale
 struct AudioEngine {
     audio_io: AudioIO,
@@ -459,6 +561,8 @@ struct AudioEngine {
     master_tap_buffer: Arc<Mutex<Vec<f32>>>, // Master output tap for recording (stereo interleaved)
     master_tap_enabled: Arc<AtomicBool>, // Enable/disable master tap
     recording_path: Arc<Mutex<Option<PathBuf>>>, // Path where to save the recording
+    recording_start_time: Arc<Mutex<Option<Instant>>>, // Recording start time for elapsed calculation
+    recording_last_stats_time: Arc<Mutex<Option<Instant>>>, // Last time stats were sent (for 1-second interval)
 }
 
 impl AudioEngine {
@@ -476,6 +580,8 @@ impl AudioEngine {
         let master_tap_buffer = Arc::new(Mutex::new(Vec::<f32>::with_capacity(4800000))); // ~100 sec @ 48kHz stereo
         let master_tap_enabled = Arc::new(AtomicBool::new(false));
         let recording_path = Arc::new(Mutex::new(None));
+        let recording_start_time = Arc::new(Mutex::new(None));
+        let recording_last_stats_time = Arc::new(Mutex::new(None));
 
         Self {
             audio_io,
@@ -493,6 +599,8 @@ impl AudioEngine {
             master_tap_buffer,
             master_tap_enabled,
             recording_path,
+            recording_start_time,
+            recording_last_stats_time,
         }
     }
 
@@ -631,6 +739,9 @@ impl AudioEngine {
         let input_channels = Arc::clone(&self.input_channels);
         let master_tap_buffer = Arc::clone(&self.master_tap_buffer);
         let master_tap_enabled = Arc::clone(&self.master_tap_enabled);
+        let recording_start_time = Arc::clone(&self.recording_start_time);
+        let recording_last_stats_time = Arc::clone(&self.recording_last_stats_time);
+        let recording_path = Arc::clone(&self.recording_path);
 
         // === OUTPUT STREAM: process and output audio ===
         let output_stream = output_device.build_output_stream(
@@ -670,6 +781,17 @@ impl AudioEngine {
                         // Push MASTER BUS samples to FFT analyzer (parallel tap, doesn't affect audio)
                         let (master_l, master_r) = router.last_master_output;
                         router.fft_analyzer.push_samples(master_l, master_r);
+
+                        // Record master output for this frame (if recording enabled)
+                        if master_tap_enabled.load(Ordering::Relaxed) {
+                            if let Ok(mut tap_buffer) = master_tap_buffer.try_lock() {
+                                let max_samples = sample_rate_for_perf as usize * 2 * 600; // 10 min stereo
+                                if tap_buffer.len() < max_samples {
+                                    tap_buffer.push(master_left.clamp(-1.0, 1.0));
+                                    tap_buffer.push(master_right.clamp(-1.0, 1.0));
+                                }
+                            }
+                        }
 
                         // Initialize output frame to silence
                         let out_frame_start = frame_idx * output_channels;
@@ -714,25 +836,6 @@ impl AudioEngine {
                                 }
                                 if aux_right_ch < output_channels {
                                     data[out_frame_start + aux_right_ch] += aux_r.clamp(-1.0, 1.0);
-                                }
-                            }
-                        }
-                    }
-
-                    // Copy master output to tap buffer if enabled (for recording)
-                    // Record ONLY master bus (not direct subgroups/aux)
-                    // Do this AFTER writing to output to minimize audio callback latency
-                    if master_tap_enabled.load(Ordering::Relaxed) {
-                        if let Ok(mut tap_buffer) = master_tap_buffer.try_lock() {
-                            // Copy stereo interleaved samples (L, R, L, R, ...)
-                            // Limit to 10 minutes max (prevents memory issues for very long recordings)
-                            let max_samples = sample_rate_for_perf as usize * 2 * 600; // 10 min stereo
-                            if tap_buffer.len() < max_samples {
-                                for frame_idx in 0..frames {
-                                    // Record master output from router (before adding direct outputs)
-                                    let (master_l, master_r) = router.last_master_output;
-                                    tap_buffer.push(master_l.clamp(-1.0, 1.0));
-                                    tap_buffer.push(master_r.clamp(-1.0, 1.0));
                                 }
                             }
                         }
@@ -863,6 +966,56 @@ impl AudioEngine {
                     }
                     
                     stats.reset();
+                }
+                
+                // Send recording stats every 1 second (only if recording is enabled)
+                if master_tap_enabled.load(Ordering::Relaxed) {
+                    if let (Ok(start_time), Ok(mut last_stats_time)) = (
+                        recording_start_time.lock(),
+                        recording_last_stats_time.lock()
+                    ) {
+                        if let (Some(start), Some(last)) = (*start_time, *last_stats_time) {
+                            let now = Instant::now();
+                            let elapsed_since_last = now.duration_since(last);
+                            
+                            // Send stats every 1 second
+                            if elapsed_since_last.as_secs() >= 1 {
+                                let elapsed_seconds = now.duration_since(start).as_secs();
+                                
+                                // Calculate file size (stereo interleaved samples, saved as 16-bit WAV)
+                                let num_samples = if let Ok(buffer) = master_tap_buffer.try_lock() {
+                                    buffer.len() as u64
+                                } else {
+                                    0
+                                };
+                                let file_size_bytes = num_samples * 2; // 16-bit = 2 bytes per sample
+                                
+                                // Get available disk space for the recordings directory
+                                let available_space_gb = if let Ok(path) = recording_path.lock() {
+                                    if let Some(ref p) = *path {
+                                        get_available_disk_space_gb(p)
+                                    } else {
+                                        0.0
+                                    }
+                                } else {
+                                    0.0
+                                };
+                                
+                                let response = Response::RecordingStats {
+                                    elapsed_seconds,
+                                    file_size_bytes,
+                                    available_space_gb,
+                                };
+                                
+                                if let Ok(json) = serde_json::to_string(&response) {
+                                    println!("{}", json);
+                                }
+                                
+                                // Update last stats time
+                                *last_stats_time = Some(now);
+                            }
+                        }
+                    }
                 }
             },
             err_fn,
@@ -1008,12 +1161,28 @@ impl AudioEngine {
         if let Ok(mut path) = self.recording_path.lock() {
             *path = Some(PathBuf::from(file_path));
         }
+        // Set start time
+        let now = Instant::now();
+        if let Ok(mut start_time) = self.recording_start_time.lock() {
+            *start_time = Some(now);
+        }
+        if let Ok(mut last_stats_time) = self.recording_last_stats_time.lock() {
+            *last_stats_time = Some(now);
+        }
         self.master_tap_enabled.store(true, Ordering::Relaxed);
         eprintln!("[Engine] ✓ Master tap enabled - recording started");
     }
 
     fn disable_master_tap(&self) {
         self.master_tap_enabled.store(false, Ordering::Relaxed);
+        
+        // Clear recording times
+        if let Ok(mut start_time) = self.recording_start_time.lock() {
+            *start_time = None;
+        }
+        if let Ok(mut last_stats_time) = self.recording_last_stats_time.lock() {
+            *last_stats_time = None;
+        }
         
         // Get samples and path
         let samples = if let Ok(mut buffer) = self.master_tap_buffer.lock() {

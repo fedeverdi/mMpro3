@@ -244,20 +244,8 @@ async function stopRecording() {
       await window.audioEngine.disableMasterTap()
       console.log('[Recorder] Recording stopped and saved')
       
-      // Add to recordings list (file is already saved by Rust)
-      if (filePath) {
-        // Get file info via IPC
-        const fileInfo = await window.audioEngine.getRecordingFileInfo(filePath)
-        
-        recordings.value.unshift({
-          id: Date.now().toString(),
-          name: fileInfo.name,
-          filePath,
-          duration,
-          size: fileInfo.size,
-          timestamp: Date.now()
-        })
-      }
+      // Reload recordings list to include the new file
+      await loadRecordings()
     } catch (err) {
       console.error('[Recorder] Error stopping recording:', err)
     }
@@ -276,7 +264,7 @@ async function deleteRecording(id: string) {
   if (recording) {
     try {
       await window.audioEngine.deleteRecordingFile(recording.filePath)
-      recordings.value = recordings.value.filter(r => r.id !== id)
+      await loadRecordings() // Reload list after deletion
       console.log('[Recorder] Recording deleted:', recording.filePath)
     } catch (e) {
       console.error('[Recorder] Failed to delete file:', e)
@@ -289,6 +277,33 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
+
+// Load recordings from disk
+async function loadRecordings() {
+  if (!window.audioEngine) return
+  
+  try {
+    const files = await window.audioEngine.listRecordings()
+    recordings.value = files.map(file => ({
+      id: file.id,
+      name: file.name,
+      duration: '--:--', // Duration not calculated for now
+      size: file.size,
+      filePath: file.path,
+      timestamp: new Date(file.created).getTime()
+    }))
+    console.log('[Recorder] Loaded recordings:', recordings.value.length)
+  } catch (error) {
+    console.error('[Recorder] Error loading recordings:', error)
+  }
+}
+
+// Watch modal open/close to load recordings
+watch(() => props.modelValue, (isOpen) => {
+  if (isOpen) {
+    loadRecordings()
+  }
+})
 
 // Cleanup on unmount
 onUnmounted(async () => {

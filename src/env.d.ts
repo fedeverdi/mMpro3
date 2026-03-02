@@ -46,6 +46,7 @@ interface AudioEngine {
   getRecordingFileInfo: (filePath: string) => Promise<{ name: string, size: string }>
   showRecordingInFolder: (filePath: string) => Promise<void>
   deleteRecordingFile: (filePath: string) => Promise<void>
+  listRecordings: () => Promise<Array<{ id: string, name: string, path: string, size: string, created: string }>>
   
   // Track Source Selection
   setTrackSourceInput: (trackIndex: number, leftChannel: number, rightChannel: number, deviceName?: string | null) => Promise<void>
@@ -84,7 +85,9 @@ interface AudioEngine {
   addSubgroup: () => Promise<number>
   removeSubgroup: (subgroup: number) => Promise<void>
   setSubgroupGain: (subgroup: number, gain: number) => Promise<void>
-  setSubgroupMute: (subgroup: number, mute: boolean) => Promise<void>  setSubgroupOutputEnabled: (subgroup: number, enabled: boolean) => Promise<void>  setSubgroupRouteToMaster: (subgroup: number, route: boolean) => Promise<void>
+  setSubgroupMute: (subgroup: number, mute: boolean) => Promise<void>
+  setSubgroupOutputEnabled: (subgroup: number, enabled: boolean) => Promise<void>
+  setSubgroupRouteToMaster: (subgroup: number, route: boolean) => Promise<void>
   setSubgroupOutputChannels: (subgroup: number, leftChannel: number, rightChannel: number) => Promise<void>
   setTrackRouteToSubgroup: (track: number, subgroup: number, route: boolean) => Promise<void>
   

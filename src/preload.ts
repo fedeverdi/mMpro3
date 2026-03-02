@@ -122,6 +122,7 @@ contextBridge.exposeInMainWorld('audioEngine', {
   getRecordingFileInfo: (filePath: string) => ipcRenderer.invoke('audio-engine:get-recording-file-info', filePath),
   showRecordingInFolder: (filePath: string) => ipcRenderer.invoke('audio-engine:show-recording-in-folder', filePath),
   deleteRecordingFile: (filePath: string) => ipcRenderer.invoke('audio-engine:delete-recording-file', filePath),
+  listRecordings: () => ipcRenderer.invoke('audio-engine:list-recordings'),
   
   // Response listener
   onResponse: (callback: (response: any) => void) => {

@@ -444,13 +444,17 @@ ipcMain.handle('show-open-file-dialog', async () => {
   // Get the focused window to avoid blocking the main process
   const focusedWindow = BrowserWindow.getFocusedWindow()
   
-  const result = await dialog.showOpenDialog(focusedWindow || undefined, {
+  const dialogOptions = {
     properties: ['openFile', 'multiSelections'],
     filters: [
       { name: 'Audio Files', extensions: ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma', 'aiff'] },
       { name: 'All Files', extensions: ['*'] }
     ]
-  })
+  } as any
+  
+  const result = focusedWindow 
+    ? await dialog.showOpenDialog(focusedWindow, dialogOptions)
+    : await dialog.showOpenDialog(dialogOptions)
   
   if (result.canceled) {
     return null
@@ -534,6 +538,50 @@ ipcMain.handle('audio-engine:delete-recording-file', async (_event, filePath: st
   } catch (error) {
     console.error('[Main] Error deleting file:', error)
     throw error
+  }
+})
+
+ipcMain.handle('audio-engine:list-recordings', async () => {
+  try {
+    const recordingsDir = path.join(os.homedir(), 'Music', 'MMpro3_Recordings')
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(recordingsDir)) {
+      fs.mkdirSync(recordingsDir, { recursive: true })
+      return []
+    }
+    
+    // Read all .wav files
+    const files = fs.readdirSync(recordingsDir)
+      .filter(file => file.endsWith('.wav'))
+      .map(file => {
+        const filePath = path.join(recordingsDir, file)
+        const stats = fs.statSync(filePath)
+        
+        // Calculate size
+        let size = '0 KB'
+        if (stats.size < 1024) {
+          size = stats.size + ' B'
+        } else if (stats.size < 1024 * 1024) {
+          size = (stats.size / 1024).toFixed(1) + ' KB'
+        } else {
+          size = (stats.size / (1024 * 1024)).toFixed(1) + ' MB'
+        }
+        
+        return {
+          id: file,
+          name: file.replace('.wav', ''),
+          path: filePath,
+          size,
+          created: stats.birthtime.toISOString()
+        }
+      })
+      .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
+    
+    return files
+  } catch (error) {
+    console.error('[Main] Error listing recordings:', error)
+    return []
   }
 })
 

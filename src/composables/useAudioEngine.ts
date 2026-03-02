@@ -33,6 +33,11 @@ export interface AudioEngineState {
     minProcessMs: number
     maxProcessMs: number
   } | null
+  recordingStats: {
+    elapsedSeconds: number
+    fileSizeBytes: number
+    availableSpaceGb: number
+  } | null
 }
 
 const state = ref<AudioEngineState>({
@@ -45,7 +50,8 @@ const state = ref<AudioEngineState>({
   subgroupLevels: new Map(),
   masterLevels: { left: -60, right: -60 },
   fftData: null,
-  performanceStats: null
+  performanceStats: null,
+  recordingStats: null
 })
 
 let isListening = false
@@ -146,6 +152,15 @@ export const useAudioEngine = () => {
             cpuPercent: response.cpu_percent,
             minProcessMs: response.min_process_ms,
             maxProcessMs: response.max_process_ms
+          }
+          break
+
+        case 'recording_stats':
+          // Update recording stats from Rust
+          state.value.recordingStats = {
+            elapsedSeconds: response.elapsed_seconds,
+            fileSizeBytes: response.file_size_bytes,
+            availableSpaceGb: response.available_space_gb
           }
           break
 

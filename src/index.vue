@@ -219,7 +219,13 @@
     </Transition>
 
     <!-- Footer -->
-    <Footer :performance-stats="audioEngineState.performanceStats" />
+    <Footer 
+      :performance-stats="audioEngineState.performanceStats" 
+      :is-recording="isRecording"
+      :recording-time="recordingTime"
+      :recording-file-size="recordingFileSize"
+      :available-disk-space="availableDiskSpace"
+    />
 
     <!-- Notification Toast -->
     <NotificationToast />
@@ -311,10 +317,39 @@ const isRecording = ref(false)
 const showLimitModal = ref(false)
 const limitModalMessage = ref('')
 
-// Recording state handler
+// Recording state handler - just updates the recording flag
 function handleRecordingStateChange(state: boolean) {
   isRecording.value = state
+  // All recording stats (time, size, disk space) come from Rust via RecordingStats events
 }
+
+// Format recording stats for Footer display
+const recordingTime = computed(() => {
+  if (!audioEngineState.value.recordingStats) return '00:00'
+  const elapsed = audioEngineState.value.recordingStats.elapsedSeconds
+  const minutes = Math.floor(elapsed / 60)
+  const seconds = elapsed % 60
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+})
+
+const recordingFileSize = computed(() => {
+  if (!audioEngineState.value.recordingStats) return '0 MB'
+  const bytes = audioEngineState.value.recordingStats.fileSizeBytes
+  
+  if (bytes < 1024 * 1024) {
+    return (bytes / 1024).toFixed(1) + ' KB'
+  } else if (bytes < 1024 * 1024 * 1024) {
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  } else {
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB'
+  }
+})
+
+const availableDiskSpace = computed(() => {
+  if (!audioEngineState.value.recordingStats) return 'Unknown'
+  const gb = audioEngineState.value.recordingStats.availableSpaceGb
+  return gb > 0 ? gb.toFixed(2) + ' GB' : 'Unknown'
+})
 
 // File Manager for tracks (Electron only)
 const fileManagerTargetTrackId = ref<number | null>(null)
