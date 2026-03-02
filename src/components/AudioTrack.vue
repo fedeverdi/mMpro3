@@ -237,6 +237,7 @@ const props = defineProps<{
   subgroups?: Array<{ id: number; name: string; channel?: any }>
   auxBuses?: Array<{ id: string | number; name: string; channel?: any }>
   allowSubgroupRouting?: boolean
+  auxSends?: Record<string, { level: number, preFader: boolean, muted: boolean }>
 }>()
 
 // Emits
@@ -244,6 +245,7 @@ const emit = defineEmits<{
   remove: []
   'toggle-arm': []
   'open-library': [trackNumber: number]
+  'update:auxSends': [sends: Record<string, { level: number, preFader: boolean, muted: boolean }>]
 }>()
 
 // Inject Rust audio engine
@@ -285,8 +287,11 @@ const isPlaylistMode = computed(() => {
   return currentPlaylist.value !== null && playlistFiles.value.length > 0
 })
 
-// Aux sends state
-const auxSendsData = ref<Record<string, { level: number, preFader: boolean, muted: boolean }>>({})
+// Aux sends state - use computed for two-way binding with props
+const auxSendsData = computed({
+  get: () => props.auxSends || {},
+  set: (value) => emit('update:auxSends', value)
+})
 const showAuxSendsPanel = ref(false)
 
 // Effects state
@@ -943,6 +948,9 @@ defineExpose({
     routeToMaster: routeToMaster.value,
     routedSubgroups: Array.from(routedSubgroups.value),
     
+    // Aux Sends
+    auxSends: auxSendsData.value,
+    
     // Effects enabled state (detailed params are in Rust)
     gateEnabled: gateEnabled.value,
     compressorEnabled: compressorEnabled.value,
@@ -1024,6 +1032,26 @@ defineExpose({
         for (const subgroupId of state.routedSubgroups) {
           console.log(`[Track ${props.trackNumber}] Applying routing to subgroup ${subgroupId}`)
           await audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, true)
+        }
+      }
+    }
+    
+    // Aux Sends
+    auxSendsData.value = state.auxSends || {}
+    // Apply aux sends to backend
+    if (audioEngine?.state.value.isRunning && state.auxSends) {
+      for (const [auxKey, sendData] of Object.entries(state.auxSends)) {
+        const auxIndex = props.auxBuses?.findIndex(a => a.id === auxKey)
+        if (auxIndex !== undefined && auxIndex >= 0) {
+          const send = sendData as { level: number, preFader: boolean, muted: boolean }
+          const linearGain = Math.pow(10, send.level / 20)
+          await audioEngine.setTrackAuxSend(
+            props.trackNumber - 1,
+            auxIndex,
+            linearGain,
+            send.preFader,
+            send.muted
+          )
         }
       }
     }

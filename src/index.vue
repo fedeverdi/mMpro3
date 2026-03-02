@@ -134,8 +134,10 @@
                 @drag-start="handleTrackDragStart(track.id)" />
               <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
                 :master-channel="masterChannel" :subgroups="subgroups" :aux-buses="auxBuses"
+                :aux-sends="trackAuxSends.get(track.id) || {}"
                 :allow-subgroup-routing="buildLimits.allowSubgroupRouting"
-                @open-library="handleOpenLibrary" @remove="removeTrack(track.id)" />
+                @open-library="handleOpenLibrary" @remove="removeTrack(track.id)"
+                @update:aux-sends="(sends) => updateTrackAuxSends(track.id, sends)" />
             </div>
           </div>
         </div>
@@ -343,6 +345,15 @@ interface Track {
   id: number
   type: 'audio' | 'signal'
   order: number
+}
+
+// Track aux sends state - map trackId to aux sends config
+type AuxSendConfig = Record<string, { level: number, preFader: boolean, muted: boolean }>
+const trackAuxSends = ref<Map<number, AuxSendConfig>>(new Map())
+
+// Update track aux sends
+function updateTrackAuxSends(trackId: number, sends: AuxSendConfig) {
+  trackAuxSends.value.set(trackId, sends)
 }
 
 // App ready state - not needed anymore since splash screen handles initialization
@@ -625,6 +636,8 @@ async function removeTrack(trackId: number) {
     trackRefs.value.delete(removedTrack.id)
     // Also remove from solo tracks if it was soloed
     soloTracks.value.delete(removedTrack.id)
+    // Remove aux sends for this track
+    trackAuxSends.value.delete(removedTrack.id)
   }
 }
 
