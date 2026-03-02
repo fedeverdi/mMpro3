@@ -344,7 +344,7 @@ const render = () => {
 
       const xStart = padding.left + graphWidth * posStart
       const xEnd = padding.left + graphWidth * posEnd
-      const barWidth = Math.max(1, xEnd - xStart)
+      const barWidth = xEnd - xStart + 1  // +1 per eliminare micro-gap tra barre
       const halfBarWidth = barWidth / 2
 
       // Barra LEFT (metà sinistra - viola)
@@ -360,7 +360,7 @@ const render = () => {
       ctx.fillRect(
         xStart,
         yTopLeft,
-        Math.max(1, halfBarWidth - 0.5),
+        halfBarWidth,
         barHeightLeft
       )
 
@@ -377,7 +377,7 @@ const render = () => {
       ctx.fillRect(
         xStart + halfBarWidth,
         yTopRight,
-        Math.max(1, halfBarWidth - 0.5),
+        halfBarWidth,
         barHeightRight
       )
 
@@ -388,7 +388,7 @@ const render = () => {
         ctx.lineWidth = 1.5
         ctx.beginPath()
         ctx.moveTo(xStart, peakYLeft)
-        ctx.lineTo(xStart + halfBarWidth - 0.5, peakYLeft)
+        ctx.lineTo(xStart + halfBarWidth, peakYLeft)
         ctx.stroke()
       }
 
@@ -624,7 +624,7 @@ const render = () => {
 
       const xStart = padding.left + graphWidth * posStart
       const xEnd = padding.left + graphWidth * posEnd
-      const barWidth = Math.max(1, xEnd - xStart)
+      const barWidth = xEnd - xStart + 1  // +1 per eliminare micro-gap tra barre
 
       // Barra LEFT superiore (viola) - cresce verso l'alto da centerY
       const barHeightLeft = normalizedLeft * halfGraphHeight
@@ -639,7 +639,7 @@ const render = () => {
       ctx.fillRect(
         xStart,
         yTopLeft,
-        Math.max(1, barWidth - 1),
+        barWidth,
         barHeightLeft
       )
 
@@ -655,7 +655,7 @@ const render = () => {
       ctx.fillRect(
         xStart,
         centerY,
-        Math.max(1, barWidth - 1),
+        barWidth,
         barHeightRight
       )
 
@@ -666,7 +666,7 @@ const render = () => {
         ctx.lineWidth = 1.5
         ctx.beginPath()
         ctx.moveTo(xStart, peakYLeft)
-        ctx.lineTo(xStart + barWidth - 1, peakYLeft)
+        ctx.lineTo(xStart + barWidth, peakYLeft)
         ctx.stroke()
       }
 
@@ -676,7 +676,7 @@ const render = () => {
         ctx.lineWidth = 1.5
         ctx.beginPath()
         ctx.moveTo(xStart, peakYRight)
-        ctx.lineTo(xStart + barWidth - 1, peakYRight)
+        ctx.lineTo(xStart + barWidth, peakYRight)
         ctx.stroke()
       }
     }
