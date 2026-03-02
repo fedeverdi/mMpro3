@@ -51,7 +51,7 @@
 import VuMeter from './core/VuMeter.vue'
 import OutputSelector from './master/OutputSelector.vue'
 import SubgroupFader from './subgroups/SubgroupFader.vue'
-import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
 import { useAudioDevices } from '../composables/useAudioDevices'
 
 // Props
@@ -59,23 +59,43 @@ interface Props {
   masterChannel?: any
   subgroupId?: number
   subgroupName?: string
+  volume?: number
+  routeToMaster?: boolean
+  selectedOutput?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  subgroupName: 'SUBGROUP'
+  subgroupName: 'SUBGROUP',
+  volume: 0,
+  routeToMaster: false,
+  selectedOutput: 'no-output'
 })
 
-defineEmits<{
+const emit = defineEmits<{
   remove: []
+  'update:volume': [value: number]
+  'update:routeToMaster': [value: boolean]
+  'update:selectedOutput': [value: string | null]
 }>()
 
 // Inject Rust audio engine
 const audioEngine = inject<any>('audioEngine', null)
 
-// Subgroup volume
-const volume = ref(0) // dB
-// Routing state
-const routeToMaster = ref(false) // Default: direct output only (not mixed to master)
+// Use computed for two-way binding with props
+const volume = computed({
+  get: () => props.volume ?? 0,
+  set: (value: number) => emit('update:volume', value)
+})
+
+const routeToMaster = computed({
+  get: () => props.routeToMaster ?? false,
+  set: (value: boolean) => emit('update:routeToMaster', value)
+})
+
+const selectedOutput = computed({
+  get: () => props.selectedOutput ?? 'no-output',
+  set: (value: string | null) => emit('update:selectedOutput', value)
+})
 
 // VU meter levels (will be updated by Rust engine)
 const leftLevel = ref(-60)
@@ -83,7 +103,6 @@ const rightLevel = ref(-60)
 
 // Audio outputs
 const { audioOutputDevices } = useAudioDevices()
-const selectedOutput = ref<string | null>('no-output')
 
 // Container and dynamic height
 const metersContainer = ref<HTMLElement | null>(null)
@@ -185,22 +204,7 @@ onUnmounted(() => {
   }
 })
 
-// Expose refs for parent component
-defineExpose({
-  volume,
-  routeToMaster,
-  selectedOutput,
-  getState: () => ({
-    volume: volume.value,
-    routeToMaster: routeToMaster.value,
-    selectedOutput: selectedOutput.value
-  }),
-  setState: async (state: any) => {
-    volume.value = state.volume ?? 0
-    routeToMaster.value = state.routeToMaster ?? false
-    selectedOutput.value = state.selectedOutput ?? 'no-output'
-  }
-})
+// Remove defineExpose - now using props/emit pattern
 </script>
 
 <style scoped>

@@ -154,8 +154,15 @@
         <!-- Subgroups Section -->
         <template v-for="subgroup in subgroups" :key="subgroup.id">
           <div class="flex-shrink-0 h-full mixer-fade-in">
-            <SubgroupsSection :ref="el => setSubgroupRef(subgroup.id, el)" :master-channel="masterChannel"
-              :subgroup-id="subgroup.id" :subgroup-name="subgroup.name" @remove="removeSubgroup(subgroup.id)" />
+            <SubgroupsSection 
+              :ref="el => setSubgroupRef(subgroup.id, el)" 
+              :master-channel="masterChannel"
+              :subgroup-id="subgroup.id" 
+              :subgroup-name="subgroup.name"
+              v-model:volume="subgroup.volume"
+              v-model:route-to-master="subgroup.routeToMaster"
+              v-model:selected-output="subgroup.selectedOutput"
+              @remove="removeSubgroup(subgroup.id)" />
           </div>
         </template>
 
@@ -294,6 +301,9 @@ const masterChannel = ref<any>(null)
 interface Subgroup {
   id: number
   name: string
+  volume: number
+  routeToMaster: boolean
+  selectedOutput: string | null
   channel: any
   ref: any
 }
@@ -756,23 +766,13 @@ function getMasterFx(): any {
 }
 
 function getSubgroupsState(): any[] {
-  return subgroups.value.map(subgroup => {
-    const subgroupRef = subgroup.ref
-    if (subgroupRef && subgroupRef.getState) {
-      return {
-        id: subgroup.id,
-        name: subgroup.name,
-        ...subgroupRef.getState()
-      }
-    }
-    return {
-      id: subgroup.id,
-      name: subgroup.name,
-      volume: 0,
-      routeToMaster: false,
-      selectedOutput: 'no-output'
-    }
-  })
+  return subgroups.value.map(subgroup => ({
+    id: subgroup.id,
+    name: subgroup.name,
+    volume: subgroup.volume,
+    routeToMaster: subgroup.routeToMaster,
+    selectedOutput: subgroup.selectedOutput
+  }))
 }
 
 function getAuxBusesState(): any {
@@ -855,16 +855,14 @@ async function handleLoadScene(scene: any) {
       masterFxComponent.value.resetToDefaults()
     }
     
-    // Reset subgroups to defaults
+    // Clear all subgroups before loading scene
+    // Remove from backend first
     for (const subgroup of subgroups.value) {
-      if (subgroup.ref && subgroup.ref.setState) {
-        await subgroup.ref.setState({
-          volume: 0,
-          routeToMaster: false,
-          selectedOutput: 'no-output'
-        })
-      }
+      await audioEngine.removeSubgroup(subgroup.id)
     }
+    // Clear frontend array
+    subgroups.value = []
+    nextSubgroupId = 1
     
     // Reset aux buses to defaults
     for (const aux of auxBuses.value) {
@@ -885,11 +883,77 @@ async function handleLoadScene(scene: any) {
     console.log('[Scene] Reset complete. Loading scene:', scene.name)
     
     // LOAD: Now load the scene state
-    // Load each track's state
+    
+    // FIRST: Load subgroups state - recreate subgroups from scene BEFORE loading tracks
+    // This is critical because tracks may route to subgroups, so subgroups must exist first
+    // Create a map from old subgroup IDs to new IDs (backend assigns new IDs on creation)
+    const subgroupIdMap = new Map<number, number>()
+    
+    if (scene.subgroups && Array.isArray(scene.subgroups)) {
+      for (const subgroupState of scene.subgroups) {
+        // Create new subgroup
+        const name = subgroupState.name || `SUB ${subgroups.value.length + 1}`
+        
+        // Add to frontend state with saved values
+        const tempSubgroup = {
+          id: 0,
+          name,
+          volume: subgroupState.volume ?? 0,
+          routeToMaster: subgroupState.routeToMaster ?? false,
+          selectedOutput: subgroupState.selectedOutput ?? 'no-output',
+          channel: null,
+          ref: null
+        }
+        subgroups.value.push(tempSubgroup)
+        
+        // Create in backend
+        const id = await audioEngine.addSubgroup()
+        if (id !== null) {
+          tempSubgroup.id = id
+          
+          // Map old ID to new ID for track routing
+          subgroupIdMap.set(subgroupState.id, id)
+          
+          // Apply backend state
+          const linearVolume = Math.pow(10, tempSubgroup.volume / 20)
+          await audioEngine.setSubgroupGain(id, linearVolume)
+          await audioEngine.setSubgroupRouteToMaster(id, tempSubgroup.routeToMaster)
+          
+          // Apply output device
+          if (tempSubgroup.selectedOutput && tempSubgroup.selectedOutput !== 'no-output') {
+            const parts = tempSubgroup.selectedOutput.split(':')
+            const deviceId = parts[0]
+            const leftCh = parts[1] ? parseInt(parts[1]) : 0
+            const rightCh = parts[2] ? parseInt(parts[2]) : 1
+            
+            await audioEngine.setSubgroupOutputEnabled(id, true)
+            await audioEngine.setSubgroupOutputChannels(id, leftCh, rightCh)
+          } else {
+            await audioEngine.setSubgroupOutputEnabled(id, false)
+          }
+        }
+      }
+      
+      // Wait for subgroups to be fully initialized in backend
+      await nextTick()
+      // Add small delay to ensure backend has fully initialized subgroups
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    
+    // SECOND: Load each track's state (now subgroups exist and tracks can route to them)
+    // Update routedSubgroups IDs to match new subgroup IDs
     for (let i = 0; i < scene.tracks.length; i++) {
       const trackState = scene.tracks[i]
       const track = tracks.value[i]
       if (!track) continue
+      
+      // Remap subgroup IDs if track routes to subgroups
+      if (trackState.routedSubgroups && Array.isArray(trackState.routedSubgroups)) {
+        trackState.routedSubgroups = trackState.routedSubgroups.map((oldId: number) => {
+          const newId = subgroupIdMap.get(oldId)
+          return newId !== undefined ? newId : oldId
+        })
+      }
       
       const trackRef = trackRefs.value.get(track.id)
       if (trackRef && trackRef.setState) {
@@ -928,16 +992,6 @@ async function handleLoadScene(scene: any) {
     if (scene.masterFX && masterFxComponent.value && masterFxComponent.value.restoreSnapshot) {
       console.log('[Scene] Loading Master FX chain')
       masterFxComponent.value.restoreSnapshot(scene.masterFX)
-    }
-    
-    // Load subgroups state
-    if (scene.subgroups && Array.isArray(scene.subgroups)) {
-      for (const subgroupState of scene.subgroups) {
-        const subgroup = subgroups.value.find(s => s.id === subgroupState.id)
-        if (subgroup && subgroup.ref && subgroup.ref.setState) {
-          await subgroup.ref.setState(subgroupState)
-        }
-      }
     }
     
     // Load aux buses state
@@ -1087,6 +1141,9 @@ async function addSubgroup() {
   const tempSubgroup = {
     id: 0, // Temporary id, will be updated when backend responds
     name,
+    volume: 0,
+    routeToMaster: false,
+    selectedOutput: 'no-output',
     channel: null,
     ref: null
   }

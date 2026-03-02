@@ -1014,6 +1014,20 @@ defineExpose({
     routeToMaster.value = state.routeToMaster ?? true
     routedSubgroups.value = new Set(state.routedSubgroups ?? [])
     
+    // Apply routing to backend
+    if (audioEngine?.state.value.isRunning) {
+      // Apply route to master
+      await audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
+      
+      // Apply routes to subgroups
+      if (state.routedSubgroups && Array.isArray(state.routedSubgroups)) {
+        for (const subgroupId of state.routedSubgroups) {
+          console.log(`[Track ${props.trackNumber}] Applying routing to subgroup ${subgroupId}`)
+          await audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, true)
+        }
+      }
+    }
+    
     // Effects
     gateEnabled.value = state.gateEnabled ?? false
     compressorEnabled.value = state.compressorEnabled ?? false
