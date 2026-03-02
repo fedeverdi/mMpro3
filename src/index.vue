@@ -1025,7 +1025,8 @@ async function handleLoadScene(scene: any) {
               // Apply mute
               await audioEngine.setAuxBusMute(auxIndex, aux.muted)
               
-              // Note: routeToMaster is applied later via setRoutingState()
+              // Apply routeToMaster directly from aux state
+              await audioEngine.setAuxBusRouteToMaster(auxIndex, aux.routeToMaster)
               
               // Apply output device
               if (aux.selectedOutputDevice) {
