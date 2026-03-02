@@ -8,11 +8,16 @@ module.exports = {
     asar: true,
     appBundleId: 'com.federicoverdi.mMpro3',
     appCategoryType: 'public.app-category.music',
+    icon: './src/assets/macos/icon',
+    darwinDarkModeSupport: true,
+    osxSign: false,
+    osxNotarize: false,
     extendInfo: {
       NSMicrophoneUsageDescription: 'This application needs access to the microphone to record and process audio.',
       NSCameraUsageDescription: 'This application does not use the camera.',
       LSMinimumSystemVersion: '10.15.0',
-      'com.apple.security.device.audio-input': true
+      'com.apple.security.device.audio-input': true,
+      CFBundleDocumentTypes: []
     },
     extraResource: [
       'audio-engine/target/release/mmpro3-engine'
@@ -36,7 +41,10 @@ module.exports = {
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
-      config: {},
+      config: {
+        setupIcon: './src/assets/windows/icon.ico',
+        iconUrl: 'https://raw.githubusercontent.com/federicoverdi/MMpro3/main/src/assets/windows/icon.ico'
+      },
     },
     {
       name: '@electron-forge/maker-zip',
@@ -44,11 +52,19 @@ module.exports = {
     },
     {
       name: '@electron-forge/maker-deb',
-      config: {},
+      config: {
+        options: {
+          icon: './src/assets/linux/icons/512x512.png'
+        }
+      },
     },
     {
       name: '@electron-forge/maker-rpm',
-      config: {},
+      config: {
+        options: {
+          icon: './src/assets/linux/icons/512x512.png'
+        }
+      },
     },
   ],
   plugins: [
@@ -83,10 +99,10 @@ module.exports = {
     new FusesPlugin({
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: false,
-      [FuseV1Options.EnableCookieEncryption]: true,
+      [FuseV1Options.EnableCookieEncryption]: false,
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: false,
       [FuseV1Options.OnlyLoadAppFromAsar]: true,
     }),
   ],

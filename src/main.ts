@@ -664,11 +664,21 @@ const createWindow = () => {
   // Load saved window state
   const windowState = loadWindowState()
   
+  // Determine icon path based on platform
+  let iconPath: string | undefined
+  if (process.platform === 'win32') {
+    iconPath = path.join(__dirname, '../renderer/main_window/assets/windows/icon.ico')
+  } else if (process.platform === 'linux') {
+    iconPath = path.join(__dirname, '../renderer/main_window/assets/linux/icons/512x512.png')
+  }
+  // macOS uses icon.icns from the app bundle, set via packagerConfig
+  
   const mainWindow = new BrowserWindow({
     x: windowState.x,
     y: windowState.y,
     width: windowState.width,
     height: windowState.height,
+    ...(iconPath && { icon: iconPath }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js')
     }
