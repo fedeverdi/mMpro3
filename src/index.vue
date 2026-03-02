@@ -52,7 +52,7 @@
             :class="[
               'px-3 py-1.5 border rounded text-xs font-semibold transition-all flex items-center gap-1.5',
               isLocked
-                ? 'border-red-600 bg-red-600/20 text-red-400 hover:bg-red-600/30'
+                ? 'border-blue-600 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30'
                 : 'border-gray-600 hover:border-yellow-500 hover:bg-yellow-500/10 text-gray-300 hover:text-yellow-400'
             ]">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

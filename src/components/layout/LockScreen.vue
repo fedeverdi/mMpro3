@@ -146,25 +146,25 @@ const getParticleStyle = (index: number) => {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(ellipse at center, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.1) 25%, transparent 50%);
+  background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 25%, transparent 50%);
   animation: rotateGradient 20s linear infinite;
   transform: translateZ(0);
   will-change: transform;
 }
 
 .wave-1 {
-  background: radial-gradient(ellipse at 30% 50%, rgba(239, 68, 68, 0.1) 0%, transparent 50%);
+  background: radial-gradient(ellipse at 30% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
   animation: wave 8s ease-in-out infinite;
 }
 
 .wave-2 {
-  background: radial-gradient(ellipse at 70% 50%, rgba(220, 38, 38, 0.08) 0%, transparent 50%);
+  background: radial-gradient(ellipse at 70% 50%, rgba(37, 99, 235, 0.08) 0%, transparent 50%);
   animation: wave 6s ease-in-out infinite reverse;
   animation-delay: 1s;
 }
 
 .wave-3 {
-  background: radial-gradient(ellipse at 50% 80%, rgba(239, 68, 68, 0.06) 0%, transparent 50%);
+  background: radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.06) 0%, transparent 50%);
   animation: wave 10s ease-in-out infinite;
   animation-delay: 2s;
 }
@@ -187,7 +187,7 @@ const getParticleStyle = (index: number) => {
 .particle {
   position: absolute;
   bottom: -10px;
-  background: radial-gradient(circle, rgba(239, 68, 68, 0.8) 0%, rgba(220, 38, 38, 0.4) 100%);
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.8) 0%, rgba(37, 99, 235, 0.4) 100%);
   border-radius: 50%;
   animation: float-up linear infinite;
   opacity: 0;
@@ -209,8 +209,8 @@ const getParticleStyle = (index: number) => {
 .lock-icon-container {
   width: 120px;
   height: 120px;
-  background: rgba(239, 68, 68, 0.1);
-  border: 3px solid rgba(239, 68, 68, 0.3);
+  background: rgba(59, 130, 246, 0.1);
+  border: 3px solid rgba(59, 130, 246, 0.3);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -221,8 +221,8 @@ const getParticleStyle = (index: number) => {
 .lock-icon {
   width: 60px;
   height: 60px;
-  color: #ef4444;
-  filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.5));
+  color: #3b82f6;
+  filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
 }
 
 .lock-title {
@@ -252,7 +252,7 @@ const getParticleStyle = (index: number) => {
   width: 100%;
   padding: 1rem 1.5rem;
   background: rgba(17, 24, 39, 0.8);
-  border: 2px solid rgba(239, 68, 68, 0.3);
+  border: 2px solid rgba(59, 130, 246, 0.3);
   border-radius: 12px;
   color: white;
   font-size: 1.125rem;
@@ -262,9 +262,9 @@ const getParticleStyle = (index: number) => {
 }
 
 .password-input:focus {
-  border-color: #ef4444;
+  border-color: #3b82f6;
   background: rgba(17, 24, 39, 0.95);
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
 }
 
 .password-input::placeholder {
@@ -286,7 +286,7 @@ const getParticleStyle = (index: number) => {
 .unlock-button {
   width: 100%;
   padding: 1rem 1.5rem;
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   border: none;
   border-radius: 12px;
   color: white;
@@ -298,12 +298,12 @@ const getParticleStyle = (index: number) => {
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
 }
 
 .unlock-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 30px rgba(239, 68, 68, 0.5);
+  box-shadow: 0 6px 30px rgba(59, 130, 246, 0.5);
 }
 
 .unlock-button:active {
@@ -313,11 +313,11 @@ const getParticleStyle = (index: number) => {
 @keyframes pulse-lock {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 0 0 40px rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 40px rgba(59, 130, 246, 0.5);
   }
 }
 
