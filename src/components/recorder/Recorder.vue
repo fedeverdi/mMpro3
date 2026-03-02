@@ -21,11 +21,19 @@
               <p class="text-xs text-gray-400">Record your master mix to WAV</p>
             </div>
           </div>
-          <button @click="closeModal" class="text-gray-400 hover:text-white transition-colors">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div class="flex items-center gap-3">
+            <button @click="showSettings = true" class="text-gray-400 hover:text-white transition-colors" title="Recording Settings">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+            <button @click="closeModal" class="text-gray-400 hover:text-white transition-colors">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <!-- Recording Controls -->
@@ -61,13 +69,6 @@
                   </div>
                 </div>
               </div>
-
-              <!-- Quality Selector -->
-              <QualitySelector 
-                v-model="recordingQuality"
-                :disabled="isRecording"
-                class="flex-shrink-0"
-              />
             </div>
 
             <!-- Level Meters - takes remaining space -->
@@ -122,12 +123,19 @@
       </div>
     </div>
   </Transition>
+
+  <!-- Recording Settings Modal -->
+  <RecordingSettingsModal 
+    v-model="showSettings"
+    :settings="recordingSettings"
+    @update:settings="recordingSettings = $event"
+  />
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import HorizontalStereoMeter from './components/HorizontalStereoMeter.vue'
-import QualitySelector from './components/QualitySelector.vue'
+import RecordingSettingsModal from './components/RecordingSettingsModal.vue'
 import { useNotifications } from '~/composables/useNotifications'
 
 interface Props {
@@ -166,7 +174,32 @@ const { confirm } = useNotifications()
 // Recording state
 const isRecording = ref(false)
 const recordings = ref<Recording[]>([])
-const recordingQuality = ref<string>('192') // Default: High quality
+
+// Recording settings state
+const showSettings = ref(false)
+const recordingSettings = ref({
+  format: 'wav' as 'wav' | 'mp3' | 'opus',
+  sampleRate: 48000,
+  bitDepth: 16,
+  bitrate: 192
+})
+
+// Load settings from localStorage on mount
+onMounted(() => {
+  const savedSettings = localStorage.getItem('mmpro3-recording-settings')
+  if (savedSettings) {
+    try {
+      recordingSettings.value = JSON.parse(savedSettings)
+    } catch (e) {
+      console.error('[Recorder] Failed to parse saved settings:', e)
+    }
+  }
+})
+
+// Save settings to localStorage when they change
+watch(recordingSettings, (newSettings) => {
+  localStorage.setItem('mmpro3-recording-settings', JSON.stringify(newSettings))
+}, { deep: true })
 const currentRecordingPath = ref<string>('')
 
 // Watch isRecording and emit state changes
@@ -220,9 +253,14 @@ async function startRecording() {
     const filePath = await window.audioEngine.generateRecordingPath()
     currentRecordingPath.value = filePath
     
-    // Start recording in Rust (it will save the file)
-    await window.audioEngine.enableMasterTap(filePath)
-    console.log('[Recorder] Recording started, will save to:', filePath)
+    // Start recording in Rust with settings
+    await window.audioEngine.enableMasterTap(filePath, {
+      format: recordingSettings.value.format,
+      sampleRate: recordingSettings.value.sampleRate,
+      bitDepth: recordingSettings.value.bitDepth,
+      bitrate: recordingSettings.value.bitrate
+    })
+    console.log('[Recorder] Recording started with settings:', recordingSettings.value)
     
     isRecording.value = true
     // Recording stats (time, size, disk space) will come from Rust events

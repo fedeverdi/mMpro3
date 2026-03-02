@@ -40,7 +40,12 @@ interface AudioEngine {
   onResponse: (callback: (response: any) => void) => void
   
   // Master Tap (Recording) - Rust saves WAV file directly
-  enableMasterTap: (filePath: string) => Promise<void>
+  enableMasterTap: (filePath: string, settings: {
+    format: 'wav' | 'mp3' | 'opus'
+    sampleRate: number
+    bitDepth: number
+    bitrate: number
+  }) => Promise<void>
   disableMasterTap: () => Promise<void>
   generateRecordingPath: () => Promise<string>
   getRecordingFileInfo: (filePath: string) => Promise<{ name: string, size: string }>

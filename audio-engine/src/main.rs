@@ -244,6 +244,9 @@ enum Command {
     #[serde(rename = "enable_master_tap")]
     EnableMasterTap {
         file_path: String, // Where to save the WAV file
+        sample_rate: Option<u32>, // Recording sample rate (44100, 48000, 96000, 192000)
+        bit_depth: Option<u32>, // Bit depth (16, 24, 32)
+        format: Option<String>, // "wav", "mp3", "opus"
     },
     #[serde(rename = "disable_master_tap")]
     DisableMasterTap,
@@ -563,6 +566,9 @@ struct AudioEngine {
     recording_path: Arc<Mutex<Option<PathBuf>>>, // Path where to save the recording
     recording_start_time: Arc<Mutex<Option<Instant>>>, // Recording start time for elapsed calculation
     recording_last_stats_time: Arc<Mutex<Option<Instant>>>, // Last time stats were sent (for 1-second interval)
+    recording_sample_rate: Arc<Mutex<u32>>, // Recording sample rate (configurable)
+    recording_bit_depth: Arc<Mutex<u32>>, // Recording bit depth (16, 24, or 32)
+    recording_format: Arc<Mutex<String>>, // Recording format ("wav", "mp3", "opus")
 }
 
 impl AudioEngine {
@@ -582,6 +588,9 @@ impl AudioEngine {
         let recording_path = Arc::new(Mutex::new(None));
         let recording_start_time = Arc::new(Mutex::new(None));
         let recording_last_stats_time = Arc::new(Mutex::new(None));
+        let recording_sample_rate = Arc::new(Mutex::new(48000)); // Default 48kHz
+        let recording_bit_depth = Arc::new(Mutex::new(16)); // Default 16-bit
+        let recording_format = Arc::new(Mutex::new("wav".to_string())); // Default WAV
 
         Self {
             audio_io,
@@ -601,6 +610,9 @@ impl AudioEngine {
             recording_path,
             recording_start_time,
             recording_last_stats_time,
+            recording_sample_rate,
+            recording_bit_depth,
+            recording_format,
         }
     }
 
@@ -1152,7 +1164,7 @@ impl AudioEngine {
     }
 
     // Master tap controls
-    fn enable_master_tap(&self, file_path: String) {
+    fn enable_master_tap(&self, file_path: String, sample_rate: u32, bit_depth: u32, format: &str) {
         // Clear previous buffer
         if let Ok(mut buffer) = self.master_tap_buffer.lock() {
             buffer.clear();
@@ -1160,6 +1172,16 @@ impl AudioEngine {
         // Set recording path
         if let Ok(mut path) = self.recording_path.lock() {
             *path = Some(PathBuf::from(file_path));
+        }
+        // Set recording parameters
+        if let Ok(mut sr) = self.recording_sample_rate.lock() {
+            *sr = sample_rate;
+        }
+        if let Ok(mut bd) = self.recording_bit_depth.lock() {
+            *bd = bit_depth;
+        }
+        if let Ok(mut fmt) = self.recording_format.lock() {
+            *fmt = format.to_string();
         }
         // Set start time
         let now = Instant::now();
@@ -1170,7 +1192,7 @@ impl AudioEngine {
             *last_stats_time = Some(now);
         }
         self.master_tap_enabled.store(true, Ordering::Relaxed);
-        eprintln!("[Engine] ✓ Master tap enabled - recording started");
+        eprintln!("[Engine] ✓ Master tap enabled - recording started ({}Hz, {}-bit, {})", sample_rate, bit_depth, format);
     }
 
     fn disable_master_tap(&self) {
@@ -1199,11 +1221,23 @@ impl AudioEngine {
             None
         };
 
+        // Get recording parameters
+        let sample_rate = if let Ok(sr) = self.recording_sample_rate.lock() {
+            *sr
+        } else {
+            48000
+        };
+        let bit_depth = if let Ok(bd) = self.recording_bit_depth.lock() {
+            *bd
+        } else {
+            16
+        };
+
         // Save WAV file if we have samples and path
         if !samples.is_empty() && path.is_some() {
             let file_path = path.unwrap();
-            match self.write_wav_file(&file_path, &samples) {
-                Ok(_) => eprintln!("[Engine] ✓ Recording saved: {:?} ({} samples)", file_path, samples.len()),
+            match self.write_wav_file(&file_path, &samples, sample_rate, bit_depth) {
+                Ok(_) => eprintln!("[Engine] ✓ Recording saved: {:?} ({} samples, {}Hz, {}-bit)", file_path, samples.len(), sample_rate, bit_depth),
                 Err(e) => eprintln!("[Engine] ✗ Failed to save recording: {}", e),
             }
         } else {
@@ -1211,17 +1245,19 @@ impl AudioEngine {
         }
     }
 
-    fn write_wav_file(&self, path: &PathBuf, samples: &[f32]) -> Result<()> {
+    fn write_wav_file(&self, path: &PathBuf, samples: &[f32], sample_rate: u32, bit_depth: u32) -> Result<()> {
         let mut file = File::create(path)?;
         
-        // Convert float32 to int16
         let num_samples = samples.len();
         let num_channels = 2u16; // Stereo
-        let sample_rate = self.sample_rate;
-        let bits_per_sample = 16u16;
-        let byte_rate = sample_rate * num_channels as u32 * (bits_per_sample / 8) as u32;
-        let block_align = num_channels * (bits_per_sample / 8);
-        let data_size = num_samples as u32 * (bits_per_sample / 8) as u32;
+        let bits_per_sample = bit_depth as u16;
+        let bytes_per_sample = bits_per_sample / 8;
+        let byte_rate = sample_rate * num_channels as u32 * bytes_per_sample as u32;
+        let block_align = num_channels * bytes_per_sample;
+        let data_size = num_samples as u32 * bytes_per_sample as u32;
+        
+        // For 32-bit float, we use format code 3 (IEEE float), otherwise format code 1 (PCM)
+        let format_code = if bit_depth == 32 { 3u16 } else { 1u16 };
         
         // Write WAV header
         file.write_all(b"RIFF")?;
@@ -1231,7 +1267,7 @@ impl AudioEngine {
         // fmt chunk
         file.write_all(b"fmt ")?;
         file.write_all(&16u32.to_le_bytes())?; // chunk size
-        file.write_all(&1u16.to_le_bytes())?; // PCM format
+        file.write_all(&format_code.to_le_bytes())?; // PCM (1) or IEEE Float (3)
         file.write_all(&num_channels.to_le_bytes())?;
         file.write_all(&sample_rate.to_le_bytes())?;
         file.write_all(&byte_rate.to_le_bytes())?;
@@ -1242,15 +1278,43 @@ impl AudioEngine {
         file.write_all(b"data")?;
         file.write_all(&data_size.to_le_bytes())?;
         
-        // Write samples (convert f32 to i16)
-        for sample in samples {
-            let s = sample.max(-1.0).min(1.0);
-            let i16_sample = if s < 0.0 {
-                (s * 32768.0) as i16
-            } else {
-                (s * 32767.0) as i16
-            };
-            file.write_all(&i16_sample.to_le_bytes())?;
+        // Write samples based on bit depth
+        match bit_depth {
+            16 => {
+                // Convert f32 to i16
+                for sample in samples {
+                    let s = sample.max(-1.0).min(1.0);
+                    let i16_sample = if s < 0.0 {
+                        (s * 32768.0) as i16
+                    } else {
+                        (s * 32767.0) as i16
+                    };
+                    file.write_all(&i16_sample.to_le_bytes())?;
+                }
+            },
+            24 => {
+                // Convert f32 to i24 (stored as 3 bytes)
+                for sample in samples {
+                    let s = sample.max(-1.0).min(1.0);
+                    let i32_sample = if s < 0.0 {
+                        (s * 8388608.0) as i32  // 2^23
+                    } else {
+                        (s * 8388607.0) as i32
+                    };
+                    // Write only the lower 3 bytes (little-endian)
+                    let bytes = i32_sample.to_le_bytes();
+                    file.write_all(&bytes[0..3])?;
+                }
+            },
+            32 => {
+                // Write f32 directly (IEEE float format)
+                for sample in samples {
+                    file.write_all(&sample.to_le_bytes())?;
+                }
+            },
+            _ => {
+                return Err(anyhow::anyhow!("Unsupported bit depth: {}", bit_depth));
+            }
         }
         
         Ok(())
@@ -1749,8 +1813,18 @@ impl AudioEngine {
                     message: format!("Stop failed: {}", e),
                 }),
             },
-            Command::EnableMasterTap { file_path } => {
-                self.enable_master_tap(file_path);
+            Command::EnableMasterTap { 
+                file_path, 
+                sample_rate, 
+                bit_depth, 
+                format 
+            } => {
+                self.enable_master_tap(
+                    file_path, 
+                    sample_rate.unwrap_or(48000),
+                    bit_depth.unwrap_or(16),
+                    format.as_deref().unwrap_or("wav")
+                );
                 Some(Response::Ok {
                     message: "Recording started".to_string(),
                 })

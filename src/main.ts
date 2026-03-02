@@ -482,8 +482,20 @@ ipcMain.handle('read-file-as-buffer', async (_event, filePath: string) => {
 })
 
 // Master Tap (Recording) - Rust saves WAV file directly
-ipcMain.handle('audio-engine:enable-master-tap', async (_event, filePath: string) => {
-  await sendCommandToEngine({ type: 'enable_master_tap', file_path: filePath })
+ipcMain.handle('audio-engine:enable-master-tap', async (_event, filePath: string, settings: {
+  format: 'wav' | 'mp3' | 'opus'
+  sampleRate: number
+  bitDepth: number
+  bitrate: number
+}) => {
+  console.log('[Main] Enabling master tap with settings:', settings)
+  await sendCommandToEngine({ 
+    type: 'enable_master_tap', 
+    file_path: filePath,
+    sample_rate: settings.sampleRate,
+    bit_depth: settings.bitDepth,
+    format: settings.format
+  })
 })
 
 ipcMain.handle('audio-engine:disable-master-tap', async () => {
