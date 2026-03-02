@@ -910,10 +910,23 @@ defineExpose({
   loadFileFromLibrary,
   loadPlaylistFromLibrary,
   getState: () => ({
-    // Audio source
-    audioFile: selectedAudioFile.value ? {
+    // Audio source (single file or playlist)
+    audioFile: selectedAudioFile.value && !currentPlaylist.value ? {
       id: selectedAudioFile.value,
       fileName: selectedFileName.value || ''
+    } : undefined,
+    
+    // Playlist state
+    playlist: currentPlaylist.value ? {
+      id: currentPlaylist.value.id,
+      name: currentPlaylist.value.name,
+      currentIndex: currentPlaylistIndex.value,
+      files: playlistFiles.value.map(f => ({
+        id: f.id,
+        fileName: f.fileName,
+        title: f.title,
+        artist: f.artist
+      }))
     } : undefined,
     
     // Basic controls
@@ -945,9 +958,37 @@ defineExpose({
     parametricEQFilters: parametricEQFilters.value
   }),
   setState: async (state: any) => {
-    // Restore state
-    if (state.audioFile && state.audioFile.id) {
-      // Load audio file from library by ID (without auto-playing)
+    // Restore playlist or single file
+    if (state.playlist) {
+      // Restore playlist state
+      try {
+        currentPlaylist.value = {
+          id: state.playlist.id,
+          name: state.playlist.name
+        }
+        playlistFiles.value = state.playlist.files || []
+        currentPlaylistIndex.value = state.playlist.currentIndex || 0
+        
+        // Load current file from playlist
+        if (playlistFiles.value.length > 0) {
+          const currentIndex = currentPlaylistIndex.value
+          const currentFile = playlistFiles.value[currentIndex]
+          
+          if (currentFile) {
+            const trackName = currentFile.title || currentFile.fileName
+            const trackDisplay = currentFile.artist ? `${currentFile.artist} - ${trackName}` : trackName
+            selectedFileName.value = `${currentPlaylist.value.name} (${currentIndex + 1}/${playlistFiles.value.length}) - ${trackDisplay}`
+            audioSourceType.value = 'file'
+            
+            // Load the file without auto-playing
+            await loadFileFromLibrary(currentFile, false)
+          }
+        }
+      } catch (error) {
+        console.error('[AudioTrack] Error loading playlist from scene:', error)
+      }
+    } else if (state.audioFile && state.audioFile.id) {
+      // Load single audio file from library by ID (without auto-playing)
       try {
         await loadFileFromLibrary(state.audioFile.id, false)
       } catch (error) {

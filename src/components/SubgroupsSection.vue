@@ -189,7 +189,17 @@ onUnmounted(() => {
 defineExpose({
   volume,
   routeToMaster,
-  selectedOutput
+  selectedOutput,
+  getState: () => ({
+    volume: volume.value,
+    routeToMaster: routeToMaster.value,
+    selectedOutput: selectedOutput.value
+  }),
+  setState: async (state: any) => {
+    volume.value = state.volume ?? 0
+    routeToMaster.value = state.routeToMaster ?? false
+    selectedOutput.value = state.selectedOutput ?? 'no-output'
+  }
 })
 </script>
 

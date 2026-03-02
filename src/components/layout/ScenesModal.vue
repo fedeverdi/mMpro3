@@ -131,6 +131,11 @@ const props = defineProps<{
   modelValue: boolean
   tracks: Array<{ id: number, type: string }>
   getTrackState: (trackId: number) => any
+  getMasterState?: () => any
+  getMasterEqFilters?: () => any[]
+  getMasterFx?: () => any
+  getSubgroupsState?: () => any[]
+  getAuxBusesState?: () => any[]
 }>()
 
 const emit = defineEmits<{
@@ -160,7 +165,22 @@ async function saveCurrentScene() {
       return trackState || {}
     })
     
-    const scene = createNewScene(newSceneName.value, tracksData)
+    // Collect master, subgroups, and aux buses states
+    const masterState = props.getMasterState?.() || undefined
+    const masterEQFilters = props.getMasterEqFilters?.() || undefined
+    const masterFX = props.getMasterFx?.() || undefined
+    const subgroupsState = props.getSubgroupsState?.() || undefined
+    const auxBusesState = props.getAuxBusesState?.() || undefined
+    
+    const scene = createNewScene(
+      newSceneName.value, 
+      tracksData,
+      masterState,
+      masterEQFilters,
+      masterFX,
+      subgroupsState,
+      auxBusesState
+    )
     
     await saveScene(scene)
     newSceneName.value = ''
@@ -187,7 +207,22 @@ async function updateCurrentScene(scene: any) {
       return trackState || {}
     })
     
-    await updateScene(scene.id, tracksData)
+    // Collect master, subgroups, and aux buses states
+    const masterState = props.getMasterState?.() || undefined
+    const masterEQFilters = props.getMasterEqFilters?.() || undefined
+    const masterFX = props.getMasterFx?.() || undefined
+    const subgroupsState = props.getSubgroupsState?.() || undefined
+    const auxBusesState = props.getAuxBusesState?.() || undefined
+    
+    await updateScene(
+      scene.id, 
+      tracksData,
+      masterState,
+      masterEQFilters,
+      masterFX,
+      subgroupsState,
+      auxBusesState
+    )
     // Reload scenes to update QuickScenes
     await loadAllScenes()
     close() // Close modal after updating scene

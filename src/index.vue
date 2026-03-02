@@ -146,7 +146,7 @@
         <!-- Master EQ Display, Spectrum & FX -->
         <RightSection ref="rightSectionRef" :master-channel="masterChannel"
           :master-section-ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses"
-          :subgroups="subgroups"
+          :subgroups="subgroups" :master-eq-filters="masterEqFiltersData"
           @master-fx-output-node="handleMasterFxOutputNode"
           @master-fx-component="handleMasterFxComponent" @update:master-eq-filters="handleMasterEQFiltersUpdate"
           @add-aux="addAux" @remove-aux="removeAux" @update-aux="updateAux" />
@@ -193,6 +193,11 @@
       v-model="showScenesModal" 
       :tracks="tracks"
       :get-track-state="getTrackState"
+      :get-master-state="getMasterState"
+      :get-master-eq-filters="getMasterEqFilters"
+      :get-master-fx="getMasterFx"
+      :get-subgroups-state="getSubgroupsState"
+      :get-aux-buses-state="getAuxBusesState"
       @load-scene="handleLoadScene"
     />
 
@@ -667,6 +672,9 @@ const rightSectionRef = ref<any>(null) // Ref to RightSection component
 const masterFxOutputNode = ref<any>(null)
 const masterFxComponent = ref<any>(null) // For getSnapshot only
 
+// Master EQ state (source of truth)
+const masterEqFiltersData = ref<any[]>([])
+
 // Handlers for output node updates
 function handleMasterFxOutputNode(node: any) {
   masterFxOutputNode.value = node
@@ -678,9 +686,13 @@ function handleMasterFxComponent(component: any) {
 
 // Handle master EQ filters update from RightSection
 async function handleMasterEQFiltersUpdate(filters: any[]) {
+  // Update local state (source of truth)
+  masterEqFiltersData.value = filters
+  
   if (!filters || filters.length === 0) {
     // Clear master EQ if no filters
     await window.audioEngine?.clearMasterParametricEQ()
+    console.log('[Master EQ] Cleared filters')
     return
   }
   
@@ -719,8 +731,131 @@ function getTrackState(trackId: number): any {
   return trackRef.getState()
 }
 
+function getMasterState(): any {
+  if (masterSectionRef.value && masterSectionRef.value.getState) {
+    return masterSectionRef.value.getState()
+  }
+  return null
+}
+
+function getMasterEqFilters(): any[] {
+  return masterEqFiltersData.value || []
+}
+
+function getMasterFx(): any {
+  if (masterFxComponent.value && masterFxComponent.value.getSnapshot) {
+    return masterFxComponent.value.getSnapshot()
+  }
+  return null
+}
+
+function getSubgroupsState(): any[] {
+  return subgroups.value.map(subgroup => {
+    const subgroupRef = subgroup.ref
+    if (subgroupRef && subgroupRef.getState) {
+      return {
+        id: subgroup.id,
+        name: subgroup.name,
+        ...subgroupRef.getState()
+      }
+    }
+    return {
+      id: subgroup.id,
+      name: subgroup.name,
+      volume: 0,
+      routeToMaster: false,
+      selectedOutput: 'no-output'
+    }
+  })
+}
+
+function getAuxBusesState(): any[] {
+  return auxBuses.value.map(aux => ({
+    id: aux.id,
+    name: aux.name,
+    volume: aux.volume,
+    reverbParams: aux.reverbParams,
+    delayParams: aux.delayParams
+  }))
+}
+
 async function handleLoadScene(scene: any) {
   try {
+    // RESET: First, reset all mixer state to defaults
+    console.log('[Scene] Resetting mixer to defaults...')
+    
+    // Reset all tracks to default state
+    for (const track of tracks.value) {
+      const trackRef = trackRefs.value.get(track.id)
+      if (trackRef && trackRef.setState) {
+        await trackRef.setState({
+          gain: 0,
+          volume: 0,
+          pan: 0,
+          mute: false,
+          solo: false,
+          phaseInvert: false,
+          padEnabled: false,
+          hpfEnabled: false,
+          routeToMaster: true,
+          routedSubgroups: [],
+          gateEnabled: false,
+          compressorEnabled: false,
+          eqEnabled: false,
+          eqLow: 0,
+          eqLowMid: 0,
+          eqHighMid: 0,
+          eqHigh: 0,
+          parametricEQFilters: []
+        })
+      }
+    }
+    
+    // Reset master section to defaults
+    if (masterSectionRef.value && masterSectionRef.value.setState) {
+      await masterSectionRef.value.setState({
+        leftVolume: 0,
+        rightVolume: 0,
+        headphonesVolume: -60,
+        isLinked: true,
+        masterMuted: false,
+        selectedMasterOutput: null,
+        selectedHeadphonesOutput: null
+      })
+    }
+    
+    // Reset master EQ filters (clear all filters)
+    console.log('[Scene] Resetting Master EQ filters')
+    masterEqFiltersData.value = []
+    await nextTick() // Force Vue to process the reactive change
+    await window.audioEngine?.clearMasterParametricEQ()
+    
+    // Reset master FX (clear all effects)
+    if (masterFxComponent.value && masterFxComponent.value.resetToDefaults) {
+      masterFxComponent.value.resetToDefaults()
+    }
+    
+    // Reset subgroups to defaults
+    for (const subgroup of subgroups.value) {
+      if (subgroup.ref && subgroup.ref.setState) {
+        await subgroup.ref.setState({
+          volume: 0,
+          routeToMaster: false,
+          selectedOutput: 'no-output'
+        })
+      }
+    }
+    
+    // Reset aux buses to defaults
+    for (const aux of auxBuses.value) {
+      aux.volume = 0
+      aux.reverbParams = undefined
+      aux.delayParams = undefined
+    }
+    
+    console.log('[Scene] Reset complete. Loading scene:', scene.name)
+    
+    // LOAD: Now load the scene state
     // Load each track's state
     for (let i = 0; i < scene.tracks.length; i++) {
       const trackState = scene.tracks[i]
@@ -733,11 +868,67 @@ async function handleLoadScene(scene: any) {
       }
     }
     
+    // Load master state
+    if (scene.master && masterSectionRef.value && masterSectionRef.value.setState) {
+      await masterSectionRef.value.setState(scene.master)
+    }
+    
+    // Load master EQ filters
+    if (scene.masterEQFilters && scene.masterEQFilters.length > 0) {
+      console.log('[Scene] Loading Master EQ filters:', scene.masterEQFilters.length, 'bands', scene.masterEQFilters)
+      masterEqFiltersData.value = [...scene.masterEQFilters]
+      await nextTick() // Force Vue to process the change
+      
+      // Update the backend
+      const backendFilters = scene.masterEQFilters.map((f: any) => ({
+        type: f.type,
+        frequency: f.frequency,
+        gain: f.gain,
+        q: f.Q
+      }))
+      await window.audioEngine?.setMasterParametricEQFilters(backendFilters)
+      console.log('[Master EQ] Backend updated with', backendFilters.length, 'bands')
+    } else {
+      // Scene has no EQ filters, ensure they're cleared
+      console.log('[Scene] No Master EQ filters in scene')
+      masterEqFiltersData.value = []
+      await nextTick() // Force Vue to process the change
+    }
+    
+    // Load master FX
+    if (scene.masterFX && masterFxComponent.value && masterFxComponent.value.restoreSnapshot) {
+      console.log('[Scene] Loading Master FX chain')
+      masterFxComponent.value.restoreSnapshot(scene.masterFX)
+    }
+    
+    // Load subgroups state
+    if (scene.subgroups && Array.isArray(scene.subgroups)) {
+      for (const subgroupState of scene.subgroups) {
+        const subgroup = subgroups.value.find(s => s.id === subgroupState.id)
+        if (subgroup && subgroup.ref && subgroup.ref.setState) {
+          await subgroup.ref.setState(subgroupState)
+        }
+      }
+    }
+    
+    // Load aux buses state
+    if (scene.auxBuses && Array.isArray(scene.auxBuses)) {
+      // Restore aux buses data
+      for (const auxState of scene.auxBuses) {
+        const aux = auxBuses.value.find(a => a.id === auxState.id)
+        if (aux) {
+          aux.volume = auxState.volume ?? 0
+          aux.reverbParams = auxState.reverbParams
+          aux.delayParams = auxState.delayParams
+        }
+      }
+    }
+    
     // Set current scene ID in the composable
     const { setCurrentSceneId } = useScenes()
     setCurrentSceneId(scene.id)
     
-    console.log('[Scene] Scene loaded:', scene.name)
+    console.log('[Scene] Scene loaded successfully:', scene.name)
   } catch (error) {
     console.error('[Scene] Error loading scene:', error)
   }

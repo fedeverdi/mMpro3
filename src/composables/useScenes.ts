@@ -42,7 +42,36 @@ export interface Scene {
   timestamp: number
   pinned: boolean
   tracks: SceneTrack[]
-  // Future: master settings, subgroup settings, etc.
+  // Master settings
+  master?: {
+    leftVolume: number
+    rightVolume: number
+    headphonesVolume: number
+    isLinked: boolean
+    masterMuted: boolean
+    selectedMasterOutput: string | null
+    selectedHeadphonesOutput: string | null
+  }
+  // Master EQ Parametric Filters
+  masterEQFilters?: any[]
+  // Master FX Chain
+  masterFX?: any
+  // Subgroups
+  subgroups?: Array<{
+    id: number
+    name: string
+    volume: number
+    routeToMaster: boolean
+    selectedOutput: string | null
+  }>
+  // Aux Buses
+  auxBuses?: Array<{
+    id: string
+    name: string
+    volume: number
+    reverbParams?: any
+    delayParams?: any
+  }>
 }
 
 // Shared state (singleton pattern)
@@ -119,7 +148,15 @@ export function useScenes() {
   /**
    * Update an existing scene with current state
    */
-  async function updateScene(sceneId: string, tracksData: SceneTrack[]): Promise<void> {
+  async function updateScene(
+    sceneId: string, 
+    tracksData: SceneTrack[],
+    master?: any,
+    masterEQFilters?: any[],
+    masterFX?: any,
+    subgroups?: any[],
+    auxBuses?: any[]
+  ): Promise<void> {
     try {
       const existingScene = scenes.value.find(s => s.id === sceneId)
       if (!existingScene) {
@@ -132,7 +169,12 @@ export function useScenes() {
         name: existingScene.name,
         timestamp: Date.now(),
         pinned: existingScene.pinned || false,
-        tracks: tracksData
+        tracks: tracksData,
+        master,
+        masterEQFilters,
+        masterFX,
+        subgroups,
+        auxBuses
       }
       
       await saveScene(updatedScene)
@@ -168,13 +210,26 @@ export function useScenes() {
   /**
    * Create a new scene from current state
    */
-  function createNewScene(name: string, tracksData: SceneTrack[]): Scene {
+  function createNewScene(
+    name: string, 
+    tracksData: SceneTrack[], 
+    master?: any,
+    masterEQFilters?: any[],
+    masterFX?: any,
+    subgroups?: any[],
+    auxBuses?: any[]
+  ): Scene {
     return {
       id: `scene_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       name,
       timestamp: Date.now(),
       pinned: false,
-      tracks: tracksData
+      tracks: tracksData,
+      master,
+      masterEQFilters,
+      masterFX,
+      subgroups,
+      auxBuses
     }
   }
   

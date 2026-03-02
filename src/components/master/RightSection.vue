@@ -70,7 +70,7 @@
             <span>{{ component.name }}</span>
           </div>
         </div>
-        <MasterEQDisplay :filters-data="masterEqFiltersData" :master-channel="masterChannel"
+        <MasterEQDisplay :filters-data="props.masterEqFilters || []" :master-channel="masterChannel"
           @update:filters-data="handleMasterEQFiltersUpdate" />
       </div>
 
@@ -191,6 +191,7 @@ interface Props {
   masterFxOutputNode?: any
   auxBuses?: AuxBus[]
   subgroups?: Array<{ id: number, name: string }>
+  masterEqFilters?: any[]
 }
 
 const props = defineProps<Props>()
@@ -231,12 +232,8 @@ let startWidth = 0
 let resizeRafId: number | null = null
 let pendingWidth: number | null = null
 
-// Master EQ filters data
-const masterEqFiltersData = ref<any[]>([])
-
 // Handle master EQ filters update from MasterEQDisplay
 function handleMasterEQFiltersUpdate(filters: any[]) {
-  masterEqFiltersData.value = filters
   emit('update:master-eq-filters', filters)
 }
 
@@ -479,11 +476,6 @@ function saveComponentsOrder() {
 watch(rightSectionComponents, () => {
   saveComponentsOrder()
 }, { deep: true })
-
-// Expose masterEqFiltersData for access from parent
-defineExpose({
-  masterEqFiltersData
-})
 
 onMounted(() => {
   loadComponentsOrder()
