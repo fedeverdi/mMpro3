@@ -174,6 +174,9 @@
       v-model="showRecorder" 
       :master-level-left="audioEngineState.masterLevels.left"
       :master-level-right="audioEngineState.masterLevels.right"
+      :recording-time="recordingTime"
+      :recording-file-size="recordingFileSize"
+      :available-disk-space="availableDiskSpace"
       @recording-state="handleRecordingStateChange"
     />
 

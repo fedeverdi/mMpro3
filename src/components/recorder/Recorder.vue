@@ -30,10 +30,11 @@
 
         <!-- Recording Controls -->
         <div class="bg-gray-900/50 rounded-lg p-6 mb-6 border border-gray-700">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-4">
+          <div class="flex items-center gap-4">
+            <!-- Left section with fixed width -->
+            <div class="flex items-center gap-4 w-[520px] flex-shrink-0">
               <button @click="toggleRecording"
-                class="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold transition-all shadow-lg"
+                class="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold transition-all shadow-lg flex-shrink-0"
                 :class="isRecording ? 'bg-red-700 animate-pulse' : 'bg-red-600 hover:bg-red-700'">
                 <svg v-if="!isRecording" class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="8" />
@@ -43,12 +44,21 @@
                 </svg>
               </button>
               
-              <div>
+              <div class="flex-1 min-w-0">
                 <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">
                   {{ isRecording ? 'Recording' : 'Ready' }}
                 </div>
                 <div class="text-3xl font-mono font-bold text-white">
-                  {{ recordingTime }}
+                  {{ props.recordingTime }}
+                </div>
+                <!-- Recording stats from Rust (shown when recording) -->
+                <div v-if="isRecording" class="flex gap-3 mt-2 text-xs text-gray-400">
+                  <div class="w-[110px] truncate">
+                    <span class="font-semibold text-gray-300">SIZE:</span> {{ props.recordingFileSize }}
+                  </div>
+                  <div class="w-[110px] truncate">
+                    <span class="font-semibold text-gray-300">FREE:</span> {{ props.availableDiskSpace }}
+                  </div>
                 </div>
               </div>
 
@@ -56,12 +66,12 @@
               <QualitySelector 
                 v-model="recordingQuality"
                 :disabled="isRecording"
-                class="ml-4"
+                class="flex-shrink-0"
               />
             </div>
 
-            <!-- Level Meters -->
-            <div class="flex-1 pl-6">
+            <!-- Level Meters - takes remaining space -->
+            <div class="flex-1 min-w-0">
               <HorizontalStereoMeter 
                 :left-level="safeLeftLevel" 
                 :right-level="safeRightLevel"
@@ -123,6 +133,9 @@ interface Props {
   modelValue: boolean
   masterLevelLeft?: number  // Subscribe to master levels from parent
   masterLevelRight?: number
+  recordingTime?: string    // Recording time from Rust
+  recordingFileSize?: string // File size from Rust
+  availableDiskSpace?: string // Available disk space from Rust
 }
 
 interface Recording {
@@ -136,7 +149,10 @@ interface Recording {
 
 const props = withDefaults(defineProps<Props>(), {
   masterLevelLeft: -60,
-  masterLevelRight: -60
+  masterLevelRight: -60,
+  recordingTime: '00:00',
+  recordingFileSize: '0 MB',
+  availableDiskSpace: 'Unknown'
 })
 
 const emit = defineEmits<{
@@ -146,8 +162,6 @@ const emit = defineEmits<{
 
 // Recording state
 const isRecording = ref(false)
-const recordingTime = ref('00:00')
-const recordingStartTime = ref(0)
 const recordings = ref<Recording[]>([])
 const recordingQuality = ref<string>('192') // Default: High quality
 const currentRecordingPath = ref<string>('')
@@ -176,8 +190,7 @@ const safeRightLevel = computed(() => {
   return val
 })
 
-// Recording internals
-let recordingInterval: number | null = null
+// Recording internals (no local timer - stats come from Rust)
 
 function closeModal() {
   emit('update:modelValue', false)
@@ -209,16 +222,7 @@ async function startRecording() {
     console.log('[Recorder] Recording started, will save to:', filePath)
     
     isRecording.value = true
-    recordingStartTime.value = Date.now()
-    recordingTime.value = '00:00'
-
-    // Start timer
-    recordingInterval = window.setInterval(() => {
-      const elapsed = Math.floor((Date.now() - recordingStartTime.value) / 1000)
-      const minutes = Math.floor(elapsed / 60)
-      const seconds = elapsed % 60
-      recordingTime.value = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-    }, 1000)
+    // Recording stats (time, size, disk space) will come from Rust events
   } catch (error) {
     console.error('[Recorder] Error starting recording:', error)
     isRecording.value = false
@@ -228,12 +232,6 @@ async function startRecording() {
 async function stopRecording() {
   console.log('[Recorder] Stopping recording...')
   
-  if (recordingInterval) {
-    clearInterval(recordingInterval)
-    recordingInterval = null
-  }
-
-  const duration = recordingTime.value
   const filePath = currentRecordingPath.value
   
   isRecording.value = false
@@ -310,9 +308,6 @@ watch(() => props.modelValue, (isOpen) => {
 
 // Cleanup on unmount
 onUnmounted(async () => {
-  if (recordingInterval) {
-    clearInterval(recordingInterval)
-  }
   if (window.audioEngine && isRecording.value) {
     try {
       await window.audioEngine.disableMasterTap()
