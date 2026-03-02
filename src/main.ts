@@ -19,6 +19,8 @@ let audioEngineProcess: ChildProcess | null = null
 
 // Splash Window
 let splashWindow: BrowserWindow | null = null
+let splashStartTime: number = 0
+const MINIMUM_SPLASH_DURATION = 3000 // 3 seconds
 
 const startAudioEngine = () => {
   // If audio engine is already running, stop it first
@@ -1022,6 +1024,9 @@ const createSplashWindow = () => {
   const splashWidth = 800
   const splashHeight = 500
   
+  // Record splash creation time for minimum display duration
+  splashStartTime = Date.now()
+  
   splashWindow = new BrowserWindow({
     x: Math.floor((screenWidth - splashWidth) / 2),
     y: Math.floor((screenHeight - splashHeight) / 2),
@@ -1074,18 +1079,37 @@ const createWindow = () => {
     }
   })
 
-  // When main window is ready, close splash and show main
-  mainWindow.once('ready-to-show', () => {
-    if (splashWindow) {
-      splashWindow.close()
+  // Track both conditions: window ready AND minimum splash time elapsed
+  let isWindowReady = false
+  let isMinimumTimeElapsed = false
+  
+  const showMainWindow = () => {
+    // Only show if both conditions are met
+    if (isWindowReady && isMinimumTimeElapsed) {
+      if (splashWindow) {
+        splashWindow.close()
+      }
+      // Restore maximized state before showing
+      if (windowState.isMaximized) {
+        mainWindow.maximize()
+      }
+      setTimeout(() => {
+        mainWindow.show()
+      }, 100) // Small delay to ensure splash closes first
     }
-    mainWindow.show()
-  })
-
-  // Restore maximized state if needed
-  if (windowState.isMaximized) {
-    mainWindow.maximize()
   }
+
+  // Minimum splash duration timer
+  setTimeout(() => {
+    isMinimumTimeElapsed = true
+    showMainWindow()
+  }, MINIMUM_SPLASH_DURATION)
+
+  // When main window is ready
+  mainWindow.once('ready-to-show', () => {
+    isWindowReady = true
+    showMainWindow()
+  })
 
   // Save window state on resize and move
   let saveStateTimeout: NodeJS.Timeout | null = null
