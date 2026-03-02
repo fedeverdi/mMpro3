@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick, toRaw } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, toRaw, inject, type Ref } from 'vue'
 import { PeakingFilter } from '~/lib/filters/peaking.class'
 import { LowShelvingFilter } from '~/lib/filters/lowShelving.class'
 import { HighShelvingFilter } from '~/lib/filters/highShelving.class'
@@ -57,13 +57,13 @@ const highShelvingCalculator = new HighShelvingFilter()
 
 let rafId: number | null = null
 let needsRedraw = false
-let resizeObserver: ResizeObserver | null = null
 
 function syncFiltersData(newData?: any[]) {
   internalFiltersData.value = (newData || []).map(filter => ({ ...filter }))
   requestRedraw()
 }
 
+let resizeTimeout: ReturnType<typeof setTimeout> | null = null
 function requestRedraw() {
   if (needsRedraw) return
   needsRedraw = true
@@ -76,6 +76,18 @@ function requestRedraw() {
   })
 }
 
+// Throttled version for window resize
+function throttledRequestRedraw() {
+  if (resizeTimeout) return
+  resizeTimeout = setTimeout(() => {
+    requestRedraw()
+    resizeTimeout = null
+  }, 16) // ~60fps
+}
+
+// Use centralized resize trigger from parent
+const resizeTrigger = inject<Ref<number>>('resizeTrigger', ref(0))
+
 watch(() => props.filtersData, (newVal) => {
   syncFiltersData(newVal)
 }, { immediate: true })
@@ -83,26 +95,24 @@ watch(() => props.filtersData, (newVal) => {
 onMounted(async () => {
   await nextTick()
   requestRedraw()
-  window.addEventListener('resize', requestRedraw)
+  window.addEventListener('resize', throttledRequestRedraw)
   
-  // Add ResizeObserver to detect container size changes
-  if (masterEqCanvas.value) {
-    resizeObserver = new ResizeObserver(() => {
-      requestRedraw()
-    })
-    resizeObserver.observe(masterEqCanvas.value)
-  }
+  // Watch for centralized resize trigger
+  watch(resizeTrigger, () => {
+    requestRedraw()
+  })
+  
+  // Cleanup on unmount
+  onUnmounted(() => {
+    if (resizeTimeout) {
+      clearTimeout(resizeTimeout)
+    }
+  })
 })
 
 onUnmounted(() => {
   if (rafId) cancelAnimationFrame(rafId)
-  window.removeEventListener('resize', requestRedraw)
-  
-  // Disconnect ResizeObserver
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-    resizeObserver = null
-  }
+  window.removeEventListener('resize', throttledRequestRedraw)
 })
 
 // Handle parametric EQ update

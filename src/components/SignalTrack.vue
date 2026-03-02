@@ -417,19 +417,37 @@ watch(
 )
 
 // Fader height calculation
+let updateFaderHeightTimeout: ReturnType<typeof setTimeout> | null = null
 function updateFaderHeight() {
-  if (faderContainer.value) {
-    faderHeight.value = faderContainer.value.clientHeight
-  }
+  // Throttle resize calculations to prevent blocking during window animations
+  if (updateFaderHeightTimeout) return
+  
+  updateFaderHeightTimeout = setTimeout(() => {
+    if (faderContainer.value) {
+      faderHeight.value = faderContainer.value.clientHeight
+    }
+    updateFaderHeightTimeout = null
+  }, 16) // ~60fps
 }
+
+// Use centralized resize trigger from parent instead of local ResizeObserver
+const resizeTrigger = inject<Ref<number>>('resizeTrigger', ref(0))
 
 // Lifecycle
 onMounted(async () => { 
-  const resizeObserver = new ResizeObserver(updateFaderHeight)
-  if (faderContainer.value) {
-    resizeObserver.observe(faderContainer.value)
-  }
+  // Watch for centralized resize trigger instead of using ResizeObserver
+  watch(resizeTrigger, () => {
+    updateFaderHeight()
+  })
+  
   updateFaderHeight()
+  
+  // Cleanup on unmount
+  onUnmounted(() => {
+    if (updateFaderHeightTimeout) {
+      clearTimeout(updateFaderHeightTimeout)
+    }
+  })
   
   // Note: Signal generator initialization is handled by the audioEngine running watch
 })

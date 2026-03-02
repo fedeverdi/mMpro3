@@ -51,7 +51,7 @@
 import VuMeter from './core/VuMeter.vue'
 import OutputSelector from './master/OutputSelector.vue'
 import SubgroupFader from './subgroups/SubgroupFader.vue'
-import { ref, computed, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, inject, type Ref } from 'vue'
 import { useAudioDevices } from '../composables/useAudioDevices'
 
 // Props
@@ -108,17 +108,26 @@ const { audioOutputDevices } = useAudioDevices()
 const metersContainer = ref<HTMLElement | null>(null)
 const vuMetersHeight = ref(0)
 const fadersHeight = ref(0)
-let resizeObserver: ResizeObserver | null = null
+let updateMetersHeightTimeout: ReturnType<typeof setTimeout> | null = null
 
 // Calculate meters height based on container
 function updateMetersHeight() {
-  if (metersContainer.value) {
-    const height = metersContainer.value.clientHeight
-    const availableHeight = Math.max(120, height - 60)
-    vuMetersHeight.value = Math.max(40, Math.floor(availableHeight * 0.4))
-    fadersHeight.value = Math.max(80, Math.floor(availableHeight * 0.6))
-  }
+  // Throttle resize calculations to prevent blocking during window animations
+  if (updateMetersHeightTimeout) return
+  
+  updateMetersHeightTimeout = setTimeout(() => {
+    if (metersContainer.value) {
+      const height = metersContainer.value.clientHeight
+      const availableHeight = Math.max(120, height - 60)
+      vuMetersHeight.value = Math.max(40, Math.floor(availableHeight * 0.4))
+      fadersHeight.value = Math.max(80, Math.floor(availableHeight * 0.6))
+    }
+    updateMetersHeightTimeout = null
+  }, 16) // ~60fps
 }
+
+// Use centralized resize trigger from parent
+const resizeTrigger = inject<Ref<number>>('resizeTrigger', ref(0))
 
 // Handle output device selection
 function handleOutputSelect(deviceId: string | null) {
@@ -189,19 +198,17 @@ onMounted(async () => {
   await nextTick()
   updateMetersHeight()
 
-  // Watch for container size changes
-  if (metersContainer.value) {
-    resizeObserver = new ResizeObserver(() => {
-      updateMetersHeight()
-    })
-    resizeObserver.observe(metersContainer.value)
-  }
-})
+  // Watch for centralized resize trigger instead of using ResizeObserver
+  watch(resizeTrigger, () => {
+    updateMetersHeight()
+  })
 
-onUnmounted(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-  }
+  // Cleanup on unmount
+  onUnmounted(() => {
+    if (updateMetersHeightTimeout) {
+      clearTimeout(updateMetersHeightTimeout)
+    }
+  })
 })
 
 // Remove defineExpose - now using props/emit pattern

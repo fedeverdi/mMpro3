@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, ipcMain, shell, dialog } from 'electron'
+import { app, BrowserWindow, screen, ipcMain, shell, dialog, powerSaveBlocker } from 'electron'
 import { spawn, ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -14,6 +14,16 @@ if (started) {
   app.quit()
 }
 
+// Disable window occlusion and background throttling for audio continuity
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+// Disable window animations to prevent audio glitches during minimize
+app.commandLine.appendSwitch('wm-window-animations-disabled')
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('disable-smooth-scrolling')
+}
+
 // Audio Engine Process
 let audioEngineProcess: ChildProcess | null = null
 
@@ -21,6 +31,9 @@ let audioEngineProcess: ChildProcess | null = null
 let splashWindow: BrowserWindow | null = null
 let splashStartTime: number = 0
 const MINIMUM_SPLASH_DURATION = 3000 // 3 seconds
+
+// Power Save Blocker - prevent system from throttling audio
+let powerSaveBlockerId: number | null = null
 
 const startAudioEngine = () => {
   // If audio engine is already running, stop it first
@@ -1075,7 +1088,8 @@ const createWindow = () => {
     show: false, // Don't show until ready
     ...(iconPath && { icon: iconPath }),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      backgroundThrottling: false // Prevent audio interruption when window is minimized
     }
   })
 
@@ -1124,38 +1138,6 @@ const createWindow = () => {
 
   mainWindow.on('resize', debouncedSaveState)
   mainWindow.on('move', debouncedSaveState)
-  
-  // CRITICAL: Suspend audio engine updates during window resize to prevent stdout blocking
-  // This prevents audio glitches caused by println!() blocking in the audio callback
-  let resizeSuspendTimeout: NodeJS.Timeout | null = null
-  mainWindow.on('resize', () => {
-    // Suspend updates immediately when resize starts
-    if (audioEngineProcess && audioEngineProcess.stdin) {
-      try {
-        const cmd = JSON.stringify({ type: 'set_updates_suspended', suspended: true }) + '\n'
-        audioEngineProcess.stdin.write(cmd)
-      } catch (err) {
-        // Ignore errors, audio will continue
-      }
-    }
-    
-    // Clear existing timeout
-    if (resizeSuspendTimeout) {
-      clearTimeout(resizeSuspendTimeout)
-    }
-    
-    // Resume updates after 500ms of no resize activity
-    resizeSuspendTimeout = setTimeout(() => {
-      if (audioEngineProcess && audioEngineProcess.stdin) {
-        try {
-          const cmd = JSON.stringify({ type: 'set_updates_suspended', suspended: false }) + '\n'
-          audioEngineProcess.stdin.write(cmd)
-        } catch (err) {
-          // Ignore errors
-        }
-      }
-    }, 500)
-  })
   
   mainWindow.on('maximize', () => saveWindowState(mainWindow))
   mainWindow.on('unmaximize', () => saveWindowState(mainWindow))
@@ -1232,6 +1214,10 @@ const createWindow = () => {
 }
 
 app.whenReady().then(() => {
+  // Prevent system from throttling audio playback
+  powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension')
+  console.log('[Main] Power save blocker started:', powerSaveBlocker.isStarted(powerSaveBlockerId))
+  
   startAudioEngine()
   
   // Show splash screen first
@@ -1244,17 +1230,30 @@ app.whenReady().then(() => {
   }, 100)
 
   app.on('activate', () => {
+    // If no windows, create new ones
     if (BrowserWindow.getAllWindows().length === 0) {
       createSplashWindow()
       setTimeout(() => {
         createWindow()
       }, 100)
+    } else {
+      // On macOS, restore hidden window when clicking dock icon
+      const windows = BrowserWindow.getAllWindows()
+      const mainWin = windows.find(w => !w.isDestroyed() && w.webContents.getURL().includes('index.html'))
+      if (mainWin && !mainWin.isVisible()) {
+        mainWin.show()
+      }
     }
   })
 })
 
 app.on('window-all-closed', () => {
   stopAudioEngine()
+  // Stop power save blocker
+  if (powerSaveBlockerId !== null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
+    powerSaveBlocker.stop(powerSaveBlockerId)
+    console.log('[Main] Power save blocker stopped')
+  }
   if (process.platform !== 'darwin') {
     app.quit()
   }
@@ -1262,4 +1261,8 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   stopAudioEngine()
+  // Stop power save blocker
+  if (powerSaveBlockerId !== null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
+    powerSaveBlocker.stop(powerSaveBlockerId)
+  }
 })

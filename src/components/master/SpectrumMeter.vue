@@ -81,8 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, inject } from 'vue'
-import type { Ref } from 'vue'
+import { ref, watch, onMounted, onUnmounted, inject, type Ref } from 'vue'
 
 interface Props {
   masterFxOutputNode?: any
@@ -137,7 +136,6 @@ watch(
 )
 
 let animationId: number | null = null
-let resizeObserver: ResizeObserver | null = null
 
 // Peak hold tracking
 let peakValuesLeft: number[] = []
@@ -772,30 +770,24 @@ const render = () => {
   }
 }
 
+// Use centralized resize trigger from parent
+const resizeTrigger = inject<Ref<number>>('resizeTrigger', ref(0))
+
 // Lifecycle
 onMounted(() => {
   render()
   
-  // Add ResizeObserver to detect container size changes
-  if (canvas.value) {
-    resizeObserver = new ResizeObserver(() => {
-      // The render loop already handles size updates each frame
-      // This just ensures immediate response to resize events
-    })
-    resizeObserver.observe(canvas.value)
-  }
+  // Watch for centralized resize trigger
+  // The render loop already handles size updates each frame
+  watch(resizeTrigger, () => {
+    // Just trigger a re-render if needed
+  })
 })
 
 onUnmounted(() => {
   if (animationId !== null) {
     cancelAnimationFrame(animationId)
     animationId = null
-  }
-  
-  // Disconnect ResizeObserver
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-    resizeObserver = null
   }
 
   if (currentMasterNode && splitNode) {

@@ -117,7 +117,7 @@
     <!-- Mixer Console -->
     <main class="flex-1 flex gap-2 p-2 overflow-hidden">
       <!-- Audio Tracks Section (flexible) -->
-      <div class="tracks-scroll-wrap flex-1 overflow-hidden min-w-0 pb-[2px]">
+      <div ref="tracksContainerRef" class="tracks-scroll-wrap flex-1 overflow-hidden min-w-0 pb-[2px]">
         <div class="tracks-scroll overflow-x-auto overflow-y-hidden h-full">
           <div class="flex gap-2 h-full min-w-max">
             <!-- Audio Tracks -->
@@ -358,6 +358,12 @@ function updateTrackAuxSends(trackId: number, sends: AuxSendConfig) {
 
 // App ready state - not needed anymore since splash screen handles initialization
 const isAppReady = inject<Ref<boolean>>('isAppReady', ref(false))
+
+// Centralized resize trigger for all tracks
+// Instead of N ResizeObservers (one per track), have one that notifies all tracks
+const resizeTrigger = ref(0)
+const tracksContainerRef = ref<HTMLElement | null>(null)
+provide('resizeTrigger', resizeTrigger)
 
 // Audio Flow Modal
 const showAudioFlowModal = ref(false)
@@ -1431,6 +1437,37 @@ onMounted(async () => {
 
   // Wait for next tick to ensure all components are ready
   await nextTick()
+
+  // Set up centralized ResizeObserver for all tracks
+  // Throttled to prevent blocking during window animations
+  let resizeTimeout: ReturnType<typeof setTimeout> | null = null
+  if (tracksContainerRef.value) {
+    const resizeObserver = new ResizeObserver(() => {
+      if (resizeTimeout) return
+      resizeTimeout = setTimeout(() => {
+        resizeTrigger.value++
+        resizeTimeout = null
+      }, 16) // ~60fps
+    })
+    resizeObserver.observe(tracksContainerRef.value)
+
+    // Disconnect observer when window is hidden to prevent blocking during minimize
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        resizeObserver.disconnect()
+      } else if (tracksContainerRef.value) {
+        resizeObserver.observe(tracksContainerRef.value)
+        resizeTrigger.value++ // Force update when visible again
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    onUnmounted(() => {
+      resizeObserver.disconnect()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (resizeTimeout) clearTimeout(resizeTimeout)
+    })
+  }
 
   // Close add track menu when clicking outside
   document.addEventListener('click', (e) => {

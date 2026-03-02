@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed, inject, type Ref } from 'vue'
 import { PeakingFilter } from '~/lib/filters/peaking.class'
 import { LowShelvingFilter } from '~/lib/filters/lowShelving.class'
 import { HighShelvingFilter } from '~/lib/filters/highShelving.class'
@@ -31,24 +31,30 @@ const peakingCalculator = new PeakingFilter()
 const lowShelvingCalculator = new LowShelvingFilter()
 const highShelvingCalculator = new HighShelvingFilter()
 
-let resizeObserver: ResizeObserver | null = null
+let drawCurveTimeout: ReturnType<typeof setTimeout> | null = null
+
+// Use centralized resize trigger from parent
+const resizeTrigger = inject<Ref<number>>('resizeTrigger', ref(0))
 
 onMounted(() => {
   drawCurve()
   
-  // Watch for canvas size changes
-  if (canvasRef.value) {
-    resizeObserver = new ResizeObserver(() => {
+  // Watch for centralized resize trigger
+  watch(resizeTrigger, () => {
+    // Throttle redraw to prevent blocking during window animations
+    if (drawCurveTimeout) return
+    drawCurveTimeout = setTimeout(() => {
       drawCurve()
-    })
-    resizeObserver.observe(canvasRef.value)
-  }
-})
-
-onUnmounted(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-  }
+      drawCurveTimeout = null
+    }, 16) // ~60fps
+  })
+  
+  // Cleanup on unmount
+  onUnmounted(() => {
+    if (drawCurveTimeout) {
+      clearTimeout(drawCurveTimeout)
+    }
+  })
 })
 
 // Watch for filter changes

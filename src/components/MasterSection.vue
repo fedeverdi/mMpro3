@@ -90,7 +90,7 @@ import MasterMeter from './master/MasterMeter.vue'
 import HeadphonesControl from './master/HeadphonesControl.vue'
 import OutputSelector from './master/OutputSelector.vue'
 import RecorderButton from './recorder/RecorderButton.vue'
-import { ref, watch, onMounted, onUnmounted, nextTick, inject } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, inject, type Ref } from 'vue'
 import { useAudioDevices } from '../composables/useAudioDevices'
 
 // Props
@@ -133,17 +133,26 @@ const selectedMasterOutput = ref<string | null>(null)
 const metersContainer = ref<HTMLElement | null>(null)
 const vuMetersHeight = ref(0)
 const fadersHeight = ref(0)
-let resizeObserver: ResizeObserver | null = null
+let updateMetersHeightTimeout: ReturnType<typeof setTimeout> | null = null
 
 // Calculate meters height based on container
 function updateMetersHeight() {
-  if (metersContainer.value) {
-    const height = metersContainer.value.clientHeight
-    const availableHeight = Math.max(160, height - 80)
-    vuMetersHeight.value = Math.max(60, Math.floor(availableHeight * 0.4))
-    fadersHeight.value = Math.max(100, Math.floor(availableHeight * 0.6))
-  }
+  // Throttle resize calculations to prevent blocking during window animations
+  if (updateMetersHeightTimeout) return
+  
+  updateMetersHeightTimeout = setTimeout(() => {
+    if (metersContainer.value) {
+      const height = metersContainer.value.clientHeight
+      const availableHeight = Math.max(160, height - 80)
+      vuMetersHeight.value = Math.max(60, Math.floor(availableHeight * 0.4))
+      fadersHeight.value = Math.max(100, Math.floor(availableHeight * 0.6))
+    }
+    updateMetersHeightTimeout = null
+  }, 16) // ~60fps
 }
+
+// Use centralized resize trigger from parent
+const resizeTrigger = inject<Ref<number>>('resizeTrigger', ref(0))
 
 // Handle master output selection
 async function onMasterOutputSelect(deviceId: string | null) {
@@ -263,22 +272,20 @@ onMounted(async () => {
   await nextTick()
   updateMetersHeight()
 
-  // Watch for container size changes
-  if (metersContainer.value) {
-    resizeObserver = new ResizeObserver(() => {
-      updateMetersHeight()
-    })
-    resizeObserver.observe(metersContainer.value)
-  }
+  // Watch for centralized resize trigger instead of using ResizeObserver
+  watch(resizeTrigger, () => {
+    updateMetersHeight()
+  })
+
+  // Cleanup on unmount
+  onUnmounted(() => {
+    if (updateMetersHeightTimeout) {
+      clearTimeout(updateMetersHeightTimeout)
+    }
+  })
 
   // TODO: Start receiving meter levels from Rust engine
   // Set up periodic updates from Rust engine
-})
-
-onUnmounted(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-  }
 })
 
 // Method to get current meter values for FX visualization
