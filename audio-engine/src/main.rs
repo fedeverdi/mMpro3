@@ -925,10 +925,10 @@ impl AudioEngine {
                         let master_left_ch = router.master.output_channel_selection.left as usize;
                         let master_right_ch = router.master.output_channel_selection.right as usize;
                         if master_left_ch < output_channels {
-                            data[out_frame_start + master_left_ch] += master_left.clamp(-1.0, 1.0);
+                            data[out_frame_start + master_left_ch] += master_right.clamp(-1.0, 1.0); // SWAPPED: was master_left
                         }
                         if master_right_ch < output_channels {
-                            data[out_frame_start + master_right_ch] += master_right.clamp(-1.0, 1.0);
+                            data[out_frame_start + master_right_ch] += master_left.clamp(-1.0, 1.0); // SWAPPED: was master_right
                         }
 
                         // Write subgroup outputs to their channels (if enabled)
