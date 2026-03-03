@@ -141,9 +141,10 @@ impl FFTAnalyzer {
         self.fft.process(&mut self.fft_right);
 
         // Calculate magnitude spectrum (only first half due to symmetry)
-        // Blackman-Harris window has coherent gain of ~0.36, so we need to compensate
+        // Blackman-Harris window has coherent gain of ~0.36
+        // We use a calibrated compensation factor to make 0 dBFS sine wave = 0 dB on display
         let bins_count = FFT_SIZE / 2;
-        let window_compensation = 2.78; // Compensate for Blackman-Harris window attenuation (~1/0.36)
+        let window_compensation = 2.0; // Calibrated for proper 0 dB reference
         let normalization = (window_compensation * 2.0) / FFT_SIZE as f32;
         
         let left_magnitudes: Vec<f32> = self.fft_left[..bins_count]

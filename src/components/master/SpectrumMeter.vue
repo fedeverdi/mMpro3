@@ -246,7 +246,7 @@ const render = () => {
   ctx.fillStyle = 'rgba(148, 163, 184, 0.7)'
   ctx.textAlign = 'right'
 
-  const dbLevels = [0, -35, -70, -105, -140]
+  const dbLevels = [6, 0, -25, -50, -75]
   dbLevels.forEach((db, i) => {
     const y = padding.top + (i / 4) * graphHeight
     
@@ -294,10 +294,12 @@ const render = () => {
   const fftDataLeft = currentFFTLeft.value
   const fftDataRight = currentFFTRight.value
 
-  // Convert magnitude bins to dB
+  // Convert magnitude bins to dB with calibration offset
+  // Calibration offset compensates for FFT windowing and normalization
+  const CALIBRATION_OFFSET_DB = -18.0 // Adjusted to make 0 dBFS signal appear at 0 dB
   const convertToDb = (magnitude: number): number => {
     if (magnitude <= 0) return -140
-    return 20 * Math.log10(magnitude)
+    return 20 * Math.log10(magnitude) + CALIBRATION_OFFSET_DB
   }
 
   const fftDbLeft = Array.from(fftDataLeft).map(convertToDb)
@@ -327,14 +329,14 @@ const render = () => {
       for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbLeft.length; bin++) {
         maxDbLeft = Math.max(maxDbLeft, fftDbLeft[bin])
       }
-      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
+      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 100) / 106))
 
       // Canale RIGHT
       let maxDbRight = -140
       for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbRight.length; bin++) {
         maxDbRight = Math.max(maxDbRight, fftDbRight[bin])
       }
-      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
+      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 100) / 106))
 
       // Aggiorna peak hold
       const maxNormalized = Math.max(normalizedLeft, normalizedRight)
@@ -428,14 +430,14 @@ const render = () => {
       for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbLeft.length; bin++) {
         maxDbLeft = Math.max(maxDbLeft, fftDbLeft[bin])
       }
-      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
+      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 100) / 106))
 
       // Canale RIGHT
       let maxDbRight = -140
       for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbRight.length; bin++) {
         maxDbRight = Math.max(maxDbRight, fftDbRight[bin])
       }
-      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
+      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 100) / 106))
 
       // Aggiorna peak hold
       const maxNormalized = Math.max(normalizedLeft, normalizedRight)
@@ -607,14 +609,14 @@ const render = () => {
       for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbLeft.length; bin++) {
         maxDbLeft = Math.max(maxDbLeft, fftDbLeft[bin])
       }
-      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
+      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 100) / 106))
 
       // Canale RIGHT
       let maxDbRight = -140
       for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbRight.length; bin++) {
         maxDbRight = Math.max(maxDbRight, fftDbRight[bin])
       }
-      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
+      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 100) / 106))
 
       // Aggiorna peak hold
       const maxNormalized = Math.max(normalizedLeft, normalizedRight)
@@ -709,14 +711,14 @@ const render = () => {
       for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbLeft.length; bin++) {
         maxDbLeft = Math.max(maxDbLeft, fftDbLeft[bin])
       }
-      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 140) / 140))
+      const normalizedLeft = Math.max(0, Math.min(1, (maxDbLeft + 100) / 106))
 
       // Canale RIGHT
       let maxDbRight = -140
       for (let bin = band.binStart; bin <= band.binEnd && bin < fftDbRight.length; bin++) {
         maxDbRight = Math.max(maxDbRight, fftDbRight[bin])
       }
-      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 140) / 140))
+      const normalizedRight = Math.max(0, Math.min(1, (maxDbRight + 100) / 106))
 
       // Aggiorna peak hold
       const maxNormalized = Math.max(normalizedLeft, normalizedRight)
