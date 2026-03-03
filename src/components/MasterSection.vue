@@ -5,40 +5,21 @@
     <div class="w-full text-center">
       <div class="text-xs font-bold text-blue-400">MASTER</div>
     </div>
-
+    
     <!-- Master Output Selector -->
-    <div class="w-full bg-gray-900 rounded p-1.5 border border-gray-700">
-      <OutputSelector 
-        title="Master Output" 
-        :devices="audioOutputDevices"
-        :selected-device-id="selectedMasterOutput" 
-        default-label="Default" 
-        default-description="Default audio output"
-        icon="🔊"
-        default-icon="🔊"
-        :show-no-output="false"
-        @select="onMasterOutputSelect" 
-      />
-    </div>
+    <OutputSelector title="Master Output" :devices="audioOutputDevices" :selected-device-id="selectedMasterOutput"
+      default-label="Default" default-description="Default audio output" icon="🔊" default-icon="🔊"
+      :show-no-output="false" @select="onMasterOutputSelect" />
 
     <!-- Headphones Control -->
-    <HeadphonesControl
-      :devices="audioOutputDevices"
-      :selected-device-id="selectedHeadphonesOutput"
-      :volume="headphonesVolume"
-      :level="headphonesLevel"
-      @select="onHeadphonesOutputSelect"
-      @update:volume="headphonesVolume = $event"
-    />
+    <HeadphonesControl :devices="audioOutputDevices" :selected-device-id="selectedHeadphonesOutput"
+      :volume="headphonesVolume" :level="headphonesLevel" @select="onHeadphonesOutputSelect"
+      @update:volume="headphonesVolume = $event" />
 
     <!-- VU Meters and Faders -->
     <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-4 min-h-0 ">
       <!-- VU Meters Row -->
-      <MasterMeter 
-        :left-level="leftLevel" 
-        :right-level="rightLevel" 
-        :vu-meters-height="vuMetersHeight" 
-      />
+      <MasterMeter :left-level="leftLevel" :right-level="rightLevel" :vu-meters-height="vuMetersHeight" />
 
       <!-- Faders Row -->
       <div v-if="fadersHeight > 0" class="flex gap-2 items-end mb-6 mt-2">
@@ -51,7 +32,7 @@
     <div class="w-full mt-2 flex gap-1">
       <!-- Recorder Button -->
       <RecorderButton :is-recording="isRecording" @open="$emit('open-recorder')" />
-      
+
       <!-- Master Mute Button -->
       <button @click="toggleMasterMute" class="flex-1 py-1 text-xs font-bold rounded transition-all"
         :class="masterMuted ? 'bg-red-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
@@ -139,7 +120,7 @@ let updateMetersHeightTimeout: ReturnType<typeof setTimeout> | null = null
 function updateMetersHeight() {
   // Throttle resize calculations to prevent blocking during window animations
   if (updateMetersHeightTimeout) return
-  
+
   updateMetersHeightTimeout = setTimeout(() => {
     if (metersContainer.value) {
       const height = metersContainer.value.clientHeight
@@ -157,7 +138,7 @@ const resizeTrigger = inject<Ref<number>>('resizeTrigger', ref(0))
 // Handle master output selection
 async function onMasterOutputSelect(deviceId: string | null) {
   selectedMasterOutput.value = deviceId
-  
+
   // Restart audio engine with new output device
   if (audioEngine) {
     // '' or null means default device (undefined in Rust)
@@ -174,13 +155,13 @@ async function onMasterOutputSelect(deviceId: string | null) {
       if (device) {
         const deviceLabel = device.name || `Device ${actualDeviceId.substring(0, 8)}`
         await audioEngine.restartWithDevices(undefined, deviceLabel)
-        
+
         // Wait for engine to be ready (max 2 seconds)
         const startTime = Date.now()
         while (!audioEngine.state.value.isRunning && Date.now() - startTime < 2000) {
           await new Promise(resolve => setTimeout(resolve, 50))
         }
-        
+
         if (audioEngine.state.value.isRunning) {
           // Set channel selection after restart
           audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
@@ -216,7 +197,7 @@ watch([leftVolume, rightVolume], ([left, right]) => {
   if (audioEngine?.state.value.isRunning) {
     // Use average of L/R for master gain (since Rust has single master gain)
     const avgDb = (left + right) / 2
-    
+
     // Convert dB to linear gain: gain = 10^(dB/20)
     let gainValue: number
     if (avgDb <= -90) {
@@ -224,7 +205,7 @@ watch([leftVolume, rightVolume], ([left, right]) => {
     } else {
       gainValue = Math.pow(10, avgDb / 20)
     }
-    
+
     audioEngine.setMasterGain(gainValue)
   }
 })

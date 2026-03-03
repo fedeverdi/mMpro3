@@ -12,11 +12,9 @@
     </div>
 
     <!-- Output Device Selector -->
-    <div class="w-full bg-gray-900 rounded p-1.5 border border-gray-700">
-      <OutputSelector title="Select Subgroup Output" :devices="audioOutputDevices" :selected-device-id="selectedOutput"
-        default-label="Default" default-description="Default audio output" default-icon="🔊" :show-no-output="true"
-        mode="stereo" @select="handleOutputSelect" />
-    </div>
+    <OutputSelector title="Select Subgroup Output" :devices="audioOutputDevices" :selected-device-id="selectedOutput"
+      default-label="Default" default-description="Default audio output" default-icon="🔊" :show-no-output="true"
+      mode="stereo" @select="handleOutputSelect" />
 
     <!-- VU Meters and Faders -->
     <div ref="metersContainer" class="flex-1 w-full flex flex-col items-center justify-center gap-2 min-h-0 mt-6">
@@ -114,7 +112,7 @@ let updateMetersHeightTimeout: ReturnType<typeof setTimeout> | null = null
 function updateMetersHeight() {
   // Throttle resize calculations to prevent blocking during window animations
   if (updateMetersHeightTimeout) return
-  
+
   updateMetersHeightTimeout = setTimeout(() => {
     if (metersContainer.value) {
       const height = metersContainer.value.clientHeight
