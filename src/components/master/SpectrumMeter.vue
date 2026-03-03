@@ -105,7 +105,8 @@ const currentSampleRate = ref<number>(44100)
 // Smoothed FFT data for fluid visualization
 let smoothedFFTLeft: Float32Array | null = null
 let smoothedFFTRight: Float32Array | null = null
-const SMOOTHING_FACTOR = 0.7 // 0 = no smoothing, 1 = max smoothing
+const SMOOTHING_FACTOR = 0.75 // Decay rate for peak following
+const ATTACK_FACTOR = 0.2 // How fast to respond to new peaks (lower = faster)
 
 // Watch for FFT data updates from audio engine
 watch(
@@ -120,10 +121,22 @@ watch(
         smoothedFFTLeft = new Float32Array(newLeft)
         smoothedFFTRight = new Float32Array(newRight)
       } else {
-        // Apply exponential smoothing: smoothed = smoothed * factor + new * (1 - factor)
+        // Peak-following smoothing: Take MAX of (new value, decayed previous value)
+        // This shows peaks clearly while preventing instant drops
         for (let i = 0; i < newLeft.length; i++) {
-          smoothedFFTLeft[i] = smoothedFFTLeft[i] * SMOOTHING_FACTOR + newLeft[i] * (1 - SMOOTHING_FACTOR)
-          smoothedFFTRight[i] = smoothedFFTRight[i] * SMOOTHING_FACTOR + newRight[i] * (1 - SMOOTHING_FACTOR)
+          // If new value is higher, follow it quickly (with attack smoothing)
+          // If new value is lower, decay slowly
+          if (newLeft[i] > smoothedFFTLeft[i]) {
+            smoothedFFTLeft[i] = smoothedFFTLeft[i] * ATTACK_FACTOR + newLeft[i] * (1 - ATTACK_FACTOR)
+          } else {
+            smoothedFFTLeft[i] = Math.max(newLeft[i], smoothedFFTLeft[i] * SMOOTHING_FACTOR)
+          }
+          
+          if (newRight[i] > smoothedFFTRight[i]) {
+            smoothedFFTRight[i] = smoothedFFTRight[i] * ATTACK_FACTOR + newRight[i] * (1 - ATTACK_FACTOR)
+          } else {
+            smoothedFFTRight[i] = Math.max(newRight[i], smoothedFFTRight[i] * SMOOTHING_FACTOR)
+          }
         }
       }
       

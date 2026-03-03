@@ -66,9 +66,20 @@ impl FFTAnalyzer {
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(FFT_SIZE);
         
-        // Pre-calculate Hann window
+        // Pre-calculate Blackman-Harris window (better sidelobe suppression than Hann)
+        // Blackman-Harris has ~92dB sidelobe attenuation vs Hann's ~31dB
         let window: Vec<f32> = (0..FFT_SIZE)
-            .map(|i| 0.5 * (1.0 - f32::cos(2.0 * std::f32::consts::PI * i as f32 / (FFT_SIZE - 1) as f32)))
+            .map(|i| {
+                let n = i as f32;
+                let N = (FFT_SIZE - 1) as f32;
+                let a0 = 0.35875;
+                let a1 = 0.48829;
+                let a2 = 0.14128;
+                let a3 = 0.01168;
+                a0 - a1 * f32::cos(2.0 * std::f32::consts::PI * n / N)
+                   + a2 * f32::cos(4.0 * std::f32::consts::PI * n / N)
+                   - a3 * f32::cos(6.0 * std::f32::consts::PI * n / N)
+            })
             .collect();
         
         // Pre-allocate FFT buffers
@@ -99,6 +110,14 @@ impl FFTAnalyzer {
         }
     }
 
+    /// Reset the FFT buffer (useful when switching signal sources)
+    pub fn reset(&mut self) {
+        self.buffer_left.fill(0.0);
+        self.buffer_right.fill(0.0);
+        self.position = 0;
+        self.fft_ready = false;
+    }
+
     /// Perform FFT analysis and return magnitude spectrum (half of FFT_SIZE due to symmetry)
     pub fn analyze(&mut self) -> Option<(Vec<f32>, Vec<f32>)> {
         if !self.fft_ready {
@@ -122,15 +141,25 @@ impl FFTAnalyzer {
         self.fft.process(&mut self.fft_right);
 
         // Calculate magnitude spectrum (only first half due to symmetry)
+        // Blackman-Harris window has coherent gain of ~0.36, so we need to compensate
         let bins_count = FFT_SIZE / 2;
+        let window_compensation = 2.78; // Compensate for Blackman-Harris window attenuation (~1/0.36)
+        let normalization = (window_compensation * 2.0) / FFT_SIZE as f32;
+        
         let left_magnitudes: Vec<f32> = self.fft_left[..bins_count]
             .iter()
-            .map(|c| (c.re * c.re + c.im * c.im).sqrt() / FFT_SIZE as f32)
+            .map(|c| {
+                let magnitude = (c.re * c.re + c.im * c.im).sqrt();
+                magnitude * normalization
+            })
             .collect();
 
         let right_magnitudes: Vec<f32> = self.fft_right[..bins_count]
             .iter()
-            .map(|c| (c.re * c.re + c.im * c.im).sqrt() / FFT_SIZE as f32)
+            .map(|c| {
+                let magnitude = (c.re * c.re + c.im * c.im).sqrt();
+                magnitude * normalization
+            })
             .collect();
 
         Some((left_magnitudes, right_magnitudes))
