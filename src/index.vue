@@ -127,11 +127,13 @@
               }" @dragover="handleTrackDragOver(track.id, $event)" @dragleave="handleTrackDragLeave"
               @drop="handleTrackDrop(track.id)" @dragend="handleTrackDragEnd">
               <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
+                :audio-engine="audioEngine"
                 :order="track.order" :master-channel="masterChannel" :subgroups="subgroups"
                 :allow-subgroup-routing="buildLimits.allowSubgroupRouting" :is-dragging="draggedTrackId === track.id"
                 @soloChange="handleSoloChange" @remove="removeTrack(track.id)"
                 @drag-start="handleTrackDragStart(track.id)" />
               <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
+                :audio-engine="audioEngine"
                 :master-channel="masterChannel" :subgroups="subgroups" :aux-buses="auxBuses"
                 :aux-sends="trackAuxSends.get(track.id) || {}"
                 :allow-subgroup-routing="buildLimits.allowSubgroupRouting" @open-library="handleOpenLibrary"

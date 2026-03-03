@@ -238,6 +238,7 @@ const props = defineProps<{
   auxBuses?: Array<{ id: string | number; name: string; channel?: any }>
   allowSubgroupRouting?: boolean
   auxSends?: Record<string, { level: number, preFader: boolean, muted: boolean }>
+  audioEngine: any
 }>()
 
 // Emits
@@ -247,9 +248,6 @@ const emit = defineEmits<{
   'open-library': [trackNumber: number]
   'update:auxSends': [sends: Record<string, { level: number, preFader: boolean, muted: boolean }>]
 }>()
-
-// Inject Rust audio engine
-const audioEngine = inject<any>('audioEngine', null)
 
 // Audio devices
 const { audioInputDevices } = useAudioDevices()
@@ -384,13 +382,13 @@ function handleInputSelect(deviceId: string | null) {
   selectedAudioFile.value = null
   selectedFileName.value = null
 
-  if (audioEngine?.state.value.isRunning) {
+  if (props.audioEngine?.state.value.isRunning) {
     if (deviceId) {
       // Check if it's an aux return selection
       if (deviceId.startsWith('aux-return-')) {
         const auxIndex = parseInt(deviceId.replace('aux-return-', ''))
         console.log(`[Track ${props.trackNumber}] Setting aux return: Aux ${auxIndex + 1}`)
-        audioEngine.setTrackSourceAuxReturn(props.trackNumber - 1, auxIndex)
+        props.audioEngine.setTrackSourceAuxReturn(props.trackNumber - 1, auxIndex)
       } else {
         // Find the device to get its name
         const device = audioInputDevices.value.find(d => d.id === deviceId)
@@ -404,13 +402,13 @@ function handleInputSelect(deviceId: string | null) {
           console.log(`[Track ${props.trackNumber}] Selected device: ${deviceName}, channel: ${channelIndex}`)
           
           // For stereo: use channel and channel+1
-          audioEngine.setTrackSourceInput(props.trackNumber - 1, channelIndex, channelIndex + 1, deviceName)
+          props.audioEngine.setTrackSourceInput(props.trackNumber - 1, channelIndex, channelIndex + 1, deviceName)
         }
       }
     } else {
       // Clear input (deviceId is null = "No Input" selected)
       console.log(`[Track ${props.trackNumber}] Clearing audio input`)
-      audioEngine.setTrackSourceInput(props.trackNumber - 1, 0, 1, null)
+      props.audioEngine.setTrackSourceInput(props.trackNumber - 1, 0, 1, null)
     }
   }
 }
@@ -428,15 +426,15 @@ function handlePlayFile() {
   }
   
   // Otherwise, play the current file (pass ID to auto-load if needed)
-  if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
-    audioEngine.playFile(props.trackNumber - 1, selectedAudioFile.value)
+  if (props.audioEngine?.state.value.isRunning && selectedAudioFile.value) {
+    props.audioEngine.playFile(props.trackNumber - 1, selectedAudioFile.value)
     isPlaying.value = true
   }
 }
 
 function handleStopFile() {
-  if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
-    audioEngine.stopFile(props.trackNumber - 1)
+  if (props.audioEngine?.state.value.isRunning && selectedAudioFile.value) {
+    props.audioEngine.stopFile(props.trackNumber - 1)
     isPlaying.value = false
     
     // Stop audio monitor if present
@@ -467,8 +465,8 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = true
     audioSourceType.value = 'file'
 
     // Use file path directly from library (no need for temp file)
-    if (audioEngine?.state.value.isRunning && fileData.filePath) {
-      audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath)
+    if (props.audioEngine?.state.value.isRunning && fileData.filePath) {
+      props.audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath)
       
       // Setup audio monitor for duration tracking (for playlist auto-advance)
       if (currentPlaylist.value && playlistFiles.value.length > 0) {
@@ -477,7 +475,7 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = true
       
       // Auto-play the file only if requested
       if (autoPlay) {
-        audioEngine.playFile(props.trackNumber - 1)
+        props.audioEngine.playFile(props.trackNumber - 1)
         isPlaying.value = true
       }
     }
@@ -549,8 +547,8 @@ async function playNextInPlaylist() {
   }
 
   // Stop current playback
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.stopFile(props.trackNumber - 1)
+  if (props.audioEngine?.state.value.isRunning) {
+    props.audioEngine.stopFile(props.trackNumber - 1)
     isPlaying.value = false
   }
 
@@ -590,14 +588,14 @@ function toggleSubgroupRoute(subgroupId: number) {
   if (routedSubgroups.value.has(subgroupId)) {
     routedSubgroups.value.delete(subgroupId)
     // Send to backend
-    if (audioEngine?.state.value.isRunning) {
-      audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, false)
+    if (props.audioEngine?.state.value.isRunning) {
+      props.audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, false)
     }
   } else {
     routedSubgroups.value.add(subgroupId)
     // Send to backend
-    if (audioEngine?.state.value.isRunning) {
-      audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, true)
+    if (props.audioEngine?.state.value.isRunning) {
+      props.audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, true)
     }
   }
 }
@@ -612,8 +610,8 @@ function toggleCompressor() {
 
 function handleEQParamsChanged(params: { low: number; mid: number; high: number }) {
   // Send to Rust engine
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setTrackEQ(
+  if (props.audioEngine?.state.value.isRunning) {
+    props.audioEngine.setTrackEQ(
       props.trackNumber - 1,
       params.low,
       params.mid,
@@ -624,8 +622,8 @@ function handleEQParamsChanged(params: { low: number; mid: number; high: number 
 
 function handleCompressorParamsChanged(params: { threshold: number; ratio: number; attack: number; release: number }) {
   // Send to Rust engine
-  if (audioEngine?.state.value.isRunning && compressorEnabled.value) {
-    audioEngine.setTrackCompressor(
+  if (props.audioEngine?.state.value.isRunning && compressorEnabled.value) {
+    props.audioEngine.setTrackCompressor(
       props.trackNumber - 1,
       true,
       params.threshold,
@@ -638,8 +636,8 @@ function handleCompressorParamsChanged(params: { threshold: number; ratio: numbe
 
 function handleGateParamsUpdate(params: { threshold: number; attack: number; release: number; range: number }) {
   // Send to Rust engine
-  if (audioEngine?.state.value.isRunning && gateEnabled.value) {
-    audioEngine.setTrackGate(
+  if (props.audioEngine?.state.value.isRunning && gateEnabled.value) {
+    props.audioEngine.setTrackGate(
       props.trackNumber - 1,
       true,
       params.threshold,
@@ -655,13 +653,13 @@ function handleAuxSendsUpdate(sends: Record<string, { level: number, preFader: b
   auxSendsData.value = sends
 
   // Send to Rust engine for each aux
-  if (audioEngine?.state.value.isRunning) {
+  if (props.audioEngine?.state.value.isRunning) {
     Object.entries(sends).forEach(([auxId, send]) => {
       // Extract numeric index from aux ID (handles "aux1", "aux-1", etc.)
       const auxIndex = parseInt(auxId.replace(/\D/g, '')) - 1
       // Convert dB to linear gain
       const linearGain = Math.pow(10, send.level / 20)
-      audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+      props.audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
     })
   }
 }
@@ -685,12 +683,12 @@ function updateAuxSend(auxId: string | number, level: number) {
   }
 
   // Send to Rust engine
-  if (audioEngine?.state.value.isRunning) {
+  if (props.audioEngine?.state.value.isRunning) {
     const send = auxSendsData.value[auxKey]
     // Convert aux ID to numeric index (0-based)
     const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
     const linearGain = Math.pow(10, send.level / 20)
-    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+    props.audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
   }
 }
 
@@ -708,11 +706,11 @@ function toggleAuxPrePost(auxId: string | number) {
   auxSendsData.value[auxKey].preFader = !auxSendsData.value[auxKey].preFader
 
   // Send to Rust engine
-  if (audioEngine?.state.value.isRunning) {
+  if (props.audioEngine?.state.value.isRunning) {
     const send = auxSendsData.value[auxKey]
     const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
     const linearGain = Math.pow(10, send.level / 20)
-    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+    props.audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
   }
 }
 
@@ -730,11 +728,11 @@ function toggleAuxMute(auxId: string | number) {
   auxSendsData.value[auxKey].muted = !auxSendsData.value[auxKey].muted
 
   // Send to Rust engine
-  if (audioEngine?.state.value.isRunning) {
+  if (props.audioEngine?.state.value.isRunning) {
     const send = auxSendsData.value[auxKey]
     const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
     const linearGain = Math.pow(10, send.level / 20)
-    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+    props.audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
   }
 }
 
@@ -750,7 +748,7 @@ function handleParametricEQUpdate(filters: any) {
   }
 
   // Convert filtersData to the format expected by Rust engine
-  if (filters.filtersData && audioEngine?.state.value.isRunning) {
+  if (filters.filtersData && props.audioEngine?.state.value.isRunning) {
     const rustFilters = filters.filtersData.map((f: any) => ({
       type: f.type,
       frequency: f.frequency,
@@ -758,7 +756,7 @@ function handleParametricEQUpdate(filters: any) {
       q: f.Q
     }))
 
-    audioEngine.setParametricEQFilters(props.trackNumber - 1, rustFilters)
+    props.audioEngine.setParametricEQFilters(props.trackNumber - 1, rustFilters)
   }
 }
 
@@ -773,8 +771,8 @@ watch(volume, (newVolume) => {
     gainValue = Math.pow(10, newVolume / 20)
   }
 
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setTrackVolume(props.trackNumber - 1, gainValue)
+  if (props.audioEngine?.state.value.isRunning) {
+    props.audioEngine.setTrackVolume(props.trackNumber - 1, gainValue)
   }
 })
 
@@ -783,40 +781,40 @@ watch(gain, (newGain) => {
   // gain knob is in dB range (-12 to +12)
   const gainValue = Math.pow(10, newGain / 20)
 
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setTrackGain(props.trackNumber - 1, gainValue)
+  if (props.audioEngine?.state.value.isRunning) {
+    props.audioEngine.setTrackGain(props.trackNumber - 1, gainValue)
   }
 })
 
 watch(padEnabled, (enabled) => {
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setTrackPad(props.trackNumber - 1, enabled)
+  if (props.allowSubgroupRouting && props.audioEngine?.state.value.isRunning) {
+    props.audioEngine.setTrackPad(props.trackNumber - 1, enabled)
   }
 })
 
 watch(hpfEnabled, (enabled) => {
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setTrackHPF(props.trackNumber - 1, enabled)
+  if (props.audioEngine?.state.value.isRunning) {
+    props.audioEngine.setTrackHPF(props.trackNumber - 1, enabled)
   }
 })
 
 watch(isMuted, (muted) => {
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setTrackMute(props.trackNumber - 1, muted)
+  if (props.audioEngine?.state.value.isRunning) {
+    props.audioEngine.setTrackMute(props.trackNumber - 1, muted)
   }
 })
 
 watch(routeToMaster, (route) => {
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setTrackRouteToMaster(props.trackNumber - 1, route)
+  if (props.audioEngine?.state.value.isRunning) {
+    props.audioEngine.setTrackRouteToMaster(props.trackNumber - 1, route)
   }
 })
 
 watch(compressorEnabled, (enabled) => {
-  if (audioEngine?.state.value.isRunning) {
+  if (props.audioEngine?.state.value.isRunning) {
     const params = trackCompressorRef.value?.getParams()
     if (params) {
-      audioEngine.setTrackCompressor(
+      props.audioEngine.setTrackCompressor(
         props.trackNumber - 1,
         enabled,
         params.threshold,
@@ -829,10 +827,10 @@ watch(compressorEnabled, (enabled) => {
 })
 
 watch(gateEnabled, (enabled) => {
-  if (audioEngine?.state.value.isRunning) {
+  if (props.audioEngine?.state.value.isRunning) {
     const params = trackGateRef.value?.getParams()
     if (params) {
-      audioEngine.setTrackGate(
+      props.audioEngine.setTrackGate(
         props.trackNumber - 1,
         enabled,
         params.threshold,
@@ -845,8 +843,8 @@ watch(gateEnabled, (enabled) => {
 })
 
 watch(pan, (newPan) => {
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setTrackPan(props.trackNumber - 1, newPan)
+  if (props.audioEngine?.state.value.isRunning) {
+    props.audioEngine.setTrackPan(props.trackNumber - 1, newPan)
   }
 })
 
@@ -860,7 +858,7 @@ const gateAttenuationDb = ref(0)
 
 // Watch for meter level updates from audio engine
 watch(
-  () => audioEngine?.state.value.trackLevels.get(props.trackNumber - 1),
+  () => props.audioEngine?.state.value.trackLevels.get(props.trackNumber - 1),
   (levels) => {
     if (levels) {
       // Convert linear (0-1) to dB (-60 to 0)
@@ -1039,15 +1037,15 @@ defineExpose({
     routedSubgroups.value = new Set(state.routedSubgroups ?? [])
     
     // Apply routing to backend
-    if (audioEngine?.state.value.isRunning) {
+    if (props.audioEngine?.state.value.isRunning) {
       // Apply route to master
-      audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
+      props.audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
       
       // Apply routes to subgroups
       if (state.routedSubgroups && Array.isArray(state.routedSubgroups)) {
         for (const subgroupId of state.routedSubgroups) {
           console.log(`[Track ${props.trackNumber}] Applying routing to subgroup ${subgroupId}`)
-          audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, true)
+          props.audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, true)
         }
       }
     }
@@ -1055,13 +1053,13 @@ defineExpose({
     // Aux Sends
     auxSendsData.value = state.auxSends || {}
     // Apply aux sends to backend
-    if (audioEngine?.state.value.isRunning && state.auxSends) {
+    if (props.audioEngine?.state.value.isRunning && state.auxSends) {
       for (const [auxKey, sendData] of Object.entries(state.auxSends)) {
         const auxIndex = props.auxBuses?.findIndex(a => a.id === auxKey)
         if (auxIndex !== undefined && auxIndex >= 0) {
           const send = sendData as { level: number, preFader: boolean, muted: boolean }
           const linearGain = Math.pow(10, send.level / 20)
-          audioEngine.setTrackAuxSend(
+          props.audioEngine.setTrackAuxSend(
             props.trackNumber - 1,
             auxIndex,
             linearGain,
