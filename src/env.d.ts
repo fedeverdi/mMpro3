@@ -131,6 +131,24 @@ interface AudioEngine {
   readFileAsBuffer: (filePath: string) => Promise<{ name: string; buffer: ArrayBuffer }>
 }
 
+// Electron API for window controls
+interface ElectronAPI {
+  // Platform detection
+  getPlatform: () => Promise<string>
+  
+  // Window controls
+  minimizeWindow: () => void
+  maximizeWindow: () => void
+  unmaximizeWindow: () => void
+  closeWindow: () => void
+  isMaximized: () => Promise<boolean>
+  
+  // Window state listeners
+  onMaximized: (callback: () => void) => void
+  onUnmaximized: (callback: () => void) => void
+}
+
 interface Window {
   audioEngine: AudioEngine
+  electronAPI?: ElectronAPI
 }

@@ -1,5 +1,8 @@
 <template>
   <div class="mixer-app min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex flex-col">
+    <!-- Custom Title Bar -->
+    <CustomTitleBar :project-name="currentProjectName" />
+    
     <!-- Header -->
     <header class="bg-black/50 backdrop-blur-sm border-b border-gray-700 px-4 py-2 relative z-50">
       <div class="flex items-center justify-between gap-4 flex-wrap relative">
@@ -7,7 +10,6 @@
           <img src="./assets/logo_no_scritta.svg" alt="mMpro3" class="h-8" />
 
           <!-- Quick Scenes in Header -->
-          <div class="w-px h-6 bg-gray-600"></div>
           <QuickScenes @load-scene="handleLoadScene" />
         </div>
         <div class="flex gap-2 items-center flex-wrap">
@@ -256,6 +258,7 @@ import ScenesModal from './components/layout/ScenesModal.vue'
 import QuickScenes from './components/layout/QuickScenes.vue'
 import Footer from './components/layout/Footer.vue'
 import NotificationToast from './components/core/NotificationToast.vue'
+import CustomTitleBar from './components/layout/CustomTitleBar.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioEngine } from '~/composables/useAudioEngine'
 import { useNotifications } from '~/composables/useNotifications'
@@ -275,6 +278,9 @@ const props = defineProps<{
 
 const audioEngineState = props.audioEngine.state
 const notify = useNotifications()
+
+// Project name for title bar
+const currentProjectName = ref('mMpro3 - Your Multitrack Mixer')
 
 const masterChannel = ref<any>(null)
 

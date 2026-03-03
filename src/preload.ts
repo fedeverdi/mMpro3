@@ -157,3 +157,24 @@ contextBridge.exposeInMainWorld('audioEngine', {
   showOpenFileDialog: () => ipcRenderer.invoke('show-open-file-dialog'),
   readFileAsBuffer: (filePath: string) => ipcRenderer.invoke('read-file-as-buffer', filePath)
 })
+
+// Electron API for window controls
+contextBridge.exposeInMainWorld('electronAPI', {
+  // Platform detection
+  getPlatform: () => ipcRenderer.invoke('get-platform'),
+  
+  // Window controls
+  minimizeWindow: () => ipcRenderer.send('window-minimize'),
+  maximizeWindow: () => ipcRenderer.send('window-maximize'),
+  unmaximizeWindow: () => ipcRenderer.send('window-unmaximize'),
+  closeWindow: () => ipcRenderer.send('window-close'),
+  isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  
+  // Window state listeners
+  onMaximized: (callback: () => void) => {
+    ipcRenderer.on('window-maximized', callback)
+  },
+  onUnmaximized: (callback: () => void) => {
+    ipcRenderer.on('window-unmaximized', callback)
+  }
+})

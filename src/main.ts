@@ -502,6 +502,36 @@ ipcMain.handle('read-file-as-buffer', async (_event, filePath: string) => {
   }
 })
 
+// Window control handlers
+ipcMain.handle('get-platform', () => {
+  return process.platform
+})
+
+ipcMain.handle('window-is-maximized', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  return window?.isMaximized() || false
+})
+
+ipcMain.on('window-minimize', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  window?.minimize()
+})
+
+ipcMain.on('window-maximize', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  window?.maximize()
+})
+
+ipcMain.on('window-unmaximize', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  window?.unmaximize()
+})
+
+ipcMain.on('window-close', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  window?.close()
+})
+
 // Master Tap (Recording) - Rust saves WAV file directly
 ipcMain.handle('audio-engine:enable-master-tap', async (_event, filePath: string, settings: {
   format: 'wav' | 'mp3' | 'opus'
@@ -1080,10 +1110,20 @@ const createWindow = () => {
     width: windowState.width,
     height: windowState.height,
     show: false, // Don't show until ready
+    titleBarStyle: 'hiddenInset', // Hide native title bar but keep traffic lights on macOS
     ...(iconPath && { icon: iconPath }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js')
     }
+  })
+
+  // Send maximize/unmaximize events to renderer
+  mainWindow.on('maximize', () => {
+    mainWindow.webContents.send('window-maximized')
+  })
+
+  mainWindow.on('unmaximize', () => {
+    mainWindow.webContents.send('window-unmaximized')
   })
 
   // Track both conditions: window ready AND minimum splash time elapsed
