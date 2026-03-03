@@ -24,14 +24,10 @@ export function useAudioDevices() {
 
     // Start enumeration from Rust audio engine
     enumerationPromise = (async () => {
-      try {
-        console.log('[useAudioDevices] Fetching audio inputs from Rust engine...')
-        
+      try {        
         // Get input devices from Rust engine (already expanded with channels)
         const devices = await window.audioEngine.listAudioInputs()
-        
-        console.log(`[useAudioDevices] Received ${devices.length} audio inputs from Rust`)
-        
+                
         audioInputDevices.value = devices
         devicesEnumerated = true
       } catch (error) {
@@ -62,15 +58,11 @@ export function useAudioDevices() {
     
     // Start enumeration from Rust audio engine
     outputEnumerationPromise = (async () => {
-      try {
-        console.log('[useAudioDevices] Fetching audio outputs from Rust engine...')
-        
+      try {       
         // Get all devices from Rust engine and filter only outputs
         const allDevices = await window.audioEngine.listDevices()
         const outputDevices = allDevices.filter((device: RustAudioDevice) => device.output_channels > 0)
-        
-        console.log(`[useAudioDevices] Received ${outputDevices.length} audio outputs from Rust`)
-        
+                
         audioOutputDevices.value = outputDevices
         outputDevicesEnumerated = true
       } catch (error) {

@@ -439,7 +439,7 @@ function handleStopFile() {
 }
 
 // Method to load file from library by ID or file object
-async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = true) {
+async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = false) {
   try {
     // If string ID is passed, fetch file data from library
     let fileData: any

@@ -14,7 +14,7 @@
         </div>
         <div class="flex gap-2 items-center flex-wrap">
           <button @click="showScenesModal = true"
-            class="px-3 py-1.5 border border-gray-600 hover:border-green-500 hover:bg-green-500/10 rounded text-xs font-semibold text-gray-300 hover:text-green-400 transition-all flex items-center gap-1.5">
+            class="px-3 py-1.5  hover:bg-green-500/10 rounded text-xs font-semibold text-gray-300 hover:text-green-400 transition-all flex items-center gap-1.5">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="h-3.5 w-3.5" fill="currentColor">
               <path
                 d="M149.333 216v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24v-80c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zM125.333 32H24C10.745 32 0 42.745 0 56v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24zm80 448H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm-24-424v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24zm24 264H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24z" />
@@ -24,7 +24,7 @@
 
           <!-- File Manager Button -->
           <button @click="showFileManager = true"
-            class="px-3 py-1.5 border border-gray-600 hover:border-blue-500 hover:bg-blue-500/10 rounded text-xs font-semibold text-gray-300 hover:text-blue-400 transition-all flex items-center gap-1.5">
+            class="px-3 py-1.5 hover:bg-blue-500/10 rounded text-xs font-semibold text-gray-300 hover:text-blue-400 transition-all flex items-center gap-1.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -36,10 +36,10 @@
 
           <!-- Lock Button -->
           <button @click="handleLockToggle" :class="[
-            'px-3 py-1.5 border rounded text-xs font-semibold transition-all flex items-center gap-1.5',
+            'px-3 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5',
             isLocked
-              ? 'border-blue-600 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30'
-              : 'border-gray-600 hover:border-yellow-500 hover:bg-yellow-500/10 text-gray-300 hover:text-yellow-400'
+              ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30'
+              : 'hover:bg-yellow-500/10 text-gray-300 hover:text-yellow-400'
           ]">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path v-if="isLocked" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -54,7 +54,7 @@
 
           <div class="relative -mt-[3px] z-[100]">
             <button @click="handleAddButtonClick"
-              class="mt-1 px-3 h-full py-1.5 border border-gray-600 hover:border-emerald-500 hover:bg-emerald-500/10 rounded text-xs font-semibold text-gray-300 hover:text-emerald-400 transition-all flex items-center gap-1.5">
+              class="mt-1 px-3 h-full py-1.5 hover:bg-emerald-500/10 rounded text-xs font-semibold text-gray-300 hover:text-emerald-400 transition-all flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
               </svg>
@@ -63,7 +63,7 @@
 
             <!-- Dropdown Menu -->
             <div v-if="showAddTrackMenu"
-              class="absolute top-full left-0 mt-1 w-36 bg-gray-800 border border-gray-600 rounded shadow-2xl z-[1000] overflow-visible">
+              class="absolute top-full left-0 mt-1 w-36 bg-gray-800 rounded shadow-2xl z-[1000] overflow-visible">
               <button @click="addTrackOfType('audio')"
                 class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer">
                 <div class="flex">
@@ -101,7 +101,7 @@
           </div>
 
           <button @click="removeTrack(tracks[tracks.length - 1].id)" :disabled="tracks.length <= 1"
-            class="px-3 py-1.5 border border-gray-600 hover:border-red-500 hover:bg-red-500/10 disabled:border-gray-700 disabled:bg-gray-800/50 disabled:cursor-not-allowed rounded text-xs font-semibold text-gray-300 hover:text-red-400 disabled:text-gray-600 transition-all flex items-center gap-1.5">
+            class="px-3 py-1.5 hover:bg-red-500/10 disabled:border-gray-700 disabled:bg-gray-800/50 disabled:cursor-not-allowed rounded text-xs font-semibold text-gray-300 hover:text-red-400 disabled:text-gray-600 transition-all flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
             </svg>
@@ -1159,7 +1159,6 @@ async function addSubgroup() {
   // Create subgroup in Rust backend (async)
   const id = await props.audioEngine.addSubgroup()
   if (id === null) {
-    console.error('[addSubgroup] Failed to create subgroup in backend')
     // Remove the optimistically added subgroup on failure
     const index = subgroups.value.indexOf(tempSubgroup)
     if (index > -1) {
@@ -1170,7 +1169,6 @@ async function addSubgroup() {
 
   // Update the id when backend responds
   tempSubgroup.id = id
-  console.log(`[Subgroup ${id}] Created: ${name}`)
 }
 
 async function removeSubgroup(subgroupId: number) {
