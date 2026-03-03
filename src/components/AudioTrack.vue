@@ -35,16 +35,8 @@
       </div>
 
       <!-- Audio File Selector -->
-      <div v-if="audioSourceType === 'file'" class="w-full flex flex-col gap-1">
-        <button @click="openLibrary"
-          class="w-full text-xs bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 rounded px-2 py-1 transition-all flex items-center gap-1 overflow-hidden">
-          <span class="flex-shrink-0">📚</span>
-          <span class="flex-1 min-w-0 overflow-hidden">
-            <span class="block whitespace-nowrap animate-marquee">
-              {{ selectedFileName || 'Load from Library' }}
-            </span>
-          </span>
-        </button>
+      <div v-if="audioSourceType === 'file'" class="w-full">
+        <LibraryButton :file-name="selectedFileName" @click="openLibrary" />
       </div>
 
       <!-- Play/Stop Controls -->
@@ -216,6 +208,7 @@ import { computed, inject, onMounted, onUnmounted, ref, watch, type Ref } from '
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import HPFButton from './audioTrack/HPFButton.vue'
 import InputSelector from './audioTrack/InputSelector.vue'
+import LibraryButton from './audioTrack/LibraryButton.vue'
 import PadButton from './audioTrack/PadButton.vue'
 import PanKnob from './audioTrack/PanKnob.vue'
 import TrackCompressor from './audioTrack/TrackCompressor.vue'
@@ -1087,25 +1080,3 @@ defineExpose({
 })
 </script>
 
-<style scoped>
-/* Marquee animation for long file names */
-@keyframes marquee {
-  0% {
-    transform: translateX(0);
-  }
-
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-.animate-marquee {
-  display: inline-block;
-  padding-right: 100%;
-  animation: marquee 10s linear infinite;
-}
-
-.animate-marquee:hover {
-  animation-play-state: paused;
-}
-</style>
