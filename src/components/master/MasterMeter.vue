@@ -1,12 +1,12 @@
 <template>
   <div v-if="vuMetersHeight > 0"
-    class="flex flex-col items-center gap-1 w-full justify-center bg-gray-900 rounded p-1 border border-gray-700">
+    class="flex flex-col items-center gap-1 w-full justify-center bg-gray-900 rounded px-1 pb-2 pt-1 border border-gray-700">
     <div class="flex gap-2 relative">
       <!-- Left VuMeter -->
-      <VuMeter :level="leftLevel" label="L" :height="vuMetersHeight" :width="20" :showValue="false" />
+      <VuMeter class="mr-[0.2rem]" :level="leftLevel" label="L" :height="vuMetersHeight" :width="20" :showValue="false" />
       
       <!-- Central Scale marks with lines -->
-      <div class="relative flex-shrink-0 w-8 text-center mt-3" :style="{ height: vuMetersHeight + 'px' }">
+      <div class="relative flex-shrink-0 w-10 text-center mt-3" :style="{ height: vuMetersHeight + 'px' }">
         <div v-for="mark in scaleMarks" :key="mark.label" 
           class="absolute left-1/2 -translate-x-1/2 w-full flex items-center justify-center gap-0.5"
           :style="{ bottom: mark.position + '%' }">
@@ -40,7 +40,7 @@
       </div>
       
       <!-- Right VuMeter -->
-      <VuMeter :level="rightLevel" label="R" :height="vuMetersHeight" :width="20" :showValue="false" />
+      <VuMeter class="ml-[0.2rem]" :level="rightLevel" label="R" :height="vuMetersHeight" :width="20" :showValue="false" />
       
       <!-- RMS label -->
       <div class="text-[8px] text-gray-500 uppercase tracking-wider absolute -bottom-4 left-1/2 transform -translate-x-1/2">
