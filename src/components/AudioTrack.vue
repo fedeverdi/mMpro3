@@ -68,7 +68,7 @@
       </div>
 
       <!-- Waveform Display - Always visible -->
-      <WaveformDisplay :track-number="trackNumber - 1" :show-mode-buttons="false" mode="signal"
+      <WaveformDisplay :audio-engine="audioEngine" :track-number="trackNumber - 1" :show-mode-buttons="false" mode="signal"
         :is-active="(audioSourceType === 'file' && isPlaying) || (audioSourceType === 'input' && selectedAudioInput !== '')" />
     </div>
 
@@ -120,7 +120,7 @@
 
         <!-- 4-Band Parametric EQ - Absolute positioned -->
         <div class="absolute top-full left-0 right-0 z-[1000] mt-1">
-          <TrackEQ :track-number="trackNumber" :show="showEQ3Bands" v-model:model-low="eqLow"
+          <TrackEQ :audio-engine="audioEngine" :track-number="trackNumber" :show="showEQ3Bands" v-model:model-low="eqLow"
             v-model:model-low-mid="eqLowMid" v-model:model-high-mid="eqHighMid" v-model:model-high="eqHigh"
             v-model:model-enabled="eqEnabled" />
         </div>

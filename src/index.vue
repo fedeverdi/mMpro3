@@ -5,7 +5,7 @@
       <div class="flex items-center justify-between gap-4 flex-wrap relative">
         <div class="flex items-center gap-2">
           <img src="./assets/logo_no_scritta.svg" alt="mMpro3" class="h-8" />
-          
+
           <!-- Quick Scenes in Header -->
           <div class="w-px h-6 bg-gray-600"></div>
           <QuickScenes @load-scene="handleLoadScene" />
@@ -33,13 +33,12 @@
           <div class="w-px h-6 bg-gray-600"></div>
 
           <!-- Lock Button -->
-          <button @click="handleLockToggle"
-            :class="[
-              'px-3 py-1.5 border rounded text-xs font-semibold transition-all flex items-center gap-1.5',
-              isLocked
-                ? 'border-blue-600 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30'
-                : 'border-gray-600 hover:border-yellow-500 hover:bg-yellow-500/10 text-gray-300 hover:text-yellow-400'
-            ]">
+          <button @click="handleLockToggle" :class="[
+            'px-3 py-1.5 border rounded text-xs font-semibold transition-all flex items-center gap-1.5',
+            isLocked
+              ? 'border-blue-600 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30'
+              : 'border-gray-600 hover:border-yellow-500 hover:bg-yellow-500/10 text-gray-300 hover:text-yellow-400'
+          ]">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path v-if="isLocked" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -127,17 +126,16 @@
                 'drag-over': dragOverTrackId === track.id
               }" @dragover="handleTrackDragOver(track.id, $event)" @dragleave="handleTrackDragLeave"
               @drop="handleTrackDrop(track.id)" @dragend="handleTrackDragEnd">
-              <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)"
-                :trackNumber="track.id" :order="track.order" :master-channel="masterChannel" :subgroups="subgroups"
+              <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
+                :order="track.order" :master-channel="masterChannel" :subgroups="subgroups"
                 :allow-subgroup-routing="buildLimits.allowSubgroupRouting" :is-dragging="draggedTrackId === track.id"
                 @soloChange="handleSoloChange" @remove="removeTrack(track.id)"
                 @drag-start="handleTrackDragStart(track.id)" />
               <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
                 :master-channel="masterChannel" :subgroups="subgroups" :aux-buses="auxBuses"
                 :aux-sends="trackAuxSends.get(track.id) || {}"
-                :allow-subgroup-routing="buildLimits.allowSubgroupRouting"
-                @open-library="handleOpenLibrary" @remove="removeTrack(track.id)"
-                @update:aux-sends="(sends) => updateTrackAuxSends(track.id, sends)" />
+                :allow-subgroup-routing="buildLimits.allowSubgroupRouting" @open-library="handleOpenLibrary"
+                @remove="removeTrack(track.id)" @update:aux-sends="(sends) => updateTrackAuxSends(track.id, sends)" />
             </div>
           </div>
         </div>
@@ -146,24 +144,18 @@
       <!-- Right Section (fixed width) -->
       <div class="flex gap-2 flex-shrink-0">
         <!-- Master EQ Display, Spectrum & FX -->
-        <RightSection ref="rightSectionRef" :master-channel="masterChannel"
-          :master-section-ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses"
-          :subgroups="subgroups" :master-eq-filters="masterEqFiltersData"
-          @master-fx-output-node="handleMasterFxOutputNode"
+        <RightSection ref="rightSectionRef" :master-channel="masterChannel" :master-section-ref="masterSectionRef"
+          :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses" :subgroups="subgroups"
+          :master-eq-filters="masterEqFiltersData" @master-fx-output-node="handleMasterFxOutputNode"
           @master-fx-component="handleMasterFxComponent" @update:master-eq-filters="handleMasterEQFiltersUpdate"
           @add-aux="addAux" @remove-aux="removeAux" @update-aux="updateAux" />
 
         <!-- Subgroups Section -->
         <template v-for="subgroup in subgroups" :key="subgroup.id">
           <div class="flex-shrink-0 h-full mixer-fade-in">
-            <SubgroupsSection 
-              :ref="el => setSubgroupRef(subgroup.id, el)" 
-              :master-channel="masterChannel"
-              :subgroup-id="subgroup.id" 
-              :subgroup-name="subgroup.name"
-              v-model:volume="subgroup.volume"
-              v-model:route-to-master="subgroup.routeToMaster"
-              v-model:selected-output="subgroup.selectedOutput"
+            <SubgroupsSection :ref="el => setSubgroupRef(subgroup.id, el)" :master-channel="masterChannel"
+              :subgroup-id="subgroup.id" :subgroup-name="subgroup.name" v-model:volume="subgroup.volume"
+              v-model:route-to-master="subgroup.routeToMaster" v-model:selected-output="subgroup.selectedOutput"
               @remove="removeSubgroup(subgroup.id)" />
           </div>
         </template>
@@ -171,8 +163,7 @@
         <!-- Master Section -->
         <div class="flex-shrink-0 h-full mixer-fade-in">
           <MasterSection ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode"
-            :master-fx-component="masterFxComponent" :is-recording="isRecording"
-            @open-recorder="showRecorder = true" />
+            :master-fx-component="masterFxComponent" :is-recording="isRecording" @open-recorder="showRecorder = true" />
         </div>
       </div>
     </main>
@@ -182,41 +173,27 @@
       :aux-buses="auxBuses.map(a => ({ id: a.id, name: a.name }))" />
 
     <!-- Audio Settings Modal -->
-    <AudioSettingsModal :is-open="showAudioSettings" @close="showAudioSettings = false" @apply="handleAudioConfigApply" />
-    <Recorder 
-      v-model="showRecorder" 
-      :master-level-left="audioEngineState.masterLevels.left"
-      :master-level-right="audioEngineState.masterLevels.right"
-      :recording-time="recordingTime"
-      :recording-file-size="recordingFileSize"
-      :available-disk-space="availableDiskSpace"
-      @recording-state="handleRecordingStateChange"
-    />
+    <AudioSettingsModal :is-open="showAudioSettings" @close="showAudioSettings = false"
+      @apply="handleAudioConfigApply" />
+    <Recorder v-model="showRecorder" :master-level-left="audioEngineState.masterLevels.left"
+      :master-level-right="audioEngineState.masterLevels.right" :recording-time="recordingTime"
+      :recording-file-size="recordingFileSize" :available-disk-space="availableDiskSpace"
+      @recording-state="handleRecordingStateChange" />
 
     <!-- File Manager Modal -->
     <FileManagerModal v-model="showFileManager" @select-file="handleFileManagerSelect"
       @select-playlist="handlePlaylistSelect" />
 
     <!-- Scenes Modal -->
-    <ScenesModal 
-      v-model="showScenesModal" 
-      :tracks="tracks"
-      :get-track-state="getTrackState"
-      :get-master-state="getMasterState"
-      :get-master-eq-filters="getMasterEqFilters"
-      :get-master-fx="getMasterFx"
-      :get-subgroups-state="getSubgroupsState"
-      :get-aux-buses-state="getAuxBusesState"
-      @load-scene="handleLoadScene"
-    />
+    <ScenesModal v-model="showScenesModal" :tracks="tracks" :get-track-state="getTrackState"
+      :get-master-state="getMasterState" :get-master-eq-filters="getMasterEqFilters" :get-master-fx="getMasterFx"
+      :get-subgroups-state="getSubgroupsState" :get-aux-buses-state="getAuxBusesState" @load-scene="handleLoadScene" />
 
     <!-- Lock System -->
     <SetLockPasswordModal :show="showSetPasswordModal" @close="showSetPasswordModal = false"
       @confirm="handleSetPassword" />
-    <LockScreen ref="lockScreenRef" :show="isLocked" 
-      :level-left="audioEngineState.masterLevels.left"
-      :level-right="audioEngineState.masterLevels.right"
-      @unlock="handleUnlock" />
+    <LockScreen ref="lockScreenRef" :show="isLocked" :level-left="audioEngineState.masterLevels.left"
+      :level-right="audioEngineState.masterLevels.right" @unlock="handleUnlock" />
 
     <!-- Limit Reached Modal -->
     <Transition enter-from-class="opacity-0" enter-active-class="transition-opacity duration-200"
@@ -253,15 +230,10 @@
     </Transition>
 
     <!-- Footer -->
-    <Footer 
-      :performance-stats="audioEngineState.performanceStats" 
-      :is-recording="isRecording"
-      :recording-time="recordingTime"
-      :recording-file-size="recordingFileSize"
-      :available-disk-space="availableDiskSpace"
-      @open-audio-flow="showAudioFlowModal = true"
-      @open-audio-config="showAudioSettings = true"
-    />
+    <Footer :performance-stats="audioEngineState.performanceStats" :is-recording="isRecording"
+      :recording-time="recordingTime" :recording-file-size="recordingFileSize"
+      :available-disk-space="availableDiskSpace" @open-audio-flow="showAudioFlowModal = true"
+      @open-audio-config="showAudioSettings = true" />
 
     <!-- Notification Toast -->
     <NotificationToast />
@@ -293,8 +265,13 @@ import SetLockPasswordModal from './components/layout/SetLockPasswordModal.vue'
 import LockScreen from './components/layout/LockScreen.vue'
 
 const { audioOutputDevices, audioInputDevices, refreshAudioOutputs, refreshAudioInputs } = useAudioDevices()
-const audioEngine = useAudioEngine()
-const audioEngineState = audioEngine.state
+
+// Aggiungi la props
+const props = defineProps<{
+  audioEngine: any;
+}>()
+
+const audioEngineState = props.audioEngine.state
 const notify = useNotifications()
 
 const masterChannel = ref<any>(null)
@@ -309,6 +286,8 @@ interface Subgroup {
   channel: any
   ref: any
 }
+
+
 
 const subgroups = ref<Subgroup[]>([])
 let nextSubgroupId = 1
@@ -384,7 +363,7 @@ const limitModalMessage = ref('')
 // Recording state handler - just updates the recording flag
 function handleRecordingStateChange(state: boolean) {
   isRecording.value = state
-  
+
   // Reset recording stats when stopping
   if (!state) {
     audioEngineState.value.recordingStats = null
@@ -404,7 +383,7 @@ const recordingTime = computed(() => {
 const recordingFileSize = computed(() => {
   if (!audioEngineState.value.recordingStats) return '0 MB'
   const bytes = audioEngineState.value.recordingStats.fileSizeBytes
-  
+
   if (bytes < 1024 * 1024) {
     return (bytes / 1024).toFixed(1) + ' KB'
   } else if (bytes < 1024 * 1024 * 1024) {
@@ -531,13 +510,13 @@ function initializeTracks(): Track[] {
   const limits = getBuildLimits()
 
   let trackId = 1
-  
+
   // Add default audio tracks
   for (let i = 0; i < limits.defaultAudioTracks; i++) {
     tracks.push({ id: trackId, type: 'audio', order: trackId })
     trackId++
   }
-  
+
   // Add default signal tracks
   for (let i = 0; i < limits.defaultSignalTracks; i++) {
     tracks.push({ id: trackId, type: 'signal', order: trackId })
@@ -723,14 +702,14 @@ function handleMasterFxComponent(component: any) {
 async function handleMasterEQFiltersUpdate(filters: any[]) {
   // Update local state (source of truth)
   masterEqFiltersData.value = filters
-  
+
   if (!filters || filters.length === 0) {
     // Clear master EQ if no filters
     await window.audioEngine?.clearMasterParametricEQ()
     console.log('[Master EQ] Cleared filters')
     return
   }
-  
+
   // Convert filters to backend format and send to Rust audio engine
   const backendFilters = filters.map(f => ({
     type: f.type, // 'peaking', 'lowshelf', 'highshelf', etc.
@@ -738,7 +717,7 @@ async function handleMasterEQFiltersUpdate(filters: any[]) {
     gain: f.gain,
     q: f.Q
   }))
-  
+
   try {
     await window.audioEngine?.setMasterParametricEQFilters(backendFilters)
     console.log('[Master EQ] Updated filters:', backendFilters.length, 'bands')
@@ -808,10 +787,10 @@ function getAuxBusesState(): any {
     delayEnabled: aux.delayEnabled,
     delayParams: aux.delayParams
   }))
-  
+
   // Get routing state from AuxMaster component
   const routingState = rightSectionRef.value?.auxMasterRef?.getRoutingState?.()
-  
+
   return {
     buses: auxState,
     routing: routingState || {}
@@ -822,7 +801,7 @@ async function handleLoadScene(scene: any) {
   try {
     // RESET: First, reset all mixer state to defaults
     console.log('[Scene] Resetting mixer to defaults...')
-    
+
     // Reset all tracks to default state
     for (const track of tracks.value) {
       const trackRef = trackRefs.value.get(track.id)
@@ -849,7 +828,7 @@ async function handleLoadScene(scene: any) {
         })
       }
     }
-    
+
     // Reset master section to defaults
     if (masterSectionRef.value && masterSectionRef.value.setState) {
       await masterSectionRef.value.setState({
@@ -862,27 +841,27 @@ async function handleLoadScene(scene: any) {
         selectedHeadphonesOutput: null
       })
     }
-    
+
     // Reset master EQ filters (clear all filters)
     console.log('[Scene] Resetting Master EQ filters')
     masterEqFiltersData.value = []
     await nextTick() // Force Vue to process the reactive change
     await window.audioEngine?.clearMasterParametricEQ()
-    
+
     // Reset master FX (clear all effects)
     if (masterFxComponent.value && masterFxComponent.value.resetToDefaults) {
       masterFxComponent.value.resetToDefaults()
     }
-    
+
     // Clear all subgroups before loading scene
     // Remove from backend first
     for (const subgroup of subgroups.value) {
-      audioEngine.removeSubgroup(subgroup.id)
+      props.audioEngine.removeSubgroup(subgroup.id)
     }
     // Clear frontend array
     subgroups.value = []
     nextSubgroupId = 1
-    
+
     // Reset aux buses to defaults
     for (const aux of auxBuses.value) {
       aux.volume = 0
@@ -898,21 +877,21 @@ async function handleLoadScene(scene: any) {
     if (rightSectionRef.value?.auxMasterRef?.setRoutingState) {
       rightSectionRef.value.auxMasterRef.setRoutingState({})
     }
-    
+
     console.log('[Scene] Reset complete. Loading scene:', scene.name)
-    
+
     // LOAD: Now load the scene state
-    
+
     // FIRST: Load subgroups state - recreate subgroups from scene BEFORE loading tracks
     // This is critical because tracks may route to subgroups, so subgroups must exist first
     // Create a map from old subgroup IDs to new IDs (backend assigns new IDs on creation)
     const subgroupIdMap = new Map<number, number>()
-    
+
     if (scene.subgroups && Array.isArray(scene.subgroups)) {
       for (const subgroupState of scene.subgroups) {
         // Create new subgroup
         const name = subgroupState.name || `SUB ${subgroups.value.length + 1}`
-        
+
         // Add to frontend state with saved values
         const tempSubgroup = {
           id: 0,
@@ -924,48 +903,48 @@ async function handleLoadScene(scene: any) {
           ref: null
         }
         subgroups.value.push(tempSubgroup)
-        
+
         // Create in backend
-        const id = await audioEngine.addSubgroup()
+        const id = await props.audioEngine.addSubgroup()
         if (id !== null) {
           tempSubgroup.id = id
-          
+
           // Map old ID to new ID for track routing
           subgroupIdMap.set(subgroupState.id, id)
-          
+
           // Apply backend state
           const linearVolume = Math.pow(10, tempSubgroup.volume / 20)
-          audioEngine.setSubgroupGain(id, linearVolume)
-          audioEngine.setSubgroupRouteToMaster(id, tempSubgroup.routeToMaster)
-          
+          props.audioEngine.setSubgroupGain(id, linearVolume)
+          props.audioEngine.setSubgroupRouteToMaster(id, tempSubgroup.routeToMaster)
+
           // Apply output device
           if (tempSubgroup.selectedOutput && tempSubgroup.selectedOutput !== 'no-output') {
             const parts = tempSubgroup.selectedOutput.split(':')
             const deviceId = parts[0]
             const leftCh = parts[1] ? parseInt(parts[1]) : 0
             const rightCh = parts[2] ? parseInt(parts[2]) : 1
-            
-            audioEngine.setSubgroupOutputEnabled(id, true)
-            audioEngine.setSubgroupOutputChannels(id, leftCh, rightCh)
+
+            props.audioEngine.setSubgroupOutputEnabled(id, true)
+            props.audioEngine.setSubgroupOutputChannels(id, leftCh, rightCh)
           } else {
-            audioEngine.setSubgroupOutputEnabled(id, false)
+            props.audioEngine.setSubgroupOutputEnabled(id, false)
           }
         }
       }
-      
+
       // Wait for subgroups to be fully initialized in backend
       await nextTick()
       // Add small delay to ensure backend has fully initialized subgroups
       await new Promise(resolve => setTimeout(resolve, 100))
     }
-    
+
     // SECOND: Load each track's state (now subgroups exist and tracks can route to them)
     // Update routedSubgroups IDs to match new subgroup IDs
     for (let i = 0; i < scene.tracks.length; i++) {
       const trackState = scene.tracks[i]
       const track = tracks.value[i]
       if (!track) continue
-      
+
       // Remap subgroup IDs if track routes to subgroups
       if (trackState.routedSubgroups && Array.isArray(trackState.routedSubgroups)) {
         trackState.routedSubgroups = trackState.routedSubgroups.map((oldId: number) => {
@@ -973,24 +952,24 @@ async function handleLoadScene(scene: any) {
           return newId !== undefined ? newId : oldId
         })
       }
-      
+
       const trackRef = trackRefs.value.get(track.id)
       if (trackRef && trackRef.setState) {
         await trackRef.setState(trackState)
       }
     }
-    
+
     // Load master state
     if (scene.master && masterSectionRef.value && masterSectionRef.value.setState) {
       await masterSectionRef.value.setState(scene.master)
     }
-    
+
     // Load master EQ filters
     if (scene.masterEQFilters && scene.masterEQFilters.length > 0) {
       console.log('[Scene] Loading Master EQ filters:', scene.masterEQFilters.length, 'bands', scene.masterEQFilters)
       masterEqFiltersData.value = [...scene.masterEQFilters]
       await nextTick() // Force Vue to process the change
-      
+
       // Update the backend
       const backendFilters = scene.masterEQFilters.map((f: any) => ({
         type: f.type,
@@ -998,7 +977,7 @@ async function handleLoadScene(scene: any) {
         gain: f.gain,
         q: f.Q
       }))
-      await window.audioEngine?.setMasterParametricEQFilters(backendFilters)
+      await props.audioEngine.setMasterParametricEQFilters(backendFilters)
       console.log('[Master EQ] Backend updated with', backendFilters.length, 'bands')
     } else {
       // Scene has no EQ filters, ensure they're cleared
@@ -1006,25 +985,25 @@ async function handleLoadScene(scene: any) {
       masterEqFiltersData.value = []
       await nextTick() // Force Vue to process the change
     }
-    
+
     // Load master FX
     if (scene.masterFX && masterFxComponent.value && masterFxComponent.value.restoreSnapshot) {
       console.log('[Scene] Loading Master FX chain')
       masterFxComponent.value.restoreSnapshot(scene.masterFX)
     }
-    
+
     // Load aux buses state
     if (scene.auxBuses) {
       // Handle both old format (array) and new format (object with buses and routing)
       const auxData = Array.isArray(scene.auxBuses) ? { buses: scene.auxBuses, routing: {} } : scene.auxBuses
-      
+
       // Restore aux buses data
       if (auxData.buses && Array.isArray(auxData.buses)) {
         for (const auxState of auxData.buses) {
           const auxIndex = auxBuses.value.findIndex(a => a.id === auxState.id)
           if (auxIndex >= 0) {
             const aux = auxBuses.value[auxIndex]
-            
+
             // Update local state
             aux.volume = auxState.volume ?? 0
             aux.muted = auxState.muted ?? false
@@ -1034,38 +1013,38 @@ async function handleLoadScene(scene: any) {
             aux.reverbParams = auxState.reverbParams
             aux.delayEnabled = auxState.delayEnabled ?? false
             aux.delayParams = auxState.delayParams
-            
+
             // Apply to backend Rust
-            if (audioEngine.state.value.isRunning) {
+            if (props.audioEngine.state.value.isRunning) {
               // Apply volume
               const linearGain = Math.pow(10, aux.volume / 20)
-              audioEngine.setAuxBusGain(auxIndex, linearGain)
-              
+              props.audioEngine.setAuxBusGain(auxIndex, linearGain)
+
               // Apply mute
-              audioEngine.setAuxBusMute(auxIndex, aux.muted)
-              
+              props.audioEngine.setAuxBusMute(auxIndex, aux.muted)
+
               // Apply routeToMaster directly from aux state
-              audioEngine.setAuxBusRouteToMaster(auxIndex, aux.routeToMaster)
-              
+              props.audioEngine.setAuxBusRouteToMaster(auxIndex, aux.routeToMaster)
+
               // Apply output device
               if (aux.selectedOutputDevice) {
                 const parts = aux.selectedOutputDevice.split(':')
                 const actualDeviceId = parts[0]
                 const channel = parts[1] ? parseInt(parts[1]) : 0
-                
+
                 if (actualDeviceId === 'no-output' || actualDeviceId === null) {
-                  audioEngine.setAuxBusOutputEnabled(auxIndex, false)
+                  props.audioEngine.setAuxBusOutputEnabled(auxIndex, false)
                 } else {
-                  audioEngine.setAuxBusOutputEnabled(auxIndex, true)
-                  audioEngine.setAuxBusOutputChannels(auxIndex, channel, channel)
+                  props.audioEngine.setAuxBusOutputEnabled(auxIndex, true)
+                  props.audioEngine.setAuxBusOutputChannels(auxIndex, channel, channel)
                 }
               } else {
-                audioEngine.setAuxBusOutputEnabled(auxIndex, false)
+                props.audioEngine.setAuxBusOutputEnabled(auxIndex, false)
               }
-              
+
               // Apply reverb
               if (aux.reverbEnabled && aux.reverbParams) {
-                audioEngine.setAuxBusReverb(
+                props.audioEngine.setAuxBusReverb(
                   auxIndex,
                   true,
                   aux.reverbParams.roomSize ?? 0.5,
@@ -1074,12 +1053,12 @@ async function handleLoadScene(scene: any) {
                   aux.reverbParams.width ?? 1.0
                 )
               } else {
-                audioEngine.setAuxBusReverb(auxIndex, false, 0.5, 0.5, 1.0, 1.0)
+                props.audioEngine.setAuxBusReverb(auxIndex, false, 0.5, 0.5, 1.0, 1.0)
               }
-              
+
               // Apply delay
               if (aux.delayEnabled && aux.delayParams) {
-                audioEngine.setAuxBusDelay(
+                props.audioEngine.setAuxBusDelay(
                   auxIndex,
                   true,
                   aux.delayParams.delayTime * 1000,
@@ -1087,18 +1066,18 @@ async function handleLoadScene(scene: any) {
                   aux.delayParams.wet ?? 1.0
                 )
               } else {
-                audioEngine.setAuxBusDelay(auxIndex, false, 250, 0.3, 1.0)
+                props.audioEngine.setAuxBusDelay(auxIndex, false, 250, 0.3, 1.0)
               }
             }
           }
         }
       }
-      
+
       // Restore routing state
       if (auxData.routing && Object.keys(auxData.routing).length > 0 && rightSectionRef.value?.auxMasterRef?.setRoutingState) {
         await nextTick()
         rightSectionRef.value.auxMasterRef.setRoutingState(auxData.routing)
-        
+
         // Sync aux.routeToMaster with auxRouting to keep them consistent
         if (auxData.buses && Array.isArray(auxData.buses)) {
           for (const auxState of auxData.buses) {
@@ -1110,11 +1089,11 @@ async function handleLoadScene(scene: any) {
         }
       }
     }
-    
+
     // Set current scene ID in the composable
     const { setCurrentSceneId } = useScenes()
     setCurrentSceneId(scene.id)
-    
+
     console.log('[Scene] Scene loaded successfully:', scene.name)
   } catch (error) {
     console.error('[Scene] Error loading scene:', error)
@@ -1170,7 +1149,7 @@ async function addSubgroup() {
   subgroups.value.push(tempSubgroup)
 
   // Create subgroup in Rust backend (async)
-  const id = await audioEngine.addSubgroup()
+  const id = await props.audioEngine.addSubgroup()
   if (id === null) {
     console.error('[addSubgroup] Failed to create subgroup in backend')
     // Remove the optimistically added subgroup on failure
@@ -1205,7 +1184,7 @@ async function removeSubgroup(subgroupId: number) {
     })
 
     // Remove from backend
-    audioEngine.removeSubgroup(subgroupId)
+    props.audioEngine.removeSubgroup(subgroupId)
 
     // Remove from array - Vue will handle unmounting and cleanup via onUnmounted
     subgroups.value.splice(index, 1)
@@ -1272,21 +1251,21 @@ async function updateAux(index: number, updatedAux: AuxBus) {
     const aux = auxBuses.value[index]
 
     // Send updates to Rust engine
-    if (audioEngine.state.value.isRunning) {
+    if (props.audioEngine.state.value.isRunning) {
       // Update volume (gain)
       if (updatedAux.volume !== aux.volume) {
         const linearGain = Math.pow(10, updatedAux.volume / 20)
-        audioEngine.setAuxBusGain(index, linearGain)
+        props.audioEngine.setAuxBusGain(index, linearGain)
       }
 
       // Update mute
       if (updatedAux.muted !== aux.muted) {
-        audioEngine.setAuxBusMute(index, updatedAux.muted)
+        props.audioEngine.setAuxBusMute(index, updatedAux.muted)
       }
 
       // Update routing to master
       if (updatedAux.routeToMaster !== aux.routeToMaster) {
-        audioEngine.setAuxBusRouteToMaster(index, updatedAux.routeToMaster)
+        props.audioEngine.setAuxBusRouteToMaster(index, updatedAux.routeToMaster)
       }
 
       // Update reverb enabled state
@@ -1298,8 +1277,8 @@ async function updateAux(index: number, updatedAux: AuxBus) {
         const damping = reverbParams?.damping ?? 0.5
         const wet = reverbParams?.wet ?? 1.0
         const width = reverbParams?.width ?? 1.0
-        
-        audioEngine.setAuxBusReverb(
+
+        props.audioEngine.setAuxBusReverb(
           index,
           enabled,
           roomSize,
@@ -1316,8 +1295,8 @@ async function updateAux(index: number, updatedAux: AuxBus) {
         const time = delayParams?.delayTime ?? 0.5
         const feedback = delayParams?.feedback ?? 0.3
         const wet = delayParams?.wet ?? 0.5
-        
-        audioEngine.setAuxBusDelay(
+
+        props.audioEngine.setAuxBusDelay(
           index,
           enabled,
           time * 1000,  // Convert seconds to milliseconds
@@ -1330,21 +1309,21 @@ async function updateAux(index: number, updatedAux: AuxBus) {
     // Handle output device selection via Rust backend (like subgroups)
     if (updatedAux.selectedOutputDevice !== aux.selectedOutputDevice) {
       const deviceId = updatedAux.selectedOutputDevice
-      
+
       // Parse device ID (format: "deviceId" or "deviceId:ch" for mono)
       const parts = deviceId?.split(':') || []
       const actualDeviceId = parts[0]
       const channel = parts[1] ? parseInt(parts[1]) : 0
-      
+
       // If "no-output" is selected, disable direct output
       if (actualDeviceId === 'no-output' || actualDeviceId === null) {
-        audioEngine.setAuxBusOutputEnabled(index, false)
+        props.audioEngine.setAuxBusOutputEnabled(index, false)
       } else {
         // Enable direct output when a device is selected
-        audioEngine.setAuxBusOutputEnabled(index, true)
-        
+        props.audioEngine.setAuxBusOutputEnabled(index, true)
+
         // Aux are mono: use same channel for both L and R
-        audioEngine.setAuxBusOutputChannels(index, channel, channel)
+        props.audioEngine.setAuxBusOutputChannels(index, channel, channel)
       }
     }
 
@@ -1389,23 +1368,23 @@ function handleSoloChange(data: { trackNumber: number, isSolo: boolean }) {
 // Audio Configuration Handler
 async function handleAudioConfigApply(config: { sampleRate: number; bufferSize: number }) {
   console.log('[App] Applying audio config:', config)
-  
+
   // Save to localStorage
   localStorage.setItem('audioConfig', JSON.stringify(config))
-  
+
   // Stop current audio
   if (window.audioEngine) {
     await window.audioEngine.stop()
   }
-  
+
   // Wait a bit for cleanup
   await new Promise(resolve => setTimeout(resolve, 100))
-  
+
   // Start with new configuration
   if (window.audioEngine) {
     await window.audioEngine.start(null, null, config.sampleRate, config.bufferSize)
   }
-  
+
   console.log('[App] Audio config applied successfully')
 }
 

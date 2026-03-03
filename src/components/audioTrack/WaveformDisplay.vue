@@ -40,7 +40,6 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
-import { useAudioEngine } from '@/composables/useAudioEngine'
 
 interface Props {
   trackNumber: number // Track number (0-based for backend)
@@ -50,6 +49,7 @@ interface Props {
   mode?: 'signal' | 'waveform' // External mode control
   showModeButtons?: boolean // Show mode toggle buttons
   isActive?: boolean // Whether to draw (play or input active)
+  audioEngine: any
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -61,7 +61,6 @@ const props = withDefaults(defineProps<Props>(), {
   isActive: false
 })
 
-const audioEngine = useAudioEngine()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const internalMode = ref<'signal' | 'waveform'>(props.mode)
 let animationId: number | null = null
@@ -154,7 +153,7 @@ function drawSignal() {
   ctx.fillRect(0, 0, width, height)
 
   // Get waveform data from stream (updated automatically by audio engine)
-  const values = audioEngine.state.value.trackWaveforms.get(props.trackNumber)
+  const values = props.audioEngine?.state.value.trackWaveforms.get(props.trackNumber)
   
   if (!values || values.length === 0) {
     drawCenterLine(ctx, width, height)

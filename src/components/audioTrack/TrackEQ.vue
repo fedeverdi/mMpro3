@@ -123,6 +123,7 @@ interface Props {
   modelHighMid?: number
   modelHigh?: number
   modelEnabled?: boolean
+  audioEngine: any
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -142,7 +143,6 @@ const emit = defineEmits<{
   'update:modelEnabled': [value: boolean]
 }>()
 
-const audioEngine = useAudioEngine()
 
 const enabled = ref(props.modelEnabled)
 const low = ref(props.modelLow)       // -24 to +24 dB
@@ -181,8 +181,8 @@ watch(high, (val) => {
 
 // Watch for changes and send to engine (kept for backward compatibility)
 watch([low, lowMid, highMid, high], () => {
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setTrackEQ(
+  if (props.audioEngine?.state.value.isRunning) {
+    props.audioEngine.setTrackEQ(
       props.trackNumber - 1,
       low.value,
       lowMid.value,
@@ -193,8 +193,8 @@ watch([low, lowMid, highMid, high], () => {
 })
 
 watch(enabled, (newEnabled) => {
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setTrackEQEnabled(props.trackNumber - 1, newEnabled)
+  if (props.audioEngine?.state.value.isRunning) {
+    props.audioEngine.setTrackEQEnabled(props.trackNumber - 1, newEnabled)
   }
 })
 </script>

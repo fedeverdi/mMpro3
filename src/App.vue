@@ -1,6 +1,6 @@
 <template>
   <SplashScreen v-if="!isAppReady" :engine-ready="engineReady" @start="handleUserStart" />
-  <IndexPage v-else />
+  <IndexPage :audio-engine="audioEngine" v-else />
 </template>
 
 <script setup lang="ts">
