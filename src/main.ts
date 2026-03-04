@@ -454,12 +454,14 @@ ipcMain.handle('audio-engine:set-track-source-aux-return', async (_, track: numb
 })
 
 ipcMain.handle('audio-engine:list-devices', async () => {
-  const response = await sendCommandAndWaitForResponse({ type: 'list_devices' }, 'devices')
+  // Longer timeout for first launch (macOS may ask for permissions or verify signature)
+  const response = await sendCommandAndWaitForResponse({ type: 'list_devices' }, 'devices', 60000)
   return response.devices
 })
 
 ipcMain.handle('audio-engine:list-audio-inputs', async () => {
-  const response = await sendCommandAndWaitForResponse({ type: 'list_audio_inputs' }, 'audio_inputs')
+  // Longer timeout for first launch (macOS may ask for permissions or verify signature)
+  const response = await sendCommandAndWaitForResponse({ type: 'list_audio_inputs' }, 'audio_inputs', 60000)
   return response.inputs
 })
 
