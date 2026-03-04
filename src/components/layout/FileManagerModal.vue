@@ -650,7 +650,7 @@ const emit = defineEmits<{
 }>()
 
 const { saveAudioFile, getAllAudioFiles, deleteAudioFile } = useAudioFileStorage()
-const audioEngine = useAudioEngine()
+
 const { 
   playlists, 
   createPlaylist, 

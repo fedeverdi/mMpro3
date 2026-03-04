@@ -153,8 +153,8 @@ const emit = defineEmits<{
   (e: 'component', value: { getSnapshot: () => any, restoreSnapshot: (snapshot: any) => void, resetToDefaults: () => void }): void
 }>()
 
-// Audio Engine composable
-const audioEngine = useAudioEngine()
+// Import audio engine from context
+const audioEngine = inject('audioEngine') as any
 
 // Effect types
 type EffectType = 'compressor' | 'reverb' | 'delay' | 'limiter'

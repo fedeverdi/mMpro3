@@ -39,7 +39,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, inject } from 'vue'
+
+// Import audio engine from context
+const audioEngine = inject('audioEngine') as any
 
 interface Props {
   trackNumber: number // Track number (0-based for backend)
@@ -49,7 +52,6 @@ interface Props {
   mode?: 'signal' | 'waveform' // External mode control
   showModeButtons?: boolean // Show mode toggle buttons
   isActive?: boolean // Whether to draw (play or input active)
-  audioEngine: any
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -153,7 +155,7 @@ function drawSignal() {
   ctx.fillRect(0, 0, width, height)
 
   // Get waveform data from stream (updated automatically by audio engine)
-  const values = props.audioEngine?.state.value.trackWaveforms.get(props.trackNumber)
+  const values = audioEngine?.state.value.trackWaveforms.get(props.trackNumber)
   
   if (!values || values.length === 0) {
     drawCenterLine(ctx, width, height)
