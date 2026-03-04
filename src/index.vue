@@ -129,13 +129,11 @@
               }" @dragover="handleTrackDragOver(track.id, $event)" @dragleave="handleTrackDragLeave"
               @drop="handleTrackDrop(track.id)" @dragend="handleTrackDragEnd">
               <SignalTrack v-if="track.type === 'signal'" :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
-                :audio-engine="audioEngine"
                 :order="track.order" :master-channel="masterChannel" :subgroups="subgroups"
                 :allow-subgroup-routing="buildLimits.allowSubgroupRouting" :is-dragging="draggedTrackId === track.id"
                 @soloChange="handleSoloChange" @remove="removeTrack(track.id)"
                 @drag-start="handleTrackDragStart(track.id)" />
               <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
-                :audio-engine="audioEngine"
                 :master-channel="masterChannel" :subgroups="subgroups" :aux-buses="auxBuses"
                 :aux-sends="trackAuxSends.get(track.id) || {}"
                 :allow-subgroup-routing="buildLimits.allowSubgroupRouting" @open-library="handleOpenLibrary"
@@ -271,12 +269,9 @@ import LockScreen from './components/layout/LockScreen.vue'
 
 const { audioOutputDevices, audioInputDevices, refreshAudioOutputs, refreshAudioInputs } = useAudioDevices()
 
-// Aggiungi la props
-const props = defineProps<{
-  audioEngine: any;
-}>()
-
-const audioEngineState = props.audioEngine.state
+// Import audio engine from context
+const audioEngine = inject('audioEngine') as any
+const audioEngineState = audioEngine.state
 const notify = useNotifications()
 
 // Project name for title bar
@@ -807,9 +802,6 @@ function getAuxBusesState(): any {
 
 async function handleLoadScene(scene: any) {
   try {
-    // RESET: First, reset all mixer state to defaults
-    console.log('[Scene] Resetting mixer to defaults...')
-
     // Reset all tracks to default state
     for (const track of tracks.value) {
       const trackRef = trackRefs.value.get(track.id)
@@ -864,7 +856,7 @@ async function handleLoadScene(scene: any) {
     // Clear all subgroups before loading scene
     // Remove from backend first
     for (const subgroup of subgroups.value) {
-      props.audioEngine.removeSubgroup(subgroup.id)
+      audioEngine.removeSubgroup(subgroup.id)
     }
     // Clear frontend array
     subgroups.value = []
@@ -886,9 +878,6 @@ async function handleLoadScene(scene: any) {
       rightSectionRef.value.auxMasterRef.setRoutingState({})
     }
 
-    console.log('[Scene] Reset complete. Loading scene:', scene.name)
-
-    // LOAD: Now load the scene state
 
     // FIRST: Load subgroups state - recreate subgroups from scene BEFORE loading tracks
     // This is critical because tracks may route to subgroups, so subgroups must exist first
@@ -913,7 +902,7 @@ async function handleLoadScene(scene: any) {
         subgroups.value.push(tempSubgroup)
 
         // Create in backend
-        const id = await props.audioEngine.addSubgroup()
+        const id = await audioEngine.addSubgroup()
         if (id !== null) {
           tempSubgroup.id = id
 
@@ -922,8 +911,8 @@ async function handleLoadScene(scene: any) {
 
           // Apply backend state
           const linearVolume = Math.pow(10, tempSubgroup.volume / 20)
-          props.audioEngine.setSubgroupGain(id, linearVolume)
-          props.audioEngine.setSubgroupRouteToMaster(id, tempSubgroup.routeToMaster)
+          audioEngine.setSubgroupGain(id, linearVolume)
+          audioEngine.setSubgroupRouteToMaster(id, tempSubgroup.routeToMaster)
 
           // Apply output device
           if (tempSubgroup.selectedOutput && tempSubgroup.selectedOutput !== 'no-output') {
@@ -932,10 +921,10 @@ async function handleLoadScene(scene: any) {
             const leftCh = parts[1] ? parseInt(parts[1]) : 0
             const rightCh = parts[2] ? parseInt(parts[2]) : 1
 
-            props.audioEngine.setSubgroupOutputEnabled(id, true)
-            props.audioEngine.setSubgroupOutputChannels(id, leftCh, rightCh)
+            audioEngine.setSubgroupOutputEnabled(id, true)
+            audioEngine.setSubgroupOutputChannels(id, leftCh, rightCh)
           } else {
-            props.audioEngine.setSubgroupOutputEnabled(id, false)
+            audioEngine.setSubgroupOutputEnabled(id, false)
           }
         }
       }
@@ -985,7 +974,7 @@ async function handleLoadScene(scene: any) {
         gain: f.gain,
         q: f.Q
       }))
-      await props.audioEngine.setMasterParametricEQFilters(backendFilters)
+      await audioEngine.setMasterParametricEQFilters(backendFilters)
       console.log('[Master EQ] Backend updated with', backendFilters.length, 'bands')
     } else {
       // Scene has no EQ filters, ensure they're cleared
@@ -1023,16 +1012,16 @@ async function handleLoadScene(scene: any) {
             aux.delayParams = auxState.delayParams
 
             // Apply to backend Rust
-            if (props.audioEngine.state.value.isRunning) {
+            if (audioEngine.state.value.isRunning) {
               // Apply volume
               const linearGain = Math.pow(10, aux.volume / 20)
-              props.audioEngine.setAuxBusGain(auxIndex, linearGain)
+              audioEngine.setAuxBusGain(auxIndex, linearGain)
 
               // Apply mute
-              props.audioEngine.setAuxBusMute(auxIndex, aux.muted)
+              audioEngine.setAuxBusMute(auxIndex, aux.muted)
 
               // Apply routeToMaster directly from aux state
-              props.audioEngine.setAuxBusRouteToMaster(auxIndex, aux.routeToMaster)
+              audioEngine.setAuxBusRouteToMaster(auxIndex, aux.routeToMaster)
 
               // Apply output device
               if (aux.selectedOutputDevice) {
@@ -1041,18 +1030,18 @@ async function handleLoadScene(scene: any) {
                 const channel = parts[1] ? parseInt(parts[1]) : 0
 
                 if (actualDeviceId === 'no-output' || actualDeviceId === null) {
-                  props.audioEngine.setAuxBusOutputEnabled(auxIndex, false)
+                  audioEngine.setAuxBusOutputEnabled(auxIndex, false)
                 } else {
-                  props.audioEngine.setAuxBusOutputEnabled(auxIndex, true)
-                  props.audioEngine.setAuxBusOutputChannels(auxIndex, channel, channel)
+                  audioEngine.setAuxBusOutputEnabled(auxIndex, true)
+                  audioEngine.setAuxBusOutputChannels(auxIndex, channel, channel)
                 }
               } else {
-                props.audioEngine.setAuxBusOutputEnabled(auxIndex, false)
+                audioEngine.setAuxBusOutputEnabled(auxIndex, false)
               }
 
               // Apply reverb
               if (aux.reverbEnabled && aux.reverbParams) {
-                props.audioEngine.setAuxBusReverb(
+                audioEngine.setAuxBusReverb(
                   auxIndex,
                   true,
                   aux.reverbParams.roomSize ?? 0.5,
@@ -1061,12 +1050,12 @@ async function handleLoadScene(scene: any) {
                   aux.reverbParams.width ?? 1.0
                 )
               } else {
-                props.audioEngine.setAuxBusReverb(auxIndex, false, 0.5, 0.5, 1.0, 1.0)
+                audioEngine.setAuxBusReverb(auxIndex, false, 0.5, 0.5, 1.0, 1.0)
               }
 
               // Apply delay
               if (aux.delayEnabled && aux.delayParams) {
-                props.audioEngine.setAuxBusDelay(
+                audioEngine.setAuxBusDelay(
                   auxIndex,
                   true,
                   aux.delayParams.delayTime * 1000,
@@ -1074,7 +1063,7 @@ async function handleLoadScene(scene: any) {
                   aux.delayParams.wet ?? 1.0
                 )
               } else {
-                props.audioEngine.setAuxBusDelay(auxIndex, false, 250, 0.3, 1.0)
+                audioEngine.setAuxBusDelay(auxIndex, false, 250, 0.3, 1.0)
               }
             }
           }
@@ -1157,7 +1146,7 @@ async function addSubgroup() {
   subgroups.value.push(tempSubgroup)
 
   // Create subgroup in Rust backend (async)
-  const id = await props.audioEngine.addSubgroup()
+  const id = await audioEngine.addSubgroup()
   if (id === null) {
     // Remove the optimistically added subgroup on failure
     const index = subgroups.value.indexOf(tempSubgroup)
@@ -1190,7 +1179,7 @@ async function removeSubgroup(subgroupId: number) {
     })
 
     // Remove from backend
-    props.audioEngine.removeSubgroup(subgroupId)
+    audioEngine.removeSubgroup(subgroupId)
 
     // Remove from array - Vue will handle unmounting and cleanup via onUnmounted
     subgroups.value.splice(index, 1)
@@ -1257,21 +1246,21 @@ async function updateAux(index: number, updatedAux: AuxBus) {
     const aux = auxBuses.value[index]
 
     // Send updates to Rust engine
-    if (props.audioEngine.state.value.isRunning) {
+    if (audioEngine.state.value.isRunning) {
       // Update volume (gain)
       if (updatedAux.volume !== aux.volume) {
         const linearGain = Math.pow(10, updatedAux.volume / 20)
-        props.audioEngine.setAuxBusGain(index, linearGain)
+        audioEngine.setAuxBusGain(index, linearGain)
       }
 
       // Update mute
       if (updatedAux.muted !== aux.muted) {
-        props.audioEngine.setAuxBusMute(index, updatedAux.muted)
+        audioEngine.setAuxBusMute(index, updatedAux.muted)
       }
 
       // Update routing to master
       if (updatedAux.routeToMaster !== aux.routeToMaster) {
-        props.audioEngine.setAuxBusRouteToMaster(index, updatedAux.routeToMaster)
+        audioEngine.setAuxBusRouteToMaster(index, updatedAux.routeToMaster)
       }
 
       // Update reverb enabled state
@@ -1284,7 +1273,7 @@ async function updateAux(index: number, updatedAux: AuxBus) {
         const wet = reverbParams?.wet ?? 1.0
         const width = reverbParams?.width ?? 1.0
 
-        props.audioEngine.setAuxBusReverb(
+        audioEngine.setAuxBusReverb(
           index,
           enabled,
           roomSize,
@@ -1302,7 +1291,7 @@ async function updateAux(index: number, updatedAux: AuxBus) {
         const feedback = delayParams?.feedback ?? 0.3
         const wet = delayParams?.wet ?? 0.5
 
-        props.audioEngine.setAuxBusDelay(
+        audioEngine.setAuxBusDelay(
           index,
           enabled,
           time * 1000,  // Convert seconds to milliseconds
@@ -1323,13 +1312,13 @@ async function updateAux(index: number, updatedAux: AuxBus) {
 
       // If "no-output" is selected, disable direct output
       if (actualDeviceId === 'no-output' || actualDeviceId === null) {
-        props.audioEngine.setAuxBusOutputEnabled(index, false)
+        audioEngine.setAuxBusOutputEnabled(index, false)
       } else {
         // Enable direct output when a device is selected
-        props.audioEngine.setAuxBusOutputEnabled(index, true)
+        audioEngine.setAuxBusOutputEnabled(index, true)
 
         // Aux are mono: use same channel for both L and R
-        props.audioEngine.setAuxBusOutputChannels(index, channel, channel)
+        audioEngine.setAuxBusOutputChannels(index, channel, channel)
       }
     }
 

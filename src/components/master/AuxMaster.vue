@@ -40,39 +40,64 @@
 
                 <!-- FX Buttons -->
                 <div class="grid grid-cols-2 gap-1">
-                    <div :class="[
-                        'flex items-center justify-center gap-0.5 px-1 py-0.5 rounded transition-colors overflow-hidden',
-                        aux.reverbEnabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'
-                    ]">
-                        <button @click="toggleAuxReverb(index)" class="flex-1 text-[0.5rem] font-bold hover:opacity-80"
-                            title="Toggle Reverb">
+                    <!-- Reverb Button with Popover -->
+                    <div class="relative">
+                        <button @click="openReverbPopover = openReverbPopover === index ? null : index" :class="[
+                            'w-full px-1 py-0.5 rounded transition-colors text-[0.5rem] font-bold',
+                            aux.reverbEnabled ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'
+                        ]" title="Reverb Controls">
                             RV
                         </button>
-                        <button v-if="aux.reverbEnabled" @click.stop="showReverbModal(index)"
-                            class="px-0.5 hover:bg-green-700 rounded" title="Reverb Settings">
-                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                        </button>
+                        <!-- Reverb Popover -->
+                        <div v-if="openReverbPopover === index" @click.stop
+                            class="absolute bottom-full left-0 mb-1 bg-gray-800 rounded-lg border-2 border-green-500 shadow-xl z-50 p-2 flex flex-col gap-1.5 min-w-[90px]">
+                            <button @click="toggleAuxReverb(index)" :class="[
+                                'px-2 py-1.5 rounded text-[0.55rem] font-bold transition-colors flex items-center justify-center gap-1',
+                                aux.reverbEnabled ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                            ]">
+                                <span class="w-2 h-2 rounded-full" :class="aux.reverbEnabled ? 'bg-green-300' : 'bg-gray-400'"></span>
+                                {{ aux.reverbEnabled ? 'ON' : 'OFF' }}
+                            </button>
+                            <button @click="showReverbModal(index); openReverbPopover = null"
+                                class="px-2 py-1.5 rounded text-[0.55rem] font-bold bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors flex items-center justify-center gap-1.5">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                                SET
+                            </button>
+                        </div>
                     </div>
-                    <div :class="[
-                        'flex items-center justify-center gap-0.5 px-1 py-0.5 rounded transition-colors overflow-hidden',
-                        aux.delayEnabled ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400'
-                    ]">
-                        <button @click="toggleAuxDelay(index)" class="flex-1 text-[0.5rem] font-bold hover:opacity-80"
-                            title="Toggle Delay">
+
+                    <!-- Delay Button with Popover -->
+                    <div class="relative">
+                        <button @click="openDelayPopover = openDelayPopover === index ? null : index" :class="[
+                            'w-full px-1 py-0.5 rounded transition-colors text-[0.5rem] font-bold',
+                            aux.delayEnabled ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400'
+                        ]" title="Delay Controls">
                             DL
                         </button>
-                        <button v-if="aux.delayEnabled" @click.stop="showDelayModal(index)"
-                            class="px-0.5 hover:bg-blue-700 rounded" title="Delay Settings">
-                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                        </button>
+                        <!-- Delay Popover -->
+                        <div v-if="openDelayPopover === index" @click.stop
+                            class="absolute bottom-full left-0 mb-1 bg-gray-800 rounded-lg border-2 border-blue-500 shadow-xl z-50 p-2 flex flex-col gap-1.5 min-w-[90px]">
+                            <button @click="toggleAuxDelay(index)" :class="[
+                                'px-2 py-1.5 rounded text-[0.55rem] font-bold transition-colors flex items-center justify-center gap-1',
+                                aux.delayEnabled ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                            ]">
+                                <span class="w-2 h-2 rounded-full" :class="aux.delayEnabled ? 'bg-blue-300' : 'bg-gray-400'"></span>
+                                {{ aux.delayEnabled ? 'ON' : 'OFF' }}
+                            </button>
+                            <button @click="showDelayModal(index); openDelayPopover = null"
+                                class="px-2 py-1.5 rounded text-[0.55rem] font-bold bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors flex items-center justify-center gap-1.5">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                                SET
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -105,6 +130,10 @@
                 <span class="text-[0.6rem] mt-1">ADD</span>
             </button>
         </div>
+
+        <!-- Backdrop to close popovers when clicking outside -->
+        <div v-if="openReverbPopover !== null || openDelayPopover !== null" @click="openReverbPopover = null; openDelayPopover = null"
+            class="fixed inset-0 z-40"></div>
 
         <!-- Reverb FX Modal -->
         <Teleport to="body">
@@ -239,6 +268,10 @@ const audioEngine = inject('audioEngine') as any
 const selectedReverbAux = ref<number | null>(null)
 const selectedDelayAux = ref<number | null>(null)
 const auxBuses = ref<AuxBus[]>(props.auxBuses || [])
+
+// Popover state for FX buttons
+const openReverbPopover = ref<number | null>(null)
+const openDelayPopover = ref<number | null>(null)
 
 // Routing state for each aux
 interface AuxRoutingState {

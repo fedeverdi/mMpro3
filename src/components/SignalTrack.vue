@@ -141,8 +141,9 @@ const props = defineProps<{
   trackNumber: number
   masterChannel?: any
   subgroups?: Array<{ id: number; name: string; channel: any }>
-  audioEngine: any
 }>()
+
+const audioEngine = inject('audioEngine') as any
 
 // Emits
 const emit = defineEmits<{
@@ -210,15 +211,15 @@ function selectSignal(signal: typeof selectedSignal.value) {
     pinkNoise: 'pink'
   }
   
-  if (props.audioEngine?.setSignalWaveform) {
-    props.audioEngine.setSignalWaveform(props.trackNumber - 1, waveformMap[signal])
+  if (audioEngine?.setSignalWaveform) {
+    audioEngine.setSignalWaveform(props.trackNumber - 1, waveformMap[signal])
   }
 }
 
 function toggleSignal() {
   isPlaying.value = !isPlaying.value
   
-  if (!props.audioEngine || !props.audioEngine.state.value.isRunning) {
+  if (!audioEngine || !audioEngine.state.value.isRunning) {
     return
   }
   
@@ -231,14 +232,14 @@ function toggleSignal() {
       whiteNoise: 'white',
       pinkNoise: 'pink'
     }
-    props.audioEngine.setTrackSourceSignal(
+    audioEngine.setTrackSourceSignal(
       props.trackNumber - 1,
       waveformMap[selectedSignal.value],
       frequency.value
     )
   } else {
     // STOP: Clear signal generator
-    props.audioEngine.clearTrackSource(props.trackNumber - 1)
+    audioEngine.clearTrackSource(props.trackNumber - 1)
   }
 }
 
@@ -326,8 +327,8 @@ function stopFrequencySweep() {
 function toggleMute() {
   isMuted.value = !isMuted.value
   
-  if (props.audioEngine?.setTrackMute) {
-    props.audioEngine.setTrackMute(props.trackNumber - 1, isMuted.value)
+  if (audioEngine?.setTrackMute) {
+    audioEngine.setTrackMute(props.trackNumber - 1, isMuted.value)
   }
 }
 
@@ -339,8 +340,8 @@ function toggleSolo() {
 function toggleRouteToMaster() {
   routeToMaster.value = !routeToMaster.value
   
-  if (props.audioEngine?.setTrackRouteToMaster) {
-    props.audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
+  if (audioEngine?.setTrackRouteToMaster) {
+    audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
   }
 }
 
@@ -349,8 +350,8 @@ watch(frequency, (freq) => {
   // Capture the flag value immediately (before any await)
   const wasUpdatingFromSweep = isUpdatingFromSweep
     
-  if (props.audioEngine?.state.value.isRunning && props.audioEngine?.setSignalFrequency) {
-    props.audioEngine.setSignalFrequency(props.trackNumber - 1, freq)
+  if (audioEngine?.state.value.isRunning && audioEngine?.setSignalFrequency) {
+    audioEngine.setSignalFrequency(props.trackNumber - 1, freq)
   }
   
   // Stop sweep if user manually changed frequency (not from sweep animation)
@@ -369,22 +370,22 @@ watch(isPlaying, (playing) => {
 })
 
 watch(volume, (newVolume) => {
-  if (props.audioEngine?.state.value.isRunning && props.audioEngine?.setTrackVolume) {
+  if (audioEngine?.state.value.isRunning && audioEngine?.setTrackVolume) {
     // Convert dB to linear: linear = 10^(dB/20)
     const linearVolume = newVolume <= -85 ? 0 : Math.pow(10, newVolume / 20)
-    props.audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
+    audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
   }
 })
 
 watch(pan, (newPan) => {
-  if (props.audioEngine?.state.value.isRunning && props.audioEngine?.setTrackPan) {
-    props.audioEngine.setTrackPan(props.trackNumber - 1, newPan)
+  if (audioEngine?.state.value.isRunning && audioEngine?.setTrackPan) {
+    audioEngine.setTrackPan(props.trackNumber - 1, newPan)
   }
 })
 
 // Watch for meter level updates from audio engine
 watch(
-  () => props.audioEngine?.state.value.trackLevels.get(props.trackNumber - 1),
+  () => audioEngine?.state.value.trackLevels.get(props.trackNumber - 1),
   (levels) => {
     if (levels) {
       // Convert linear (0-1) to dB (-60 to 0)
@@ -397,7 +398,7 @@ watch(
 
 // Watch for audio engine to become ready and initialize
 watch(
-  () => props.audioEngine?.state.value.isRunning,
+  () => audioEngine?.state.value.isRunning,
   (isRunning) => {
     if (isRunning && !isInitialized.value) {
       isInitialized.value = true
@@ -406,9 +407,9 @@ watch(
       // Don't create signal generator yet - wait for user to press play
       const linearVolume = volume.value <= -85 ? 0 : Math.pow(10, volume.value / 20)
 
-      props.audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
-      props.audioEngine.setTrackPan(props.trackNumber - 1, pan.value)
-      props.audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)      
+      audioEngine.setTrackVolume(props.trackNumber - 1, linearVolume)
+      audioEngine.setTrackPan(props.trackNumber - 1, pan.value)
+      audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)      
     }
   },
   { immediate: true }
@@ -455,8 +456,8 @@ onUnmounted(() => {
   stopFrequencySweep()
   
   // Cleanup: mute the track
-  if (props.audioEngine?.setTrackMute) {
-    props.audioEngine.setTrackMute(props.trackNumber - 1, true)
+  if (audioEngine?.setTrackMute) {
+    audioEngine.setTrackMute(props.trackNumber - 1, true)
   }
 })
 </script>
