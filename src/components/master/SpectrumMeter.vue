@@ -105,8 +105,8 @@ const currentSampleRate = ref<number>(44100)
 // Smoothed FFT data for fluid visualization
 let smoothedFFTLeft: Float32Array | null = null
 let smoothedFFTRight: Float32Array | null = null
-const SMOOTHING_FACTOR = 0.75 // Decay rate for peak following
-const ATTACK_FACTOR = 0.2 // How fast to respond to new peaks (lower = faster)
+const SMOOTHING_FACTOR = 0.92 // Decay rate for peak following (higher = smoother but slower decay)
+const ATTACK_FACTOR = 0.6 // How fast to respond to new peaks (higher = smoother attack)
 
 // Watch for FFT data updates from audio engine
 watch(
@@ -126,16 +126,16 @@ watch(
         for (let i = 0; i < newLeft.length; i++) {
           // If new value is higher, follow it quickly (with attack smoothing)
           // If new value is lower, decay slowly
-          if (newLeft[i] > smoothedFFTLeft[i]) {
-            smoothedFFTLeft[i] = smoothedFFTLeft[i] * ATTACK_FACTOR + newLeft[i] * (1 - ATTACK_FACTOR)
+          if (newLeft[i] > smoothedFFTLeft![i]) {
+            smoothedFFTLeft![i] = smoothedFFTLeft![i] * ATTACK_FACTOR + newLeft[i] * (1 - ATTACK_FACTOR)
           } else {
-            smoothedFFTLeft[i] = Math.max(newLeft[i], smoothedFFTLeft[i] * SMOOTHING_FACTOR)
+            smoothedFFTLeft![i] = Math.max(newLeft[i], smoothedFFTLeft![i] * SMOOTHING_FACTOR)
           }
           
-          if (newRight[i] > smoothedFFTRight[i]) {
-            smoothedFFTRight[i] = smoothedFFTRight[i] * ATTACK_FACTOR + newRight[i] * (1 - ATTACK_FACTOR)
+          if (newRight[i] > smoothedFFTRight![i]) {
+            smoothedFFTRight![i] = smoothedFFTRight![i] * ATTACK_FACTOR + newRight[i] * (1 - ATTACK_FACTOR)
           } else {
-            smoothedFFTRight[i] = Math.max(newRight[i], smoothedFFTRight[i] * SMOOTHING_FACTOR)
+            smoothedFFTRight![i] = Math.max(newRight[i], smoothedFFTRight![i] * SMOOTHING_FACTOR)
           }
         }
       }
@@ -803,29 +803,6 @@ onUnmounted(() => {
   if (animationId !== null) {
     cancelAnimationFrame(animationId)
     animationId = null
-  }
-
-  if (currentMasterNode && splitNode) {
-    try {
-      currentMasterNode.disconnect(splitNode)
-    } catch {
-      // noop
-    }
-  }
-
-  if (analyserLeft) {
-    analyserLeft.dispose()
-    analyserLeft = null
-  }
-  
-  if (analyserRight) {
-    analyserRight.dispose()
-    analyserRight = null
-  }
-  
-  if (splitNode) {
-    splitNode.dispose()
-    splitNode = null
   }
 })
 </script>
