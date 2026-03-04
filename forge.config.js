@@ -10,6 +10,7 @@ module.exports = {
     appCategoryType: 'public.app-category.music',
     icon: './src/assets/macos/icon',
     darwinDarkModeSupport: true,
+    // Signing disabled here - will be done manually in build-and-sign.sh
     osxSign: false,
     osxNotarize: false,
     extendInfo: {
