@@ -2,7 +2,7 @@
   <div>
     <Teleport to="body">
       <Transition name="modal">
-      <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="close">
+      <div v-if="modelValue" class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70" @click.self="close">
         <!-- Modal Content -->
         <div class="bg-gray-900 rounded-lg shadow-2xl max-w-[95vw] w-full max-h-[90vh] border border-gray-700 overflow-y-auto">
           

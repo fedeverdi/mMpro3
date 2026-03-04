@@ -2,13 +2,21 @@
   <div>
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="modelValue" class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70" @click.self="close">
+        <div v-if="modelValue" class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70"
+          @click.self="close">
           <!-- Modal Content -->
-          <div class="bg-gray-900 rounded-lg shadow-2xl max-w-[800px] w-full max-h-[90vh] border border-gray-700 flex flex-col">
+          <div
+            class="bg-gray-900 rounded-lg shadow-2xl max-w-[800px] w-full max-h-[90vh] border border-gray-700 flex flex-col">
 
             <!-- Header -->
             <div class="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
-              <h2 class="text-lg font-semibold text-white">🎬 Scene Manager</h2>
+              <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="h-4 w-4" fill="currentColor">
+                  <path
+                    d="M149.333 216v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24v-80c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zM125.333 32H24C10.745 32 0 42.745 0 56v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24zm80 448H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm-24-424v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24zm24 264H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24z" />
+                </svg>
+                Scene Manager
+              </h2>
               <button @click="close" class="text-gray-400 hover:text-white transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -18,23 +26,22 @@
 
             <!-- Content -->
             <div class="flex-1 overflow-y-auto p-6">
-              
+
               <!-- Save Current Scene Section -->
               <div class="mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
-                <h3 class="text-sm font-semibold text-white mb-3">💾 Save Current State</h3>
+                <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="h-4 w-4" fill="currentColor">
+                    <path
+                      d="M433.941 129.941l-83.882-83.882A48 48 0 0 0 316.118 32H48C21.49 32 0 53.49 0 80v352c0 26.51 21.49 48 48 48h352c26.51 0 48-21.49 48-48V163.882a48 48 0 0 0-14.059-33.941zM272 80v80H144V80h128zm122 352H54a6 6 0 0 1-6-6V86a6 6 0 0 1 6-6h42v104c0 13.255 10.745 24 24 24h176c13.255 0 24-10.745 24-24V83.882l78.243 78.243a6 6 0 0 1 1.757 4.243V426a6 6 0 0 1-6 6zM224 232c-48.523 0-88 39.477-88 88s39.477 88 88 88 88-39.477 88-88-39.477-88-88-88zm0 128c-22.056 0-40-17.944-40-40s17.944-40 40-40 40 17.944 40 40-17.944 40-40 40z" />
+                  </svg>
+                  Save Current State
+                </h3>
                 <div class="flex gap-2">
-                  <input 
-                    v-model="newSceneName" 
-                    type="text" 
-                    placeholder="Enter scene name..."
+                  <input v-model="newSceneName" type="text" placeholder="Enter scene name..."
                     class="flex-1 px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
-                    @keyup.enter="saveCurrentScene"
-                  />
-                  <button 
-                    @click="saveCurrentScene"
-                    :disabled="!newSceneName.trim()"
-                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                  >
+                    @keyup.enter="saveCurrentScene" />
+                  <button @click="saveCurrentScene" :disabled="!newSceneName.trim()"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm">
                     Save Scene
                   </button>
                 </div>
@@ -45,26 +52,32 @@
 
               <!-- Saved Scenes List -->
               <div>
-                <h3 class="text-sm font-semibold text-white mb-3">📋 Saved Scenes</h3>
-                
+                <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" class="h-4 w-4" fill="currentColor">
+                    <path
+                      d="M537.6 226.6c4.1-10.7 6.4-22.4 6.4-34.6 0-53-43-96-96-96-19.7 0-38.1 6-53.3 16.2C367 64.2 315.3 32 256 32c-88.4 0-160 71.6-160 160 0 2.7.1 5.4.2 8.1C40.2 219.8 0 273.2 0 336c0 79.5 64.5 144 144 144h368c70.7 0 128-57.3 128-128 0-61.9-44-113.6-102.4-125.4zM393.4 288H328v112c0 8.8-7.2 16-16 16h-48c-8.8 0-16-7.2-16-16V288h-65.4c-14.3 0-21.4-17.2-11.3-27.3l105.4-105.4c6.2-6.2 16.4-6.2 22.6 0l105.4 105.4c10.1 10.1 2.9 27.3-11.3 27.3z" />
+                  </svg>
+                  Saved Scenes
+                </h3>
+
                 <div v-if="scenes.length === 0" class="text-center py-8 text-gray-400">
                   <p class="text-sm">No scenes saved yet.</p>
                   <p class="text-xs mt-1">Save your first scene above!</p>
                 </div>
 
                 <div v-else class="space-y-2">
-                  <div 
-                    v-for="scene in scenes" 
-                    :key="scene.id"
-                    class="flex items-center justify-between p-3 bg-gray-800 rounded border border-gray-700 hover:border-gray-600 transition-colors"
-                  >
+                  <div v-for="scene in scenes" :key="scene.id"
+                    class="flex items-center justify-between p-3 bg-gray-800 rounded border border-gray-700 hover:border-gray-600 transition-colors">
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2">
-                        <svg v-if="scene.pinned" class="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 384 512">
-                          <path d="M32 32C32 14.3 46.3 0 64 0H320c17.7 0 32 14.3 32 32s-14.3 32-32 32H290.5l11.4 148.2c36.7 19.9 65.7 53.2 79.5 94.7l1 3c3.3 9.8 1.6 20.5-4.4 28.8s-15.7 13.3-26 13.3H32c-10.3 0-19.9-5-26-13.3s-7.7-19.1-4.4-28.8l1-3c13.8-41.5 42.8-74.8 79.5-94.7L93.5 64H64C46.3 64 32 49.7 32 32zM160 384h64v96c0 17.7-14.3 32-32 32s-32-14.3-32-32V384z"/>
+                        <svg v-if="scene.pinned" class="w-3 h-3 text-yellow-400" fill="currentColor"
+                          viewBox="0 0 384 512">
+                          <path
+                            d="M32 32C32 14.3 46.3 0 64 0H320c17.7 0 32 14.3 32 32s-14.3 32-32 32H290.5l11.4 148.2c36.7 19.9 65.7 53.2 79.5 94.7l1 3c3.3 9.8 1.6 20.5-4.4 28.8s-15.7 13.3-26 13.3H32c-10.3 0-19.9-5-26-13.3s-7.7-19.1-4.4-28.8l1-3c13.8-41.5 42.8-74.8 79.5-94.7L93.5 64H64C46.3 64 32 49.7 32 32zM160 384h64v96c0 17.7-14.3 32-32 32s-32-14.3-32-32V384z" />
                         </svg>
                         <span class="text-sm font-medium text-white">{{ scene.name }}</span>
-                        <span v-if="currentSceneId === scene.id" class="text-xs px-2 py-0.5 bg-green-600 text-white rounded">
+                        <span v-if="currentSceneId === scene.id"
+                          class="text-xs px-2 py-0.5 bg-green-600 text-white rounded">
                           LOADED
                         </span>
                       </div>
@@ -72,40 +85,30 @@
                         {{ formatDate(scene.timestamp) }} • {{ scene.tracks.length }} tracks
                       </div>
                     </div>
-                    
+
                     <div class="flex items-center gap-2 ml-4">
-                      <button
-                        @click="loadScene(scene)"
-                        class="px-3 py-1 text-xs bg-green-600 hover:bg-green-500 text-white rounded font-semibold transition-colors"
-                      >
+                      <button @click="loadScene(scene)"
+                        class="px-3 py-1 text-xs bg-green-600 hover:bg-green-500 text-white rounded font-semibold transition-colors">
                         Load
                       </button>
-                      <button
-                        @click="handleTogglePin(scene)"
-                        :class="[
-                          'px-3 py-1 flex items-center gap-1.5 text-xs rounded font-semibold transition-colors',
-                          scene.pinned 
-                            ? 'bg-yellow-600 hover:bg-yellow-500 text-white' 
-                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300 border border-gray-600'
-                        ]"
-                        :title="scene.pinned ? 'Unpin from quick access' : 'Pin to quick access'"
-                      >
+                      <button @click="handleTogglePin(scene)" :class="[
+                        'px-3 py-1 flex items-center gap-1.5 text-xs rounded font-semibold transition-colors',
+                        scene.pinned
+                          ? 'bg-yellow-600 hover:bg-yellow-500 text-white'
+                          : 'bg-gray-700 hover:bg-gray-600 text-gray-300 border border-gray-600'
+                      ]" :title="scene.pinned ? 'Unpin from quick access' : 'Pin to quick access'">
                         <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 384 512">
-                          <path d="M32 32C32 14.3 46.3 0 64 0H320c17.7 0 32 14.3 32 32s-14.3 32-32 32H290.5l11.4 148.2c36.7 19.9 65.7 53.2 79.5 94.7l1 3c3.3 9.8 1.6 20.5-4.4 28.8s-15.7 13.3-26 13.3H32c-10.3 0-19.9-5-26-13.3s-7.7-19.1-4.4-28.8l1-3c13.8-41.5 42.8-74.8 79.5-94.7L93.5 64H64C46.3 64 32 49.7 32 32zM160 384h64v96c0 17.7-14.3 32-32 32s-32-14.3-32-32V384z"/>
+                          <path
+                            d="M32 32C32 14.3 46.3 0 64 0H320c17.7 0 32 14.3 32 32s-14.3 32-32 32H290.5l11.4 148.2c36.7 19.9 65.7 53.2 79.5 94.7l1 3c3.3 9.8 1.6 20.5-4.4 28.8s-15.7 13.3-26 13.3H32c-10.3 0-19.9-5-26-13.3s-7.7-19.1-4.4-28.8l1-3c13.8-41.5 42.8-74.8 79.5-94.7L93.5 64H64C46.3 64 32 49.7 32 32zM160 384h64v96c0 17.7-14.3 32-32 32s-32-14.3-32-32V384z" />
                         </svg>
                         Pin
                       </button>
-                      <button
-                        v-if="currentSceneId === scene.id"
-                        @click="updateCurrentScene(scene)"
-                        class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded font-semibold transition-colors"
-                      >
+                      <button v-if="currentSceneId === scene.id" @click="updateCurrentScene(scene)"
+                        class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded font-semibold transition-colors">
                         Update
                       </button>
-                      <button
-                        @click="confirmDeleteScene(scene)"
-                        class="px-3 py-1 text-xs bg-red-600 hover:bg-red-500 text-white rounded font-semibold transition-colors"
-                      >
+                      <button @click="confirmDeleteScene(scene)"
+                        class="px-3 py-1 text-xs bg-red-600 hover:bg-red-500 text-white rounded font-semibold transition-colors">
                         Delete
                       </button>
                     </div>
@@ -157,23 +160,23 @@ watch(() => props.modelValue, async (isOpen) => {
 
 async function saveCurrentScene() {
   if (!newSceneName.value.trim()) return
-  
+
   try {
     // Collect track states from parent
     const tracksData = props.tracks.map(track => {
       const trackState = props.getTrackState(track.id)
       return trackState || {}
     })
-    
+
     // Collect master, subgroups, and aux buses states
     const masterState = props.getMasterState?.() || undefined
     const masterEQFilters = props.getMasterEqFilters?.() || undefined
     const masterFX = props.getMasterFx?.() || undefined
     const subgroupsState = props.getSubgroupsState?.() || undefined
     const auxBusesState = props.getAuxBusesState?.() || undefined
-    
+
     const scene = createNewScene(
-      newSceneName.value, 
+      newSceneName.value,
       tracksData,
       masterState,
       masterEQFilters,
@@ -181,7 +184,7 @@ async function saveCurrentScene() {
       subgroupsState,
       auxBusesState
     )
-    
+
     await saveScene(scene)
     newSceneName.value = ''
   } catch (error) {
@@ -199,23 +202,23 @@ async function updateCurrentScene(scene: any) {
   // Confirm update with custom notification
   const confirmed = await notify.confirm(`Update "${scene.name}" with current track settings?`)
   if (!confirmed) return
-  
+
   try {
     // Collect current track states from parent
     const tracksData = props.tracks.map(track => {
       const trackState = props.getTrackState(track.id)
       return trackState || {}
     })
-    
+
     // Collect master, subgroups, and aux buses states
     const masterState = props.getMasterState?.() || undefined
     const masterEQFilters = props.getMasterEqFilters?.() || undefined
     const masterFX = props.getMasterFx?.() || undefined
     const subgroupsState = props.getSubgroupsState?.() || undefined
     const auxBusesState = props.getAuxBusesState?.() || undefined
-    
+
     await updateScene(
-      scene.id, 
+      scene.id,
       tracksData,
       masterState,
       masterEQFilters,
@@ -234,7 +237,7 @@ async function updateCurrentScene(scene: any) {
 async function confirmDeleteScene(scene: any) {
   const confirmed = await notify.confirm(`Are you sure you want to delete "${scene.name}"?`)
   if (!confirmed) return
-  
+
   try {
     await deleteScene(scene.id)
   } catch (error) {

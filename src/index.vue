@@ -9,116 +9,20 @@
     <CustomTitleBar :project-name="currentProjectName" />
     
     <!-- Header -->
-    <header class="bg-black/20 backdrop-blur-sm border-b border-gray-700 px-4 py-2 relative z-[100]">
-      <div class="flex items-center justify-between gap-4 flex-wrap relative">
-        <div class="flex items-center gap-2">
-          <img src="./assets/logo_no_scritta.svg" alt="mMpro3" class="h-8" />
-
-          <!-- Quick Scenes in Header -->
-          <QuickScenes @load-scene="handleLoadScene" />
-        </div>
-        <div class="flex gap-2 items-center flex-wrap">
-          <button @click="showScenesModal = true"
-            class="px-3 py-1.5  hover:bg-green-500/10 rounded text-xs font-semibold text-gray-300 hover:text-green-400 transition-all flex items-center gap-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="h-3.5 w-3.5" fill="currentColor">
-              <path
-                d="M149.333 216v80c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24v-80c0-13.255 10.745-24 24-24h101.333c13.255 0 24 10.745 24 24zM0 376v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H24c-13.255 0-24 10.745-24 24zM125.333 32H24C10.745 32 0 42.745 0 56v80c0 13.255 10.745 24 24 24h101.333c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24zm80 448H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24zm-24-424v80c0 13.255 10.745 24 24 24H488c13.255 0 24-10.745 24-24V56c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24zm24 264H488c13.255 0 24-10.745 24-24v-80c0-13.255-10.745-24-24-24H205.333c-13.255 0-24 10.745-24 24v80c0 13.255 10.745 24 24 24z" />
-            </svg>
-            Scenes
-          </button>
-
-          <!-- File Manager Button -->
-          <button @click="showFileManager = true"
-            class="px-3 py-1.5 hover:bg-blue-500/10 rounded text-xs font-semibold text-gray-300 hover:text-blue-400 transition-all flex items-center gap-1.5">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-            </svg>
-            Library
-          </button>
-
-          <div class="w-px h-6 bg-gray-600"></div>
-
-          <!-- Lock Button -->
-          <button @click="handleLockToggle" :class="[
-            'px-3 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5',
-            isLocked
-              ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30'
-              : 'hover:bg-yellow-500/10 text-gray-300 hover:text-yellow-400'
-          ]">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path v-if="isLocked" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-            </svg>
-            {{ isLocked ? 'Locked' : 'Lock' }}
-          </button>
-
-          <div class="w-px h-6 bg-gray-600"></div>
-
-          <div class="relative -mt-[3px] z-[100]">
-            <button @click="handleAddButtonClick"
-              class="mt-1 px-3 h-full py-1.5 hover:bg-emerald-500/10 rounded text-xs font-semibold text-gray-300 hover:text-emerald-400 transition-all flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-              Add
-            </button>
-
-            <!-- Dropdown Menu -->
-            <div v-if="showAddTrackMenu"
-              class="absolute top-full left-0 mt-1 w-36 bg-gray-800 rounded shadow-2xl z-[1000] overflow-visible">
-              <button @click="addTrackOfType('audio')"
-                class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer">
-                <div class="flex">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="white" viewBox="0 0 256 512">
-                    <path
-                      d="M96 496V16c0-8.8-7.2-16-16-16H48c-8.8 0-16 7.2-16 16v480c0 8.8 7.2 16 16 16h32c8.8 0 16-7.2 16-16zm128 0V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v480c0 8.8 7.2 16 16 16h32c8.8 0 16-7.2 16-16z" />
-                  </svg>
-                </div>
-                Audio Track
-              </button>
-              <button @click="addTrackOfType('signal')"
-                class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer">
-                <div class="flex">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="white" viewBox="0 0 640 512">
-                    <path
-                      d="M476 480H324a36 36 0 0 1-36-36V96h-96v156a36 36 0 0 1-36 36H16a16 16 0 0 1-16-16v-32a16 16 0 0 1 16-16h112V68a36 36 0 0 1 36-36h152a36 36 0 0 1 36 36v348h96V260a36 36 0 0 1 36-36h140a16 16 0 0 1 16 16v32a16 16 0 0 1-16 16H512v156a36 36 0 0 1-36 36z" />
-                  </svg>
-                </div>
-                Signal Track
-              </button>
-              <template v-if="buildLimits.maxSubgroups > 0">
-                <div class="h-px bg-gray-600 my-1"></div>
-                <button @click="addSubgroup(); showAddTrackMenu = false"
-                  class="w-full px-3 py-2 text-left text-xs hover:bg-gray-700 transition-colors flex items-center gap-2 cursor-pointer">
-                  <div class="flex">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="white" viewBox="0 0 512 512">
-                      <path
-                        d="M12.41 148.02l232.94 105.67c6.8 3.09 14.49 3.09 21.29 0l232.94-105.67c16.55-7.51 16.55-32.52 0-40.03L266.65 2.31a25.607 25.607 0 0 0-21.29 0L12.41 107.98c-16.55 7.51-16.55 32.53 0 40.04zm487.18 88.28l-58.09-26.33-161.64 73.27c-7.56 3.43-15.59 5.17-23.86 5.17s-16.29-1.74-23.86-5.17L70.51 209.97l-58.1 26.33c-16.55 7.5-16.55 32.5 0 40l232.94 105.59c6.8 3.08 14.49 3.08 21.29 0L499.59 276.3c16.55-7.5 16.55-32.5 0-40zm0 127.8l-57.87-26.23-161.86 73.37c-7.56 3.43-15.59 5.17-23.86 5.17s-16.29-1.74-23.86-5.17L70.29 337.87 12.41 364.1c-16.55 7.5-16.55 32.5 0 40l232.94 105.59c6.8 3.08 14.49 3.08 21.29 0L499.59 404.1c16.55-7.5 16.55-32.5 0-40z" />
-                    </svg>
-                  </div>
-                  Subgroup
-                </button>
-              </template>
-            </div>
-          </div>
-
-          <button @click="removeTrack(tracks[tracks.length - 1].id)" :disabled="tracks.length <= 1"
-            class="px-3 py-1.5 hover:bg-red-500/10 disabled:border-gray-700 disabled:bg-gray-800/50 disabled:cursor-not-allowed rounded text-xs font-semibold text-gray-300 hover:text-red-400 disabled:text-gray-600 transition-all flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-            </svg>
-            Remove
-          </button>
-
-          <div class="text-xs text-gray-400">
-            {{ tracks.length }}/{{ buildLimits.maxTracks }}
-          </div>
-        </div>
-      </div>
-    </header>
+    <AppHeader 
+      :is-locked="isLocked"
+      :build-limits="buildLimits"
+      :tracks-count="tracks.length"
+      :subgroups-count="subgroups.length"
+      @show-scenes="showScenesModal = true"
+      @show-file-manager="showFileManager = true"
+      @lock-toggle="handleLockToggle"
+      @add-track="addTrackOfType"
+      @add-subgroup="addSubgroup"
+      @remove-track="handleRemoveLastTrack"
+      @remove-subgroup="handleRemoveLastSubgroup"
+      @load-scene="handleLoadScene"
+    />
 
     <!-- Mixer Console -->
     <main class="flex-1 flex gap-2 p-2 overflow-hidden relative z-[999]">
@@ -262,6 +166,7 @@ import QuickScenes from './components/layout/QuickScenes.vue'
 import Footer from './components/layout/Footer.vue'
 import NotificationToast from './components/core/NotificationToast.vue'
 import CustomTitleBar from './components/layout/CustomTitleBar.vue'
+import AppHeader from './components/layout/AppHeader.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioEngine } from '~/composables/useAudioEngine'
 import { useNotifications } from '~/composables/useNotifications'
@@ -563,8 +468,6 @@ const sortedTracks = computed(() => {
   return [...tracks.value].sort((a, b) => a.order - b.order)
 })
 
-const showAddTrackMenu = ref(false)
-
 function getNextAvailableId(): number {
   // Find the smallest available ID from 1 to 24
   for (let i = 1; i <= 24; i++) {
@@ -574,33 +477,6 @@ function getNextAvailableId(): number {
   }
   // If all 1-24 are taken, return the next number
   return Math.max(...tracks.value.map(t => t.id)) + 1
-}
-
-function handleAddButtonClick() {
-  // Check if we've reached the total track limit
-  if (tracks.value.length >= buildLimits.value.maxTracks) {
-    const limits = buildLimits.value
-    const mode = buildMode.value
-    limitModalMessage.value = `You've reached the maximum of <strong>${limits.maxTracks} total tracks</strong> in <strong>${mode}</strong> mode.<br/><br/>Upgrade to the full version for unlimited tracks.`
-    showLimitModal.value = true
-    return
-  }
-
-  // Check if we can add at least one type of track
-  const canAddAudio = canAddTrack(tracks.value, 'audio')
-  const canAddSignal = canAddTrack(tracks.value, 'signal')
-
-  if (!canAddAudio && !canAddSignal) {
-    // Can't add any type of track
-    const limits = buildLimits.value
-    const mode = buildMode.value
-    limitModalMessage.value = `You've reached the limits for all track types in <strong>${mode}</strong> mode.<br/><br/>Upgrade to the full version for unlimited tracks.`
-    showLimitModal.value = true
-    return
-  }
-
-  // Open the menu
-  showAddTrackMenu.value = !showAddTrackMenu.value
 }
 
 function addTrackOfType(type: 'audio' | 'signal') {
@@ -620,7 +496,6 @@ function addTrackOfType(type: 'audio' | 'signal') {
       limitModalMessage.value = `You've reached the maximum of <strong>${limits.maxTracks} total tracks</strong> in <strong>${mode}</strong> mode.<br/><br/>Upgrade to the full version for unlimited tracks.`
     }
     showLimitModal.value = true
-    showAddTrackMenu.value = false
     return
   }
 
@@ -628,7 +503,6 @@ function addTrackOfType(type: 'audio' | 'signal') {
   const maxOrder = tracks.value.length > 0 ? Math.max(...tracks.value.map(t => t.order)) : 0
   tracks.value.push({ id: newId, type, order: maxOrder + 1 })
   console.log(`[Index] Added ${type} track with ID ${newId}. Total tracks: ${tracks.value.length}`)
-  showAddTrackMenu.value = false
 }
 
 async function removeTrack(trackId: number) {
@@ -653,6 +527,20 @@ async function removeTrack(trackId: number) {
     soloTracks.value.delete(removedTrack.id)
     // Remove aux sends for this track
     trackAuxSends.value.delete(removedTrack.id)
+  }
+}
+
+function handleRemoveLastTrack() {
+  if (tracks.value.length > 0) {
+    const lastTrack = tracks.value[tracks.value.length - 1]
+    removeTrack(lastTrack.id)
+  }
+}
+
+function handleRemoveLastSubgroup() {
+  if (subgroups.value.length > 0) {
+    const lastSubgroup = subgroups.value[subgroups.value.length - 1]
+    removeSubgroup(lastSubgroup.id)
   }
 }
 
@@ -1469,14 +1357,6 @@ onMounted(async () => {
       if (resizeTimeout) clearTimeout(resizeTimeout)
     })
   }
-
-  // Close add track menu when clicking outside
-  document.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement
-    if (!target.closest('.relative')) {
-      showAddTrackMenu.value = false
-    }
-  })
 })
 </script>
 
