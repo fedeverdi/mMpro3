@@ -188,7 +188,11 @@
             </button>
           </div>
 
-          <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
+          <TrackFader v-if="useFader && faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
+          
+          <div v-else-if="!useFader" class="flex items-center justify-center flex-1">
+            <KnobVolume v-model="volume" />
+          </div>
 
           <TrackMeter class="absolute right-[0.4rem] top-1/2 transform -translate-y-1/2 z-50" v-if="faderHeight > 0"
             :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="audioSourceType === 'file'"
@@ -214,6 +218,7 @@ import PanKnob from './audioTrack/PanKnob.vue'
 import TrackCompressor from './audioTrack/TrackCompressor.vue'
 import TrackEQ from './audioTrack/TrackEQ.vue'
 import TrackFader from './audioTrack/TrackFader.vue'
+import KnobVolume from './audioTrack/KnobVolume.vue'
 import TrackGate from './audioTrack/TrackGate.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
 import TrackAuxSends from './audioTrack/TrackAuxSends.vue'
@@ -252,6 +257,11 @@ const trackElement = ref<HTMLElement | null>(null)
 const faderContainer = ref<HTMLElement | null>(null)
 const faderHeight = ref(0)
 const selectedAudioFile = ref<string | null>(null)
+
+// Height threshold for switching between fader and knob
+const FADER_HEIGHT_THRESHOLD = 120
+const useFader = computed(() => faderHeight.value >= FADER_HEIGHT_THRESHOLD)
+
 const selectedFileName = ref<string | null>(null)
 const audioMonitorElement = ref<HTMLAudioElement | null>(null)
 
