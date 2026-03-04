@@ -1,14 +1,13 @@
 <template>
-  <div class="custom-title-bar bg-black/50 backdrop-blur-md flex items-center justify-between px-3 py-1 select-none relative z-[300]" 
-       :class="{ 'draggable': !isMaximized }">
+  <div class="custom-title-bar bg-black/50 backdrop-blur-md flex items-center justify-between px-3 py-1 select-none relative z-[300]">
     <!-- Left: Traffic Lights Space (macOS) + App Title -->
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-3 draggable-region">
       <!-- Spacer for macOS traffic lights (close/minimize/maximize buttons) -->
-      <div class="w-16" v-if="isMac"></div>
+      <div class="w-16 draggable-region" v-if="isMac"></div>
     </div>
 
     <!-- Center: Window Title (optional, can show project name) -->
-    <div class="flex-1 text-center text-xs text-gray-500 font-medium draggable">
+    <div class="flex-1 text-center text-xs text-gray-500 font-medium draggable-region">
       {{ projectName }}
     </div>
 
@@ -52,7 +51,7 @@
     </div>
 
     <!-- Spacer for macOS (right side) -->
-    <div class="w-16" v-if="isMac"></div>
+    <div class="w-16 draggable-region" v-if="isMac"></div>
   </div>
 </template>
 
@@ -115,7 +114,7 @@ const close = () => {
   -webkit-app-region: no-drag;
 }
 
-.draggable {
+.draggable-region {
   -webkit-app-region: drag;
 }
 

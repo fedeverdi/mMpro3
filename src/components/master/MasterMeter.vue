@@ -41,11 +41,6 @@
       
       <!-- Right VuMeter -->
       <VuMeter class="ml-[0.2rem]" :level="rightLevel" label="R" :height="vuMetersHeight" :width="20" :showValue="false" />
-      
-      <!-- RMS label -->
-      <div class="text-[8px] text-gray-500 uppercase tracking-wider absolute -bottom-4 left-1/2 transform -translate-x-1/2">
-        RMS
-      </div>
     </div>
   </div>
 </template>
