@@ -12,10 +12,9 @@
                 @click="emit('update:modelValue', false)"
                 class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70"
             >
-                    <div v-if="modelValue"
-                        @click.stop
-                        class="bg-gray-900 rounded-lg shadow-2xl w-[500px] max-w-[90vw] border border-gray-700"
-                    >
+                <div @click.stop
+                    class="bg-gray-900 rounded-lg shadow-2xl w-[500px] max-w-[90vw] border border-gray-700"
+                >
                         <!-- Header -->
                         <div class="flex items-center justify-between p-4 border-b border-gray-700">
                             <h3 class="text-lg font-semibold text-white">📊 Phase Correlation - Track {{ trackNumber }}</h3>
@@ -270,11 +269,10 @@
                             </div> -->
                         </div>
                     </div>
-                </Transition>
-            </div>
-        </Transition>
-    </Teleport>
-</template>
+                </div>
+            </Transition>
+        </Teleport>
+    </template>
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
@@ -297,16 +295,30 @@ const emit = defineEmits<{
 // View mode: 'gauge' or 'goniometer'
 const viewMode = ref<'gauge' | 'goniometer'>('gauge')
 
-// Animation frame counter to trigger reactivity
+// Smoothed correlation value for display
+const smoothedCorrelation = ref(0)
+
+// Animation frame counter to trigger reactivity (throttled for smoother updates)
 const frameCounter = ref(0)
 let animationFrameId: number | null = null
+let frameSkipCounter = 0
 
 const updateFrame = () => {
-    frameCounter.value++
+    // Update every 3 frames (~20Hz instead of 60Hz for smoother visualization)
+    frameSkipCounter++
+    if (frameSkipCounter >= 3) {
+        frameCounter.value++
+        frameSkipCounter = 0
+        
+        // Apply smooth interpolation to correlation value
+        const smoothingFactor = 0.15 // Smooth transition
+        smoothedCorrelation.value = smoothedCorrelation.value * (1 - smoothingFactor) + props.correlation * smoothingFactor
+    }
     animationFrameId = requestAnimationFrame(updateFrame)
 }
 
 onMounted(() => {
+    smoothedCorrelation.value = props.correlation
     updateFrame()
 })
 
@@ -316,8 +328,8 @@ onUnmounted(() => {
     }
 })
 
-// Clamp correlation
-const clampedCorrelation = computed(() => Math.max(-1, Math.min(1, props.correlation)))
+// Clamp correlation (use smoothed value)
+const clampedCorrelation = computed(() => Math.max(-1, Math.min(1, smoothedCorrelation.value)))
 
 // Needle angle calculation
 const needleAngle = computed(() => {
@@ -390,8 +402,8 @@ const goniometerPoints = computed(() => {
     const points: Array<{ x: number; y: number; opacity: number; size: number }> = []
     const dataLength = Math.min(props.audioDataL.length, props.audioDataR.length)
     
-    // Sample points from audio data (take every nth sample for performance)
-    const sampleStep = Math.max(1, Math.floor(dataLength / 400)) // Max 400 points for smooth visualization
+    // Sample points from audio data (reduced for better dispersion)
+    const sampleStep = Math.max(1, Math.floor(dataLength / 200)) // Max 200 points for better dispersion
     
     for (let i = 0; i < dataLength; i += sampleStep) {
         const l = props.audioDataL[i] || 0 // Left channel (-1 to +1)
@@ -399,17 +411,17 @@ const goniometerPoints = computed(() => {
         
         // Map audio values to screen coordinates
         // X axis = Left channel, Y axis = Right channel
-        // Scale to fit in viewBox (center at 100,100, radius ~85)
-        const x = 100 + l * 75 // Scale left channel to X
-        const y = 100 - r * 75 // Scale right channel to Y (inverted because SVG Y grows down)
+        // Increased scale for better dispersion (85 instead of 75)
+        const x = 100 + l * 85
+        const y = 100 - r * 85 // (inverted because SVG Y grows down)
         
         // Calculate opacity based on how recent the sample is (fade older samples)
         // More recent samples = higher opacity (persistence effect)
         const age = (dataLength - i) / dataLength
-        const opacity = Math.max(0.1, 1 - age * 0.9)
+        const opacity = Math.max(0.15, 1 - age * 0.85) // Increased minimum opacity
         
-        // Size variation for depth effect - newer samples slightly larger
-        const size = 0.5 + (1 - age) * 0.5 // Range: 0.5 to 1.0 px
+        // Size variation for depth effect - increased size for better visibility
+        const size = 1.0 + (1 - age) * 1.5 // Range: 1.0 to 2.5 px (increased from 0.5-1.0)
         
         points.push({ x, y, opacity, size })
     }

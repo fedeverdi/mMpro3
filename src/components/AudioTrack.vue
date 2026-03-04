@@ -178,12 +178,30 @@
             </button>
             <!-- Phase Invert Button -->
             <button @click="togglePhaseInvert"
-              class="w-5 h-5 text-[0.65rem] font-bold rounded transition-all border mt-1"
+              class="w-5 h-5 mt-4 text-[0.65rem] font-bold rounded transition-all border mt-1"
               :class="phaseInverted
                 ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-500/50'
                 : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
               title="Phase Invert">
               Ø
+            </button>
+            <!-- Phase Correlation Button -->
+            <button @click="showPhaseCorrelationModal = true"
+              class="w-5 h-5 text-[0.5rem] font-bold rounded border transition-all duration-300"
+              :class="{
+                'bg-red-900 border-red-600 text-red-300 animate-pulse': hasSignal && trackPhaseCorrelation < -0.2,
+                'bg-yellow-900 border-yellow-600 text-yellow-300': hasSignal && trackPhaseCorrelation >= -0.2 && trackPhaseCorrelation < 0.2,
+                'bg-green-900 border-green-600 text-green-300': hasSignal && trackPhaseCorrelation >= 0.2 && trackPhaseCorrelation < 0.85,
+                'bg-blue-900 border-blue-600 text-blue-300': hasSignal && trackPhaseCorrelation >= 0.85,
+                'bg-transparent border-gray-600 text-gray-400': !hasSignal,
+                'hover:brightness-110': hasSignal
+              }"
+              :title="hasSignal ? `Phase Correlation: ${trackPhaseCorrelation.toFixed(2)}` : 'No signal'">
+              <svg class="w-3 h-3 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M12 2 L18 8 L12 14 L6 8 Z" />
+                <line x1="12" y1="14" x2="12" y2="22" />
+                <line x1="8" y1="18" x2="16" y2="18" />
+              </svg>
             </button>
           </div>
 
@@ -204,6 +222,16 @@
   <!-- Parametric EQ Modal -->
   <ParametricEQModal v-model="showParametricEQ" :track-number="trackNumber"
     :title="`Parametric EQ - Track ${trackNumber + 1}`" @update="handleParametricEQUpdate" />
+  
+  <!-- Phase Correlation Modal -->
+  <PhaseCorrelationModal 
+    v-model="showPhaseCorrelationModal" 
+    :track-number="trackNumber + 1"
+    :correlation="trackPhaseCorrelation"
+    :audio-data-l="trackWaveformData.left"
+    :audio-data-r="trackWaveformData.right"
+    :is-stereo="audioSourceType === 'file'"
+  />
 </template>
 
 <script setup lang="ts">
@@ -224,6 +252,7 @@ import TrackAuxSends from './audioTrack/TrackAuxSends.vue'
 import AuxSendControl from './audioTrack/AuxSendControl.vue'
 import Knob from './core/Knob.vue'
 import ParametricEQModal from './master/ParametricEQModal.vue'
+import PhaseCorrelationModal from './audioTrack/PhaseCorrelationModal.vue'
 import WaveformDisplay from './audioTrack/WaveformDisplay.vue'
 import EQThumbnail from './audioTrack/EQThumbnail.vue'
 
@@ -281,6 +310,7 @@ const pan = ref(0) // -1 to 1
 const isMuted = ref(false)
 const isSolo = ref(false)
 const phaseInverted = ref(false)
+const showPhaseCorrelationModal = ref(false)
 const routeToMaster = ref(true)
 const routedSubgroups = ref<Set<number>>(new Set()) // Track which subgroups this track is routed to
 
@@ -371,6 +401,40 @@ watch(showParametricEQ, (isOpen) => {
 // Meter levels (simulated for now)
 const trackLevelL = ref(-60)
 const trackLevelR = ref(-60)
+
+// Phase correlation from audio engine (smoothed)
+const smoothedPhaseCorrelation = ref(0)
+const rawPhaseCorrelation = computed(() => {
+  const levels = audioEngine?.state.value.trackLevels.get(props.trackNumber - 1)
+  return levels?.phaseCorrelation ?? 0
+})
+
+// Smooth phase correlation updates (reduce jitter)
+watch(rawPhaseCorrelation, (newValue) => {
+  const smoothingFactor = 0.2 // 0 = no smoothing, 1 = instant (20% lerp)
+  smoothedPhaseCorrelation.value = smoothedPhaseCorrelation.value * (1 - smoothingFactor) + newValue * smoothingFactor
+})
+
+const trackPhaseCorrelation = computed(() => smoothedPhaseCorrelation.value)
+
+// Check if track has signal (for phase correlation button visibility)
+const hasSignal = computed(() => {
+  return trackLevelL.value > -55 || trackLevelR.value > -55
+})
+
+// Waveform data from audio engine
+const trackWaveformData = computed(() => {
+  const waveform = audioEngine?.state.value.trackWaveforms.get(props.trackNumber - 1)
+  if (!waveform || waveform.length === 0) return { left: new Float32Array(0), right: new Float32Array(0) }
+  
+  // Convert mono waveform to stereo (split evenly)
+  // In reality the waveform is already mixed L+R, so we just duplicate it
+  const float32Array = new Float32Array(waveform)
+  return {
+    left: float32Array,
+    right: float32Array
+  }
+})
 
 // File playback state
 const isPlaying = ref(false)

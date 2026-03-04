@@ -15,6 +15,7 @@ export interface AudioEngineState {
   trackLevels: Map<number, { 
     left: number, 
     right: number,
+    phaseCorrelation: number,
     compressorInputDb: number,
     compressorReductionDb: number,
     gateInputDb: number,
@@ -91,6 +92,7 @@ export const useAudioEngine = () => {
               state.value.trackLevels.set(trackLevel.track, {
                 left: trackLevel.level_l,
                 right: trackLevel.level_r,
+                phaseCorrelation: trackLevel.phase_correlation || 0,
                 compressorInputDb: trackLevel.compressor_input_db || -90,
                 compressorReductionDb: trackLevel.compressor_reduction_db || 0,
                 gateInputDb: trackLevel.gate_input_db || -90,

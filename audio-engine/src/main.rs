@@ -394,6 +394,7 @@ struct TrackLevels {
     level_l: f32,
     level_r: f32,
     waveform: Vec<f32>, // Waveform samples (downsampled to ~128 samples)
+    phase_correlation: f32, // Phase correlation between L and R channels (-1 to +1)
     compressor_input_db: f32,
     compressor_reduction_db: f32,
     gate_input_db: f32,
@@ -979,6 +980,7 @@ impl AudioEngine {
                                 level_l: t.level_l,
                                 level_r: t.level_r,
                                 waveform: t.get_waveform_buffer(128), // 128 samples for efficient streaming
+                                phase_correlation: t.phase_correlation,
                                 compressor_input_db: t.compressor.input_level_db,
                                 compressor_reduction_db: t.compressor.gain_reduction_db,
                                 gate_input_db: t.gate.input_level_db,

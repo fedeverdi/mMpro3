@@ -209,6 +209,9 @@ pub struct Track {
     pub level_l: f32,
     pub level_r: f32,
     
+    // Phase correlation (-1 to +1)
+    pub phase_correlation: f32,
+    
     // Aux send outputs (stereo pairs for each aux bus)
     pub aux_outputs: Vec<(f32, f32)>,
     
@@ -216,6 +219,9 @@ pub struct Track {
     waveform_buffer_l: Vec<f32>,
     waveform_buffer_r: Vec<f32>,
     waveform_write_index: usize,
+    
+    // Phase correlation calculation counter (calculate every N samples)
+    phase_correlation_counter: usize,
 }
 
 impl Track {
@@ -243,10 +249,12 @@ impl Track {
             hpf_filter: EQBand::new(FilterType::HighPass, 80.0, 48000.0),
             level_l: 0.0,
             level_r: 0.0,
+            phase_correlation: 0.0,
             aux_outputs: vec![(0.0, 0.0); MAX_AUX_BUSES], // Initialize all aux outputs
             waveform_buffer_l: vec![0.0; WAVEFORM_BUFFER_SIZE],
             waveform_buffer_r: vec![0.0; WAVEFORM_BUFFER_SIZE],
             waveform_write_index: 0,
+            phase_correlation_counter: 0,
         }
     }
 
@@ -475,6 +483,13 @@ impl Track {
         self.waveform_buffer_l[self.waveform_write_index] = left;
         self.waveform_buffer_r[self.waveform_write_index] = right;
         self.waveform_write_index = (self.waveform_write_index + 1) % WAVEFORM_BUFFER_SIZE;
+        
+        // Calculate phase correlation periodically (every 512 samples to reduce CPU load)
+        self.phase_correlation_counter += 1;
+        if self.phase_correlation_counter >= 512 {
+            self.phase_correlation_counter = 0;
+            self.phase_correlation = Self::calculate_phase_correlation(&self.waveform_buffer_l, &self.waveform_buffer_r);
+        }
 
         // Apply mute after level calculation (so meters still work)
         let output = if self.mute {
@@ -510,6 +525,34 @@ impl Track {
         }
         
         result
+    }
+    
+    /// Calculate phase correlation between left and right channels
+    /// Returns a value between -1 (completely out of phase) and +1 (completely in phase/mono)
+    /// Formula: correlation = sum(L * R) / sqrt(sum(L^2) * sum(R^2))
+    fn calculate_phase_correlation(buffer_l: &[f32], buffer_r: &[f32]) -> f32 {
+        let mut sum_lr = 0.0_f64;  // Sum of L * R
+        let mut sum_l2 = 0.0_f64;  // Sum of L^2
+        let mut sum_r2 = 0.0_f64;  // Sum of R^2
+        
+        for i in 0..buffer_l.len() {
+            let l = buffer_l[i] as f64;
+            let r = buffer_r[i] as f64;
+            
+            sum_lr += l * r;
+            sum_l2 += l * l;
+            sum_r2 += r * r;
+        }
+        
+        // Avoid division by zero
+        if sum_l2 < 1e-10 || sum_r2 < 1e-10 {
+            return 0.0; // No signal or very weak signal
+        }
+        
+        let correlation = sum_lr / (sum_l2 * sum_r2).sqrt();
+        
+        // Clamp result to valid range [-1, +1] (floating point precision can cause slight overflow)
+        correlation.clamp(-1.0, 1.0) as f32
     }
 
     /// Reset peak levels for metering
