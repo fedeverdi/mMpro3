@@ -1,10 +1,15 @@
 <template>
   <div class="mixer-app min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex flex-col">
+    <!-- Floating Particles Background -->
+    <div class="particles-background">
+      <div v-for="i in 40" :key="i" class="particle" :style="getParticleStyle(i)"></div>
+    </div>
+    
     <!-- Custom Title Bar -->
     <CustomTitleBar :project-name="currentProjectName" />
     
     <!-- Header -->
-    <header class="bg-black/50 backdrop-blur-sm border-b border-gray-700 px-4 py-2 relative z-50">
+    <header class="bg-black/20 backdrop-blur-sm border-b border-gray-700 px-4 py-2 relative z-[100]">
       <div class="flex items-center justify-between gap-4 flex-wrap relative">
         <div class="flex items-center gap-2">
           <img src="./assets/logo_no_scritta.svg" alt="mMpro3" class="h-8" />
@@ -116,7 +121,7 @@
     </header>
 
     <!-- Mixer Console -->
-    <main class="flex-1 flex gap-2 p-2 overflow-hidden">
+    <main class="flex-1 flex gap-2 p-2 overflow-hidden relative z-[999]">
       <!-- Audio Tracks Section (flexible) -->
       <div ref="tracksContainerRef" class="tracks-scroll-wrap flex-1 overflow-hidden min-w-0 pb-[2px]">
         <div class="tracks-scroll overflow-x-auto overflow-y-hidden h-full">
@@ -362,6 +367,28 @@ const lockPassword = ref<string | null>(null)
 const showSetPasswordModal = ref(false)
 const lockScreenRef = ref<any>(null)
 const limitModalMessage = ref('')
+
+// Generate random styles for particles background - cached at mount time
+const particleStyles = ref<any[]>(
+  Array.from({ length: 40 }, (_, index) => {
+    const size = Math.random() * 3 + 1.5
+    const left = Math.random() * 100
+    const animationDuration = Math.random() * 18 + 15  // 15-33 secondi (molto molto lento)
+    const animationDelay = Math.random() * 12
+    
+    return {
+      width: `${size}px`,
+      height: `${size}px`,
+      left: `${left}%`,
+      animationDuration: `${animationDuration}s`,
+      animationDelay: `${animationDelay}s`
+    }
+  })
+)
+
+const getParticleStyle = (index: number) => {
+  return particleStyles.value[index - 1] || {}
+}
 
 // Recording state handler - just updates the recording flag
 function handleRecordingStateChange(state: boolean) {
@@ -1580,5 +1607,71 @@ onMounted(async () => {
 [draggable="true"]:active {
   opacity: 0.7;
   transform: scale(0.98);
+}
+
+/* Particles Background */
+.particles-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 200;
+  transform: translateZ(0);
+  isolation: isolate;
+  contain: layout style paint;
+}
+
+.particle {
+  position: absolute;
+  bottom: -10px;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.9) 0%, rgba(167, 139, 250, 0.6) 100%);
+  border-radius: 50%;
+  animation: float-up linear infinite;
+  opacity: 0;
+  box-shadow: 0 0 15px rgba(96, 165, 250, 0.7), 0 0 30px rgba(96, 165, 250, 0.3);
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+@keyframes float-up {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  3% {
+    opacity: 0.75;
+  }
+  99% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate3d(25px, -110vh, 0);
+    opacity: 0;
+  }
+}
+
+/* Alternative animation for variation */
+.particle:nth-child(even) {
+  animation-name: float-up-left;
+}
+
+@keyframes float-up-left {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  3% {
+    opacity: 0.75;
+  }
+  99% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate3d(-25px, -110vh, 0);
+    opacity: 0;
+  }
 }
 </style>

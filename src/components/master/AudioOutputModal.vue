@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div 
         v-if="isOpen" 
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70"
         @click.self="$emit('close')"
       >
         <div class="bg-gray-900 rounded-lg shadow-2xl max-w-md w-full mx-4 border border-gray-700">

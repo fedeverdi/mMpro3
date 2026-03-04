@@ -10,7 +10,7 @@
         >
             <div v-if="modelValue" 
                 @click="emit('update:modelValue', false)"
-                class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+                class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70"
             >
                     <div v-if="modelValue"
                         @click.stop

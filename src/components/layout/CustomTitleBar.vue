@@ -1,5 +1,5 @@
 <template>
-  <div class="custom-title-bar bg-black/50 backdrop-blur-sm flex items-center justify-between px-3 py-1 select-none" 
+  <div class="custom-title-bar bg-black/50 backdrop-blur-md flex items-center justify-between px-3 py-1 select-none relative z-[300]" 
        :class="{ 'draggable': !isMaximized }">
     <!-- Left: Traffic Lights Space (macOS) + App Title -->
     <div class="flex items-center gap-3">

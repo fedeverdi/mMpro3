@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="close">
+  <div v-if="isOpen" class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70" @click.self="close">
     <div class="bg-gray-900 rounded-lg shadow-2xl w-[500px] border border-gray-700">
       <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b border-gray-700">

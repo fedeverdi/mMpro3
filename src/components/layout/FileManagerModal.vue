@@ -1,5 +1,5 @@
 <template>
-  <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+  <div v-if="modelValue" class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70"
     @click.self="close">
     <div class="bg-gray-900 rounded-lg shadow-2xl w-[1200px] max-w-[95vw] max-h-[85vh] flex flex-col border border-gray-700"
       @click="showAddToPlaylistMenu = null">

@@ -1,5 +1,5 @@
 <template>
-  <footer class="bg-black/50 backdrop-blur-sm border-t border-gray-700 px-4 py-2">
+  <footer class="bg-black/20 backdrop-blur-sm border-t border-gray-700 px-4 py-2 relative z-50">
     <div class="flex items-center justify-between gap-4">
       <!-- Left: Performance Stats -->
       <div class="flex items-center gap-4">
