@@ -162,17 +162,7 @@
       <div class="flex flex-col flex-1 min-h-0 pb-6 ">
         <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
 
-          <!-- Phase Invert Button -->
-          <button @click="togglePhaseInvert"
-            class="absolute left-[0.2rem] bottom-[2.7rem] w-5 h-5 text-[0.65rem] font-bold rounded transition-all border"
-            :class="phaseInverted
-              ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-500/50'
-              : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
-            title="Phase Invert">
-            Ø
-          </button>
-
-          <!-- Routing Buttons -->
+          <!-- Routing and Phase Control Buttons -->
           <div class="flex flex-col gap-1 absolute left-[0.2rem] top-1/2 transform -translate-y-1/2 z-50">
             <button @click="toggleRouteToMaster" title="Route to Master"
               class="w-5 h-7 text-[7px] font-bold rounded transition-all flex items-center justify-center"
@@ -185,6 +175,15 @@
               class="w-5 h-6 text-[7px] font-bold rounded transition-all flex items-center justify-center"
               :class="routedSubgroups.has(subgroup.id) ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
               {{ subgroup.id + 1 }}
+            </button>
+            <!-- Phase Invert Button -->
+            <button @click="togglePhaseInvert"
+              class="w-5 h-5 text-[0.65rem] font-bold rounded transition-all border mt-1"
+              :class="phaseInverted
+                ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-500/50'
+                : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
+              title="Phase Invert">
+              Ø
             </button>
           </div>
 
