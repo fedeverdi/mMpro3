@@ -733,24 +733,31 @@ function handleAuxSendsUpdate(sends: Record<string, { level: number, preFader: b
 // Update individual aux send level
 function updateAuxSend(auxId: string | number, level: number) {
   const auxKey = typeof auxId === 'number' ? `aux${auxId}` : auxId
-  if (!auxSendsData.value[auxKey]) {
-    auxSendsData.value[auxKey] = {
+  
+  // Create a new copy of auxSendsData to trigger reactivity
+  const newAuxSends = { ...auxSendsData.value }
+  
+  if (!newAuxSends[auxKey]) {
+    newAuxSends[auxKey] = {
       level: -60,
       preFader: false,
       muted: true
     }
   }
 
-  auxSendsData.value[auxKey].level = level
-
-  // Auto-unmute if level > -60
-  if (level > -60 && auxSendsData.value[auxKey].muted) {
-    auxSendsData.value[auxKey].muted = false
+  newAuxSends[auxKey] = {
+    ...newAuxSends[auxKey],
+    level: level,
+    // Auto-unmute if level > -60
+    muted: level > -60 ? false : newAuxSends[auxKey].muted
   }
+
+  // Update the computed (triggers setter)
+  auxSendsData.value = newAuxSends
 
   // Send to Rust engine
   if (audioEngine?.state.value.isRunning) {
-    const send = auxSendsData.value[auxKey]
+    const send = newAuxSends[auxKey]
     // Convert aux ID to numeric index (0-based)
     const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
     const linearGain = Math.pow(10, send.level / 20)
@@ -761,19 +768,29 @@ function updateAuxSend(auxId: string | number, level: number) {
 // Toggle aux send pre/post fader
 function toggleAuxPrePost(auxId: string | number) {
   const auxKey = typeof auxId === 'number' ? `aux${auxId}` : auxId
-  if (!auxSendsData.value[auxKey]) {
-    auxSendsData.value[auxKey] = {
+  
+  // Create a new copy of auxSendsData to trigger reactivity
+  const newAuxSends = { ...auxSendsData.value }
+  
+  if (!newAuxSends[auxKey]) {
+    newAuxSends[auxKey] = {
       level: -60,
       preFader: false,
       muted: true
     }
   }
 
-  auxSendsData.value[auxKey].preFader = !auxSendsData.value[auxKey].preFader
+  newAuxSends[auxKey] = {
+    ...newAuxSends[auxKey],
+    preFader: !newAuxSends[auxKey].preFader
+  }
+
+  // Update the computed (triggers setter)
+  auxSendsData.value = newAuxSends
 
   // Send to Rust engine
   if (audioEngine?.state.value.isRunning) {
-    const send = auxSendsData.value[auxKey]
+    const send = newAuxSends[auxKey]
     const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
     const linearGain = Math.pow(10, send.level / 20)
     audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
@@ -783,19 +800,29 @@ function toggleAuxPrePost(auxId: string | number) {
 // Toggle aux send mute
 function toggleAuxMute(auxId: string | number) {
   const auxKey = typeof auxId === 'number' ? `aux${auxId}` : auxId
-  if (!auxSendsData.value[auxKey]) {
-    auxSendsData.value[auxKey] = {
+  
+  // Create a new copy of auxSendsData to trigger reactivity
+  const newAuxSends = { ...auxSendsData.value }
+  
+  if (!newAuxSends[auxKey]) {
+    newAuxSends[auxKey] = {
       level: -60,
       preFader: false,
       muted: true
     }
   }
 
-  auxSendsData.value[auxKey].muted = !auxSendsData.value[auxKey].muted
+  newAuxSends[auxKey] = {
+    ...newAuxSends[auxKey],
+    muted: !newAuxSends[auxKey].muted
+  }
+
+  // Update the computed (triggers setter)
+  auxSendsData.value = newAuxSends
 
   // Send to Rust engine
   if (audioEngine?.state.value.isRunning) {
-    const send = auxSendsData.value[auxKey]
+    const send = newAuxSends[auxKey]
     const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
     const linearGain = Math.pow(10, send.level / 20)
     audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
