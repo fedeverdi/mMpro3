@@ -1,71 +1,27 @@
 #!/bin/bash
 
-# Build, sign and notarize the Electron app with microphone permissions
-# This script automates the process of building, signing and notarizing the app
+# Build, sign and notarize the Electron app using official Electron tools
 
 set -e
-
-# Load environment variables from .env file
-if [ -f .env ]; then
-  export $(cat .env | grep -v '^#' | xargs)
-else
-  echo "⚠️  Warning: .env file not found. Notarization will be skipped."
-  echo "   Create a .env file with APPLE_ID, APPLE_ID_PASSWORD, and APPLE_TEAM_ID"
-fi
 
 echo "🦀 Building Rust audio engine..."
 cd audio-engine
 cargo build --release
 cd ..
 
-echo "🔨 Building app..."
+echo "🔨 Building app (without signing)..."
 npm run package
 
-APP_PATH="out/mMpro3-darwin-arm64/mMpro3.app"
-ZIP_PATH="out/mMpro3-darwin-arm64/mMpro3.zip"
+echo ""
+echo "✍️  Signing and notarizing with Electron tools..."
+node notarize.js
 
-echo "🧹 Removing quarantine attributes..."
-xattr -cr "$APP_PATH"
-
-echo "✍️  Signing all binaries with Developer ID..."
-
-# Sign the Rust audio engine first
-echo "  → Signing mmpro3-engine..."
-codesign --force --sign "Developer ID Application: Federico Verdi (JCVG5Y22QM)" \
-  --options runtime \
-  --timestamp \
-  "$APP_PATH/Contents/Resources/mmpro3-engine"
-
-# Sign all frameworks and libraries inside the app
-echo "  → Signing Electron frameworks and libraries..."
-find "$APP_PATH/Contents/Frameworks" -type f \( -name "*.dylib" -o -perm +111 \) | while read file; do
-  echo "    • $(basename "$file")"
-  codesign --force --sign "Developer ID Application: Federico Verdi (JCVG5Y22QM)" \
-    --options runtime \
-    --timestamp \
-    "$file" 2>/dev/null || true
-done
-
-# Sign all frameworks
-find "$APP_PATH/Contents/Frameworks" -type d -name "*.framework" | while read framework; do
-  echo "    • $(basename "$framework")"
-  codesign --force --sign "Developer ID Application: Federico Verdi (JCVG5Y22QM)" \
-    --options runtime \
-    --timestamp \
-    "$framework" 2>/dev/null || true
-done
-
-# Sign the main app bundle with entitlements
-echo "  → Signing main app bundle..."
-codesign --force --sign "Developer ID Application: Federico Verdi (JCVG5Y22QM)" \
-  --options runtime \
-  --entitlements entitlements.mac.plist \
-  --timestamp \
-  "$APP_PATH"
-
-echo "✅ Verifying signature..."
-codesign --verify --verbose "$APP_PATH"
-spctl --assess --verbose "$APP_PATH"
+echo ""
+echo "✅ Build complete!"
+echo ""
+echo "To test the app:"
+echo "  open out/mMpro3-darwin-arm64/mMpro3.app"
+echo ""
 
 # Notarization
 if [ -n "$APPLE_ID" ] && [ -n "$APPLE_ID_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
