@@ -1,5 +1,5 @@
 <template>
-  <div class="custom-title-bar bg-black/50 backdrop-blur-md flex items-center justify-between px-3 py-1 select-none relative z-[300]">
+  <div class="custom-title-bar bg-black/20 backdrop-blur-md flex items-center justify-between px-3 py-1 select-none relative z-[300]">
     <!-- Wave Effect Background -->
     <div class="wave-effect"></div>
     <!-- Shiny Reflection Effect -->
@@ -12,7 +12,7 @@
     </div>
 
     <!-- Center: Window Title (optional, can show project name) -->
-    <div class="flex-1 text-center text-xs text-gray-500 font-medium draggable-region">
+    <div class="flex-1 text-center text-xs text-gray-300 font-medium draggable-region">
       {{ projectName }}
     </div>
 
@@ -122,14 +122,15 @@ const close = () => {
   left: -100%;
   width: 300%;
   height: 100%;
-  background: linear-gradient(
+  background: repeating-linear-gradient(
     90deg,
     transparent 0%,
-    rgba(96, 165, 250, 0.3) 20%,
-    rgba(139, 92, 246, 0.35) 40%,
-    rgba(168, 85, 247, 0.3) 60%,
-    rgba(96, 165, 250, 0.25) 80%,
-    transparent 100%
+    rgba(37, 99, 235, 0.15) 8.33%,
+    rgba(29, 78, 216, 0.2) 16.67%,
+    rgba(30, 64, 175, 0.2) 25%,
+    rgba(29, 78, 216, 0.2) 33.33%,
+    rgba(37, 99, 235, 0.15) 41.67%,
+    transparent 50%
   );
   animation: wave-slide 8s linear infinite;
   pointer-events: none;
@@ -167,17 +168,17 @@ const close = () => {
 
 @keyframes reflection-slide {
   0% {
-    transform: translateX(0) scaleX(1);
+    transform: translateX(-150%) scaleX(1);
     opacity: 0;
   }
-  20% {
+  15% {
     opacity: 1;
   }
-  80% {
+  85% {
     opacity: 1;
   }
   100% {
-    transform: translateX(400%) scaleX(1.5);
+    transform: translateX(450%) scaleX(1.5);
     opacity: 0;
   }
 }

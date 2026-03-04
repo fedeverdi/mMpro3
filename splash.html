@@ -65,6 +65,28 @@
       animation-delay: 2s;
     }
 
+    /* Reflection Effect */
+    .reflection-effect {
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 80%;
+      height: 200%;
+      background: linear-gradient(
+        135deg,
+        transparent 0%,
+        transparent 43%,
+        rgba(255, 255, 255, 0.15) 50%,
+        transparent 57%,
+        transparent 100%
+      );
+      filter: blur(10px);
+      opacity: 0;
+      animation: reflection-slide-once 3s ease-in-out 1s 1;
+      pointer-events: none;
+      z-index: 5;
+    }
+
     /* Particles */
     .particles {
       position: absolute;
@@ -224,10 +246,30 @@
         width: 100%;
       }
     }
+
+    @keyframes reflection-slide-once {
+      0% {
+        transform: translateX(-150%) scaleX(1);
+        opacity: 0;
+      }
+      15% {
+        opacity: 1;
+      }
+      85% {
+        opacity: 1;
+      }
+      100% {
+        transform: translateX(450%) scaleX(1.5);
+        opacity: 0;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="splash-screen">
+    <!-- Reflection Effect -->
+    <div class="reflection-effect"></div>
+    
     <!-- Animated Background Effects -->
     <div class="bg-gradient-animated"></div>
     <div class="wave wave-1"></div>
