@@ -3,6 +3,17 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 const fs = require('fs');
 const path = require('path');
 
+// Build extraResource array dynamically, including only files that exist
+const extraResource = ['splash.html', 'logo.svg'];
+
+// Check for audio engine binaries
+if (fs.existsSync('out/mmpro3-engine')) {
+  extraResource.push('out/mmpro3-engine');
+}
+if (fs.existsSync('out/mmpro3-engine.exe')) {
+  extraResource.push('out/mmpro3-engine.exe');
+}
+
 module.exports = {
   packagerConfig: {
     asar: true,
@@ -19,11 +30,7 @@ module.exports = {
       'com.apple.security.device.audio-input': true,
       CFBundleDocumentTypes: []
     },
-    extraResource: [
-      'audio-engine/target/release/mmpro3-engine',
-      'splash.html',
-      'logo.svg'
-    ],
+    extraResource: extraResource,
     afterCopy: [
       (buildPath, electronVersion, platform, arch, callback) => {
         // Make the audio engine executable on Unix systems
