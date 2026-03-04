@@ -198,3 +198,10 @@ pub fn set_hpf(router: &mut Router, track: usize, enabled: bool) {
         t.hpf_enabled = enabled;
     }
 }
+
+/// Set track phase inversion (180° polarity flip)
+pub fn set_phase_invert(router: &mut Router, track: usize, enabled: bool) {
+    if let Some(t) = router.get_track_mut(track) {
+        t.phase_inverted = enabled;
+    }
+}

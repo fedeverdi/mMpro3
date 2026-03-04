@@ -179,6 +179,7 @@ pub struct Track {
     pub aux_sends: Vec<AuxSend>, // Aux sends (up to MAX_AUX_BUSES)
     pub pad_enabled: bool, // -24dB attenuation before gain
     pub hpf_enabled: bool, // High-pass filter @ 80Hz (between PAD and gain)
+    pub phase_inverted: bool, // Phase inversion (180° polarity flip)
     
     // Audio input
     pub input_channel_selection: ChannelSelection,
@@ -231,6 +232,7 @@ impl Track {
             aux_sends: vec![AuxSend::default(); MAX_AUX_BUSES], // Initialize all aux sends
             pad_enabled: false, // PAD off by default
             hpf_enabled: false, // HPF off by default
+            phase_inverted: false, // Phase inversion off by default
             input_channel_selection: ChannelSelection::stereo(),
             signal_generator: None,
             file_player: None,
@@ -391,6 +393,13 @@ impl Track {
         };
 
         // ===== INPUT STAGE (Preamp Section) =====
+        // 0. PHASE INVERSION: Flip polarity (180° phase shift)
+        let (left, right) = if self.phase_inverted {
+            (-left, -right)
+        } else {
+            (left, right)
+        };
+
         // 1. PAD: Attenuate very hot signals before preamp (-24dB)
         let (mut left, mut right) = if self.pad_enabled {
             const PAD_ATTENUATION: f32 = 0.063095734; // 10^(-24/20)

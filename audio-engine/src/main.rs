@@ -114,6 +114,8 @@ enum Command {
     SetTrackPad { track: usize, enabled: bool },
     #[serde(rename = "set_track_hpf")]
     SetTrackHPF { track: usize, enabled: bool },
+    #[serde(rename = "set_track_phase_invert")]
+    SetTrackPhaseInvert { track: usize, enabled: bool },
     
     // Track dynamics controls
     #[serde(rename = "set_compressor")]
@@ -1644,6 +1646,11 @@ impl AudioEngine {
         track::set_hpf(&mut router, track, enabled);
     }
 
+    fn set_phase_invert(&self, track: usize, enabled: bool) {
+        let mut router = self.router.lock().unwrap();
+        track::set_phase_invert(&mut router, track, enabled);
+    }
+
     // Track dynamics controls
     fn set_compressor(&self, track: usize, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
         let mut router = self.router.lock().unwrap();
@@ -2090,6 +2097,10 @@ impl AudioEngine {
             }
             Command::SetTrackHPF { track, enabled } => {
                 self.set_hpf(track, enabled);
+                None
+            }
+            Command::SetTrackPhaseInvert { track, enabled } => {
+                self.set_phase_invert(track, enabled);
                 None
             }
             Command::SetCompressor {

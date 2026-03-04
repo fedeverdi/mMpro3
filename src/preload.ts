@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('audioEngine', {
   setPan: (track: number, pan: number) => ipcRenderer.invoke('audio-engine:set-pan', track, pan),
   setTrackPad: (track: number, enabled: boolean) => ipcRenderer.invoke('audio-engine:set-track-pad', track, enabled),
   setTrackHPF: (track: number, enabled: boolean) => ipcRenderer.invoke('audio-engine:set-track-hpf', track, enabled),
+  setTrackPhaseInvert: (track: number, enabled: boolean) => ipcRenderer.invoke('audio-engine:set-track-phase-invert', track, enabled),
   setEQ: (track: number, low: number, low_mid: number, high_mid: number, high: number) => 
     ipcRenderer.invoke('audio-engine:set-eq', track, low, low_mid, high_mid, high),
   setEQEnabled: (track: number, enabled: boolean) => ipcRenderer.invoke('audio-engine:set-eq-enabled', track, enabled),

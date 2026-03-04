@@ -322,6 +322,12 @@ export const useAudioEngine = () => {
     window.audioEngine.setTrackHPF(track, enabled)
   }
 
+  const setTrackPhaseInvert = (track: number, enabled: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+
+    window.audioEngine.setTrackPhaseInvert(track, enabled)
+  }
+
   const setTrackEQ = (track: number, low: number, lowMid: number, highMid: number, high: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
 
@@ -556,6 +562,7 @@ export const useAudioEngine = () => {
     setTrackPan,
     setTrackPad,
     setTrackHPF,
+    setTrackPhaseInvert,
     setMasterGain,
     setMasterMute,
     setMasterOutputChannels,

@@ -800,6 +800,12 @@ watch(hpfEnabled, (enabled) => {
   }
 })
 
+watch(phaseInverted, (enabled) => {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setTrackPhaseInvert(props.trackNumber - 1, enabled)
+  }
+})
+
 watch(isMuted, (muted) => {
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackMute(props.trackNumber - 1, muted)
@@ -1038,7 +1044,7 @@ defineExpose({
     routeToMaster.value = state.routeToMaster ?? true
     routedSubgroups.value = new Set(state.routedSubgroups ?? [])
     
-    // Apply routing to backend
+    // Apply basic controls and routing to backend
     if (audioEngine?.state.value.isRunning) {
       // Apply route to master
       audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
