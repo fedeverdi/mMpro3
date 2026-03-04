@@ -1,5 +1,10 @@
 <template>
   <div class="custom-title-bar bg-black/50 backdrop-blur-md flex items-center justify-between px-3 py-1 select-none relative z-[300]">
+    <!-- Wave Effect Background -->
+    <div class="wave-effect"></div>
+    <!-- Shiny Reflection Effect -->
+    <div class="reflection-effect"></div>
+    
     <!-- Left: Traffic Lights Space (macOS) + App Title -->
     <div class="flex items-center gap-3 draggable-region">
       <!-- Spacer for macOS traffic lights (close/minimize/maximize buttons) -->
@@ -108,17 +113,90 @@ const close = () => {
   -webkit-app-region: drag;
   height: 32px;
   min-height: 32px;
+  overflow: hidden;
+}
+
+.wave-effect {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 300%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(96, 165, 250, 0.3) 20%,
+    rgba(139, 92, 246, 0.35) 40%,
+    rgba(168, 85, 247, 0.3) 60%,
+    rgba(96, 165, 250, 0.25) 80%,
+    transparent 100%
+  );
+  animation: wave-slide 8s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.reflection-effect {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 80%;
+  height: 200%;
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    transparent 43%,
+    rgba(255, 255, 255, 0.15) 50%,
+    transparent 57%,
+    transparent 100%
+  );
+  filter: blur(10px);
+  animation: reflection-slide 5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes wave-slide {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(33.333%);
+  }
+}
+
+@keyframes reflection-slide {
+  0% {
+    transform: translateX(0) scaleX(1);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(400%) scaleX(1.5);
+    opacity: 0;
+  }
 }
 
 .no-drag {
   -webkit-app-region: no-drag;
+  position: relative;
+  z-index: 2;
 }
 
 .draggable-region {
   -webkit-app-region: drag;
+  position: relative;
+  z-index: 2;
 }
 
 button {
   -webkit-app-region: no-drag;
+  position: relative;
+  z-index: 2;
 }
 </style>
