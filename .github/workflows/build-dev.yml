@@ -71,11 +71,6 @@ jobs:
           cargo build --release
           cd ..
 
-      - name: Create .env file from secret
-        run: printf '%s\n' "$ENVIRONMENT" > .env
-        env:
-          ENVIRONMENT: ${{ secrets.ENVIRONMENT }}
-
       - name: Build and sign app
         run: |
           chmod +x build-and-sign.sh
@@ -84,6 +79,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          EDGE_CONFIG: ${{ secrets.EDGE_CONFIG }}
 
       - name: Create and sign DMG
         run: |
@@ -160,14 +156,10 @@ jobs:
           cargo build --release
           cd ..
 
-      - name: Create .env file from secret
-        shell: bash
-        run: printf '%s\n' "$ENVIRONMENT" > .env
-        env:
-          ENVIRONMENT: ${{ secrets.ENVIRONMENT }}
-
       - name: Build Electron app and create installer
         run: npm run make
+        env:
+          EDGE_CONFIG: ${{ secrets.EDGE_CONFIG }}
 
       - name: Get version and create filename
         id: version
