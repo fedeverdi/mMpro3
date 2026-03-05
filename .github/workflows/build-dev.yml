@@ -167,8 +167,8 @@ jobs:
           cargo build --release
           cd ..
 
-      - name: Package Electron app
-        run: npm run package
+      - name: Build Electron app and create installer
+        run: npm run make
 
       - name: Get version and create filename
         id: version
@@ -182,21 +182,28 @@ jobs:
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
           echo "filename=mMpro3-v${VERSION}-build${BUILD}-${TIMESTAMP}" >> $GITHUB_OUTPUT
 
-      - name: Create ZIP archive
+      - name: List generated files
         shell: bash
         run: |
-          cd out
-          7z a mMpro3-win32-x64.zip mMpro3-win32-x64/
-          cd ..
+          echo "Contents of out/make:"
+          ls -la out/make/
+          echo ""
+          echo "Contents of out/make/squirrel.windows:"
+          ls -la out/make/squirrel.windows/
+          echo ""
+          echo "Contents of out/make/squirrel.windows/x64:"
+          ls -la out/make/squirrel.windows/x64/
 
-      - name: Upload Windows ZIP to Vercel Blob
+      - name: Upload Windows Setup to Vercel Blob
         shell: bash
         run: |
-          FILENAME="${{ steps.version.outputs.filename }}-win32-x64.zip"
+          FILENAME="${{ steps.version.outputs.filename }}-Setup.exe"
+          SETUP_PATH=$(find out/make/squirrel.windows/x64 -name "*Setup.exe" | head -n 1)
+          echo "Found Setup.exe at: $SETUP_PATH"
           curl -X PUT "https://blob.vercel-storage.com/$FILENAME" \
             -H "Authorization: Bearer ${{ secrets.VERCEL_BLOB_TOKEN }}" \
-            -H "Content-Type: application/zip" \
-            --data-binary @out/mMpro3-win32-x64.zip \
+            -H "Content-Type: application/x-msdownload" \
+            --data-binary @"$SETUP_PATH" \
             -o upload-response-win.json
           cat upload-response-win.json
-          echo "Windows ZIP uploaded: https://blob.vercel-storage.com/$FILENAME"
+          echo "Windows Setup uploaded: https://blob.vercel-storage.com/$FILENAME"
