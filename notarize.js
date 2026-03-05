@@ -22,7 +22,6 @@ async function main() {
         };
       },
     });
-    
     console.log('✅ Signing complete!');
     
     if (!process.env.APPLE_ID || !process.env.APPLE_ID_PASSWORD) {
