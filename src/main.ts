@@ -1,12 +1,23 @@
 // Load environment variables from .env file
-import 'dotenv/config'
-
+import dotenv from 'dotenv'
 import { app, BrowserWindow, screen, ipcMain, shell, dialog, powerSaveBlocker } from 'electron'
 import { spawn, ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
 import { createClient } from '@vercel/edge-config'
+
+// Load .env file from the correct location
+// In development: project root
+// In production: next to the built main.js file
+const envPath = app.isPackaged
+  ? path.join(__dirname, '.env')
+  : path.join(process.cwd(), '.env')
+
+dotenv.config({ path: envPath })
+
+console.log('[Main] Loading .env from:', envPath)
+console.log('[Main] EDGE_CONFIG present:', !!process.env.EDGE_CONFIG)
 
 // Lazy initialization of Edge Config client
 let edgeConfigClient: ReturnType<typeof createClient> | null = null
