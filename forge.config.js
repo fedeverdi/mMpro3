@@ -3,17 +3,6 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 const fs = require('fs');
 const path = require('path');
 
-// Build extraResource array dynamically, including only files that exist
-const extraResource = ['splash.html', 'logo.svg'];
-
-// Check for audio engine binaries
-if (fs.existsSync('out/mmpro3-engine')) {
-  extraResource.push('out/mmpro3-engine');
-}
-if (fs.existsSync('out/mmpro3-engine.exe')) {
-  extraResource.push('out/mmpro3-engine.exe');
-}
-
 module.exports = {
   packagerConfig: {
     asar: true,
@@ -30,16 +19,40 @@ module.exports = {
       'com.apple.security.device.audio-input': true,
       CFBundleDocumentTypes: []
     },
-    extraResource: extraResource,
+    extraResource: ['splash.html', 'logo.svg'],
     afterCopy: [
       (buildPath, electronVersion, platform, arch, callback) => {
-        // Make the audio engine executable on Unix systems
-        const binaryName = platform === 'win32' ? 'mmpro3-engine.exe' : 'mmpro3-engine';
-        const enginePath = path.join(buildPath, '..', binaryName);
+        console.log('[Packager] Running afterCopy hook...');
+        console.log('[Packager] Build path:', buildPath);
         
-        if (fs.existsSync(enginePath) && platform !== 'win32') {
-          fs.chmodSync(enginePath, 0o755);
-          console.log('[Packager] Made audio engine executable:', enginePath);
+        // Copy the audio engine binary to the Resources folder
+        const binaryName = platform === 'win32' ? 'mmpro3-engine.exe' : 'mmpro3-engine';
+        const sourcePath = path.join(__dirname, 'audio-engine', 'target', 'release', binaryName);
+        const destPath = path.join(buildPath, '..', binaryName);
+        
+        console.log('[Packager] Copying audio engine from:', sourcePath);
+        console.log('[Packager] To:', destPath);
+        
+        if (fs.existsSync(sourcePath)) {
+          try {
+            fs.copyFileSync(sourcePath, destPath);
+            
+            // Make executable on Unix systems
+            if (platform !== 'win32') {
+              fs.chmodSync(destPath, 0o755);
+            }
+            
+            console.log('[Packager] ✅ Audio engine copied and made executable');
+          } catch (error) {
+            console.error('[Packager] ❌ Failed to copy audio engine:', error);
+            callback(error);
+            return;
+          }
+        } else {
+          console.error('[Packager] ❌ Audio engine not found at:', sourcePath);
+          console.error('[Packager] Make sure to build the Rust engine first: cd audio-engine && cargo build --release');
+          callback(new Error('Audio engine binary not found'));
+          return;
         }
         
         callback();

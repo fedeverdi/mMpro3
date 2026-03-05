@@ -9,7 +9,8 @@ cd audio-engine
 cargo build --release
 cd ..
 
-echo "🔨 Building app (without signing)..."
+
+echo "�🔨 Building app (without signing)..."
 npm run package
 
 echo ""
