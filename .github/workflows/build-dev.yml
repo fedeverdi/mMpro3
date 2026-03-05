@@ -99,14 +99,11 @@ jobs:
         id: version
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          BUILD=$(node -p "require('./package.json').buildNumber || 0")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "build=$BUILD" >> $GITHUB_OUTPUT
-          echo "filename=mMpro3-v${VERSION}-build${BUILD}" >> $GITHUB_OUTPUT
 
       - name: Upload ZIP to Vercel Blob
         run: |
-          FILENAME="${{ steps.version.outputs.filename }}-arm64.zip"
+          FILENAME="mMpro3-v${{ steps.version.outputs.version }}.zip"
           curl -X PUT "https://blob.vercel-storage.com/$FILENAME" \
             -H "Authorization: Bearer ${{ secrets.VERCEL_BLOB_TOKEN }}" \
             -H "Content-Type: application/zip" \
@@ -119,7 +116,7 @@ jobs:
 
       - name: Upload DMG to Vercel Blob
         run: |
-          FILENAME="${{ steps.version.outputs.filename }}-arm64.dmg"
+          FILENAME="mMpro3-v${{ steps.version.outputs.version }}.dmg"
           curl -X PUT "https://blob.vercel-storage.com/$FILENAME" \
             -H "Authorization: Bearer ${{ secrets.VERCEL_BLOB_TOKEN }}" \
             -H "Content-Type: application/x-apple-diskimage" \
@@ -134,12 +131,11 @@ jobs:
         run: |
           echo "## Build Info" > release-notes.md
           echo "- Version: ${{ steps.version.outputs.version }}" >> release-notes.md
-          echo "- Build: ${{ steps.version.outputs.build }}" >> release-notes.md
           echo "- Branch: dev" >> release-notes.md
           echo "" >> release-notes.md
           echo "## Downloads" >> release-notes.md
-          echo "- ZIP: https://blob.vercel-storage.com/${{ steps.version.outputs.filename }}-arm64.zip" >> release-notes.md
-          echo "- DMG: https://blob.vercel-storage.com/${{ steps.version.outputs.filename }}-arm64.dmg" >> release-notes.md
+          echo "- ZIP: https://blob.vercel-storage.com/mMpro3-v${{ steps.version.outputs.version }}.zip" >> release-notes.md
+          echo "- DMG: https://blob.vercel-storage.com/mMpro3-v${{ steps.version.outputs.version }}.dmg" >> release-notes.md
           cat release-notes.md
   build-windows:
     runs-on: windows-latest
@@ -177,10 +173,7 @@ jobs:
         shell: bash
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          BUILD=$(node -p "require('./package.json').buildNumber || 0")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "build=$BUILD" >> $GITHUB_OUTPUT
-          echo "filename=mMpro3-v${VERSION}-build${BUILD}" >> $GITHUB_OUTPUT
 
       - name: List generated files
         shell: bash
@@ -197,7 +190,7 @@ jobs:
       - name: Upload Windows Setup to Vercel Blob
         shell: bash
         run: |
-          FILENAME="${{ steps.version.outputs.filename }}-Setup.exe"
+          FILENAME="mMpro3-v${{ steps.version.outputs.version }}.exe"
           SETUP_PATH=$(find out/make/squirrel.windows/x64 -name "*Setup.exe" | head -n 1)
           echo "Found Setup.exe at: $SETUP_PATH"
           curl -X PUT "https://blob.vercel-storage.com/$FILENAME" \
