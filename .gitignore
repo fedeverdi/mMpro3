@@ -95,5 +95,3 @@ out/
 .env.production
 # Web build output (Vercel)
 dist/
-
-audio-engine/target

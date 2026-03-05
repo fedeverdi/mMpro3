@@ -1,0 +1,1 @@
+Result<flac::Stream<ReadStream<{integer}>>, flac::ErrorKind>

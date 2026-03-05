@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["ringbuf",[["impl&lt;T, const N: <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.usize.html\">usize</a>&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.1/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ringbuf/ring_buffer/struct.LocalRb.html\" title=\"struct ringbuf::ring_buffer::LocalRb\">LocalRb</a>&lt;T, [<a class=\"union\" href=\"https://doc.rust-lang.org/1.93.1/core/mem/maybe_uninit/union.MaybeUninit.html\" title=\"union core::mem::maybe_uninit::MaybeUninit\">MaybeUninit</a>&lt;T&gt;; <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.array.html\">N</a>]&gt;"],["impl&lt;T, const N: <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.usize.html\">usize</a>&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.93.1/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ringbuf/ring_buffer/struct.SharedRb.html\" title=\"struct ringbuf::ring_buffer::SharedRb\">SharedRb</a>&lt;T, [<a class=\"union\" href=\"https://doc.rust-lang.org/1.93.1/core/mem/maybe_uninit/union.MaybeUninit.html\" title=\"union core::mem::maybe_uninit::MaybeUninit\">MaybeUninit</a>&lt;T&gt;; <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.93.1/std/primitive.array.html\">N</a>]&gt;"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1410]}

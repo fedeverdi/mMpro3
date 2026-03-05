@@ -1,0 +1,10 @@
+/Users/federicoverdi/Documents/Progetti/Personale/mMpro3/audio-engine/target/release/deps/regex_syntax-644ce08d5fa1facc.d: /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/lib.rs /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/literals.rs /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/parser.rs /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/unicode.rs
+
+/Users/federicoverdi/Documents/Progetti/Personale/mMpro3/audio-engine/target/release/deps/libregex_syntax-644ce08d5fa1facc.rlib: /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/lib.rs /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/literals.rs /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/parser.rs /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/unicode.rs
+
+/Users/federicoverdi/Documents/Progetti/Personale/mMpro3/audio-engine/target/release/deps/libregex_syntax-644ce08d5fa1facc.rmeta: /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/lib.rs /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/literals.rs /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/parser.rs /Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/unicode.rs
+
+/Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/lib.rs:
+/Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/literals.rs:
+/Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/parser.rs:
+/Users/federicoverdi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.3.9/src/unicode.rs:

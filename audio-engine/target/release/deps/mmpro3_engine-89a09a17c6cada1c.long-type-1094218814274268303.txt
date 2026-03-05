@@ -1,0 +1,1 @@
+std::sync::MutexGuard<'_, Consumer<f32, Arc<SharedRb<f32, Vec<MaybeUninit<f32>>>>>>
