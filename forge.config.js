@@ -55,6 +55,21 @@ module.exports = {
           return;
         }
         
+        // Copy .env file if it exists (for production builds with EDGE_CONFIG)
+        const envPath = path.join(__dirname, '.env');
+        if (fs.existsSync(envPath)) {
+          const envDestPath = path.join(buildPath, '.env');
+          try {
+            fs.copyFileSync(envPath, envDestPath);
+            console.log('[Packager] ✅ .env file copied to bundle');
+          } catch (error) {
+            console.warn('[Packager] ⚠️  Failed to copy .env file (non-critical):', error);
+            // Non-critical, don't fail the build
+          }
+        } else {
+          console.log('[Packager] ℹ️  No .env file found (will use environment variables)');
+        }
+        
         callback();
       }
     ]

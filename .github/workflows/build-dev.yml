@@ -71,9 +71,13 @@ jobs:
           cargo build --release
           cd ..
 
+      - name: Create .env file from secret
+        run: printf '%s\n' "$ENVIRONMENT" > .env
+        env:
+          ENVIRONMENT: ${{ secrets.ENVIRONMENT }}
+
       - name: Build and sign app
         run: |
-          echo "${{ secrets.ENVIRONMENT }}" > .env
           chmod +x build-and-sign.sh
           ./build-and-sign.sh
         env:
@@ -156,10 +160,14 @@ jobs:
           cargo build --release
           cd ..
 
+      - name: Create .env file from secret
+        shell: bash
+        run: printf '%s\n' "$ENVIRONMENT" > .env
+        env:
+          ENVIRONMENT: ${{ secrets.ENVIRONMENT }}
+
       - name: Build Electron app and create installer
-        run: |
-          echo "${{ secrets.ENVIRONMENT }}" > .env
-          npm run make
+        run: npm run make
 
       - name: Get version and create filename
         id: version

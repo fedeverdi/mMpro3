@@ -8,9 +8,18 @@ import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
 import { createClient } from '@vercel/edge-config'
 
-// Create Edge Config client with explicit connection string
-// In production, this will be replaced by Vite with the actual value
-const edgeConfigClient = createClient(process.env.EDGE_CONFIG || '')
+// Lazy initialization of Edge Config client
+let edgeConfigClient: ReturnType<typeof createClient> | null = null
+const getEdgeConfigClient = () => {
+  if (!edgeConfigClient) {
+    const connectionString = process.env.EDGE_CONFIG
+    if (!connectionString) {
+      throw new Error('EDGE_CONFIG environment variable is not set')
+    }
+    edgeConfigClient = createClient(connectionString)
+  }
+  return edgeConfigClient
+}
 
 // Disable Electron security warnings in development
 // (unsafe-eval is required for Vite HMR)
@@ -527,8 +536,11 @@ ipcMain.handle('get-app-version', () => {
 // License verification handler
 ipcMain.handle('verify-license', async (_, licenseKey: string) => {
   try {
+    // Get Edge Config client (lazy initialization)
+    const client = getEdgeConfigClient()
+    
     // Fetch license from Vercel Edge Config
-    const license = await edgeConfigClient.get<{
+    const license = await client.get<{
       type: 'demo' | 'medium' | 'full'
       expiresAt?: string
       active: boolean
