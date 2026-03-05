@@ -1,2 +1,0 @@
-createSrcSidebar('[["ringbuf",["",[["ring_buffer",[],["base.rs","cache.rs","init.rs","local.rs","mod.rs","rb.rs","shared.rs","storage.rs"]]],["alias.rs","consumer.rs","lib.rs","producer.rs","transfer.rs","utils.rs"]]]]');
-//{"start":19,"fragment_lengths":[198]}
