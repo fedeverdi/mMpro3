@@ -139,7 +139,6 @@ jobs:
   #         echo "- ZIP: https://blob.vercel-storage.com/${{ steps.version.outputs.filename }}-arm64.zip" >> release-notes.md
   #         echo "- DMG: https://blob.vercel-storage.com/${{ steps.version.outputs.filename }}-arm64.dmg" >> release-notes.md
   #         cat release-notes.md
-
   build-windows:
     runs-on: windows-latest
 
