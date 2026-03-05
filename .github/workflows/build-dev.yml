@@ -8,7 +8,6 @@ on:
 jobs:
   build-macos:
     runs-on: macos-latest
-    if: contains(github.event.head_commit.message, '--build') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code
@@ -143,7 +142,6 @@ jobs:
           cat release-notes.md
   build-windows:
     runs-on: windows-latest
-    if: contains(github.event.head_commit.message, '--build') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code
