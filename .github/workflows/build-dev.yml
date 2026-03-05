@@ -106,7 +106,7 @@ jobs:
         run: |
           node scripts/upload-to-vercel.js \
             out/mMpro3-darwin-arm64/mMpro3.app.zip \
-            mMpro3-v${{ steps.version.outputs.version }}.zip
+            mMpro3-v${{ steps.version.outputs.version }}-mac.zip
         env:
           VERCEL_BLOB_TOKEN: ${{ secrets.VERCEL_BLOB_TOKEN }}
 
@@ -125,8 +125,8 @@ jobs:
           echo "- Branch: dev" >> release-notes.md
           echo "" >> release-notes.md
           echo "## Downloads" >> release-notes.md
-          echo "- ZIP: https://blob.vercel-storage.com/mMpro3-v${{ steps.version.outputs.version }}.zip" >> release-notes.md
-          echo "- DMG: https://blob.vercel-storage.com/mMpro3-v${{ steps.version.outputs.version }}.dmg" >> release-notes.md
+          echo "- macOS ZIP: https://blob.vercel-storage.com/mMpro3-v${{ steps.version.outputs.version }}-mac.zip" >> release-notes.md
+          echo "- macOS DMG: https://blob.vercel-storage.com/mMpro3-v${{ steps.version.outputs.version }}.dmg" >> release-notes.md
           cat release-notes.md
   build-windows:
     runs-on: windows-latest
@@ -168,14 +168,14 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Upload Windows Setup to Vercel Blob
+      - name: Upload Windows ZIP to Vercel Blob
         shell: bash
         run: |
-          SETUP_PATH=$(find out/make/squirrel.windows/x64 -name "*Setup.exe" | head -n 1)
-          echo "Found Setup.exe at: $SETUP_PATH"
+          ZIP_PATH=$(find out/make/zip/win32/x64 -name "*.zip" | head -n 1)
+          echo "Found ZIP at: $ZIP_PATH"
           
           node scripts/upload-to-vercel.js \
-            "$SETUP_PATH" \
-            mMpro3-v${{ steps.version.outputs.version }}.exe
+            "$ZIP_PATH" \
+            mMpro3-v${{ steps.version.outputs.version }}-win.zip
         env:
           VERCEL_BLOB_TOKEN: ${{ secrets.VERCEL_BLOB_TOKEN }}
