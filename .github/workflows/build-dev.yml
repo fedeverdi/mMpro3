@@ -185,9 +185,9 @@ jobs:
       - name: Create ZIP archive
         shell: bash
         run: |
-          cd out/mMpro3-win32-x64
-          7z a mMpro3-win32-x64.zip mMpro3.exe -r
-          cd ../..
+          cd out
+          7z a mMpro3-win32-x64.zip mMpro3-win32-x64/
+          cd ..
 
       - name: Upload Windows ZIP to Vercel Blob
         shell: bash
@@ -196,7 +196,7 @@ jobs:
           curl -X PUT "https://blob.vercel-storage.com/$FILENAME" \
             -H "Authorization: Bearer ${{ secrets.VERCEL_BLOB_TOKEN }}" \
             -H "Content-Type: application/zip" \
-            --data-binary @out/mMpro3-win32-x64/mMpro3-win32-x64.zip \
+            --data-binary @out/mMpro3-win32-x64.zip \
             -o upload-response-win.json
           cat upload-response-win.json
           echo "Windows ZIP uploaded: https://blob.vercel-storage.com/$FILENAME"
