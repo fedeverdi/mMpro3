@@ -111,8 +111,10 @@ jobs:
             -H "x-vercel-cache-control: max-age=0" \
             --data-binary @out/mMpro3-darwin-arm64/mMpro3.app.zip \
             -o upload-response-zip.json
-          cat upload-response-zip.json
-          echo "ZIP uploaded: https://blob.vercel-storage.com/$FILENAME"
+          
+          REAL_URL=$(node -p "JSON.parse(require('fs').readFileSync('upload-response-zip.json', 'utf8')).url")
+          echo "✅ ZIP uploaded successfully!"
+          echo "📦 Download URL: $REAL_URL"
 
       - name: Upload DMG to Vercel Blob
         run: |
@@ -124,8 +126,10 @@ jobs:
             -H "x-vercel-cache-control: max-age=0" \
             --data-binary @out/mMpro3-darwin-arm64/mMpro3.dmg \
             -o upload-response-dmg.json
-          cat upload-response-dmg.json
-          echo "DMG uploaded: https://blob.vercel-storage.com/$FILENAME"
+          
+          REAL_URL=$(node -p "JSON.parse(require('fs').readFileSync('upload-response-dmg.json', 'utf8')).url")
+          echo "✅ DMG uploaded successfully!"
+          echo "💿 Download URL: $REAL_URL"
 
       - name: Create release notes
         run: |
@@ -193,6 +197,7 @@ jobs:
           FILENAME="mMpro3-v${{ steps.version.outputs.version }}.exe"
           SETUP_PATH=$(find out/make/squirrel.windows/x64 -name "*Setup.exe" | head -n 1)
           echo "Found Setup.exe at: $SETUP_PATH"
+          
           curl -X PUT "https://blob.vercel-storage.com/$FILENAME" \
             -H "Authorization: Bearer ${{ secrets.VERCEL_BLOB_TOKEN }}" \
             -H "Content-Type: application/x-msdownload" \
@@ -200,5 +205,7 @@ jobs:
             -H "x-vercel-cache-control: max-age=0" \
             --data-binary @"$SETUP_PATH" \
             -o upload-response-win.json
-          cat upload-response-win.json
-          echo "Windows Setup uploaded: https://blob.vercel-storage.com/$FILENAME"
+          
+          REAL_URL=$(node -p "JSON.parse(require('fs').readFileSync('upload-response-win.json', 'utf8')).url")
+          echo "✅ Windows Setup uploaded successfully!"
+          echo "🪟 Download URL: $REAL_URL"
