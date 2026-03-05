@@ -606,6 +606,9 @@ function setupAudioMonitor(filePath: string) {
 async function playNextInPlaylist() {
   if (!currentPlaylist.value || playlistFiles.value.length === 0) return
   
+  // Save the current playing state before stopping
+  const wasPlaying = isPlaying.value
+  
   // Stop audio monitor first
   if (audioMonitorElement.value) {
     audioMonitorElement.value.pause()
@@ -631,7 +634,8 @@ async function playNextInPlaylist() {
   const trackDisplay = nextFile.artist ? `${nextFile.artist} - ${trackName}` : trackName
   selectedFileName.value = `${currentPlaylist.value.name} (${nextIndex + 1}/${playlistFiles.value.length}) - ${trackDisplay}`
   
-  await loadFileFromLibrary(nextFile)
+  // Load and auto-play if it was playing before
+  await loadFileFromLibrary(nextFile, wasPlaying)
 }
 
 function toggleMute() {
