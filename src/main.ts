@@ -6,7 +6,11 @@ import { spawn, ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
-import { get } from '@vercel/edge-config'
+import { createClient } from '@vercel/edge-config'
+
+// Create Edge Config client with explicit connection string
+// In production, this will be replaced by Vite with the actual value
+const edgeConfigClient = createClient(process.env.EDGE_CONFIG || '')
 
 // Disable Electron security warnings in development
 // (unsafe-eval is required for Vite HMR)
@@ -524,7 +528,7 @@ ipcMain.handle('get-app-version', () => {
 ipcMain.handle('verify-license', async (_, licenseKey: string) => {
   try {
     // Fetch license from Vercel Edge Config
-    const license = await get<{
+    const license = await edgeConfigClient.get<{
       type: 'demo' | 'medium' | 'full'
       expiresAt?: string
       active: boolean
