@@ -1,0 +1,133 @@
+name: Build and Deploy to Vercel Blob (Dev)
+
+on:
+  push:
+    branches: [ dev ]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Rust audio engine
+        run: |
+          cd audio-engine
+          cargo build --release
+          cd ..
+
+      - name: Package Electron app
+        run: npm run package
+
+      - name: Create DMG
+        run: |
+          chmod +x create-dmg.sh
+          ./create-dmg.sh
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Create ZIP archive of app
+        run: |
+          cd out/mMpro3-darwin-arm64
+          ditto -c -k --keepParent mMpro3.app mMpro3.app.zip
+          cd ../..
+
+      - name: Get version and create filename
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          BUILD=$(node -p "require('./package.json').buildNumber || 0")
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build=$BUILD" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "filename=mMpro3-v${VERSION}-build${BUILD}-${TIMESTAMP}" >> $GITHUB_OUTPUT
+
+      - name: Upload ZIP to Vercel Blob
+        run: |
+          FILENAME="${{ steps.version.outputs.filename }}-arm64.zip"
+          curl -X PUT "https://blob.vercel-storage.com/$FILENAME" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_BLOB_TOKEN }}" \
+            -H "Content-Type: application/zip" \
+            --data-binary @out/mMpro3-darwin-arm64/mMpro3.app.zip \
+            -o upload-response-zip.json
+          cat upload-response-zip.json
+          echo "ZIP uploaded: https://blob.vercel-storage.com/$FILENAME"
+
+      - name: Upload DMG to Vercel Blob
+        run: |
+          FILENAME="${{ steps.version.outputs.filename }}-arm64.dmg"
+          curl -X PUT "https://blob.vercel-storage.com/$FILENAME" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_BLOB_TOKEN }}" \
+            -H "Content-Type: application/x-apple-diskimage" \
+            --data-binary @out/mMpro3-darwin-arm64/mMpro3.dmg \
+            -o upload-response-dmg.json
+          cat upload-response-dmg.json
+          echo "DMG uploaded: https://blob.vercel-storage.com/$FILENAME"
+
+      - name: Create release notes
+        run: |
+          echo "## Build Info" > release-notes.md
+          echo "- Version: ${{ steps.version.outputs.version }}" >> release-notes.md
+          echo "- Build: ${{ steps.version.outputs.build }}" >> release-notes.md
+          echo "- Timestamp: ${{ steps.version.outputs.timestamp }}" >> release-notes.md
+          echo "- Branch: dev" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "## Downloads" >> release-notes.md
+          echo "- ZIP: https://blob.vercel-storage.com/${{ steps.version.outputs.filename }}-arm64.zip" >> release-notes.md
+          echo "- DMG: https://blob.vercel-storage.com/${{ steps.version.outputs.filename }}-arm64.dmg" >> release-notes.md
+          cat release-notes.md
+
+      - name: Upload artifacts (for GitHub)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mMpro3-macos-arm64-dev
+          path: |
+            out/mMpro3-darwin-arm64/mMpro3.app.zip
+            out/mMpro3-darwin-arm64/mMpro3.dmg
+            release-notes.md
+
+      - name: Comment on commit with download links
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const filename = '${{ steps.version.outputs.filename }}';
+            const body = `## ✅ Build Successful (Dev)
+            
+            **Version**: ${{ steps.version.outputs.version }}
+            **Build**: ${{ steps.version.outputs.build }}
+            
+            ### Downloads:
+            - 📦 [ZIP](https://blob.vercel-storage.com/${filename}-arm64.zip)
+            - 💿 [DMG](https://blob.vercel-storage.com/${filename}-arm64.dmg)
+            
+            _Built from commit ${context.sha.substring(0, 7)}_`;
+            
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: body
+            });
