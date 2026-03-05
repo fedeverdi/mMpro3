@@ -165,6 +165,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPlatform: () => ipcRenderer.invoke('get-platform'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   
+  // License verification
+  verifyLicense: (licenseKey: string) => ipcRenderer.invoke('verify-license', licenseKey),
+  
   // Window controls
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
   maximizeWindow: () => ipcRenderer.send('window-maximize'),

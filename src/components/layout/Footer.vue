@@ -38,8 +38,21 @@
         </template>
       </div>
 
-      <!-- Center/Right: Recording Info, Version and Signal Flow Button -->
+      <!-- Center/Right: Recording Info, Version, License and Buttons -->
       <div class="flex items-center gap-3">
+        <!-- License Badge -->
+        <button 
+          @click="showLicenseModal = true"
+          class="flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded border transition-all"
+          :class="licenseBadgeClass"
+        >
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+          </svg>
+          <span>{{ licenseType.toUpperCase() }}</span>
+        </button>
+        <div class="w-px h-4 bg-gray-600"></div>
+        
         <!-- Version -->
         <div class="flex items-center gap-1.5 text-[10px] font-mono">
           <span class="text-gray-500">VERSION:</span>
@@ -92,11 +105,16 @@
         </button>
       </div>
     </div>
+
+    <!-- License Modal -->
+    <LicenseModal v-model="showLicenseModal" />
   </footer>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
+import LicenseModal from '@/components/LicenseModal.vue'
+import { useLicense } from '@/composables/useLicense'
 
 interface PerformanceStats {
   bufferSize: number
@@ -118,6 +136,23 @@ defineEmits<{
   (e: 'open-audio-flow'): void
   (e: 'open-audio-config'): void
 }>()
+
+// License
+const { licenseType } = useLicense()
+const showLicenseModal = ref(false)
+
+const licenseBadgeClass = computed(() => {
+  const baseClasses = 'cursor-pointer hover:opacity-80'
+  switch (licenseType.value) {
+    case 'full':
+      return `${baseClasses} bg-green-500/20 border-green-500/50 text-green-400`
+    case 'medium':
+      return `${baseClasses} bg-blue-500/20 border-blue-500/50 text-blue-400`
+    case 'demo':
+    default:
+      return `${baseClasses} bg-gray-500/20 border-gray-500/50 text-gray-400`
+  }
+})
 
 const cpuClass = computed(() => {
   if (!props.performanceStats) return 'text-gray-300'

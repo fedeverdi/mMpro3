@@ -1,8 +1,12 @@
+// Load environment variables from .env file
+import 'dotenv/config'
+
 import { app, BrowserWindow, screen, ipcMain, shell, dialog, powerSaveBlocker } from 'electron'
 import { spawn, ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
+import { get } from '@vercel/edge-config'
 
 // Disable Electron security warnings in development
 // (unsafe-eval is required for Vite HMR)
@@ -514,6 +518,49 @@ ipcMain.handle('get-platform', () => {
 
 ipcMain.handle('get-app-version', () => {
   return app.getVersion()
+})
+
+// License verification handler
+ipcMain.handle('verify-license', async (_, licenseKey: string) => {
+  try {
+    // Fetch license from Vercel Edge Config
+    const license = await get<{
+      type: 'demo' | 'medium' | 'full'
+      expiresAt?: string
+      active: boolean
+    }>(`license_${licenseKey}`)
+
+    // Check if license exists
+    if (!license) {
+      return { valid: false, message: 'Invalid license key' }
+    }
+
+    // Check if license is active
+    if (!license.active) {
+      return { valid: false, message: 'License has been deactivated' }
+    }
+
+    // Check if license has expired
+    if (license.expiresAt) {
+      const expiryDate = new Date(license.expiresAt)
+      if (expiryDate < new Date()) {
+        return { valid: false, message: 'License has expired' }
+      }
+    }
+
+    // License is valid
+    return {
+      valid: true,
+      type: license.type,
+      expiresAt: license.expiresAt
+    }
+  } catch (error) {
+    console.error('License verification error:', error)
+    return {
+      valid: false,
+      message: error instanceof Error ? error.message : 'Failed to verify license'
+    }
+  }
 })
 
 ipcMain.handle('window-is-maximized', (event) => {

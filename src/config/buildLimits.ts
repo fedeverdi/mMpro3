@@ -45,13 +45,29 @@ const LIMITS: Record<BuildMode, BuildLimits> = {
   }
 }
 
-// Get build mode from environment variable, default to 'full'
+// Get build mode from license or environment variable
 export function getBuildMode(): BuildMode {
+  // Try to get license type from localStorage
+  try {
+    const stored = localStorage.getItem('mmpro3_license')
+    if (stored) {
+      const license = JSON.parse(stored)
+      if (license.isValid && license.type) {
+        return license.type as BuildMode
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load license from storage:', e)
+  }
+
+  // Fallback to environment variable
   const mode = import.meta.env.VITE_BUILD_MODE as string
   if (mode === 'demo' || mode === 'medium' || mode === 'full') {
     return mode as BuildMode
   }
-  return 'full' // default
+  
+  // Default to demo if no license
+  return 'demo'
 }
 
 // Get current build limits
