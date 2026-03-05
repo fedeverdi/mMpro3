@@ -38,8 +38,15 @@
         </template>
       </div>
 
-      <!-- Center/Right: Recording Info and Signal Flow Button -->
+      <!-- Center/Right: Recording Info, Version and Signal Flow Button -->
       <div class="flex items-center gap-3">
+        <!-- Version -->
+        <div class="flex items-center gap-1.5 text-[10px] font-mono">
+          <span class="text-gray-500">VERSION:</span>
+          <span class="text-gray-300">{{ appVersion }}</span>
+        </div>
+        <div class="w-px h-4 bg-gray-600"></div>
+        
         <!-- Recording Info (quando sta registrando) -->
         <div v-if="isRecording" class="flex items-center gap-4 text-[10px] font-mono">
           <div class="flex items-center gap-1.5">
@@ -89,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 
 interface PerformanceStats {
   bufferSize: number
@@ -118,5 +125,19 @@ const cpuClass = computed(() => {
   if (cpu > 80) return 'text-red-400 font-bold'
   if (cpu > 60) return 'text-yellow-400'
   return 'text-green-400'
+})
+
+// App version
+const appVersion = ref('...')
+
+onMounted(async () => {
+  try {
+    const electronAPI = (window as any).electronAPI
+    if (electronAPI && electronAPI.getAppVersion) {
+      appVersion.value = await electronAPI.getAppVersion()
+    }
+  } catch (error) {
+    console.error('Failed to load app version:', error)
+  }
 })
 </script>

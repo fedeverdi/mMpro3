@@ -512,6 +512,10 @@ ipcMain.handle('get-platform', () => {
   return process.platform
 })
 
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion()
+})
+
 ipcMain.handle('window-is-maximized', (event) => {
   const window = BrowserWindow.fromWebContents(event.sender)
   return window?.isMaximized() || false
@@ -1080,7 +1084,8 @@ const createSplashWindow = () => {
     resizable: false,
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     }
   })
 

@@ -287,7 +287,7 @@
       <div class="loading-container">
         <div class="spinner"></div>
         <p class="loading-text">Loading Engine...</p>
-        <p class="version-text">v1.0.0</p>
+        <p class="version-text" id="version-text">Loading...</p>
         
         <!-- Progress Bar -->
         <div class="progress-container">
@@ -316,6 +316,18 @@
       particle.style.animationDelay = `${animationDelay}s`;
       
       particlesContainer.appendChild(particle);
+    }
+
+    // Load and display app version
+    if (window.electronAPI && window.electronAPI.getAppVersion) {
+      window.electronAPI.getAppVersion().then(version => {
+        const versionElement = document.getElementById('version-text');
+        if (versionElement) {
+          versionElement.textContent = `v${version}`;
+        }
+      }).catch(err => {
+        console.error('Failed to load version:', err);
+      });
     }
   </script>
 </body>

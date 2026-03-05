@@ -163,6 +163,7 @@ contextBridge.exposeInMainWorld('audioEngine', {
 contextBridge.exposeInMainWorld('electronAPI', {
   // Platform detection
   getPlatform: () => ipcRenderer.invoke('get-platform'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   
   // Window controls
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
