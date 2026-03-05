@@ -96,3 +96,4 @@ out/
 # Web build output (Vercel)
 dist/
 
+audio-engine/target
