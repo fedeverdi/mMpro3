@@ -61,6 +61,7 @@
     "@electron/notarize": "^3.1.1",
     "@electron/osx-sign": "^2.3.0",
     "@types/node": "^24.5.2",
+    "@vercel/blob": "^0.25.1",
     "@vitejs/plugin-vue": "^6.0.4",
     "autoprefixer": "^10.4.21",
     "dotenv": "^17.3.1",

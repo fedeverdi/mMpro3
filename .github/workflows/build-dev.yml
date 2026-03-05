@@ -103,33 +103,19 @@ jobs:
 
       - name: Upload ZIP to Vercel Blob
         run: |
-          FILENAME="mMpro3-v${{ steps.version.outputs.version }}.zip"
-          curl -X PUT "https://blob.vercel-storage.com/$FILENAME" \
-            -H "Authorization: Bearer ${{ secrets.VERCEL_BLOB_TOKEN }}" \
-            -H "Content-Type: application/zip" \
-            -H "Cache-Control: no-cache, max-age=0" \
-            -H "x-vercel-cache-control: max-age=0" \
-            --data-binary @out/mMpro3-darwin-arm64/mMpro3.app.zip \
-            -o upload-response-zip.json
-          
-          REAL_URL=$(node -p "JSON.parse(require('fs').readFileSync('upload-response-zip.json', 'utf8')).url")
-          echo "✅ ZIP uploaded successfully!"
-          echo "📦 Download URL: $REAL_URL"
+          node scripts/upload-to-vercel.js \
+            out/mMpro3-darwin-arm64/mMpro3.app.zip \
+            mMpro3-v${{ steps.version.outputs.version }}.zip
+        env:
+          VERCEL_BLOB_TOKEN: ${{ secrets.VERCEL_BLOB_TOKEN }}
 
       - name: Upload DMG to Vercel Blob
         run: |
-          FILENAME="mMpro3-v${{ steps.version.outputs.version }}.dmg"
-          curl -X PUT "https://blob.vercel-storage.com/$FILENAME" \
-            -H "Authorization: Bearer ${{ secrets.VERCEL_BLOB_TOKEN }}" \
-            -H "Content-Type: application/x-apple-diskimage" \
-            -H "Cache-Control: no-cache, max-age=0" \
-            -H "x-vercel-cache-control: max-age=0" \
-            --data-binary @out/mMpro3-darwin-arm64/mMpro3.dmg \
-            -o upload-response-dmg.json
-          
-          REAL_URL=$(node -p "JSON.parse(require('fs').readFileSync('upload-response-dmg.json', 'utf8')).url")
-          echo "✅ DMG uploaded successfully!"
-          echo "💿 Download URL: $REAL_URL"
+          node scripts/upload-to-vercel.js \
+            out/mMpro3-darwin-arm64/mMpro3.dmg \
+            mMpro3-v${{ steps.version.outputs.version }}.dmg
+        env:
+          VERCEL_BLOB_TOKEN: ${{ secrets.VERCEL_BLOB_TOKEN }}
 
       - name: Create release notes
         run: |
@@ -179,33 +165,14 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: List generated files
-        shell: bash
-        run: |
-          echo "Contents of out/make:"
-          ls -la out/make/
-          echo ""
-          echo "Contents of out/make/squirrel.windows:"
-          ls -la out/make/squirrel.windows/
-          echo ""
-          echo "Contents of out/make/squirrel.windows/x64:"
-          ls -la out/make/squirrel.windows/x64/
-
       - name: Upload Windows Setup to Vercel Blob
         shell: bash
         run: |
-          FILENAME="mMpro3-v${{ steps.version.outputs.version }}.exe"
           SETUP_PATH=$(find out/make/squirrel.windows/x64 -name "*Setup.exe" | head -n 1)
           echo "Found Setup.exe at: $SETUP_PATH"
           
-          curl -X PUT "https://blob.vercel-storage.com/$FILENAME" \
-            -H "Authorization: Bearer ${{ secrets.VERCEL_BLOB_TOKEN }}" \
-            -H "Content-Type: application/x-msdownload" \
-            -H "Cache-Control: no-cache, max-age=0" \
-            -H "x-vercel-cache-control: max-age=0" \
-            --data-binary @"$SETUP_PATH" \
-            -o upload-response-win.json
-          
-          REAL_URL=$(node -p "JSON.parse(require('fs').readFileSync('upload-response-win.json', 'utf8')).url")
-          echo "✅ Windows Setup uploaded successfully!"
-          echo "🪟 Download URL: $REAL_URL"
+          node scripts/upload-to-vercel.js \
+            "$SETUP_PATH" \
+            mMpro3-v${{ steps.version.outputs.version }}.exe
+        env:
+          VERCEL_BLOB_TOKEN: ${{ secrets.VERCEL_BLOB_TOKEN }}
