@@ -323,8 +323,8 @@ fn create_video_frame(text: &str, sample_rate: u32, channels: u32, elapsed_secs:
     let dark_blue = Rgba([15u8, 25u8, 60u8, 255u8]); // RGB: 15, 25, 60 (dark blue)
     let mut img = RgbaImage::from_pixel(WIDTH, HEIGHT, dark_blue);
     
-    // Load embedded font (use system font)
-    let font_data = include_bytes!("/System/Library/Fonts/Helvetica.ttc");
+    // Load embedded font (cross-platform Roboto font)
+    let font_data = include_bytes!("../assets/Roboto-Regular.ttf");
     let font = match FontRef::try_from_slice(font_data) {
         Ok(f) => f,
         Err(_) => {
