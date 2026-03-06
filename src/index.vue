@@ -90,7 +90,7 @@
       @apply="handleAudioConfigApply" @open-ndi="handleOpenNDI" />
     
     <!-- NDI Stream Modal -->
-    <NDIStreamModal :is-open="showNDIModal" @close="showNDIModal = false" />
+    <NDIStreamModal :is-open="showNDIModal" @close="showNDIModal = false" :subgroups="subgroups" />
     
     <Recorder v-model="showRecorder" :master-level-left="audioEngineState.masterLevels.left"
       :master-level-right="audioEngineState.masterLevels.right" :recording-time="recordingTime"

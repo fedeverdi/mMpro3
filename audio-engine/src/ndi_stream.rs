@@ -11,31 +11,29 @@ use crate::ndi_ffi::NdiSender;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NdiSource {
     Master,
-    Subgroup1,
-    Subgroup2,
-    Subgroup3,
-    Subgroup4,
+    Subgroup(usize), // Dynamic subgroup ID
 }
 
 impl NdiSource {
     pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "master" => Some(NdiSource::Master),
-            "subgroup1" => Some(NdiSource::Subgroup1),
-            "subgroup2" => Some(NdiSource::Subgroup2),
-            "subgroup3" => Some(NdiSource::Subgroup3),
-            "subgroup4" => Some(NdiSource::Subgroup4),
-            _ => None,
+        if s == "master" {
+            return Some(NdiSource::Master);
         }
+        
+        // Parse "subgroupN" format
+        if s.starts_with("subgroup") {
+            if let Ok(id) = s[8..].parse::<usize>() {
+                return Some(NdiSource::Subgroup(id));
+            }
+        }
+        
+        None
     }
 
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> String {
         match self {
-            NdiSource::Master => "master",
-            NdiSource::Subgroup1 => "subgroup1",
-            NdiSource::Subgroup2 => "subgroup2",
-            NdiSource::Subgroup3 => "subgroup3",
-            NdiSource::Subgroup4 => "subgroup4",
+            NdiSource::Master => "master".to_string(),
+            NdiSource::Subgroup(id) => format!("subgroup{}", id),
         }
     }
 }

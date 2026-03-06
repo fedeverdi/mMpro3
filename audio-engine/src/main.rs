@@ -957,30 +957,11 @@ impl AudioEngine {
                                     // Use last_master_output which has the final processed audio
                                     router.last_master_output
                                 },
-                                ndi_stream::NdiSource::Subgroup1 => {
-                                    if router.last_subgroup_outputs.len() > 0 {
-                                        router.last_subgroup_outputs[0]
-                                    } else {
-                                        (0.0, 0.0)
-                                    }
-                                },
-                                ndi_stream::NdiSource::Subgroup2 => {
-                                    if router.last_subgroup_outputs.len() > 1 {
-                                        router.last_subgroup_outputs[1]
-                                    } else {
-                                        (0.0, 0.0)
-                                    }
-                                },
-                                ndi_stream::NdiSource::Subgroup3 => {
-                                    if router.last_subgroup_outputs.len() > 2 {
-                                        router.last_subgroup_outputs[2]
-                                    } else {
-                                        (0.0, 0.0)
-                                    }
-                                },
-                                ndi_stream::NdiSource::Subgroup4 => {
-                                    if router.last_subgroup_outputs.len() > 3 {
-                                        router.last_subgroup_outputs[3]
+                                ndi_stream::NdiSource::Subgroup(id) => {
+                                    // Find subgroup by ID (IDs are 1-based, array is 0-based)
+                                    let idx = id.saturating_sub(1);
+                                    if idx < router.last_subgroup_outputs.len() {
+                                        router.last_subgroup_outputs[idx]
                                     } else {
                                         (0.0, 0.0)
                                     }

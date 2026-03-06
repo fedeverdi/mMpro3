@@ -122,11 +122,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useNDI, type NdiSource } from '@/composables/useNDI'
+
+interface Subgroup {
+  id: number
+  name: string
+  volume: number
+  routeToMaster: boolean
+}
 
 interface Props {
   isOpen: boolean
+  subgroups: Subgroup[]
 }
 
 const props = defineProps<Props>()
@@ -154,13 +162,20 @@ watch(videoText, (newText) => {
   localVideoText.value = newText
 })
 
-const availableSources = [
-  { value: 'master' as NdiSource, label: 'Master' },
-  { value: 'subgroup1' as NdiSource, label: 'Subgroup 1' },
-  { value: 'subgroup2' as NdiSource, label: 'Subgroup 2' },
-  { value: 'subgroup3' as NdiSource, label: 'Subgroup 3' },
-  { value: 'subgroup4' as NdiSource, label: 'Subgroup 4' },
-]
+// Generate available sources dynamically based on subgroups
+const availableSources = computed(() => {
+  const sources = [{ value: 'master' as NdiSource, label: 'Master' }]
+  
+  // Add all existing subgroups
+  props.subgroups.forEach((subgroup) => {
+    sources.push({
+      value: `subgroup${subgroup.id}` as NdiSource,
+      label: subgroup.name
+    })
+  })
+  
+  return sources
+})
 
 function close() {
   emit('close')
