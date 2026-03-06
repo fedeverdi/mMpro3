@@ -84,17 +84,38 @@ fn load_ndi_lib() -> Option<&'static Library> {
     NDI_LIB.get_or_init(|| {
         // Get executable directory to find bundled library
         let mut paths = vec![];
+        
+        // Platform-specific library names and paths
+        #[cfg(target_os = "macos")]
+        const LIB_NAME: &str = "libndi.dylib";
+        #[cfg(target_os = "macos")]
+        const NATIVE_LIBS_PATH: &str = "native-libs/macos";
+        
+        #[cfg(target_os = "windows")]
+        #[cfg(target_arch = "x86_64")]
+        const LIB_NAME: &str = "Processing.NDI.Lib.x64.dll";
+        #[cfg(target_os = "windows")]
+        #[cfg(target_arch = "x86")]
+        const LIB_NAME: &str = "Processing.NDI.Lib.x86.dll";
+        #[cfg(target_os = "windows")]
+        const NATIVE_LIBS_PATH: &str = "native-libs/windows";
+        
         if let Ok(exe_path) = std::env::current_exe() {
             if let Some(exe_dir) = exe_path.parent() {
-                // macOS app bundle: MMpro3.app/Contents/Resources/libndi.dylib
-                paths.push(exe_dir.join("libndi.dylib").to_string_lossy().to_string());
-                // Also check in Resources folder
-                paths.push(exe_dir.join("../Resources/libndi.dylib").to_string_lossy().to_string());
+                // App bundle / installed location
+                paths.push(exe_dir.join(LIB_NAME).to_string_lossy().to_string());
+                
+                #[cfg(target_os = "macos")]
+                {
+                    // Also check in Resources folder on macOS
+                    paths.push(exe_dir.join("../Resources").join(LIB_NAME).to_string_lossy().to_string());
+                }
             }
         }
+        
         // Development: check project root
-        paths.push("./native-libs/macos/libndi.dylib".to_string());
-        paths.push("../native-libs/macos/libndi.dylib".to_string());
+        paths.push(format!("./{}/{}", NATIVE_LIBS_PATH, LIB_NAME));
+        paths.push(format!("../{}/{}", NATIVE_LIBS_PATH, LIB_NAME));
         
         for path in paths {
             if let Ok(lib) = unsafe { Library::new(&path) } {
