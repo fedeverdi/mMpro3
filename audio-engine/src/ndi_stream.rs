@@ -370,7 +370,7 @@ fn create_video_frame(text: &str) -> Vec<u8> {
 }
 
 /// NDI sender thread - custom FFI implementation
-fn ndi_sender_thread(stream_name: String, rx: Receiver<AudioFrame>) {
+fn ndi_sender_thread(stream_name: String, rx: Receiver<AudioFrame>, video_text: Arc<Mutex<String>>) {
     eprintln!("[NDI Thread] Initializing NDI...");
     
     // Create NDI sender
@@ -391,7 +391,7 @@ fn ndi_sender_thread(stream_name: String, rx: Receiver<AudioFrame>) {
             eprintln!("[NDI Thread] Falling back to simulation mode...");
             
             // Fallback
-            simulate_ndi_sender(stream_name, rx);
+            simulate_ndi_sender(stream_name, rx, video_text);
             return;
         }
     };
@@ -478,7 +478,7 @@ fn ndi_sender_thread(stream_name: String, rx: Receiver<AudioFrame>) {
 }
 
 /// Simulation mode fallback when NDI SDK is not available
-fn simulate_ndi_sender(stream_name: String, rx: Receiver<AudioFrame>) {
+fn simulate_ndi_sender(stream_name: String, rx: Receiver<AudioFrame>, _video_text: Arc<Mutex<String>>) {
     eprintln!("[NDI Thread] Simulation mode: streaming audio from '{}'", stream_name);
     
     // Statistics

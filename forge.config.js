@@ -55,6 +55,28 @@ module.exports = {
           return;
         }
         
+        // Copy NDI library on macOS
+        if (platform === 'darwin') {
+          const ndiLibSource = path.join(__dirname, 'native-libs', 'macos', 'libndi.dylib');
+          const ndiLibDest = path.join(buildPath, '..', 'libndi.dylib');
+          
+          console.log('[Packager] Copying NDI library from:', ndiLibSource);
+          console.log('[Packager] To:', ndiLibDest);
+          
+          if (fs.existsSync(ndiLibSource)) {
+            try {
+              fs.copyFileSync(ndiLibSource, ndiLibDest);
+              console.log('[Packager] ✅ NDI library copied');
+            } catch (error) {
+              console.error('[Packager] ⚠ Failed to copy NDI library:', error);
+              console.error('[Packager] App will fallback to system NDI installation');
+            }
+          } else {
+            console.log('[Packager] ⚠ NDI library not found at:', ndiLibSource);
+            console.log('[Packager] App will use system NDI installation if available');
+          }
+        }
+        
         callback();
       }
     ]

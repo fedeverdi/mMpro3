@@ -2511,12 +2511,8 @@ impl AudioEngine {
                 }
             },
             Command::SetNdiVideoText { text } => {
-                match self.ndi_stream.set_video_text(text) {
-                    Ok(_) => None, // Silent success
-                    Err(e) => Some(Response::Error {
-                        message: format!("Failed to set NDI video text: {}", e),
-                    }),
-                }
+                self.ndi_stream.set_video_text(text);
+                None // Silent success
             },
         }
     }
