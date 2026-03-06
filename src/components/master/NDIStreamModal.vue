@@ -8,10 +8,11 @@
       <div class="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 to-gray-800 p-6 shadow-2xl border border-gray-700">
         <!-- Header -->
         <div class="mb-6 flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
-            <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-            </svg>
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center p-1.5">
+            <img 
+              src="@/assets/ndi_logo.png" 
+              class="w-full h-full object-contain invert"
+              alt="NDI" />
           </div>
           <h2 class="text-2xl font-bold text-white">NDI Stream Settings</h2>
         </div>

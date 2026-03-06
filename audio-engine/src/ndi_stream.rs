@@ -132,7 +132,6 @@ impl NdiStream {
     pub fn set_video_text(&self, text: String) {
         if let Ok(mut video_text) = self.video_text.lock() {
             *video_text = text;
-            eprintln!("[NDI] Video text updated");
         }
     }
 
@@ -313,8 +312,8 @@ impl Drop for NdiStream {
     }
 }
 
-/// Create a static video frame (1920x1080) with MMpro3 icon centered
-fn create_video_frame(text: &str) -> Vec<u8> {
+/// Create a static video frame (1920x1080) with custom text and audio info
+fn create_video_frame(text: &str, sample_rate: u32, channels: u32, elapsed_secs: f64, frame_count: u64) -> Vec<u8> {
     use image::{Rgba, RgbaImage};
     use imageproc::drawing::draw_text_mut;
     use ab_glyph::{FontRef, PxScale};
@@ -349,11 +348,44 @@ fn create_video_frame(text: &str) -> Vec<u8> {
     let scale = PxScale::from(120.0);
     let white = Rgba([255u8, 255u8, 255u8, 255u8]);
     
-    // Calculate text position (approximate centering)
-    let text_x = (WIDTH / 2) - 180; // Approximate centering
+    // Calculate text width for proper centering
+    use ab_glyph::{Font, ScaleFont};
+    let scaled_font = font.as_scaled(scale);
+    
+    let mut text_width = 0.0f32;
+    let mut prev_glyph_id = None;
+    
+    for c in text.chars() {
+        let glyph_id = font.glyph_id(c);
+        let advance_width = scaled_font.h_advance(glyph_id);
+        
+        // Add kerning if available
+        if let Some(prev) = prev_glyph_id {
+            text_width += scaled_font.kern(prev, glyph_id);
+        }
+        
+        text_width += advance_width;
+        prev_glyph_id = Some(glyph_id);
+    }
+    
+    // Center the text
+    let text_x = ((WIDTH as f32 - text_width) / 2.0).max(0.0);
     let text_y = (HEIGHT / 2) - 60;
     
     draw_text_mut(&mut img, white, text_x as i32, text_y as i32, scale, &font, text);
+    
+    // Draw footer with audio stream info
+    let footer_scale = PxScale::from(24.0);
+    let gray = Rgba([180u8, 180u8, 180u8, 255u8]);
+    
+    let status_text = format!(
+        "🔴 STREAMING  |  {}ch @ {}Hz  |  {} frames  |  {:.1}s",
+        channels, sample_rate, frame_count, elapsed_secs
+    );
+    let footer_y = HEIGHT - 50;
+    let footer_x = 40;
+    
+    draw_text_mut(&mut img, gray, footer_x, footer_y as i32, footer_scale, &font, &status_text);
     
     // Convert RGBA to BGRA (NDI expects BGRA)
     let mut bgra_frame = vec![0u8; (WIDTH * HEIGHT * 4) as usize];
@@ -365,7 +397,6 @@ fn create_video_frame(text: &str) -> Vec<u8> {
         bgra_frame[idx + 3] = pixel[3]; // A
     }
     
-    eprintln!("[NDI Video] ✓ Created 1920x1080 dark blue frame with 'MMpro3' text");
     bgra_frame
 }
 
@@ -401,7 +432,7 @@ fn ndi_sender_thread(stream_name: String, rx: Receiver<AudioFrame>, video_text: 
         eprintln!("[NDI Thread] Warning: video_text mutex poisoned, using default");
         e.into_inner()
     }).clone();
-    let video_frame = create_video_frame(&text);
+    let mut video_frame = create_video_frame(&text, 48000, 2, 0.0, 0);
     let width = 1920i32;
     let height = 1080i32;
     eprintln!("[NDI Thread] Video frame ready with text '{}' ({} bytes)", text, video_frame.len());
@@ -435,6 +466,8 @@ fn ndi_sender_thread(stream_name: String, rx: Receiver<AudioFrame>, video_text: 
     let mut video_frame_count = 0u64;
     let start_time = std::time::Instant::now();
     let mut last_video_time = start_time;
+    let mut last_video_update = start_time; // Track when to regenerate video frame
+    let mut current_text = text.clone();
     
     eprintln!("[NDI Thread] Ready to stream audio + video...");
     
@@ -453,8 +486,21 @@ fn ndi_sender_thread(stream_name: String, rx: Receiver<AudioFrame>, video_text: 
         // Send audio to NDI (interleaved stereo float32)
         sender.send_audio(&audio_frame.samples, sample_rate as i32, 2);
         
-        // Send black video frame at 10fps so NDI monitor shows something
+        // Check if video text has changed and update frame if needed
         let now = std::time::Instant::now();
+        let elapsed = now.duration_since(start_time).as_secs_f64();
+        
+        if now.duration_since(last_video_update).as_secs() >= 1 {
+            let new_text = video_text.lock().unwrap().clone();
+            if new_text != current_text {
+                current_text = new_text.clone();
+            }
+            // Always regenerate to update stats
+            video_frame = create_video_frame(&current_text, sample_rate, 2, elapsed, frame_count);
+            last_video_update = now;
+        }
+        
+        // Send black video frame at 10fps so NDI monitor shows something
         if now.duration_since(last_video_time).as_millis() >= 100 {
             sender.send_video(&video_frame, width, height, 10, 1);
             video_frame_count += 1;
