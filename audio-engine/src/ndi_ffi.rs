@@ -83,33 +83,18 @@ type NDIlib_util_send_send_audio_interleaved_32f_fn = unsafe extern "C" fn(*mut 
 fn load_ndi_lib() -> Option<&'static Library> {
     NDI_LIB.get_or_init(|| {
         // Get executable directory to find bundled library
-        let mut bundled_paths = vec![];
+        let mut paths = vec![];
         if let Ok(exe_path) = std::env::current_exe() {
             if let Some(exe_dir) = exe_path.parent() {
                 // macOS app bundle: MMpro3.app/Contents/Resources/libndi.dylib
-                bundled_paths.push(exe_dir.join("libndi.dylib").to_string_lossy().to_string());
+                paths.push(exe_dir.join("libndi.dylib").to_string_lossy().to_string());
                 // Also check in Resources folder
-                bundled_paths.push(exe_dir.join("../Resources/libndi.dylib").to_string_lossy().to_string());
+                paths.push(exe_dir.join("../Resources/libndi.dylib").to_string_lossy().to_string());
             }
         }
         // Development: check project root
-        bundled_paths.push("./native-libs/macos/libndi.dylib".to_string());
-        bundled_paths.push("../native-libs/macos/libndi.dylib".to_string());
-        
-        // Try different possible locations for NDI library on macOS
-        let mut paths = bundled_paths;
-        paths.extend(vec![
-            // Standard locations
-            "/usr/local/lib/libndi.dylib".to_string(),
-            "/Library/NDI SDK for Apple/lib/macOS/libndi.dylib".to_string(),
-            "/Library/Application Support/NewTek/NDI/libndi.dylib".to_string(),
-            // CoreMediaIO plugin (installed with NDI Tools)
-            "/Library/CoreMediaIO/Plug-Ins/DAL/NDIVideoOut.plugin/Contents/Frameworks/libndi.dylib".to_string(),
-            // Adobe plugin location
-            "/Library/Application Support/Adobe/Common/Plug-ins/7.0/MediaCore/NDI_Transmit_AdobeCC.bundle/Contents/Frameworks/libndi.dylib".to_string(),
-            // System library path
-            "libndi.dylib".to_string(),
-        ]);
+        paths.push("./native-libs/macos/libndi.dylib".to_string());
+        paths.push("../native-libs/macos/libndi.dylib".to_string());
         
         for path in paths {
             if let Ok(lib) = unsafe { Library::new(&path) } {
