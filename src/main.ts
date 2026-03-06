@@ -381,6 +381,27 @@ ipcMain.handle('audio-engine:set-master-limiter', async (_, enabled: boolean, ce
   await sendCommandToEngine({ type: 'set_master_limiter', enabled, ceiling, release })
 })
 
+// NDI Streaming handlers
+ipcMain.handle('audio-engine:start-ndi', async (_, streamName: string, source: string) => {
+  await sendCommandToEngine({ type: 'start_ndi', stream_name: streamName, source })
+})
+
+ipcMain.handle('audio-engine:stop-ndi', async () => {
+  await sendCommandToEngine({ type: 'stop_ndi' })
+})
+
+ipcMain.handle('audio-engine:set-ndi-source', async (_, source: string) => {
+  await sendCommandToEngine({ type: 'set_ndi_source', source })
+})
+
+ipcMain.handle('audio-engine:set-ndi-name', async (_, name: string) => {
+  await sendCommandToEngine({ type: 'set_ndi_name', name })
+})
+
+ipcMain.handle('audio-engine:set-master-limiter-old', async (_, enabled: boolean, ceiling: number, release: number) => {
+  await sendCommandToEngine({ type: 'set_master_limiter', enabled, ceiling, release })
+})
+
 ipcMain.handle('audio-engine:set-master-delay', async (_, enabled: boolean, timeL: number, timeR: number, feedback: number, mix: number) => {
   await sendCommandToEngine({ type: 'set_master_delay', enabled, time_l: timeL, time_r: timeR, feedback, mix })
 })

@@ -65,6 +65,34 @@
           </div>
         </div>
 
+        <!-- NDI Streaming Section -->
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-3">
+            NDI Audio Streaming
+          </label>
+          <button
+            @click="openNDISettings"
+            class="w-full px-4 py-3 rounded-lg border-2 border-purple-600 bg-purple-900/20 hover:bg-purple-900/40 transition-all"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                  <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                  </svg>
+                </div>
+                <div class="text-left">
+                  <div class="font-semibold text-white">Configure NDI Stream</div>
+                  <div class="text-xs text-gray-400">Stream audio over network via NDI protocol</div>
+                </div>
+              </div>
+              <svg class="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+        </div>
+
         <!-- Info Box -->
         <div class="bg-blue-900/30 border border-blue-700/50 rounded-lg p-4">
           <div class="text-sm text-blue-200">
@@ -115,6 +143,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   apply: [config: { sampleRate: number; bufferSize: number }]
+  'open-ndi': []
 }>()
 
 const sampleRates = [
@@ -136,6 +165,11 @@ const selectedBufferSize = ref(256)
 
 const close = () => {
   emit('close')
+}
+
+const openNDISettings = () => {
+  emit('open-ndi')
+  close()
 }
 
 const apply = () => {

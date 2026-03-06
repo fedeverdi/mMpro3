@@ -98,7 +98,7 @@ import Knob from '../core/Knob.vue'
 import OutputSelector from './OutputSelector.vue'
 
 interface Props {
-  devices: MediaDeviceInfo[]
+  devices: any[]
   selectedDeviceId: string | null
   volume: number
   level: number

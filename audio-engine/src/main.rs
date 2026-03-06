@@ -25,10 +25,13 @@ mod reverb;
 mod routing;
 mod signal_gen;
 mod track;
+mod ndi_ffi;
+mod ndi_stream;
 
 use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
 use routing::Router;
 use signal_gen::WaveformType;
+use ndi_stream::{NdiStream, NdiSource};
 
 /// Parametric filter specification from frontend
 #[derive(Debug, Deserialize, Clone)]
@@ -337,6 +340,19 @@ enum Command {
     ListDevices,
     #[serde(rename = "list_audio_inputs")]
     ListAudioInputs,
+
+    // NDI Streaming
+    #[serde(rename = "start_ndi")]
+    StartNdi { 
+        stream_name: String,
+        source: String, // "master", "subgroup1", "subgroup2", etc.
+    },
+    #[serde(rename = "stop_ndi")]
+    StopNdi,
+    #[serde(rename = "set_ndi_source")]
+    SetNdiSource { source: String },
+    #[serde(rename = "set_ndi_name")]
+    SetNdiName { name: String },
 }
 
 /// Risposta inviata a Electron via stdout
@@ -579,6 +595,7 @@ struct AudioEngine {
     recording_bit_depth: Arc<Mutex<u32>>, // Recording bit depth (16, 24, or 32)
     recording_format: Arc<Mutex<String>>, // Recording format ("wav", "mp3", "opus")
     output_sender: mpsc::SyncSender<String>, // Non-blocking channel for sending updates to frontend
+    ndi_stream: Arc<NdiStream>, // NDI audio streaming
 }
 
 impl AudioEngine {
@@ -611,6 +628,8 @@ impl AudioEngine {
             eprintln!("[AudioEngine] Output thread terminated");
         });
 
+        let ndi_stream = Arc::new(NdiStream::new());
+
         Self {
             audio_io,
             router,
@@ -634,6 +653,7 @@ impl AudioEngine {
             recording_bit_depth,
             recording_format,
             output_sender,
+            ndi_stream,
         }
     }
 
@@ -806,6 +826,9 @@ impl AudioEngine {
             }
         }
 
+        // Update NDI stream sample rate
+        let _ = self.ndi_stream.set_sample_rate(self.sample_rate);
+
         let input_channels = 2; // Default stereo (not used since input is disabled)
 
         let err_fn = |err| eprintln!("[Engine] Stream error: {}", err);
@@ -848,6 +871,7 @@ impl AudioEngine {
         let recording_last_stats_time = Arc::clone(&self.recording_last_stats_time);
         let recording_path = Arc::clone(&self.recording_path);
         let recording_bit_depth = Arc::clone(&self.recording_bit_depth);
+        let ndi_stream = Arc::clone(&self.ndi_stream);
         
         // Clone output sender for non-blocking updates
         let output_sender = self.output_sender.clone();
@@ -916,6 +940,54 @@ impl AudioEngine {
                                     tap_buffer.push(master_right.clamp(-1.0, 1.0));
                                 }
                             }
+                        }
+
+                        // Send audio to NDI stream (if active)
+                        // Get the selected source audio
+                        if ndi_stream.is_active() {
+                            use std::sync::atomic::{AtomicBool, AtomicU64, Ordering as AtomicOrdering};
+                            static NDI_FIRST_SAMPLE: AtomicBool = AtomicBool::new(true);
+                            static NDI_SAMPLE_COUNT: AtomicU64 = AtomicU64::new(0);
+                            
+                            let ndi_source = ndi_stream.get_source();
+                            let (ndi_l, ndi_r) = match ndi_source {
+                                ndi_stream::NdiSource::Master => {
+                                    // Use last_master_output which has the final processed audio
+                                    router.last_master_output
+                                },
+                                ndi_stream::NdiSource::Subgroup1 => {
+                                    if router.last_subgroup_outputs.len() > 0 {
+                                        router.last_subgroup_outputs[0]
+                                    } else {
+                                        (0.0, 0.0)
+                                    }
+                                },
+                                ndi_stream::NdiSource::Subgroup2 => {
+                                    if router.last_subgroup_outputs.len() > 1 {
+                                        router.last_subgroup_outputs[1]
+                                    } else {
+                                        (0.0, 0.0)
+                                    }
+                                },
+                                ndi_stream::NdiSource::Subgroup3 => {
+                                    if router.last_subgroup_outputs.len() > 2 {
+                                        router.last_subgroup_outputs[2]
+                                    } else {
+                                        (0.0, 0.0)
+                                    }
+                                },
+                                ndi_stream::NdiSource::Subgroup4 => {
+                                    if router.last_subgroup_outputs.len() > 3 {
+                                        router.last_subgroup_outputs[3]
+                                    } else {
+                                        (0.0, 0.0)
+                                    }
+                                },
+                            };
+                            
+                            // Send stereo pair to NDI
+                            let ndi_samples = [ndi_l.clamp(-1.0, 1.0), ndi_r.clamp(-1.0, 1.0)];
+                            let _ = ndi_stream.send_audio(&ndi_samples);
                         }
 
                         // Initialize output frame to silence
@@ -2382,6 +2454,58 @@ impl AudioEngine {
                             message: format!("Failed to list audio inputs: {}", e),
                         })
                     },
+                }
+            },
+            
+            // NDI Streaming commands
+            Command::StartNdi { stream_name, source } => {
+                match NdiSource::from_str(&source) {
+                    Some(ndi_source) => {
+                        match self.ndi_stream.start(stream_name, ndi_source) {
+                            Ok(_) => Some(Response::Ok {
+                                message: "NDI stream started".to_string(),
+                            }),
+                            Err(e) => Some(Response::Error {
+                                message: format!("Failed to start NDI: {}", e),
+                            }),
+                        }
+                    }
+                    None => Some(Response::Error {
+                        message: format!("Invalid NDI source: {}", source),
+                    }),
+                }
+            },
+            Command::StopNdi => {
+                match self.ndi_stream.stop() {
+                    Ok(_) => Some(Response::Ok {
+                        message: "NDI stream stopped".to_string(),
+                    }),
+                    Err(e) => Some(Response::Error {
+                        message: format!("Failed to stop NDI: {}", e),
+                    }),
+                }
+            },
+            Command::SetNdiSource { source } => {
+                match NdiSource::from_str(&source) {
+                    Some(ndi_source) => {
+                        match self.ndi_stream.set_source(ndi_source) {
+                            Ok(_) => None, // Silent success
+                            Err(e) => Some(Response::Error {
+                                message: format!("Failed to set NDI source: {}", e),
+                            }),
+                        }
+                    }
+                    None => Some(Response::Error {
+                        message: format!("Invalid NDI source: {}", source),
+                    }),
+                }
+            },
+            Command::SetNdiName { name } => {
+                match self.ndi_stream.set_stream_name(name) {
+                    Ok(_) => None, // Silent success
+                    Err(e) => Some(Response::Error {
+                        message: format!("Failed to set NDI name: {}", e),
+                    }),
                 }
             },
         }

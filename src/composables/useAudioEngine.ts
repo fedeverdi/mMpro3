@@ -593,6 +593,11 @@ export const useAudioEngine = () => {
     getInputDevices,
     getOutputDevices,
     showOpenFileDialog: () => window.audioEngine.showOpenFileDialog(),
-    readFileAsBuffer: (filePath: string) => window.audioEngine.readFileAsBuffer(filePath)
+    readFileAsBuffer: (filePath: string) => window.audioEngine.readFileAsBuffer(filePath),
+    // NDI Streaming
+    startNdi: (streamName: string, source: string) => window.audioEngine.startNdi(streamName, source),
+    stopNdi: () => window.audioEngine.stopNdi(),
+    setNdiSource: (source: string) => window.audioEngine.setNdiSource(source),
+    setNdiName: (name: string) => window.audioEngine.setNdiName(name)
   }
 }

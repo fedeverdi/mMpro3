@@ -28,3 +28,14 @@ hound = "3.5"
 
 # FFT for spectrum analysis
 rustfft = "6.2"
+
+# Channel for audio streaming to NDI thread
+crossbeam-channel = "0.5"
+
+# Dynamic library loading for NDI
+libloading = "0.8"
+
+# Image loading for NDI video frame
+image = "0.25"
+imageproc = "0.25"
+ab_glyph = "0.2"

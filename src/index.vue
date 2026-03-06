@@ -74,7 +74,9 @@
         <!-- Master Section -->
         <div class="flex-shrink-0 h-full mixer-fade-in">
           <MasterSection ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode"
-            :master-fx-component="masterFxComponent" :is-recording="isRecording" @open-recorder="showRecorder = true" />
+            :master-fx-component="masterFxComponent" :is-recording="isRecording" 
+            @open-recorder="showRecorder = true"
+            @open-ndi="showNDIModal = true" />
         </div>
       </div>
     </main>
@@ -85,7 +87,11 @@
 
     <!-- Audio Settings Modal -->
     <AudioSettingsModal :is-open="showAudioSettings" @close="showAudioSettings = false"
-      @apply="handleAudioConfigApply" />
+      @apply="handleAudioConfigApply" @open-ndi="handleOpenNDI" />
+    
+    <!-- NDI Stream Modal -->
+    <NDIStreamModal :is-open="showNDIModal" @close="showNDIModal = false" />
+    
     <Recorder v-model="showRecorder" :master-level-left="audioEngineState.masterLevels.left"
       :master-level-right="audioEngineState.masterLevels.right" :recording-time="recordingTime"
       :recording-file-size="recordingFileSize" :available-disk-space="availableDiskSpace"
@@ -157,6 +163,7 @@ import AudioTrack from './components/AudioTrack.vue'
 import SignalTrack from './components/SignalTrack.vue'
 import AudioFlowModal from './components/layout/AudioFlowModal.vue'
 import AudioSettingsModal from './components/layout/AudioSettingsModal.vue'
+import NDIStreamModal from './components/master/NDIStreamModal.vue'
 import FileManagerModal from './components/layout/FileManagerModal.vue'
 import RightSection from './components/master/RightSection.vue'
 import MasterSection from './components/MasterSection.vue'
@@ -262,6 +269,7 @@ const showAudioFlowModal = ref(false)
 const showScenesModal = ref(false)
 const showFileManager = ref(false)
 const showAudioSettings = ref(false)
+const showNDIModal = ref(false)
 const showRecorder = ref(false)
 const isRecording = ref(false)
 const showLimitModal = ref(false)
@@ -1296,6 +1304,11 @@ async function handleAudioConfigApply(config: { sampleRate: number; bufferSize: 
   }
 
   console.log('[App] Audio config applied successfully')
+}
+
+// Handle NDI modal open from audio settings
+function handleOpenNDI() {
+  showNDIModal.value = true
 }
 
 // Initialize audio
