@@ -398,6 +398,10 @@ ipcMain.handle('audio-engine:set-ndi-name', async (_, name: string) => {
   await sendCommandToEngine({ type: 'set_ndi_name', name })
 })
 
+ipcMain.handle('audio-engine:set-ndi-video-text', async (_, text: string) => {
+  await sendCommandToEngine({ type: 'set_ndi_video_text', text })
+})
+
 ipcMain.handle('audio-engine:set-master-limiter-old', async (_, enabled: boolean, ceiling: number, release: number) => {
   await sendCommandToEngine({ type: 'set_master_limiter', enabled, ceiling, release })
 })

@@ -353,6 +353,8 @@ enum Command {
     SetNdiSource { source: String },
     #[serde(rename = "set_ndi_name")]
     SetNdiName { name: String },
+    #[serde(rename = "set_ndi_video_text")]
+    SetNdiVideoText { text: String },
 }
 
 /// Risposta inviata a Electron via stdout
@@ -2505,6 +2507,14 @@ impl AudioEngine {
                     Ok(_) => None, // Silent success
                     Err(e) => Some(Response::Error {
                         message: format!("Failed to set NDI name: {}", e),
+                    }),
+                }
+            },
+            Command::SetNdiVideoText { text } => {
+                match self.ndi_stream.set_video_text(text) {
+                    Ok(_) => None, // Silent success
+                    Err(e) => Some(Response::Error {
+                        message: format!("Failed to set NDI video text: {}", e),
                     }),
                 }
             },

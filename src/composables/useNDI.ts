@@ -11,6 +11,7 @@ interface NdiConfig {
 const isStreaming = ref(false)
 const streamName = ref('MMpro3 Audio')
 const streamSource = ref<NdiSource>('master')
+const videoText = ref('MMpro3')
 
 export function useNDI() {
   const audioEngine = inject<any>('audioEngine', null)
@@ -97,6 +98,25 @@ export function useNDI() {
   }
 
   /**
+   * Update video frame text
+   */
+  async function setVideoText(text: string) {
+    if (!audioEngine) {
+      console.error('[NDI] Audio engine not available')
+      return
+    }
+    
+    try {
+      await audioEngine.setNdiVideoText(text)
+      videoText.value = text
+      console.log('[NDI] Video text updated:', text)
+    } catch (error) {
+      console.error('[NDI] Failed to update video text:', error)
+      throw error
+    }
+  }
+
+  /**
    * Toggle streaming on/off
    */
   async function toggleStreaming() {
@@ -112,6 +132,7 @@ export function useNDI() {
     isStreaming: computed(() => isStreaming.value),
     streamName: computed(() => streamName.value),
     streamSource: computed(() => streamSource.value),
+    videoText: computed(() => videoText.value),
     config,
 
     // Actions
@@ -119,6 +140,7 @@ export function useNDI() {
     stopStreaming,
     changeSource,
     setStreamName,
+    setVideoText,
     toggleStreaming,
   }
 }

@@ -33,6 +33,24 @@
           </p>
         </div>
 
+        <!-- Video Frame Text -->
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-300 mb-2">
+            Video Frame Text
+          </label>
+          <input
+            v-model="localVideoText"
+            type="text"
+            class="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+            placeholder="MMpro3"
+            maxlength="20"
+            @change="handleVideoTextChange"
+          />
+          <p class="text-xs text-gray-500 mt-1">
+            Text displayed on the video frame (max 20 characters)
+          </p>
+        </div>
+
         <!-- Audio Source Selection -->
         <div class="mb-6">
           <label class="block text-sm font-medium text-gray-300 mb-2">
@@ -115,11 +133,12 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
-const { isStreaming, streamName, streamSource, startStreaming, stopStreaming, changeSource, setStreamName } = useNDI()
+const { isStreaming, streamName, streamSource, videoText, startStreaming, stopStreaming, changeSource, setStreamName, setVideoText } = useNDI()
 
 // Local state for inputs
 const localStreamName = ref(streamName.value)
 const localSource = ref(streamSource.value)
+const localVideoText = ref(videoText.value)
 
 // Watch for external changes
 watch(streamName, (newName) => {
@@ -128,6 +147,10 @@ watch(streamName, (newName) => {
 
 watch(streamSource, (newSource) => {
   localSource.value = newSource
+})
+
+watch(videoText, (newText) => {
+  localVideoText.value = newText
 })
 
 const availableSources = [
@@ -145,6 +168,12 @@ function close() {
 async function handleNameChange() {
   if (localStreamName.value.trim()) {
     await setStreamName(localStreamName.value.trim())
+  }
+}
+
+async function handleVideoTextChange() {
+  if (localVideoText.value.trim()) {
+    await setVideoText(localVideoText.value.trim())
   }
 }
 

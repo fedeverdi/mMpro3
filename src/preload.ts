@@ -121,6 +121,7 @@ contextBridge.exposeInMainWorld('audioEngine', {
   stopNdi: () => ipcRenderer.invoke('audio-engine:stop-ndi'),
   setNdiSource: (source: string) => ipcRenderer.invoke('audio-engine:set-ndi-source', source),
   setNdiName: (name: string) => ipcRenderer.invoke('audio-engine:set-ndi-name', name),
+  setNdiVideoText: (text: string) => ipcRenderer.invoke('audio-engine:set-ndi-video-text', text),
   
   // Master Tap (Recording) - Rust saves WAV file directly
   enableMasterTap: (filePath: string, settings: {

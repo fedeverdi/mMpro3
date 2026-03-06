@@ -598,6 +598,7 @@ export const useAudioEngine = () => {
     startNdi: (streamName: string, source: string) => window.audioEngine.startNdi(streamName, source),
     stopNdi: () => window.audioEngine.stopNdi(),
     setNdiSource: (source: string) => window.audioEngine.setNdiSource(source),
-    setNdiName: (name: string) => window.audioEngine.setNdiName(name)
+    setNdiName: (name: string) => window.audioEngine.setNdiName(name),
+    setNdiVideoText: (text: string) => window.audioEngine.setNdiVideoText(text)
   }
 }

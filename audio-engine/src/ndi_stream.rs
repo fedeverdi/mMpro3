@@ -51,6 +51,7 @@ pub struct NdiStream {
     stream_name: Arc<Mutex<String>>,
     source: Arc<Mutex<NdiSource>>,
     sample_rate: Arc<Mutex<u32>>,
+    video_text: Arc<Mutex<String>>,
     
     // Channel to send audio to NDI thread (non-blocking from RT thread)
     audio_tx: Arc<Mutex<Option<Sender<AudioFrame>>>>,
@@ -72,6 +73,7 @@ impl NdiStream {
             stream_name: Arc::new(Mutex::new("MMpro3 Audio".to_string())),
             source: Arc::new(Mutex::new(NdiSource::Master)),
             sample_rate: Arc::new(Mutex::new(48000)),
+            video_text: Arc::new(Mutex::new("MMpro3".to_string())),
             audio_tx: Arc::new(Mutex::new(None)),
             ndi_thread: Arc::new(Mutex::new(None)),
             sample_buffer: Arc::new(Mutex::new(Vec::with_capacity(16384))),
@@ -126,16 +128,27 @@ impl NdiStream {
         }
     }
 
+    /// Set custom text for video frame
+    pub fn set_video_text(&self, text: String) {
+        if let Ok(mut video_text) = self.video_text.lock() {
+            *video_text = text;
+            eprintln!("[NDI] Video text updated");
+        }
+    }
+
     /// Internal: Start NDI sender thread
     fn start_ndi_sender(&self, stream_name: String) -> Result<(Sender<AudioFrame>, thread::JoinHandle<()>)> {
         // Create channel for audio frames with extra large capacity
         let (tx, rx): (Sender<AudioFrame>, Receiver<AudioFrame>) = bounded(128);
         
+        // Clone video_text Arc to pass to thread
+        let video_text = Arc::clone(&self.video_text);
+        
         // Spawn NDI sender thread
         let handle = thread::Builder::new()
             .name("ndi-sender".to_string())
             .spawn(move || {
-                ndi_sender_thread(stream_name, rx);
+                ndi_sender_thread(stream_name, rx, video_text);
             })
             .context("Failed to spawn NDI thread")?;
         
@@ -301,7 +314,7 @@ impl Drop for NdiStream {
 }
 
 /// Create a static video frame (1920x1080) with MMpro3 icon centered
-fn create_video_frame() -> Vec<u8> {
+fn create_video_frame(text: &str) -> Vec<u8> {
     use image::{Rgba, RgbaImage};
     use imageproc::drawing::draw_text_mut;
     use ab_glyph::{FontRef, PxScale};
@@ -332,9 +345,8 @@ fn create_video_frame() -> Vec<u8> {
         }
     };
     
-    // Draw "MMpro3" text in center
+    // Draw custom text in center
     let scale = PxScale::from(120.0);
-    let text = "MMpro3";
     let white = Rgba([255u8, 255u8, 255u8, 255u8]);
     
     // Calculate text position (approximate centering)
@@ -384,11 +396,15 @@ fn ndi_sender_thread(stream_name: String, rx: Receiver<AudioFrame>) {
         }
     };
     
-    // Create dark blue video frame with "MMpro3" text
-    let video_frame = create_video_frame();
+    // Create dark blue video frame with custom text
+    let text = video_text.lock().unwrap_or_else(|e| {
+        eprintln!("[NDI Thread] Warning: video_text mutex poisoned, using default");
+        e.into_inner()
+    }).clone();
+    let video_frame = create_video_frame(&text);
     let width = 1920i32;
     let height = 1080i32;
-    eprintln!("[NDI Thread] Video frame ready ({} bytes)", video_frame.len());
+    eprintln!("[NDI Thread] Video frame ready with text '{}' ({} bytes)", text, video_frame.len());
     
     // Send initial video frame first
     eprintln!("[NDI Thread] Sending initial video frame...");
