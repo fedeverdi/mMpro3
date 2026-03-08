@@ -65,6 +65,13 @@ export interface AudioEngineState {
     sideRms: number
     balance: number
   } | null
+  headroomData: {
+    peakL: number
+    peakR: number
+    headroomL: number
+    headroomR: number
+    headroomStereo: number
+  } | null
 }
 
 const state = ref<AudioEngineState>({
@@ -82,7 +89,8 @@ const state = ref<AudioEngineState>({
   loudnessData: null,
   dynamicRangeData: null,
   phaseCorrelationData: null,
-  stereoWidthData: null
+  stereoWidthData: null,
+  headroomData: null
 })
 
 let isListening = false
@@ -235,6 +243,17 @@ export const useAudioEngine = () => {
             midRms: response.mid_rms,
             sideRms: response.side_rms,
             balance: response.balance
+          }
+          break
+
+        case 'headroom':
+          // Update headroom measurements
+          state.value.headroomData = {
+            peakL: response.peak_l,
+            peakR: response.peak_r,
+            headroomL: response.headroom_l,
+            headroomR: response.headroom_r,
+            headroomStereo: response.headroom_stereo
           }
           break
 
@@ -641,6 +660,16 @@ export const useAudioEngine = () => {
     void window.audioEngine.resetStereoWidth()
   }
 
+  const getHeadroom = () => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    void window.audioEngine.getHeadroom()
+  }
+
+  const resetHeadroom = () => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    void window.audioEngine.resetHeadroom()
+  }
+
   onUnmounted(() => {
     if (state.value.isRunning) {
       stop()
@@ -723,6 +752,9 @@ export const useAudioEngine = () => {
     resetPhaseCorrelation,
     // Stereo Width metering (Master)
     getStereoWidth,
-    resetStereoWidth
+    resetStereoWidth,
+    // Headroom metering (Master)
+    getHeadroom,
+    resetHeadroom
   }
 }

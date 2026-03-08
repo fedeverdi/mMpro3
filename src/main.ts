@@ -474,6 +474,24 @@ ipcMain.handle('audio-engine:reset-stereo-width', async () => {
   await sendCommandToEngine({ type: 'reset_stereo_width' })
 })
 
+// Headroom metering (Master)
+ipcMain.handle('audio-engine:get-headroom', async () => {
+  try {
+    // Silently return null if engine not running (polling will retry)
+    if (!audioEngineProcess || !audioEngineProcess.stdin) {
+      return null
+    }
+    return await sendCommandAndWaitForResponse({ type: 'get_headroom' }, 'headroom')
+  } catch (error) {
+    // Silently ignore errors during polling
+    return null
+  }
+})
+
+ipcMain.handle('audio-engine:reset-headroom', async () => {
+  await sendCommandToEngine({ type: 'reset_headroom' })
+})
+
 ipcMain.handle('audio-engine:set-master-limiter-old', async (_, enabled: boolean, ceiling: number, release: number) => {
   await sendCommandToEngine({ type: 'set_master_limiter', enabled, ceiling, release })
 })

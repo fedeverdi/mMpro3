@@ -23,7 +23,7 @@
     <!-- Meters Container -->
     <div class="flex-1 p-0 overflow-y-auto flex flex-col" :class="{ 'space-y-2': !isCollapsed, 'space-y-1': isCollapsed }">
       <!-- LUFS Card -->
-      <div class="bg-gradient-to-b from-purple-900/20 to-gray-900 rounded-lg border-2 border-purple-600/50 p-2" :class="{ 'flex-1 h-0': isCollapsed }">
+      <div class="bg-gradient-to-b from-purple-900/20 to-gray-900 rounded-lg border-2 border-purple-600/50 p-2" :class="{ 'flex-1 min-h-0': isCollapsed }">
         <LoudnessMeter 
           v-show="audioEngine?.state.value.isRunning"
           :collapsed="isCollapsed"
@@ -45,7 +45,7 @@
       </div>
 
       <!-- Dynamic Range Card (always visible, changes layout based on collapsed state) -->
-      <div class="bg-gradient-to-b from-orange-900/20 to-gray-900 rounded-lg border-2 border-orange-600/50 p-2" :class="{ 'flex-1 h-0': isCollapsed }">
+      <div class="bg-gradient-to-b from-orange-900/20 to-gray-900 rounded-lg border-2 border-orange-600/50 p-2" :class="{ 'flex-1 min-h-0': isCollapsed }">
         <DynamicRangeMeter 
           v-show="audioEngine?.state.value.isRunning"
           :collapsed="isCollapsed"
@@ -69,7 +69,7 @@
       </div>
 
       <!-- Phase Correlation Card (always visible, changes layout based on collapsed state) -->
-      <div class="bg-gradient-to-b from-cyan-900/20 to-gray-900 rounded-lg border-2 border-cyan-600/50 p-2" :class="{ 'flex-1 h-0': isCollapsed }">
+      <div class="bg-gradient-to-b from-cyan-900/20 to-gray-900 rounded-lg border-2 border-cyan-600/50 p-2" :class="{ 'flex-1 min-h-0': isCollapsed }">
         <MasterPhaseCorrelationMeter 
           v-show="audioEngine?.state.value.isRunning"
           :collapsed="isCollapsed"
@@ -88,7 +88,7 @@
       </div>
 
       <!-- Stereo Width Card (always visible, changes layout based on collapsed state) -->
-      <div class="bg-gradient-to-b from-pink-900/20 to-gray-900 rounded-lg border-2 border-pink-600/50 p-2" :class="{ 'flex-1 h-0': isCollapsed }">
+      <div class="bg-gradient-to-b from-pink-900/20 to-gray-900 rounded-lg border-2 border-pink-600/50 p-2" :class="{ 'flex-1 min-h-0': isCollapsed }">
         <StereoWidthMeter 
           v-show="audioEngine?.state.value.isRunning"
           :collapsed="isCollapsed"
@@ -97,6 +97,28 @@
           :side-rms="stereoWidthData?.sideRms"
           :balance="stereoWidthData?.balance"
           @reset="resetStereoWidth"
+        />
+        
+        <!-- Engine not running message -->
+        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center" :class="{ 'h-full': isCollapsed, 'py-8': !isCollapsed }">
+          <div class="text-xs text-gray-500 text-center" :class="{ 'transform -rotate-90': isCollapsed }">
+            <div class="mb-2">⏸️</div>
+            <div v-if="!isCollapsed">Audio engine<br/>not running</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Headroom Card (always visible, changes layout based on collapsed state) -->
+      <div class="bg-gradient-to-b from-amber-900/20 to-gray-900 rounded-lg border-2 border-amber-600/50 p-2" :class="{ 'flex-1 min-h-0': isCollapsed }">
+        <HeadroomMeter 
+          v-show="audioEngine?.state.value.isRunning"
+          :collapsed="isCollapsed"
+          :peak-l="headroomData?.peakL"
+          :peak-r="headroomData?.peakR"
+          :headroom-l="headroomData?.headroomL"
+          :headroom-r="headroomData?.headroomR"
+          :headroom-stereo="headroomData?.headroomStereo"
+          @reset="resetHeadroom"
         />
         
         <!-- Engine not running message -->
@@ -117,6 +139,7 @@ import LoudnessMeter from './master/LoudnessMeter.vue'
 import DynamicRangeMeter from './master/DynamicRangeMeter.vue'
 import MasterPhaseCorrelationMeter from './master/MasterPhaseCorrelationMeter.vue'
 import StereoWidthMeter from './master/StereoWidthMeter.vue'
+import HeadroomMeter from './master/HeadroomMeter.vue'
 
 // Inject Rust audio engine
 const audioEngine = inject<any>('audioEngine', null)
@@ -142,6 +165,9 @@ const phaseCorrelationData = computed(() => audioEngine?.state.value.phaseCorrel
 // Stereo Width data
 const stereoWidthData = computed(() => audioEngine?.state.value.stereoWidthData)
 
+// Headroom data
+const headroomData = computed(() => audioEngine?.state.value.headroomData)
+
 // Loudness polling
 let loudnessPollingInterval: ReturnType<typeof setInterval> | null = null
 
@@ -153,6 +179,7 @@ const startLoudnessPolling = () => {
       audioEngine.getDynamicRange()
       audioEngine.getPhaseCorrelation()
       audioEngine.getStereoWidth()
+      audioEngine.getHeadroom()
     }
   }, 100)
 }
@@ -212,6 +239,13 @@ function resetPhaseCorrelation() {
 function resetStereoWidth() {
   if (audioEngine?.state.value.isRunning) {
     audioEngine.resetStereoWidth()
+  }
+}
+
+// Reset headroom measurements
+function resetHeadroom() {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.resetHeadroom()
   }
 }
 

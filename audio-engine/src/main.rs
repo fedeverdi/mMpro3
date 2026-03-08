@@ -31,6 +31,7 @@ mod loudness;
 mod dynamic_range;
 mod phase_correlation;
 mod stereo_width;
+mod headroom;
 
 use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
 use routing::Router;
@@ -383,6 +384,12 @@ enum Command {
     GetStereoWidth,
     #[serde(rename = "reset_stereo_width")]
     ResetStereoWidth,
+    
+    // Headroom Metering (Master)
+    #[serde(rename = "get_headroom")]
+    GetHeadroom,
+    #[serde(rename = "reset_headroom")]
+    ResetHeadroom,
 }
 
 /// Risposta inviata a Electron via stdout
@@ -461,6 +468,14 @@ enum Response {
         mid_rms: f32,
         side_rms: f32,
         balance: f32,
+    },
+    #[serde(rename = "headroom")]
+    HeadroomData {
+        peak_l: f32,
+        peak_r: f32,
+        headroom_l: f32,
+        headroom_r: f32,
+        headroom_stereo: f32,
     },
 }
 
@@ -1002,6 +1017,9 @@ impl AudioEngine {
                         
                         // Process master audio through stereo width meter
                         router.stereo_width_meter.process(master_l, master_r);
+                        
+                        // Process master audio through headroom meter
+                        router.headroom_meter.process(master_l, master_r);
 
                         // Record master output for this frame (if recording enabled)
                         if master_tap_enabled.load(Ordering::Relaxed) {
@@ -2641,6 +2659,26 @@ impl AudioEngine {
                 router.stereo_width_meter.reset();
                 Some(Response::Ok {
                     message: "Stereo width measurements reset".to_string(),
+                })
+            },
+            
+            Command::GetHeadroom => {
+                let router = self.router.lock().unwrap();
+                let headroom_data = router.headroom_meter.get_measurement();
+                Some(Response::HeadroomData {
+                    peak_l: headroom_data.peak_l,
+                    peak_r: headroom_data.peak_r,
+                    headroom_l: headroom_data.headroom_l,
+                    headroom_r: headroom_data.headroom_r,
+                    headroom_stereo: headroom_data.headroom_stereo,
+                })
+            },
+            
+            Command::ResetHeadroom => {
+                let mut router = self.router.lock().unwrap();
+                router.headroom_meter.reset();
+                Some(Response::Ok {
+                    message: "Headroom measurements reset".to_string(),
                 })
             },
         }

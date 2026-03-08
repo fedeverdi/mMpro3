@@ -10,6 +10,7 @@ use crate::loudness::LoudnessMeter;
 use crate::dynamic_range::DynamicRangeMeter;
 use crate::phase_correlation::PhaseCorrelationMeter;
 use crate::stereo_width::StereoWidthMeter;
+use crate::headroom::HeadroomMeter;
 use crate::reverb::Reverb;
 use crate::signal_gen::{SignalGenerator, WaveformType};
 use rustfft::{FftPlanner, num_complex::Complex};
@@ -836,6 +837,7 @@ pub struct Router {
     pub dynamic_range_meter: DynamicRangeMeter,
     pub phase_correlation_meter: PhaseCorrelationMeter,
     pub stereo_width_meter: StereoWidthMeter,
+    pub headroom_meter: HeadroomMeter,
     // Master bus output (before adding direct subgroups) for FFT analysis
     pub last_master_output: (f32, f32),
     // Cached outputs for multi-channel routing (populated by process_frame)
@@ -860,6 +862,7 @@ impl Router {
             dynamic_range_meter: DynamicRangeMeter::new(48000.0),
             phase_correlation_meter: PhaseCorrelationMeter::new(48000.0),
             stereo_width_meter: StereoWidthMeter::new(48000.0),
+            headroom_meter: HeadroomMeter::new(48000.0),
             last_master_output: (0.0, 0.0),
             last_subgroup_outputs: Vec::new(),
             last_aux_outputs: Vec::new(),

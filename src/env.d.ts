@@ -152,6 +152,10 @@ interface AudioEngine {
   // Stereo Width Metering (Master)
   getStereoWidth: () => Promise<void>
   resetStereoWidth: () => Promise<void>
+  
+  // Headroom Metering (Master)
+  getHeadroom: () => Promise<void>
+  resetHeadroom: () => Promise<void>
 }
 
 // Electron API for window controls

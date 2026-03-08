@@ -139,6 +139,10 @@ contextBridge.exposeInMainWorld('audioEngine', {
   getStereoWidth: () => ipcRenderer.invoke('audio-engine:get-stereo-width'),
   resetStereoWidth: () => ipcRenderer.invoke('audio-engine:reset-stereo-width'),
   
+  // Headroom Metering (Master)
+  getHeadroom: () => ipcRenderer.invoke('audio-engine:get-headroom'),
+  resetHeadroom: () => ipcRenderer.invoke('audio-engine:reset-headroom'),
+  
   // Master Tap (Recording) - Rust saves WAV file directly
   enableMasterTap: (filePath: string, settings: {
     format: 'wav' | 'mp3' | 'opus'
