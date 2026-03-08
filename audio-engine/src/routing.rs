@@ -234,7 +234,7 @@ impl Track {
         Self {
             id,
             source: TrackSource::None,
-            gain: 1.0,      // Unity gain (0dB)
+            gain: 0.251189,      // -12 dB (safe default to prevent clipping)
             volume: 1.0,    // Unity volume (0dB)
             mute: false,
             pan: 0.0,
@@ -270,8 +270,8 @@ impl Track {
         self.signal_generator = None;
         self.file_player = None;
         
-        // Set default gain to 0.7 for microphone input (to prevent clipping on hot signals)
-        self.gain = 0.7;
+        // Set default gain to 0.5 for microphone input (to prevent clipping on hot signals)
+        self.gain = 0.5;
     }
 
     /// Set track source to signal generator

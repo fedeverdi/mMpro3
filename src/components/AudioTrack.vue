@@ -303,7 +303,7 @@ const currentPlaylist = ref<any | null>(null)
 
 // Control values
 const volume = ref(0) // dB (-90 to +12)
-const gain = ref(0) // dB
+const gain = ref(-12) // dB (default -12 dB for safe headroom)
 const padEnabled = ref(false)
 const hpfEnabled = ref(false)
 const pan = ref(0) // -1 to 1
@@ -1126,7 +1126,7 @@ defineExpose({
     }
     
     // Basic controls
-    gain.value = state.gain ?? 0
+    gain.value = state.gain ?? -12
     volume.value = state.volume ?? 0
     pan.value = state.pan ?? 0
     isMuted.value = state.mute ?? false
