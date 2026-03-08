@@ -9,7 +9,7 @@
   <!-- Expanded View: Full Meters -->
   <div v-else class="dynamic-range-meter w-full">
     <!-- Header with Reset Button -->
-    <!-- <div class="flex items-center justify-between mb-2">
+    <div class="flex items-center justify-between mb-2">
       <div class="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Dynamic Range</div>
       <button 
         @click="emit('reset')"
@@ -17,7 +17,7 @@
         title="Reset dynamic range measurements">
         Reset
       </button>
-    </div> -->
+    </div>
 
     <!-- Measurements Display -->
     <div class="space-y-1.5">

@@ -310,6 +310,21 @@ watch(
   { immediate: true }
 )
 
+// Watch collapsed state and popover to manage polling
+// Stop polling if collapsed AND no popover is open
+watch(
+  [() => isCollapsed.value, () => popoverMeter.value],
+  ([collapsed, popover]) => {
+    if (collapsed && popover === null && audioEngine?.state.value.isRunning) {
+      // Collapsed and no popover open - stop polling to save resources
+      stopLoudnessPolling()
+    } else if (audioEngine?.state.value.isRunning) {
+      // Either expanded or popover open - start polling
+      startLoudnessPolling()
+    }
+  }
+)
+
 // Close popover on window resize
 const handleResize = () => {
   if (popoverMeter.value !== null) {
