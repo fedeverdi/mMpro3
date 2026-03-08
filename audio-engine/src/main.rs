@@ -416,6 +416,15 @@ enum Response {
         subgroups: Vec<SubgroupLevels>,
         master_l: f32,
         master_r: f32,
+        headroom_peak_l: Option<f32>,
+        headroom_peak_r: Option<f32>,
+        headroom_l: Option<f32>,
+        headroom_r: Option<f32>,
+        headroom_stereo: Option<f32>,
+        loudness_data: Option<LoudnessDataStruct>,
+        dynamic_range_data: Option<DynamicRangeDataStruct>,
+        phase_correlation_data: Option<PhaseCorrelationDataStruct>,
+        stereo_width_data: Option<StereoWidthDataStruct>,
     },
     #[serde(rename = "fft")]
     FFTData {
@@ -497,6 +506,40 @@ struct SubgroupLevels {
     subgroup: usize,
     level_l: f32,
     level_r: f32,
+}
+
+#[derive(Debug, Serialize)]
+struct LoudnessDataStruct {
+    momentary_lufs: f32,
+    short_term_lufs: f32,
+    integrated_lufs: f32,
+    loudness_range_lu: f32,
+    true_peak_dbtp: f32,
+}
+
+#[derive(Debug, Serialize)]
+struct DynamicRangeDataStruct {
+    peak_db_l: f32,
+    peak_db_r: f32,
+    rms_db_l: f32,
+    rms_db_r: f32,
+    dynamic_range_l: f32,
+    dynamic_range_r: f32,
+    dynamic_range_stereo: f32,
+}
+
+#[derive(Debug, Serialize)]
+struct PhaseCorrelationDataStruct {
+    correlation: f32,
+    mono_compatible: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct StereoWidthDataStruct {
+    width_percent: f32,
+    mid_rms: f32,
+    side_rms: f32,
+    balance: f32,
 }
 
 /// Performance statistics for audio processing
@@ -1145,6 +1188,46 @@ impl AudioEngine {
                             })
                             .collect();
                         
+                        // Collect headroom data
+                        let headroom_data = router.headroom_meter.get_measurement();
+                        
+                        // Collect all other meter data
+                        let loudness_meas = router.loudness_meter.get_measurements();
+                        let dynamic_range_meas = router.dynamic_range_meter.get_measurements();
+                        let phase_correlation_meas = router.phase_correlation_meter.get_measurement();
+                        let stereo_width_meas = router.stereo_width_meter.get_measurement();
+                        
+                        // Convert to serializable structs
+                        let loudness_data = LoudnessDataStruct {
+                            momentary_lufs: loudness_meas.momentary,
+                            short_term_lufs: loudness_meas.short_term,
+                            integrated_lufs: loudness_meas.integrated,
+                            loudness_range_lu: loudness_meas.loudness_range,
+                            true_peak_dbtp: loudness_meas.true_peak_dbtp,
+                        };
+                        
+                        let dynamic_range_data = DynamicRangeDataStruct {
+                            peak_db_l: dynamic_range_meas.peak_db_l,
+                            peak_db_r: dynamic_range_meas.peak_db_r,
+                            rms_db_l: dynamic_range_meas.rms_db_l,
+                            rms_db_r: dynamic_range_meas.rms_db_r,
+                            dynamic_range_l: dynamic_range_meas.dynamic_range_l,
+                            dynamic_range_r: dynamic_range_meas.dynamic_range_r,
+                            dynamic_range_stereo: dynamic_range_meas.dynamic_range_stereo,
+                        };
+                        
+                        let phase_correlation_data = PhaseCorrelationDataStruct {
+                            correlation: phase_correlation_meas.correlation,
+                            mono_compatible: phase_correlation_meas.mono_compatible,
+                        };
+                        
+                        let stereo_width_data = StereoWidthDataStruct {
+                            width_percent: stereo_width_meas.width_percent,
+                            mid_rms: stereo_width_meas.mid_rms,
+                            side_rms: stereo_width_meas.side_rms,
+                            balance: stereo_width_meas.balance,
+                        };
+                        
                         // Reset peak levels after reading
                         router.master.reset_levels();
                         for track in router.tracks.iter_mut() {
@@ -1155,7 +1238,17 @@ impl AudioEngine {
                         }
                         
                         // Return data to serialize outside the lock
-                        Some((track_levels, subgroup_levels, master_l, master_r))
+                        Some((
+                            track_levels, 
+                            subgroup_levels, 
+                            master_l, 
+                            master_r, 
+                            headroom_data,
+                            loudness_data,
+                            dynamic_range_data,
+                            phase_correlation_data,
+                            stereo_width_data
+                        ))
                     } else {
                         None
                     };
@@ -1172,12 +1265,31 @@ impl AudioEngine {
                 
                 if !suspended {
                     // Send meter updates outside the lock
-                    if let Some((track_levels, subgroup_levels, master_l, master_r)) = levels_to_send {
+                    if let Some((
+                        track_levels, 
+                        subgroup_levels, 
+                        master_l, 
+                        master_r, 
+                        headroom_data,
+                        loudness_data,
+                        dynamic_range_data,
+                        phase_correlation_data,
+                        stereo_width_data
+                    )) = levels_to_send {
                         let response = Response::Levels {
                             tracks: track_levels,
                             subgroups: subgroup_levels,
                             master_l,
                             master_r,
+                            headroom_peak_l: Some(headroom_data.peak_l),
+                            headroom_peak_r: Some(headroom_data.peak_r),
+                            headroom_l: Some(headroom_data.headroom_l),
+                            headroom_r: Some(headroom_data.headroom_r),
+                            headroom_stereo: Some(headroom_data.headroom_stereo),
+                            loudness_data: Some(loudness_data),
+                            dynamic_range_data: Some(dynamic_range_data),
+                            phase_correlation_data: Some(phase_correlation_data),
+                            stereo_width_data: Some(stereo_width_data),
                         };
                         
                         if let Ok(json) = serde_json::to_string(&response) {

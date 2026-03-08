@@ -169,6 +169,59 @@ export const useAudioEngine = () => {
               right: response.master_r > 0 ? 20 * Math.log10(response.master_r) : -60
             }
           }
+          
+          // Update loudness data if present
+          if (response.loudness_data) {
+            state.value.loudnessData = {
+              momentaryLufs: response.loudness_data.momentary_lufs,
+              shortTermLufs: response.loudness_data.short_term_lufs,
+              integratedLufs: response.loudness_data.integrated_lufs,
+              loudnessRangeLu: response.loudness_data.loudness_range_lu,
+              truePeakDbtp: response.loudness_data.true_peak_dbtp
+            }
+          }
+          
+          // Update dynamic range data if present
+          if (response.dynamic_range_data) {
+            state.value.dynamicRangeData = {
+              peakDbL: response.dynamic_range_data.peak_db_l,
+              peakDbR: response.dynamic_range_data.peak_db_r,
+              rmsDbL: response.dynamic_range_data.rms_db_l,
+              rmsDbR: response.dynamic_range_data.rms_db_r,
+              dynamicRangeL: response.dynamic_range_data.dynamic_range_l,
+              dynamicRangeR: response.dynamic_range_data.dynamic_range_r,
+              dynamicRangeStereo: response.dynamic_range_data.dynamic_range_stereo
+            }
+          }
+          
+          // Update phase correlation data if present
+          if (response.phase_correlation_data) {
+            state.value.phaseCorrelationData = {
+              correlation: response.phase_correlation_data.correlation,
+              monoCompatible: response.phase_correlation_data.mono_compatible
+            }
+          }
+          
+          // Update stereo width data if present
+          if (response.stereo_width_data) {
+            state.value.stereoWidthData = {
+              widthPercent: response.stereo_width_data.width_percent,
+              midRms: response.stereo_width_data.mid_rms,
+              sideRms: response.stereo_width_data.side_rms,
+              balance: response.stereo_width_data.balance
+            }
+          }
+          
+          // Update headroom data if present
+          if (response.headroom_peak_l !== undefined) {
+            state.value.headroomData = {
+              peakL: response.headroom_peak_l,
+              peakR: response.headroom_peak_r,
+              headroomL: response.headroom_l,
+              headroomR: response.headroom_r,
+              headroomStereo: response.headroom_stereo
+            }
+          }
           break
 
         case 'fft':

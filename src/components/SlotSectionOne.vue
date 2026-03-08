@@ -274,86 +274,9 @@ const stereoWidthData = computed(() => audioEngine?.state.value.stereoWidthData)
 // Headroom data
 const headroomData = computed(() => audioEngine?.state.value.headroomData)
 
-// Loudness polling
-let loudnessPollingInterval: ReturnType<typeof setInterval> | null = null
-let headroomPollingInterval: ReturnType<typeof setInterval> | null = null
-
-const startLoudnessPolling = () => {
-  if (loudnessPollingInterval) return // Already running
-  loudnessPollingInterval = setInterval(() => {
-    if (audioEngine?.state.value.isRunning) {
-      audioEngine.getLoudness()
-      audioEngine.getDynamicRange()
-      audioEngine.getPhaseCorrelation()
-      audioEngine.getStereoWidth()
-    }
-  }, 100)
-  
-  // Headroom polling at reduced rate (300ms instead of 100ms)
-  if (!headroomPollingInterval) {
-    headroomPollingInterval = setInterval(() => {
-      if (audioEngine?.state.value.isRunning) {
-        audioEngine.getHeadroom()
-      }
-    }, 300)
-  }
-}
-
-const stopLoudnessPolling = () => {
-  if (loudnessPollingInterval) {
-    clearInterval(loudnessPollingInterval)
-    loudnessPollingInterval = null
-  }
-  if (headroomPollingInterval) {
-    clearInterval(headroomPollingInterval)
-    headroomPollingInterval = null
-  }
-}
-
-// Watch engine state to manage polling lifecycle
-watch(
-  () => audioEngine?.state.value.isRunning,
-  (isRunning) => {
-    if (isRunning) {
-      startLoudnessPolling()
-    } else {
-      stopLoudnessPolling()
-    }
-  },
-  { immediate: true }
-)
-
-// Watch collapsed state and popover to manage polling
-// Stop polling if collapsed AND no popover is open
-watch(
-  [() => isCollapsed.value, () => popoverMeter.value],
-  ([collapsed, popover]) => {
-    if (collapsed && popover === null && audioEngine?.state.value.isRunning) {
-      // Collapsed and no popover open - stop polling to save resources
-      stopLoudnessPolling()
-    } else if (audioEngine?.state.value.isRunning) {
-      // Either expanded or popover open - start polling
-      startLoudnessPolling()
-    }
-  }
-)
-
-// Close popover on window resize
-const handleResize = () => {
-  if (popoverMeter.value !== null) {
-    closePopover()
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('resize', handleResize)
-})
-
-// Cleanup on unmount
-onUnmounted(() => {
-  stopLoudnessPolling()
-  window.removeEventListener('resize', handleResize)
-})
+// Note: All meter data is now pushed automatically from the audio engine
+// every ~50ms via the Response::Levels stream. No polling is needed.
+// The computed properties above are reactive and will update automatically.
 
 // Toggle collapse/expand
 function toggleCollapse() {

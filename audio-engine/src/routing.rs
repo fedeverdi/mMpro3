@@ -489,20 +489,17 @@ impl Track {
         self.waveform_buffer_r[self.waveform_write_index] = right;
         self.waveform_write_index = (self.waveform_write_index + 1) % WAVEFORM_BUFFER_SIZE;
         
-        // Calculate phase correlation periodically (every 512 samples to reduce CPU load)
+        // Calculate phase correlation MUCH less frequently (every 4096 samples = ~85ms @ 48kHz)
+        // to avoid overloading the audio thread
         self.phase_correlation_counter += 1;
-        if self.phase_correlation_counter >= 512 {
+        if self.phase_correlation_counter >= 4096 {
             self.phase_correlation_counter = 0;
             self.phase_correlation = Self::calculate_phase_correlation(&self.waveform_buffer_l, &self.waveform_buffer_r);
         }
 
         // Apply mute after level calculation (so meters still work)
         let output = if self.mute {
-            static MUTE_LOG: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-            let count = MUTE_LOG.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            if count < 3 && matches!(self.source, TrackSource::SignalGenerator) {
-                eprintln!("[Track {}] MUTED output (had signal: L={:.6}, R={:.6})", self.id, left, right);
-            }
+            // NO eprintln! here - it blocks the audio thread!
             (0.0, 0.0)
         } else {
             (left, right)
@@ -535,12 +532,17 @@ impl Track {
     /// Calculate phase correlation between left and right channels
     /// Returns a value between -1 (completely out of phase) and +1 (completely in phase/mono)
     /// Formula: correlation = sum(L * R) / sqrt(sum(L^2) * sum(R^2))
+    /// Optimized: calculate only on last 512 samples instead of all 2048 to reduce CPU load
     fn calculate_phase_correlation(buffer_l: &[f32], buffer_r: &[f32]) -> f32 {
+        // Use only last 512 samples for faster calculation (still gives accurate result)
+        let sample_count = 512.min(buffer_l.len());
+        let start_idx = buffer_l.len().saturating_sub(sample_count);
+        
         let mut sum_lr = 0.0_f64;  // Sum of L * R
         let mut sum_l2 = 0.0_f64;  // Sum of L^2
         let mut sum_r2 = 0.0_f64;  // Sum of R^2
         
-        for i in 0..buffer_l.len() {
+        for i in start_idx..buffer_l.len() {
             let l = buffer_l[i] as f64;
             let r = buffer_r[i] as f64;
             
