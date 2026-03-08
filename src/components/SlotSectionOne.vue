@@ -6,7 +6,7 @@
     <!-- Collapse/Expand Button -->
     <button
       @click="toggleCollapse"
-      class="absolute top-2 w-5 h-5 -translate-x-1/2 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg"
+      class="absolute top-2 w-5 h-5 -translate-x-1/2 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg z-20"
       :class="{ 'left-1/2' : isCollapsed, 'left-3' : !isCollapsed }"
       :title="isCollapsed ? 'Expand Meters Panel' : 'Collapse Meters Panel'"
     >
@@ -22,123 +22,46 @@
 
     <!-- Meters Container -->
     <div class="flex-1 p-0 overflow-y-auto flex flex-col" :class="{ 'space-y-2': !isCollapsed, 'space-y-1': isCollapsed }">
-      <!-- LUFS Card -->
+      <!-- Draggable Meter Cards -->
       <div 
-        class="bg-gradient-to-b from-purple-900/20 to-gray-900 rounded-lg border-2 border-purple-600/50 p-2" 
-        :class="{ 'flex-1 min-h-0 cursor-pointer hover:border-purple-400 transition-colors': isCollapsed }"
-        @click="isCollapsed ? openMeterPopover('loudness', $event) : null"
+        v-for="slot in slotComponents" 
+        :key="slot.id"
+        :draggable="!isCollapsed"
+        class="bg-gradient-to-b to-gray-900 rounded-lg border-2 p-2 relative" 
+        :class="[
+          slot.gradientFrom,
+          slot.borderColor,
+          { 'flex-1 min-h-0': isCollapsed },
+          { 'cursor-pointer hover:opacity-90': isCollapsed }
+        ]"
+        :style="{ 
+          cursor: !isCollapsed ? (draggedComponent === slot.id ? 'grabbing' : 'grab') : 'pointer',
+          ...getDragStyles(slot.id)
+        }"
+        @click="isCollapsed ? openMeterPopover(slot.id, $event) : null"
+        @dragstart="handleDragStart(slot.id, $event)"
+        @dragover="handleDragOver($event, slot.id)"
+        @drop="handleDrop($event, slot.id)"
+        @dragend="handleDragEnd()"
       >
-        <LoudnessMeter 
-          v-show="audioEngine?.state.value.isRunning"
-          :collapsed="isCollapsed"
-          :momentary-lufs="loudnessData?.momentaryLufs"
-          :short-term-lufs="loudnessData?.shortTermLufs"
-          :integrated-lufs="loudnessData?.integratedLufs"
-          :loudness-range-lu="loudnessData?.loudnessRangeLu"
-          :true-peak-dbtp="loudnessData?.truePeakDbtp"
-          @reset="resetLoudness"
-        />
-        
-        <!-- Engine not running message -->
-        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center" :class="{ 'h-full': isCollapsed, 'py-8': !isCollapsed }">
-          <div class="text-xs text-gray-500 text-center" :class="{ 'transform -rotate-90': isCollapsed }">
-            <div class="mb-2">⏸️</div>
-            <div v-if="!isCollapsed">Audio engine<br/>not running</div>
-          </div>
+        <!-- Drag Handle (only visible when not collapsed) -->
+        <div 
+          v-if="!isCollapsed"
+          class="absolute top-1 right-1 w-5 h-5 flex items-center justify-center text-gray-600 hover:text-gray-400 transition-opacity cursor-grab opacity-30 hover:opacity-100"
+          title="Drag to reorder"
+        >
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M7 2a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2V4a2 2 0 00-2-2H7zm3 14a1 1 0 100-2 1 1 0 000 2zm0-4a1 1 0 100-2 1 1 0 000 2zm0-4a1 1 0 100-2 1 1 0 000 2z"/>
+          </svg>
         </div>
-      </div>
 
-      <!-- Dynamic Range Card (always visible, changes layout based on collapsed state) -->
-      <div 
-        class="bg-gradient-to-b from-orange-900/20 to-gray-900 rounded-lg border-2 border-orange-600/50 p-2" 
-        :class="{ 'flex-1 min-h-0 cursor-pointer hover:border-orange-400 transition-colors': isCollapsed }"
-        @click="isCollapsed ? openMeterPopover('dynamicRange', $event) : null"
-      >
-        <DynamicRangeMeter 
+        <!-- Meter Component -->
+        <component 
+          :is="getMeterComponent(slot.id)"
           v-show="audioEngine?.state.value.isRunning"
           :collapsed="isCollapsed"
-          :peak-db-l="dynamicRangeData?.peakDbL"
-          :peak-db-r="dynamicRangeData?.peakDbR"
-          :rms-db-l="dynamicRangeData?.rmsDbL"
-          :rms-db-r="dynamicRangeData?.rmsDbR"
-          :dynamic-range-l="dynamicRangeData?.dynamicRangeL"
-          :dynamic-range-r="dynamicRangeData?.dynamicRangeR"
-          :dynamic-range-stereo="dynamicRangeData?.dynamicRangeStereo"
-          @reset="resetDynamicRange"
-        />
-        
-        <!-- Engine not running message -->
-        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center" :class="{ 'h-full': isCollapsed, 'py-8': !isCollapsed }">
-          <div class="text-xs text-gray-500 text-center" :class="{ 'transform -rotate-90': isCollapsed }">
-            <div class="mb-2">⏸️</div>
-            <div v-if="!isCollapsed">Audio engine<br/>not running</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Phase Correlation Card (always visible, changes layout based on collapsed state) -->
-      <div 
-        class="bg-gradient-to-b from-cyan-900/20 to-gray-900 rounded-lg border-2 border-cyan-600/50 p-2" 
-        :class="{ 'flex-1 min-h-0 cursor-pointer hover:border-cyan-400 transition-colors': isCollapsed }"
-        @click="isCollapsed ? openMeterPopover('phaseCorrelation', $event) : null"
-      >
-        <MasterPhaseCorrelationMeter 
-          v-show="audioEngine?.state.value.isRunning"
-          :collapsed="isCollapsed"
-          :correlation="phaseCorrelationData?.correlation"
-          :mono-compatible="phaseCorrelationData?.monoCompatible"
-          @reset="resetPhaseCorrelation"
-        />
-        
-        <!-- Engine not running message -->
-        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center" :class="{ 'h-full': isCollapsed, 'py-8': !isCollapsed }">
-          <div class="text-xs text-gray-500 text-center" :class="{ 'transform -rotate-90': isCollapsed }">
-            <div class="mb-2">⏸️</div>
-            <div v-if="!isCollapsed">Audio engine<br/>not running</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stereo Width Card (always visible, changes layout based on collapsed state) -->
-      <div 
-        class="bg-gradient-to-b from-pink-900/20 to-gray-900 rounded-lg border-2 border-pink-600/50 p-2" 
-        :class="{ 'flex-1 min-h-0 cursor-pointer hover:border-pink-400 transition-colors': isCollapsed }"
-        @click="isCollapsed ? openMeterPopover('stereoWidth', $event) : null"
-      >
-        <StereoWidthMeter 
-          v-show="audioEngine?.state.value.isRunning"
-          :collapsed="isCollapsed"
-          :width-percent="stereoWidthData?.widthPercent"
-          :mid-rms="stereoWidthData?.midRms"
-          :side-rms="stereoWidthData?.sideRms"
-          :balance="stereoWidthData?.balance"
-          @reset="resetStereoWidth"
-        />
-        
-        <!-- Engine not running message -->
-        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center" :class="{ 'h-full': isCollapsed, 'py-8': !isCollapsed }">
-          <div class="text-xs text-gray-500 text-center" :class="{ 'transform -rotate-90': isCollapsed }">
-            <div class="mb-2">⏸️</div>
-            <div v-if="!isCollapsed">Audio engine<br/>not running</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Headroom Card (always visible, changes layout based on collapsed state) -->
-      <div 
-        class="bg-gradient-to-b from-amber-900/20 to-gray-900 rounded-lg border-2 border-amber-600/50 p-2" 
-        :class="{ 'flex-1 min-h-0 cursor-pointer hover:border-amber-400 transition-colors': isCollapsed }"
-        @click="isCollapsed ? openMeterPopover('headroom', $event) : null"
-      >
-        <HeadroomMeter 
-          v-show="audioEngine?.state.value.isRunning"
-          :collapsed="isCollapsed"
-          :peak-l="headroomData?.peakL"
-          :peak-r="headroomData?.peakR"
-          :headroom-l="headroomData?.headroomL"
-          :headroom-r="headroomData?.headroomR"
-          :headroom-stereo="headroomData?.headroomStereo"
-          @reset="resetHeadroom"
+          v-bind="getMeterProps(slot.id)"
+          @reset="getMeterResetFn(slot.id)"
         />
         
         <!-- Engine not running message -->
@@ -255,6 +178,26 @@ type MeterType = 'loudness' | 'dynamicRange' | 'phaseCorrelation' | 'stereoWidth
 const popoverMeter = ref<MeterType>(null)
 const popoverPosition = ref({ x: 0, y: 0 })
 
+// Slot Components with drag-and-drop support
+interface SlotComponent {
+  id: Exclude<MeterType, null>
+  name: string
+  borderColor: string
+  gradientFrom: string
+}
+
+const slotComponents = ref<SlotComponent[]>([
+  { id: 'loudness', name: 'LUFS', borderColor: 'border-purple-600/50', gradientFrom: 'from-purple-900/20' },
+  { id: 'dynamicRange', name: 'Dynamic Range', borderColor: 'border-orange-600/50', gradientFrom: 'from-orange-900/20' },
+  { id: 'phaseCorrelation', name: 'Phase Correlation', borderColor: 'border-cyan-600/50', gradientFrom: 'from-cyan-900/20' },
+  { id: 'stereoWidth', name: 'Stereo Width', borderColor: 'border-pink-600/50', gradientFrom: 'from-pink-900/20' },
+  { id: 'headroom', name: 'Headroom', borderColor: 'border-amber-600/50', gradientFrom: 'from-amber-900/20' }
+])
+
+// Drag and drop state
+const draggedComponent = ref<Exclude<MeterType, null> | null>(null)
+const dragOverComponent = ref<Exclude<MeterType, null> | null>(null)
+
 const sectionWidth = computed(() => {
   return isCollapsed.value ? collapsedWidth : expandedWidth
 })
@@ -365,6 +308,170 @@ const formatLufs = (lufs: number | null | undefined): string => {
     return '-∞'
   }
   return lufs.toFixed(1)
+}
+
+// ============================================
+// Drag and Drop Functions
+// ============================================
+
+function handleDragStart(slotId: Exclude<MeterType, null>, event: DragEvent) {
+  if (isCollapsed.value) return
+  
+  draggedComponent.value = slotId
+  
+  // Set custom drag image to show the whole component
+  const componentElement = event.target as HTMLElement
+  if (componentElement) {
+    const rect = componentElement.getBoundingClientRect()
+    // Calculate the offset from where the user clicked relative to the component
+    const offsetX = event.clientX - rect.left
+    const offsetY = event.clientY - rect.top
+    event.dataTransfer?.setDragImage(componentElement, offsetX, offsetY)
+  }
+}
+
+function handleDragOver(event: DragEvent, slotId: Exclude<MeterType, null>) {
+  if (isCollapsed.value) return
+  
+  event.preventDefault()
+  if (draggedComponent.value !== slotId) {
+    dragOverComponent.value = slotId
+  }
+}
+
+function handleDrop(event: DragEvent, targetId: Exclude<MeterType, null>) {
+  if (isCollapsed.value) return
+  
+  event.preventDefault()
+  
+  if (!draggedComponent.value || draggedComponent.value === targetId) {
+    return
+  }
+
+  const draggedIndex = slotComponents.value.findIndex(c => c.id === draggedComponent.value)
+  const targetIndex = slotComponents.value.findIndex(c => c.id === targetId)
+
+  if (draggedIndex !== -1 && targetIndex !== -1) {
+    const newComponents = [...slotComponents.value]
+    const [draggedItem] = newComponents.splice(draggedIndex, 1)
+    newComponents.splice(targetIndex, 0, draggedItem)
+    slotComponents.value = newComponents
+  }
+  
+  draggedComponent.value = null
+  dragOverComponent.value = null
+}
+
+function handleDragEnd() {
+  if (isCollapsed.value) return
+  
+  draggedComponent.value = null
+  dragOverComponent.value = null
+}
+
+function getDragStyles(slotId: Exclude<MeterType, null>) {
+  if (!draggedComponent.value || !dragOverComponent.value) return {}
+
+  const draggedIndex = slotComponents.value.findIndex(c => c.id === draggedComponent.value)
+  const currentIndex = slotComponents.value.findIndex(c => c.id === slotId)
+  const dragOverIndex = slotComponents.value.findIndex(c => c.id === dragOverComponent.value)
+
+  // Skip the dragged element itself
+  if (slotId === draggedComponent.value) {
+    return {
+      opacity: '0.5',
+      transform: 'scale(0.98)',
+      transition: 'all 0.2s ease'
+    }
+  }
+
+  // Calculate if we need to shift this element
+  if (draggedIndex < dragOverIndex) {
+    // Dragging down: shift elements between dragged and dragOver down
+    if (currentIndex > draggedIndex && currentIndex <= dragOverIndex) {
+      return {
+        transform: 'translateY(-2rem) scale(0.95)',
+        transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        filter: 'brightness(0.85)'
+      }
+    }
+  } else if (draggedIndex > dragOverIndex) {
+    // Dragging up: shift elements between dragOver and dragged up
+    if (currentIndex < draggedIndex && currentIndex >= dragOverIndex) {
+      return {
+        transform: 'translateY(2rem) scale(0.95)',
+        transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        filter: 'brightness(0.85)'
+      }
+    }
+  }
+
+  return { transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' }
+}
+
+// ============================================
+// Component Helper Functions
+// ============================================
+
+function getMeterComponent(slotId: Exclude<MeterType, null>) {
+  const componentMap = {
+    loudness: LoudnessMeter,
+    dynamicRange: DynamicRangeMeter,
+    phaseCorrelation: MasterPhaseCorrelationMeter,
+    stereoWidth: StereoWidthMeter,
+    headroom: HeadroomMeter
+  }
+  return componentMap[slotId]
+}
+
+function getMeterProps(slotId: Exclude<MeterType, null>) {
+  const propsMap = {
+    loudness: {
+      momentaryLufs: loudnessData.value?.momentaryLufs,
+      shortTermLufs: loudnessData.value?.shortTermLufs,
+      integratedLufs: loudnessData.value?.integratedLufs,
+      loudnessRangeLu: loudnessData.value?.loudnessRangeLu,
+      truePeakDbtp: loudnessData.value?.truePeakDbtp
+    },
+    dynamicRange: {
+      peakDbL: dynamicRangeData.value?.peakDbL,
+      peakDbR: dynamicRangeData.value?.peakDbR,
+      rmsDbL: dynamicRangeData.value?.rmsDbL,
+      rmsDbR: dynamicRangeData.value?.rmsDbR,
+      dynamicRangeL: dynamicRangeData.value?.dynamicRangeL,
+      dynamicRangeR: dynamicRangeData.value?.dynamicRangeR,
+      dynamicRangeStereo: dynamicRangeData.value?.dynamicRangeStereo
+    },
+    phaseCorrelation: {
+      correlation: phaseCorrelationData.value?.correlation,
+      monoCompatible: phaseCorrelationData.value?.monoCompatible
+    },
+    stereoWidth: {
+      widthPercent: stereoWidthData.value?.widthPercent,
+      midRms: stereoWidthData.value?.midRms,
+      sideRms: stereoWidthData.value?.sideRms,
+      balance: stereoWidthData.value?.balance
+    },
+    headroom: {
+      peakL: headroomData.value?.peakL,
+      peakR: headroomData.value?.peakR,
+      headroomL: headroomData.value?.headroomL,
+      headroomR: headroomData.value?.headroomR,
+      headroomStereo: headroomData.value?.headroomStereo
+    }
+  }
+  return propsMap[slotId]
+}
+
+function getMeterResetFn(slotId: Exclude<MeterType, null>) {
+  const resetMap = {
+    loudness: resetLoudness,
+    dynamicRange: resetDynamicRange,
+    phaseCorrelation: resetPhaseCorrelation,
+    stereoWidth: resetStereoWidth,
+    headroom: resetHeadroom
+  }
+  return resetMap[slotId]
 }
 </script>
 
