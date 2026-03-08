@@ -276,6 +276,7 @@ const headroomData = computed(() => audioEngine?.state.value.headroomData)
 
 // Loudness polling
 let loudnessPollingInterval: ReturnType<typeof setInterval> | null = null
+let headroomPollingInterval: ReturnType<typeof setInterval> | null = null
 
 const startLoudnessPolling = () => {
   if (loudnessPollingInterval) return // Already running
@@ -285,15 +286,27 @@ const startLoudnessPolling = () => {
       audioEngine.getDynamicRange()
       audioEngine.getPhaseCorrelation()
       audioEngine.getStereoWidth()
-      audioEngine.getHeadroom()
     }
   }, 100)
+  
+  // Headroom polling at reduced rate (300ms instead of 100ms)
+  if (!headroomPollingInterval) {
+    headroomPollingInterval = setInterval(() => {
+      if (audioEngine?.state.value.isRunning) {
+        audioEngine.getHeadroom()
+      }
+    }, 300)
+  }
 }
 
 const stopLoudnessPolling = () => {
   if (loudnessPollingInterval) {
     clearInterval(loudnessPollingInterval)
     loudnessPollingInterval = null
+  }
+  if (headroomPollingInterval) {
+    clearInterval(headroomPollingInterval)
+    headroomPollingInterval = null
   }
 }
 

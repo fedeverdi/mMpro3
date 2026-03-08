@@ -32,7 +32,7 @@
         <!-- Headroom bar (inverse - less is worse) -->
         <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
           <div 
-            class="h-full transition-all duration-200"
+            class="h-full transition-all duration-700 ease-out"
             :class="getHeadroomBarColor(headroomStereo)"
             :style="{ width: getHeadroomBarWidth(headroomStereo) + '%' }"
           ></div>
