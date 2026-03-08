@@ -135,6 +135,10 @@ contextBridge.exposeInMainWorld('audioEngine', {
   getPhaseCorrelation: () => ipcRenderer.invoke('audio-engine:get-phase-correlation'),
   resetPhaseCorrelation: () => ipcRenderer.invoke('audio-engine:reset-phase-correlation'),
   
+  // Stereo Width Metering (Master)
+  getStereoWidth: () => ipcRenderer.invoke('audio-engine:get-stereo-width'),
+  resetStereoWidth: () => ipcRenderer.invoke('audio-engine:reset-stereo-width'),
+  
   // Master Tap (Recording) - Rust saves WAV file directly
   enableMasterTap: (filePath: string, settings: {
     format: 'wav' | 'mp3' | 'opus'

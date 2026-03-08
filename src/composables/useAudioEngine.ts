@@ -59,6 +59,12 @@ export interface AudioEngineState {
     correlation: number
     monoCompatible: boolean
   } | null
+  stereoWidthData: {
+    widthPercent: number
+    midRms: number
+    sideRms: number
+    balance: number
+  } | null
 }
 
 const state = ref<AudioEngineState>({
@@ -75,7 +81,8 @@ const state = ref<AudioEngineState>({
   recordingStats: null,
   loudnessData: null,
   dynamicRangeData: null,
-  phaseCorrelationData: null
+  phaseCorrelationData: null,
+  stereoWidthData: null
 })
 
 let isListening = false
@@ -218,6 +225,16 @@ export const useAudioEngine = () => {
           state.value.phaseCorrelationData = {
             correlation: response.correlation,
             monoCompatible: response.mono_compatible
+          }
+          break
+
+        case 'stereo_width':
+          // Update stereo width measurements
+          state.value.stereoWidthData = {
+            widthPercent: response.width_percent,
+            midRms: response.mid_rms,
+            sideRms: response.side_rms,
+            balance: response.balance
           }
           break
 
@@ -614,6 +631,16 @@ export const useAudioEngine = () => {
     void window.audioEngine.resetPhaseCorrelation()
   }
 
+  const getStereoWidth = () => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    void window.audioEngine.getStereoWidth()
+  }
+
+  const resetStereoWidth = () => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    void window.audioEngine.resetStereoWidth()
+  }
+
   onUnmounted(() => {
     if (state.value.isRunning) {
       stop()
@@ -693,6 +720,9 @@ export const useAudioEngine = () => {
     resetDynamicRange,
     // Phase Correlation metering (Master)
     getPhaseCorrelation,
-    resetPhaseCorrelation
+    resetPhaseCorrelation,
+    // Stereo Width metering (Master)
+    getStereoWidth,
+    resetStereoWidth
   }
 }

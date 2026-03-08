@@ -456,6 +456,24 @@ ipcMain.handle('audio-engine:reset-phase-correlation', async () => {
   await sendCommandToEngine({ type: 'reset_phase_correlation' })
 })
 
+// Stereo Width metering (Master)
+ipcMain.handle('audio-engine:get-stereo-width', async () => {
+  try {
+    // Silently return null if engine not running (polling will retry)
+    if (!audioEngineProcess || !audioEngineProcess.stdin) {
+      return null
+    }
+    return await sendCommandAndWaitForResponse({ type: 'get_stereo_width' }, 'stereo_width')
+  } catch (error) {
+    // Silently ignore errors during polling
+    return null
+  }
+})
+
+ipcMain.handle('audio-engine:reset-stereo-width', async () => {
+  await sendCommandToEngine({ type: 'reset_stereo_width' })
+})
+
 ipcMain.handle('audio-engine:set-master-limiter-old', async (_, enabled: boolean, ceiling: number, release: number) => {
   await sendCommandToEngine({ type: 'set_master_limiter', enabled, ceiling, release })
 })

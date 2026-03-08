@@ -86,6 +86,27 @@
           </div>
         </div>
       </div>
+
+      <!-- Stereo Width Card (always visible, changes layout based on collapsed state) -->
+      <div class="bg-gradient-to-b from-pink-900/20 to-gray-900 rounded-lg border-2 border-pink-600/50 p-2" :class="{ 'flex-1 h-0': isCollapsed }">
+        <StereoWidthMeter 
+          v-show="audioEngine?.state.value.isRunning"
+          :collapsed="isCollapsed"
+          :width-percent="stereoWidthData?.widthPercent"
+          :mid-rms="stereoWidthData?.midRms"
+          :side-rms="stereoWidthData?.sideRms"
+          :balance="stereoWidthData?.balance"
+          @reset="resetStereoWidth"
+        />
+        
+        <!-- Engine not running message -->
+        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center" :class="{ 'h-full': isCollapsed, 'py-8': !isCollapsed }">
+          <div class="text-xs text-gray-500 text-center" :class="{ 'transform -rotate-90': isCollapsed }">
+            <div class="mb-2">⏸️</div>
+            <div v-if="!isCollapsed">Audio engine<br/>not running</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -95,6 +116,7 @@ import { ref, computed, inject, watch, onUnmounted } from 'vue'
 import LoudnessMeter from './master/LoudnessMeter.vue'
 import DynamicRangeMeter from './master/DynamicRangeMeter.vue'
 import MasterPhaseCorrelationMeter from './master/MasterPhaseCorrelationMeter.vue'
+import StereoWidthMeter from './master/StereoWidthMeter.vue'
 
 // Inject Rust audio engine
 const audioEngine = inject<any>('audioEngine', null)
@@ -117,6 +139,9 @@ const dynamicRangeData = computed(() => audioEngine?.state.value.dynamicRangeDat
 // Phase Correlation data
 const phaseCorrelationData = computed(() => audioEngine?.state.value.phaseCorrelationData)
 
+// Stereo Width data
+const stereoWidthData = computed(() => audioEngine?.state.value.stereoWidthData)
+
 // Loudness polling
 let loudnessPollingInterval: ReturnType<typeof setInterval> | null = null
 
@@ -127,6 +152,7 @@ const startLoudnessPolling = () => {
       audioEngine.getLoudness()
       audioEngine.getDynamicRange()
       audioEngine.getPhaseCorrelation()
+      audioEngine.getStereoWidth()
     }
   }, 100)
 }
@@ -179,6 +205,13 @@ function resetDynamicRange() {
 function resetPhaseCorrelation() {
   if (audioEngine?.state.value.isRunning) {
     audioEngine.resetPhaseCorrelation()
+  }
+}
+
+// Reset stereo width measurements
+function resetStereoWidth() {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.resetStereoWidth()
   }
 }
 

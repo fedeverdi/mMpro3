@@ -30,6 +30,7 @@ mod ndi_stream;
 mod loudness;
 mod dynamic_range;
 mod phase_correlation;
+mod stereo_width;
 
 use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
 use routing::Router;
@@ -376,6 +377,12 @@ enum Command {
     GetPhaseCorrelation,
     #[serde(rename = "reset_phase_correlation")]
     ResetPhaseCorrelation,
+    
+    // Stereo Width Metering (Master)
+    #[serde(rename = "get_stereo_width")]
+    GetStereoWidth,
+    #[serde(rename = "reset_stereo_width")]
+    ResetStereoWidth,
 }
 
 /// Risposta inviata a Electron via stdout
@@ -447,6 +454,13 @@ enum Response {
     PhaseCorrelationData {
         correlation: f32,
         mono_compatible: bool,
+    },
+    #[serde(rename = "stereo_width")]
+    StereoWidthData {
+        width_percent: f32,
+        mid_rms: f32,
+        side_rms: f32,
+        balance: f32,
     },
 }
 
@@ -985,6 +999,9 @@ impl AudioEngine {
                         
                         // Process master audio through phase correlation meter
                         router.phase_correlation_meter.process(master_l, master_r);
+                        
+                        // Process master audio through stereo width meter
+                        router.stereo_width_meter.process(master_l, master_r);
 
                         // Record master output for this frame (if recording enabled)
                         if master_tap_enabled.load(Ordering::Relaxed) {
@@ -2605,6 +2622,25 @@ impl AudioEngine {
                 router.phase_correlation_meter.reset();
                 Some(Response::Ok {
                     message: "Phase correlation measurements reset".to_string(),
+                })
+            },
+            
+            Command::GetStereoWidth => {
+                let router = self.router.lock().unwrap();
+                let width_data = router.stereo_width_meter.get_measurement();
+                Some(Response::StereoWidthData {
+                    width_percent: width_data.width_percent,
+                    mid_rms: width_data.mid_rms,
+                    side_rms: width_data.side_rms,
+                    balance: width_data.balance,
+                })
+            },
+            
+            Command::ResetStereoWidth => {
+                let mut router = self.router.lock().unwrap();
+                router.stereo_width_meter.reset();
+                Some(Response::Ok {
+                    message: "Stereo width measurements reset".to_string(),
                 })
             },
         }

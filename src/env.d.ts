@@ -148,6 +148,10 @@ interface AudioEngine {
   // Phase Correlation Metering (Master)
   getPhaseCorrelation: () => Promise<void>
   resetPhaseCorrelation: () => Promise<void>
+  
+  // Stereo Width Metering (Master)
+  getStereoWidth: () => Promise<void>
+  resetStereoWidth: () => Promise<void>
 }
 
 // Electron API for window controls
