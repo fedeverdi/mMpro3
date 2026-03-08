@@ -55,6 +55,10 @@ export interface AudioEngineState {
     dynamicRangeR: number
     dynamicRangeStereo: number
   } | null
+  phaseCorrelationData: {
+    correlation: number
+    monoCompatible: boolean
+  } | null
 }
 
 const state = ref<AudioEngineState>({
@@ -70,7 +74,8 @@ const state = ref<AudioEngineState>({
   performanceStats: null,
   recordingStats: null,
   loudnessData: null,
-  dynamicRangeData: null
+  dynamicRangeData: null,
+  phaseCorrelationData: null
 })
 
 let isListening = false
@@ -205,6 +210,14 @@ export const useAudioEngine = () => {
             dynamicRangeL: response.dynamic_range_l,
             dynamicRangeR: response.dynamic_range_r,
             dynamicRangeStereo: response.dynamic_range_stereo
+          }
+          break
+
+        case 'phase_correlation':
+          // Update phase correlation measurements
+          state.value.phaseCorrelationData = {
+            correlation: response.correlation,
+            monoCompatible: response.mono_compatible
           }
           break
 
@@ -591,6 +604,16 @@ export const useAudioEngine = () => {
     void window.audioEngine.resetDynamicRange()
   }
 
+  const getPhaseCorrelation = () => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    void window.audioEngine.getPhaseCorrelation()
+  }
+
+  const resetPhaseCorrelation = () => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    void window.audioEngine.resetPhaseCorrelation()
+  }
+
   onUnmounted(() => {
     if (state.value.isRunning) {
       stop()
@@ -667,6 +690,9 @@ export const useAudioEngine = () => {
     resetLoudness,
     // Dynamic Range metering
     getDynamicRange,
-    resetDynamicRange
+    resetDynamicRange,
+    // Phase Correlation metering (Master)
+    getPhaseCorrelation,
+    resetPhaseCorrelation
   }
 }

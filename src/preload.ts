@@ -131,6 +131,10 @@ contextBridge.exposeInMainWorld('audioEngine', {
   getDynamicRange: () => ipcRenderer.invoke('audio-engine:get-dynamic-range'),
   resetDynamicRange: () => ipcRenderer.invoke('audio-engine:reset-dynamic-range'),
   
+  // Phase Correlation Metering (Master)
+  getPhaseCorrelation: () => ipcRenderer.invoke('audio-engine:get-phase-correlation'),
+  resetPhaseCorrelation: () => ipcRenderer.invoke('audio-engine:reset-phase-correlation'),
+  
   // Master Tap (Recording) - Rust saves WAV file directly
   enableMasterTap: (filePath: string, settings: {
     format: 'wav' | 'mp3' | 'opus'

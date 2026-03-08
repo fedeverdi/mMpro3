@@ -67,6 +67,25 @@
           </div>
         </div>
       </div>
+
+      <!-- Phase Correlation Card (always visible, changes layout based on collapsed state) -->
+      <div class="bg-gradient-to-b from-cyan-900/20 to-gray-900 rounded-lg border-2 border-cyan-600/50 p-2" :class="{ 'flex-1 h-0': isCollapsed }">
+        <MasterPhaseCorrelationMeter 
+          v-show="audioEngine?.state.value.isRunning"
+          :collapsed="isCollapsed"
+          :correlation="phaseCorrelationData?.correlation"
+          :mono-compatible="phaseCorrelationData?.monoCompatible"
+          @reset="resetPhaseCorrelation"
+        />
+        
+        <!-- Engine not running message -->
+        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center" :class="{ 'h-full': isCollapsed, 'py-8': !isCollapsed }">
+          <div class="text-xs text-gray-500 text-center" :class="{ 'transform -rotate-90': isCollapsed }">
+            <div class="mb-2">⏸️</div>
+            <div v-if="!isCollapsed">Audio engine<br/>not running</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -75,6 +94,7 @@
 import { ref, computed, inject, watch, onUnmounted } from 'vue'
 import LoudnessMeter from './master/LoudnessMeter.vue'
 import DynamicRangeMeter from './master/DynamicRangeMeter.vue'
+import MasterPhaseCorrelationMeter from './master/MasterPhaseCorrelationMeter.vue'
 
 // Inject Rust audio engine
 const audioEngine = inject<any>('audioEngine', null)
@@ -94,6 +114,9 @@ const loudnessData = computed(() => audioEngine?.state.value.loudnessData)
 // Dynamic Range data
 const dynamicRangeData = computed(() => audioEngine?.state.value.dynamicRangeData)
 
+// Phase Correlation data
+const phaseCorrelationData = computed(() => audioEngine?.state.value.phaseCorrelationData)
+
 // Loudness polling
 let loudnessPollingInterval: ReturnType<typeof setInterval> | null = null
 
@@ -103,6 +126,7 @@ const startLoudnessPolling = () => {
     if (audioEngine?.state.value.isRunning) {
       audioEngine.getLoudness()
       audioEngine.getDynamicRange()
+      audioEngine.getPhaseCorrelation()
     }
   }, 100)
 }
@@ -148,6 +172,13 @@ function resetLoudness() {
 function resetDynamicRange() {
   if (audioEngine?.state.value.isRunning) {
     audioEngine.resetDynamicRange()
+  }
+}
+
+// Reset phase correlation measurements
+function resetPhaseCorrelation() {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.resetPhaseCorrelation()
   }
 }
 

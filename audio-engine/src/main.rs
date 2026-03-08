@@ -29,6 +29,7 @@ mod ndi_ffi;
 mod ndi_stream;
 mod loudness;
 mod dynamic_range;
+mod phase_correlation;
 
 use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
 use routing::Router;
@@ -369,6 +370,12 @@ enum Command {
     GetDynamicRange,
     #[serde(rename = "reset_dynamic_range")]
     ResetDynamicRange,
+    
+    // Phase Correlation Metering (Master)
+    #[serde(rename = "get_phase_correlation")]
+    GetPhaseCorrelation,
+    #[serde(rename = "reset_phase_correlation")]
+    ResetPhaseCorrelation,
 }
 
 /// Risposta inviata a Electron via stdout
@@ -435,6 +442,11 @@ enum Response {
         dynamic_range_l: f32,
         dynamic_range_r: f32,
         dynamic_range_stereo: f32,
+    },
+    #[serde(rename = "phase_correlation")]
+    PhaseCorrelationData {
+        correlation: f32,
+        mono_compatible: bool,
     },
 }
 
@@ -970,6 +982,9 @@ impl AudioEngine {
                         
                         // Process master audio through dynamic range meter
                         router.dynamic_range_meter.process(master_l, master_r);
+                        
+                        // Process master audio through phase correlation meter
+                        router.phase_correlation_meter.process(master_l, master_r);
 
                         // Record master output for this frame (if recording enabled)
                         if master_tap_enabled.load(Ordering::Relaxed) {
@@ -2573,6 +2588,23 @@ impl AudioEngine {
                 router.dynamic_range_meter.reset();
                 Some(Response::Ok {
                     message: "Dynamic range measurements reset".to_string(),
+                })
+            },
+            
+            Command::GetPhaseCorrelation => {
+                let router = self.router.lock().unwrap();
+                let phase_data = router.phase_correlation_meter.get_measurement();
+                Some(Response::PhaseCorrelationData {
+                    correlation: phase_data.correlation,
+                    mono_compatible: phase_data.mono_compatible,
+                })
+            },
+            
+            Command::ResetPhaseCorrelation => {
+                let mut router = self.router.lock().unwrap();
+                router.phase_correlation_meter.reset();
+                Some(Response::Ok {
+                    message: "Phase correlation measurements reset".to_string(),
                 })
             },
         }

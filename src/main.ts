@@ -438,6 +438,24 @@ ipcMain.handle('audio-engine:reset-dynamic-range', async () => {
   await sendCommandToEngine({ type: 'reset_dynamic_range' })
 })
 
+// Phase Correlation metering (Master)
+ipcMain.handle('audio-engine:get-phase-correlation', async () => {
+  try {
+    // Silently return null if engine not running (polling will retry)
+    if (!audioEngineProcess || !audioEngineProcess.stdin) {
+      return null
+    }
+    return await sendCommandAndWaitForResponse({ type: 'get_phase_correlation' }, 'phase_correlation')
+  } catch (error) {
+    // Silently ignore errors during polling
+    return null
+  }
+})
+
+ipcMain.handle('audio-engine:reset-phase-correlation', async () => {
+  await sendCommandToEngine({ type: 'reset_phase_correlation' })
+})
+
 ipcMain.handle('audio-engine:set-master-limiter-old', async (_, enabled: boolean, ceiling: number, release: number) => {
   await sendCommandToEngine({ type: 'set_master_limiter', enabled, ceiling, release })
 })

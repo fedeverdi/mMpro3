@@ -144,6 +144,10 @@ interface AudioEngine {
   // Dynamic Range Metering
   getDynamicRange: () => Promise<void>
   resetDynamicRange: () => Promise<void>
+  
+  // Phase Correlation Metering (Master)
+  getPhaseCorrelation: () => Promise<void>
+  resetPhaseCorrelation: () => Promise<void>
 }
 
 // Electron API for window controls
