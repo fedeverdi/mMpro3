@@ -168,7 +168,7 @@
         <!-- Close button -->
         <button 
           @click="closePopover"
-          class="absolute top-2 right-2 w-5 h-5 bg-gray-800 hover:bg-gray-700 rounded flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+          class="absolute -top-4 -right-3 w-6 h-6 bg-gray-800 hover:bg-red-600 rounded-full flex items-center justify-center text-gray-400 hover:text-white transition-colors shadow-lg border border-gray-700"
           title="Close"
         >
           <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -235,7 +235,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, watch, onUnmounted } from 'vue'
+import { ref, computed, inject, watch, onMounted, onUnmounted } from 'vue'
 import LoudnessMeter from './master/LoudnessMeter.vue'
 import DynamicRangeMeter from './master/DynamicRangeMeter.vue'
 import MasterPhaseCorrelationMeter from './master/MasterPhaseCorrelationMeter.vue'
@@ -310,9 +310,21 @@ watch(
   { immediate: true }
 )
 
+// Close popover on window resize
+const handleResize = () => {
+  if (popoverMeter.value !== null) {
+    closePopover()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+})
+
 // Cleanup on unmount
 onUnmounted(() => {
   stopLoudnessPolling()
+  window.removeEventListener('resize', handleResize)
 })
 
 // Toggle collapse/expand
