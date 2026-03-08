@@ -1161,7 +1161,9 @@ impl AudioEngine {
                         *counter = 0;
                         
                         // Copy levels data while we have the lock
+                        // Only send data for tracks that have a source (not TrackSource::None)
                         let track_levels: Vec<TrackLevels> = router.tracks.iter()
+                            .filter(|t| !matches!(t.source, crate::routing::TrackSource::None))
                             .map(|t| TrackLevels {
                                 track: t.id,
                                 level_l: t.level_l,
