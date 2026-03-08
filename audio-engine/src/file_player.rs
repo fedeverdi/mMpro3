@@ -16,6 +16,7 @@ pub struct AudioFilePlayer {
     pub position: usize,
     pub looping: bool,
     pub playing: bool,
+    pub file_ended: bool, // NEW: Track when file finishes playing
     // Resampling state
     pub output_sample_rate: u32,
     pub resample_position: f64,
@@ -30,6 +31,7 @@ impl AudioFilePlayer {
             sample_rate: 0,
             position: 0,
             looping: false,
+            file_ended: false,
             playing: false,
             output_sample_rate: 44100,
             resample_position: 0.0,
@@ -126,6 +128,7 @@ impl AudioFilePlayer {
 
     /// Play the loaded audio
     pub fn play(&mut self) {
+        self.file_ended = false; // Reset when starting playback
         self.playing = true;
     }
 
@@ -137,6 +140,7 @@ impl AudioFilePlayer {
     /// Stop and reset to beginning
     pub fn stop(&mut self) {
         self.playing = false;
+        self.file_ended = false; // Reset on stop
         self.position = 0;
         self.resample_position = 0.0;
     }
@@ -159,10 +163,14 @@ impl AudioFilePlayer {
         
         if source_index >= frames_count {
             if self.looping {
+                // Loop back to start
                 self.resample_position = 0.0;
                 return self.next_frame();
             } else {
+                // File reached the end, signal that it ended naturally
                 self.playing = false;
+                self.file_ended = true;
+                eprintln!("[FilePlayer] File ended naturally (frames: {})", frames_count);
                 return (0.0, 0.0);
             }
         }

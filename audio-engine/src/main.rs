@@ -499,6 +499,7 @@ struct TrackLevels {
     compressor_reduction_db: f32,
     gate_input_db: f32,
     gate_attenuation_db: f32,
+    file_ended: bool, // NEW: True when file finishes playing
 }
 
 #[derive(Debug, Serialize)]
@@ -1171,6 +1172,7 @@ impl AudioEngine {
                                 compressor_reduction_db: t.compressor.gain_reduction_db,
                                 gate_input_db: t.gate.input_level_db,
                                 gate_attenuation_db: t.gate.attenuation_db,
+                                file_ended: t.file_player.as_ref().map_or(false, |p| p.file_ended),
                             })
                             .collect();
                         

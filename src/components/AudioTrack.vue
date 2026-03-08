@@ -291,7 +291,6 @@ const FADER_HEIGHT_THRESHOLD = 120
 const useFader = computed(() => faderHeight.value >= FADER_HEIGHT_THRESHOLD)
 
 const selectedFileName = ref<string | null>(null)
-const audioMonitorElement = ref<HTMLAudioElement | null>(null)
 
 const audioSourceType = ref<'input' | 'file'>('input')
 const selectedAudioInput = ref<string>('')
@@ -300,6 +299,7 @@ const selectedAudioInput = ref<string>('')
 const playlistFiles = ref<any[]>([])
 const currentPlaylistIndex = ref(0)
 const currentPlaylist = ref<any | null>(null)
+const lastFileEndedDetected = ref(false) // Track to avoid duplicate playNextInPlaylist calls
 
 // Control values
 const volume = ref(0) // dB (-90 to +12)
@@ -502,12 +502,6 @@ function handleStopFile() {
   if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
     audioEngine.stopFile(props.trackNumber - 1)
     isPlaying.value = false
-    
-    // Stop audio monitor if present
-    if (audioMonitorElement.value) {
-      audioMonitorElement.value.pause()
-      audioMonitorElement.value.currentTime = 0
-    }
   }
 }
 
@@ -529,15 +523,13 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
     selectedAudioFile.value = fileData.id
     selectedFileName.value = fileData.title || fileData.fileName
     audioSourceType.value = 'file'
+    
+    // Reset file ended detection flag when loading a new file
+    lastFileEndedDetected.value = false
 
     // Use file path directly from library (no need for temp file)
     if (audioEngine?.state.value.isRunning && fileData.filePath) {
       audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath)
-      
-      // Setup audio monitor for duration tracking (for playlist auto-advance)
-      if (currentPlaylist.value && playlistFiles.value.length > 0) {
-        setupAudioMonitor(fileData.filePath)
-      }
       
       // Auto-play the file only if requested
       if (autoPlay) {
@@ -582,38 +574,12 @@ async function loadPlaylistFromLibrary(playlist: any) {
   }
 }
 
-// Setup audio monitor for tracking file duration
-function setupAudioMonitor(filePath: string) {
-  // Create or reuse hidden audio element
-  if (!audioMonitorElement.value) {
-    audioMonitorElement.value = new Audio()
-    audioMonitorElement.value.volume = 0 // Silent
-    
-    // When file ends, load next in playlist
-    audioMonitorElement.value.onended = () => {
-      playNextInPlaylist()
-    }
-  }
-  
-  // Load the same file that Rust engine is playing
-  audioMonitorElement.value.src = `file://${filePath}`
-  audioMonitorElement.value.play().catch(err => {
-    console.error('Audio monitor play error:', err)
-  })
-}
-
 // Play next file in playlist
 async function playNextInPlaylist() {
   if (!currentPlaylist.value || playlistFiles.value.length === 0) return
   
   // Save the current playing state before stopping
   const wasPlaying = isPlaying.value
-  
-  // Stop audio monitor first
-  if (audioMonitorElement.value) {
-    audioMonitorElement.value.pause()
-    audioMonitorElement.value.currentTime = 0
-  }
 
   // Stop current playback
   if (audioEngine?.state.value.isRunning) {
@@ -622,7 +588,7 @@ async function playNextInPlaylist() {
   }
 
   // Wait a bit for the audio buffer to clear
-  await new Promise(resolve => setTimeout(resolve, 500))
+  await new Promise(resolve => setTimeout(resolve, 100))
   
   const nextIndex = (currentPlaylistIndex.value + 1) % playlistFiles.value.length
   currentPlaylistIndex.value = nextIndex
@@ -976,6 +942,18 @@ watch(
       // Update gate visualization data
       gateInputDb.value = levels.gateInputDb || -90
       gateAttenuationDb.value = levels.gateAttenuationDb || 0
+      
+      // Check if file ended naturally (for playlist auto-advance)
+      if (levels.fileEnded && currentPlaylist.value && playlistFiles.value.length > 0) {
+        // Avoid duplicate calls (fileEnded stays true until new file is loaded)
+        if (!lastFileEndedDetected.value) {
+          lastFileEndedDetected.value = true
+          playNextInPlaylist()
+        }
+      } else if (!levels.fileEnded) {
+        // Reset flag when file is playing (fileEnded = false)
+        lastFileEndedDetected.value = false
+      }
     }
   },
   { deep: true }
@@ -1019,17 +997,11 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // Cleanup audio monitor
-  if (audioMonitorElement.value) {
-    audioMonitorElement.value.pause()
-    audioMonitorElement.value.src = ''
-    audioMonitorElement.value = null
-  }
+  // Nothing to cleanup
 })
 
-// Expose methods to parent
+// Expose methods to parent component
 defineExpose({
-  loadFileFromLibrary,
   loadPlaylistFromLibrary,
   getState: () => ({
     // Audio source (single file or playlist)

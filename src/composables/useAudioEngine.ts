@@ -19,7 +19,8 @@ export interface AudioEngineState {
     compressorInputDb: number,
     compressorReductionDb: number,
     gateInputDb: number,
-    gateAttenuationDb: number
+    gateAttenuationDb: number,
+    fileEnded: boolean
   }>
   trackWaveforms: Map<number, number[]>
   subgroupLevels: Map<number, { left: number, right: number }>
@@ -134,7 +135,8 @@ export const useAudioEngine = () => {
                 compressorInputDb: trackLevel.compressor_input_db || -90,
                 compressorReductionDb: trackLevel.compressor_reduction_db || 0,
                 gateInputDb: trackLevel.gate_input_db || -90,
-                gateAttenuationDb: trackLevel.gate_attenuation_db || 0
+                gateAttenuationDb: trackLevel.gate_attenuation_db || 0,
+                fileEnded: trackLevel.file_ended || false
               })
 
               // Update waveform data if present
