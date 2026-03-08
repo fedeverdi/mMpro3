@@ -14,7 +14,7 @@
               class="w-full h-full object-contain invert"
               alt="NDI" />
           </div>
-          <h2 class="text-2xl font-bold text-white">NDI Stream Settings</h2>
+          <h2 class="text-2xl font-bold text-white">Stream Settings</h2>
         </div>
 
         <!-- Stream Name -->
