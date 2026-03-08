@@ -26,33 +26,35 @@
       <div 
         v-for="slot in slotComponents" 
         :key="slot.id"
-        :draggable="!isCollapsed"
-        class="bg-gradient-to-b to-gray-900 rounded-lg border-2 p-2 relative" 
+        class="meter-card bg-gradient-to-b to-gray-900 rounded-lg border-2 p-2 relative group" 
         :class="[
           slot.gradientFrom,
           slot.borderColor,
           { 'flex-1 min-h-0': isCollapsed },
           { 'cursor-pointer hover:opacity-90': isCollapsed }
         ]"
-        :style="{ 
-          cursor: !isCollapsed ? (draggedComponent === slot.id ? 'grabbing' : 'grab') : 'pointer',
-          ...getDragStyles(slot.id)
-        }"
+        :style="getDragStyles(slot.id)"
         @click="isCollapsed ? openMeterPopover(slot.id, $event) : null"
-        @dragstart="handleDragStart(slot.id, $event)"
         @dragover="handleDragOver($event, slot.id)"
         @drop="handleDrop($event, slot.id)"
-        @dragend="handleDragEnd()"
       >
         <!-- Drag Handle (only visible when not collapsed) -->
         <div 
           v-if="!isCollapsed"
-          class="absolute top-1 right-1 w-5 h-5 flex items-center justify-center text-gray-600 hover:text-gray-400 transition-opacity cursor-grab opacity-30 hover:opacity-100"
-          title="Drag to reorder"
+          class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M7 2a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2V4a2 2 0 00-2-2H7zm3 14a1 1 0 100-2 1 1 0 000 2zm0-4a1 1 0 100-2 1 1 0 000 2zm0-4a1 1 0 100-2 1 1 0 000 2z"/>
-          </svg>
+          <div
+            draggable="true"
+            @dragstart="handleDragStart(slot.id, $event)"
+            @dragend="handleDragEnd"
+            class="drag-handle bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1"
+            :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }"
+          >
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
+            </svg>
+            <span>{{ slot.name }}</span>
+          </div>
         </div>
 
         <!-- Meter Component -->
@@ -186,13 +188,15 @@ interface SlotComponent {
   gradientFrom: string
 }
 
-const slotComponents = ref<SlotComponent[]>([
+const defaultSlotComponents: SlotComponent[] = [
   { id: 'loudness', name: 'LUFS', borderColor: 'border-purple-600/50', gradientFrom: 'from-purple-900/20' },
   { id: 'dynamicRange', name: 'Dynamic Range', borderColor: 'border-orange-600/50', gradientFrom: 'from-orange-900/20' },
   { id: 'phaseCorrelation', name: 'Phase Correlation', borderColor: 'border-cyan-600/50', gradientFrom: 'from-cyan-900/20' },
   { id: 'stereoWidth', name: 'Stereo Width', borderColor: 'border-pink-600/50', gradientFrom: 'from-pink-900/20' },
   { id: 'headroom', name: 'Headroom', borderColor: 'border-amber-600/50', gradientFrom: 'from-amber-900/20' }
-])
+]
+
+const slotComponents = ref<SlotComponent[]>([...defaultSlotComponents])
 
 // Drag and drop state
 const draggedComponent = ref<Exclude<MeterType, null> | null>(null)
@@ -315,24 +319,20 @@ const formatLufs = (lufs: number | null | undefined): string => {
 // ============================================
 
 function handleDragStart(slotId: Exclude<MeterType, null>, event: DragEvent) {
-  if (isCollapsed.value) return
-  
   draggedComponent.value = slotId
   
-  // Set custom drag image to show the whole component
-  const componentElement = event.target as HTMLElement
+  // Set custom drag image to show the whole component instead of just the handle
+  const componentElement = (event.target as HTMLElement).closest('.meter-card')
   if (componentElement) {
     const rect = componentElement.getBoundingClientRect()
     // Calculate the offset from where the user clicked relative to the component
     const offsetX = event.clientX - rect.left
     const offsetY = event.clientY - rect.top
-    event.dataTransfer?.setDragImage(componentElement, offsetX, offsetY)
+    event.dataTransfer?.setDragImage(componentElement as HTMLElement, offsetX, offsetY)
   }
 }
 
 function handleDragOver(event: DragEvent, slotId: Exclude<MeterType, null>) {
-  if (isCollapsed.value) return
-  
   event.preventDefault()
   if (draggedComponent.value !== slotId) {
     dragOverComponent.value = slotId
@@ -340,8 +340,6 @@ function handleDragOver(event: DragEvent, slotId: Exclude<MeterType, null>) {
 }
 
 function handleDrop(event: DragEvent, targetId: Exclude<MeterType, null>) {
-  if (isCollapsed.value) return
-  
   event.preventDefault()
   
   if (!draggedComponent.value || draggedComponent.value === targetId) {
@@ -363,8 +361,6 @@ function handleDrop(event: DragEvent, targetId: Exclude<MeterType, null>) {
 }
 
 function handleDragEnd() {
-  if (isCollapsed.value) return
-  
   draggedComponent.value = null
   dragOverComponent.value = null
 }
@@ -473,6 +469,48 @@ function getMeterResetFn(slotId: Exclude<MeterType, null>) {
   }
   return resetMap[slotId]
 }
+
+// ============================================
+// localStorage Functions
+// ============================================
+
+// Load components order from localStorage
+function loadComponentsOrder() {
+  try {
+    const saved = localStorage.getItem('slotSectionComponentsOrder')
+    if (saved) {
+      const order = JSON.parse(saved)
+      // Validate that all required components are present
+      const requiredIds: Array<Exclude<MeterType, null>> = ['loudness', 'dynamicRange', 'phaseCorrelation', 'stereoWidth', 'headroom']
+      const savedIds = order.map((c: SlotComponent) => c.id)
+
+      if (requiredIds.every(id => savedIds.includes(id))) {
+        slotComponents.value = order
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load slot components order:', err)
+  }
+}
+
+// Save components order to localStorage
+function saveComponentsOrder() {
+  try {
+    localStorage.setItem('slotSectionComponentsOrder', JSON.stringify(slotComponents.value))
+  } catch (err) {
+    console.warn('Failed to save slot components order:', err)
+  }
+}
+
+// Watch for changes and save automatically
+watch(slotComponents, () => {
+  saveComponentsOrder()
+}, { deep: true })
+
+// Load order on mount
+onMounted(() => {
+  loadComponentsOrder()
+})
 </script>
 
 <style scoped>
