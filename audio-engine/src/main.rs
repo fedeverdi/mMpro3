@@ -28,6 +28,7 @@ mod track;
 mod ndi_ffi;
 mod ndi_stream;
 mod loudness;
+mod dynamic_range;
 
 use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
 use routing::Router;
@@ -362,6 +363,12 @@ enum Command {
     GetLoudness,
     #[serde(rename = "reset_loudness")]
     ResetLoudness,
+    
+    // Dynamic Range Metering
+    #[serde(rename = "get_dynamic_range")]
+    GetDynamicRange,
+    #[serde(rename = "reset_dynamic_range")]
+    ResetDynamicRange,
 }
 
 /// Risposta inviata a Electron via stdout
@@ -418,6 +425,16 @@ enum Response {
         integrated_lufs: f32,     // Gated integrated
         loudness_range_lu: f32,   // LRA (10th-95th percentile)
         true_peak_dbtp: f32,      // True peak level
+    },
+    #[serde(rename = "dynamic_range")]
+    DynamicRangeData {
+        peak_db_l: f32,
+        peak_db_r: f32,
+        rms_db_l: f32,
+        rms_db_r: f32,
+        dynamic_range_l: f32,
+        dynamic_range_r: f32,
+        dynamic_range_stereo: f32,
     },
 }
 
@@ -950,6 +967,9 @@ impl AudioEngine {
                         
                         // Process master audio through loudness meter (EBU R128)
                         router.loudness_meter.process(master_l, master_r);
+                        
+                        // Process master audio through dynamic range meter
+                        router.dynamic_range_meter.process(master_l, master_r);
 
                         // Record master output for this frame (if recording enabled)
                         if master_tap_enabled.load(Ordering::Relaxed) {
@@ -2531,6 +2551,28 @@ impl AudioEngine {
                 router.loudness_meter.reset();
                 Some(Response::Ok {
                     message: "Loudness measurements reset".to_string(),
+                })
+            },
+            
+            Command::GetDynamicRange => {
+                let router = self.router.lock().unwrap();
+                let dr_data = router.dynamic_range_meter.get_measurements();
+                Some(Response::DynamicRangeData {
+                    peak_db_l: dr_data.peak_db_l,
+                    peak_db_r: dr_data.peak_db_r,
+                    rms_db_l: dr_data.rms_db_l,
+                    rms_db_r: dr_data.rms_db_r,
+                    dynamic_range_l: dr_data.dynamic_range_l,
+                    dynamic_range_r: dr_data.dynamic_range_r,
+                    dynamic_range_stereo: dr_data.dynamic_range_stereo,
+                })
+            },
+            
+            Command::ResetDynamicRange => {
+                let mut router = self.router.lock().unwrap();
+                router.dynamic_range_meter.reset();
+                Some(Response::Ok {
+                    message: "Dynamic range measurements reset".to_string(),
                 })
             },
         }

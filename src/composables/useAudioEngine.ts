@@ -46,6 +46,15 @@ export interface AudioEngineState {
     loudnessRangeLu: number
     truePeakDbtp: number
   } | null
+  dynamicRangeData: {
+    peakDbL: number
+    peakDbR: number
+    rmsDbL: number
+    rmsDbR: number
+    dynamicRangeL: number
+    dynamicRangeR: number
+    dynamicRangeStereo: number
+  } | null
 }
 
 const state = ref<AudioEngineState>({
@@ -60,7 +69,8 @@ const state = ref<AudioEngineState>({
   fftData: null,
   performanceStats: null,
   recordingStats: null,
-  loudnessData: null
+  loudnessData: null,
+  dynamicRangeData: null
 })
 
 let isListening = false
@@ -182,6 +192,19 @@ export const useAudioEngine = () => {
             integratedLufs: response.integrated_lufs,
             loudnessRangeLu: response.loudness_range_lu,
             truePeakDbtp: response.true_peak_dbtp
+          }
+          break
+
+        case 'dynamic_range':
+          // Update dynamic range measurements
+          state.value.dynamicRangeData = {
+            peakDbL: response.peak_db_l,
+            peakDbR: response.peak_db_r,
+            rmsDbL: response.rms_db_l,
+            rmsDbR: response.rms_db_r,
+            dynamicRangeL: response.dynamic_range_l,
+            dynamicRangeR: response.dynamic_range_r,
+            dynamicRangeStereo: response.dynamic_range_stereo
           }
           break
 
@@ -558,6 +581,16 @@ export const useAudioEngine = () => {
     void window.audioEngine.resetLoudness()
   }
 
+  const getDynamicRange = () => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    void window.audioEngine.getDynamicRange()
+  }
+
+  const resetDynamicRange = () => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    void window.audioEngine.resetDynamicRange()
+  }
+
   onUnmounted(() => {
     if (state.value.isRunning) {
       stop()
@@ -631,6 +664,9 @@ export const useAudioEngine = () => {
     setNdiVideoText: (text: string) => window.audioEngine.setNdiVideoText(text),
     // Loudness metering
     getLoudness,
-    resetLoudness
+    resetLoudness,
+    // Dynamic Range metering
+    getDynamicRange,
+    resetDynamicRange
   }
 }

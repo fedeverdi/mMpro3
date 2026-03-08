@@ -127,6 +127,10 @@ contextBridge.exposeInMainWorld('audioEngine', {
   getLoudness: () => ipcRenderer.invoke('audio-engine:get-loudness'),
   resetLoudness: () => ipcRenderer.invoke('audio-engine:reset-loudness'),
   
+  // Dynamic Range Metering
+  getDynamicRange: () => ipcRenderer.invoke('audio-engine:get-dynamic-range'),
+  resetDynamicRange: () => ipcRenderer.invoke('audio-engine:reset-dynamic-range'),
+  
   // Master Tap (Recording) - Rust saves WAV file directly
   enableMasterTap: (filePath: string, settings: {
     format: 'wav' | 'mp3' | 'opus'

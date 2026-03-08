@@ -20,10 +20,10 @@
       </svg>
     </button>
 
-    <!-- LUFS Metering Card (always visible, changes layout based on collapsed state) -->
-    <div class="flex-1 p-0 overflow-y-auto">
-      <div class="bg-gradient-to-b from-purple-900/20 to-gray-900 rounded-lg border-2 border-purple-600/50 p-2 h-full">
-        <!-- Loudness Meter -->
+    <!-- Meters Container -->
+    <div class="flex-1 p-0 overflow-y-auto flex flex-col" :class="{ 'space-y-2': !isCollapsed, 'space-y-1': isCollapsed }">
+      <!-- LUFS Card -->
+      <div class="bg-gradient-to-b from-purple-900/20 to-gray-900 rounded-lg border-2 border-purple-600/50 p-2" :class="{ 'flex-1 h-0': isCollapsed }">
         <LoudnessMeter 
           v-show="audioEngine?.state.value.isRunning"
           :collapsed="isCollapsed"
@@ -36,7 +36,31 @@
         />
         
         <!-- Engine not running message -->
-        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center h-full">
+        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center" :class="{ 'h-full': isCollapsed, 'py-8': !isCollapsed }">
+          <div class="text-xs text-gray-500 text-center" :class="{ 'transform -rotate-90': isCollapsed }">
+            <div class="mb-2">⏸️</div>
+            <div v-if="!isCollapsed">Audio engine<br/>not running</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Range Card (always visible, changes layout based on collapsed state) -->
+      <div class="bg-gradient-to-b from-orange-900/20 to-gray-900 rounded-lg border-2 border-orange-600/50 p-2" :class="{ 'flex-1 h-0': isCollapsed }">
+        <DynamicRangeMeter 
+          v-show="audioEngine?.state.value.isRunning"
+          :collapsed="isCollapsed"
+          :peak-db-l="dynamicRangeData?.peakDbL"
+          :peak-db-r="dynamicRangeData?.peakDbR"
+          :rms-db-l="dynamicRangeData?.rmsDbL"
+          :rms-db-r="dynamicRangeData?.rmsDbR"
+          :dynamic-range-l="dynamicRangeData?.dynamicRangeL"
+          :dynamic-range-r="dynamicRangeData?.dynamicRangeR"
+          :dynamic-range-stereo="dynamicRangeData?.dynamicRangeStereo"
+          @reset="resetDynamicRange"
+        />
+        
+        <!-- Engine not running message -->
+        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center" :class="{ 'h-full': isCollapsed, 'py-8': !isCollapsed }">
           <div class="text-xs text-gray-500 text-center" :class="{ 'transform -rotate-90': isCollapsed }">
             <div class="mb-2">⏸️</div>
             <div v-if="!isCollapsed">Audio engine<br/>not running</div>
@@ -50,6 +74,7 @@
 <script setup lang="ts">
 import { ref, computed, inject, watch, onUnmounted } from 'vue'
 import LoudnessMeter from './master/LoudnessMeter.vue'
+import DynamicRangeMeter from './master/DynamicRangeMeter.vue'
 
 // Inject Rust audio engine
 const audioEngine = inject<any>('audioEngine', null)
@@ -66,6 +91,9 @@ const sectionWidth = computed(() => {
 // Loudness data
 const loudnessData = computed(() => audioEngine?.state.value.loudnessData)
 
+// Dynamic Range data
+const dynamicRangeData = computed(() => audioEngine?.state.value.dynamicRangeData)
+
 // Loudness polling
 let loudnessPollingInterval: ReturnType<typeof setInterval> | null = null
 
@@ -74,6 +102,7 @@ const startLoudnessPolling = () => {
   loudnessPollingInterval = setInterval(() => {
     if (audioEngine?.state.value.isRunning) {
       audioEngine.getLoudness()
+      audioEngine.getDynamicRange()
     }
   }, 100)
 }
@@ -112,6 +141,13 @@ function toggleCollapse() {
 function resetLoudness() {
   if (audioEngine?.state.value.isRunning) {
     audioEngine.resetLoudness()
+  }
+}
+
+// Reset dynamic range measurements
+function resetDynamicRange() {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.resetDynamicRange()
   }
 }
 

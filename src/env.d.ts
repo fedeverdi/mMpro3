@@ -140,6 +140,10 @@ interface AudioEngine {
   // Loudness Metering (EBU R128)
   getLoudness: () => Promise<void>
   resetLoudness: () => Promise<void>
+  
+  // Dynamic Range Metering
+  getDynamicRange: () => Promise<void>
+  resetDynamicRange: () => Promise<void>
 }
 
 // Electron API for window controls

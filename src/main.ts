@@ -420,6 +420,24 @@ ipcMain.handle('audio-engine:reset-loudness', async () => {
   await sendCommandToEngine({ type: 'reset_loudness' })
 })
 
+// Dynamic Range metering
+ipcMain.handle('audio-engine:get-dynamic-range', async () => {
+  try {
+    // Silently return null if engine not running (polling will retry)
+    if (!audioEngineProcess || !audioEngineProcess.stdin) {
+      return null
+    }
+    return await sendCommandAndWaitForResponse({ type: 'get_dynamic_range' }, 'dynamic_range')
+  } catch (error) {
+    // Silently ignore errors during polling
+    return null
+  }
+})
+
+ipcMain.handle('audio-engine:reset-dynamic-range', async () => {
+  await sendCommandToEngine({ type: 'reset_dynamic_range' })
+})
+
 ipcMain.handle('audio-engine:set-master-limiter-old', async (_, enabled: boolean, ceiling: number, release: number) => {
   await sendCommandToEngine({ type: 'set_master_limiter', enabled, ceiling, release })
 })
