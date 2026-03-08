@@ -6,6 +6,7 @@ use crate::equalizer::{Equalizer, ParametricEqualizer, EQBand, FilterType};
 use crate::file_player::AudioFilePlayer;
 use crate::gate::NoiseGate;
 use crate::limiter::Limiter;
+use crate::loudness::LoudnessMeter;
 use crate::reverb::Reverb;
 use crate::signal_gen::{SignalGenerator, WaveformType};
 use rustfft::{FftPlanner, num_complex::Complex};
@@ -828,6 +829,7 @@ pub struct Router {
     pub aux_buses: Vec<AuxBus>,
     pub master: MasterBus,
     pub fft_analyzer: FFTAnalyzer,
+    pub loudness_meter: LoudnessMeter,
     // Master bus output (before adding direct subgroups) for FFT analysis
     pub last_master_output: (f32, f32),
     // Cached outputs for multi-channel routing (populated by process_frame)
@@ -848,6 +850,7 @@ impl Router {
             aux_buses,
             master: MasterBus::new(),
             fft_analyzer: FFTAnalyzer::new(),
+            loudness_meter: LoudnessMeter::new(48000.0),
             last_master_output: (0.0, 0.0),
             last_subgroup_outputs: Vec::new(),
             last_aux_outputs: Vec::new(),

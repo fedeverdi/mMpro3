@@ -27,6 +27,7 @@ mod signal_gen;
 mod track;
 mod ndi_ffi;
 mod ndi_stream;
+mod loudness;
 
 use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
 use routing::Router;
@@ -355,6 +356,12 @@ enum Command {
     SetNdiName { name: String },
     #[serde(rename = "set_ndi_video_text")]
     SetNdiVideoText { text: String },
+    
+    // Loudness Metering (EBU R128)
+    #[serde(rename = "get_loudness")]
+    GetLoudness,
+    #[serde(rename = "reset_loudness")]
+    ResetLoudness,
 }
 
 /// Risposta inviata a Electron via stdout
@@ -403,6 +410,14 @@ enum Response {
         elapsed_seconds: u64,
         file_size_bytes: u64,
         available_space_gb: f32,
+    },
+    #[serde(rename = "loudness")]
+    LoudnessData {
+        momentary_lufs: f32,      // 400ms window
+        short_term_lufs: f32,     // 3s window
+        integrated_lufs: f32,     // Gated integrated
+        loudness_range_lu: f32,   // LRA (10th-95th percentile)
+        true_peak_dbtp: f32,      // True peak level
     },
 }
 
@@ -932,6 +947,9 @@ impl AudioEngine {
                         // Push MASTER BUS samples to FFT analyzer (parallel tap, doesn't affect audio)
                         let (master_l, master_r) = router.last_master_output;
                         router.fft_analyzer.push_samples(master_l, master_r);
+                        
+                        // Process master audio through loudness meter (EBU R128)
+                        router.loudness_meter.process(master_l, master_r);
 
                         // Record master output for this frame (if recording enabled)
                         if master_tap_enabled.load(Ordering::Relaxed) {
@@ -2494,6 +2512,26 @@ impl AudioEngine {
             Command::SetNdiVideoText { text } => {
                 self.ndi_stream.set_video_text(text);
                 None // Silent success
+            },
+            
+            Command::GetLoudness => {
+                let router = self.router.lock().unwrap();
+                let loudness_data = router.loudness_meter.get_measurements();
+                Some(Response::LoudnessData {
+                    momentary_lufs: loudness_data.momentary,
+                    short_term_lufs: loudness_data.short_term,
+                    integrated_lufs: loudness_data.integrated,
+                    loudness_range_lu: loudness_data.loudness_range,
+                    true_peak_dbtp: loudness_data.true_peak_dbtp,
+                })
+            },
+            
+            Command::ResetLoudness => {
+                let mut router = self.router.lock().unwrap();
+                router.loudness_meter.reset();
+                Some(Response::Ok {
+                    message: "Loudness measurements reset".to_string(),
+                })
             },
         }
     }

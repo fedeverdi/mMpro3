@@ -129,6 +129,17 @@ interface AudioEngine {
   // File dialog
   showOpenFileDialog: () => Promise<Array<{ name: string; path: string }> | null>
   readFileAsBuffer: (filePath: string) => Promise<{ name: string; buffer: ArrayBuffer }>
+  
+  // NDI Streaming
+  startNdi: (streamName: string, source: string) => Promise<void>
+  stopNdi: () => Promise<void>
+  setNdiSource: (source: string) => Promise<void>
+  setNdiName: (name: string) => Promise<void>
+  setNdiVideoText: (text: string) => Promise<void>
+  
+  // Loudness Metering (EBU R128)
+  getLoudness: () => Promise<void>
+  resetLoudness: () => Promise<void>
 }
 
 // Electron API for window controls

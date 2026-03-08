@@ -123,6 +123,10 @@ contextBridge.exposeInMainWorld('audioEngine', {
   setNdiName: (name: string) => ipcRenderer.invoke('audio-engine:set-ndi-name', name),
   setNdiVideoText: (text: string) => ipcRenderer.invoke('audio-engine:set-ndi-video-text', text),
   
+  // Loudness Metering (EBU R128)
+  getLoudness: () => ipcRenderer.invoke('audio-engine:get-loudness'),
+  resetLoudness: () => ipcRenderer.invoke('audio-engine:reset-loudness'),
+  
   // Master Tap (Recording) - Rust saves WAV file directly
   enableMasterTap: (filePath: string, settings: {
     format: 'wav' | 'mp3' | 'opus'

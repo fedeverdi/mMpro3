@@ -61,6 +61,11 @@
           @master-fx-component="handleMasterFxComponent" @update:master-eq-filters="handleMasterEQFiltersUpdate"
           @add-aux="addAux" @remove-aux="removeAux" @update-aux="updateAux" />
 
+        <!-- Meters & Tools Section -->
+        <div class="flex-shrink-0 h-full mixer-fade-in">
+          <SlotSectionOne />
+        </div>
+
         <!-- Subgroups Section -->
         <template v-for="subgroup in subgroups" :key="subgroup.id">
           <div class="flex-shrink-0 h-full mixer-fade-in">
@@ -166,6 +171,7 @@ import AudioSettingsModal from './components/layout/AudioSettingsModal.vue'
 import NDIStreamModal from './components/master/NDIStreamModal.vue'
 import FileManagerModal from './components/layout/FileManagerModal.vue'
 import RightSection from './components/master/RightSection.vue'
+import SlotSectionOne from './components/SlotSectionOne.vue'
 import MasterSection from './components/MasterSection.vue'
 import SubgroupsSection from './components/SubgroupsSection.vue'
 import ScenesModal from './components/layout/ScenesModal.vue'

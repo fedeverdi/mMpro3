@@ -39,6 +39,13 @@ export interface AudioEngineState {
     fileSizeBytes: number
     availableSpaceGb: number
   } | null
+  loudnessData: {
+    momentaryLufs: number
+    shortTermLufs: number
+    integratedLufs: number
+    loudnessRangeLu: number
+    truePeakDbtp: number
+  } | null
 }
 
 const state = ref<AudioEngineState>({
@@ -52,7 +59,8 @@ const state = ref<AudioEngineState>({
   masterLevels: { left: -60, right: -60 },
   fftData: null,
   performanceStats: null,
-  recordingStats: null
+  recordingStats: null,
+  loudnessData: null
 })
 
 let isListening = false
@@ -163,6 +171,17 @@ export const useAudioEngine = () => {
             elapsedSeconds: response.elapsed_seconds,
             fileSizeBytes: response.file_size_bytes,
             availableSpaceGb: response.available_space_gb
+          }
+          break
+
+        case 'loudness':
+          // Update loudness measurements (EBU R128)
+          state.value.loudnessData = {
+            momentaryLufs: response.momentary_lufs,
+            shortTermLufs: response.short_term_lufs,
+            integratedLufs: response.integrated_lufs,
+            loudnessRangeLu: response.loudness_range_lu,
+            truePeakDbtp: response.true_peak_dbtp
           }
           break
 
@@ -529,6 +548,16 @@ export const useAudioEngine = () => {
     return state.value.devices.filter(d => d.output_channels > 0)
   }
 
+  const getLoudness = () => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    void window.audioEngine.getLoudness()
+  }
+
+  const resetLoudness = () => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    void window.audioEngine.resetLoudness()
+  }
+
   onUnmounted(() => {
     if (state.value.isRunning) {
       stop()
@@ -599,6 +628,9 @@ export const useAudioEngine = () => {
     stopNdi: () => window.audioEngine.stopNdi(),
     setNdiSource: (source: string) => window.audioEngine.setNdiSource(source),
     setNdiName: (name: string) => window.audioEngine.setNdiName(name),
-    setNdiVideoText: (text: string) => window.audioEngine.setNdiVideoText(text)
+    setNdiVideoText: (text: string) => window.audioEngine.setNdiVideoText(text),
+    // Loudness metering
+    getLoudness,
+    resetLoudness
   }
 }

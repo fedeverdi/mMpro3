@@ -402,6 +402,24 @@ ipcMain.handle('audio-engine:set-ndi-video-text', async (_, text: string) => {
   await sendCommandToEngine({ type: 'set_ndi_video_text', text })
 })
 
+// Loudness metering
+ipcMain.handle('audio-engine:get-loudness', async () => {
+  try {
+    // Silently return null if engine not running (polling will retry)
+    if (!audioEngineProcess || !audioEngineProcess.stdin) {
+      return null
+    }
+    return await sendCommandAndWaitForResponse({ type: 'get_loudness' }, 'loudness')
+  } catch (error) {
+    // Silently ignore errors during polling
+    return null
+  }
+})
+
+ipcMain.handle('audio-engine:reset-loudness', async () => {
+  await sendCommandToEngine({ type: 'reset_loudness' })
+})
+
 ipcMain.handle('audio-engine:set-master-limiter-old', async (_, enabled: boolean, ceiling: number, release: number) => {
   await sendCommandToEngine({ type: 'set_master_limiter', enabled, ceiling, release })
 })
