@@ -1,5 +1,13 @@
 <template>
-  <div class="loudness-meter w-full">
+  <!-- Collapsed View: Vertical Title -->
+  <div v-if="collapsed" class="loudness-meter w-full h-full flex items-center justify-center">
+    <div class="text-[10px] font-bold text-purple-400 uppercase tracking-wider transform -rotate-90 whitespace-nowrap">
+      LUFS Metering
+    </div>
+  </div>
+
+  <!-- Expanded View: Full Meters -->
+  <div v-else class="loudness-meter w-full">
     <!-- Header with Reset Button -->
     <div class="flex items-center justify-between mb-2">
       <div class="text-[10px] font-bold text-purple-400 uppercase tracking-wider">LUFS Metering</div>
@@ -107,6 +115,7 @@ interface Props {
   integratedLufs?: number
   loudnessRangeLu?: number
   truePeakDbtp?: number
+  collapsed?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -114,7 +123,8 @@ const props = withDefaults(defineProps<Props>(), {
   shortTermLufs: -Infinity,
   integratedLufs: -Infinity,
   loudnessRangeLu: 0,
-  truePeakDbtp: -Infinity
+  truePeakDbtp: -Infinity,
+  collapsed: false
 })
 
 const emit = defineEmits<{

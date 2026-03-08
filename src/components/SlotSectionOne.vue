@@ -6,12 +6,13 @@
     <!-- Collapse/Expand Button -->
     <button
       @click="toggleCollapse"
-      class="absolute top-2 right-2 z-50 p-1.5 rounded bg-gray-800/80 hover:bg-gray-700/80 transition-colors"
+      class="absolute top-2 w-5 h-5 -translate-x-1/2 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg"
+      :class="{ 'left-1/2' : isCollapsed, 'left-3' : !isCollapsed }"
       :title="isCollapsed ? 'Expand Meters Panel' : 'Collapse Meters Panel'"
     >
       <svg 
-        class="w-3 h-3 text-gray-400 transition-transform" 
-        :class="{ 'rotate-180': isCollapsed }" 
+        class="w-3 h-3 text-gray-400 transition-transform rotate-180" 
+        :class="{ 'rotate-0': isCollapsed }" 
         fill="currentColor" 
         viewBox="0 0 20 20"
       >
@@ -19,13 +20,13 @@
       </svg>
     </button>
 
-    <!-- Content (hidden when collapsed) -->
-    <div v-show="!isCollapsed" class="flex-1 pb-2 px-0 pt-0 overflow-y-auto space-y-2">
-      <!-- LUFS Metering Card -->
-      <div class="bg-gradient-to-b from-purple-900/20 to-gray-900 rounded-lg border-2 border-purple-600/50 p-2">
+    <!-- LUFS Metering Card (always visible, changes layout based on collapsed state) -->
+    <div class="flex-1 p-0 overflow-y-auto">
+      <div class="bg-gradient-to-b from-purple-900/20 to-gray-900 rounded-lg border-2 border-purple-600/50 p-2 h-full">
         <!-- Loudness Meter -->
         <LoudnessMeter 
           v-show="audioEngine?.state.value.isRunning"
+          :collapsed="isCollapsed"
           :momentary-lufs="loudnessData?.momentaryLufs"
           :short-term-lufs="loudnessData?.shortTermLufs"
           :integrated-lufs="loudnessData?.integratedLufs"
@@ -35,29 +36,12 @@
         />
         
         <!-- Engine not running message -->
-        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center py-8">
-          <div class="text-xs text-gray-500 text-center">
+        <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center h-full">
+          <div class="text-xs text-gray-500 text-center" :class="{ 'transform -rotate-90': isCollapsed }">
             <div class="mb-2">⏸️</div>
-            <div>Audio engine<br/>not running</div>
+            <div v-if="!isCollapsed">Audio engine<br/>not running</div>
           </div>
         </div>
-      </div>
-
-      <!-- Future cards will go here -->
-      <!-- Example:
-      <div class="bg-gradient-to-b from-blue-900/20 to-gray-900 rounded-lg border-2 border-blue-600/50 p-2">
-        <div class="text-xs text-gray-400">Another meter/tool</div>
-      </div>
-      -->
-    </div>
-
-    <!-- Collapsed state indicator -->
-    <div v-if="isCollapsed" class="flex-1 flex flex-col items-center justify-center gap-2 text-gray-400 text-xs">
-      <div class="transform -rotate-90 whitespace-nowrap font-mono">
-        <div v-if="audioEngine?.state.value.isRunning && loudnessData">
-          {{ formatLufs(loudnessData.momentaryLufs) }}
-        </div>
-        <div v-else class="text-gray-500">—</div>
       </div>
     </div>
   </div>
@@ -73,7 +57,7 @@ const audioEngine = inject<any>('audioEngine', null)
 // Collapse state
 const isCollapsed = ref(false)
 const expandedWidth = 220
-const collapsedWidth = 40
+const collapsedWidth = 20
 
 const sectionWidth = computed(() => {
   return isCollapsed.value ? collapsedWidth : expandedWidth
