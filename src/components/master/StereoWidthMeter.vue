@@ -9,7 +9,7 @@
   <!-- Expanded View: Full Meter -->
   <div v-else class="stereo-width-meter w-full">
     <!-- Header with Reset Button -->
-    <div class="flex items-center justify-between mb-2">
+    <!-- <div class="flex items-center justify-between mb-2">
       <div class="text-[10px] font-bold text-pink-400 uppercase tracking-wider">Stereo Width</div>
       <button 
         @click="emit('reset')"
@@ -17,7 +17,7 @@
         title="Reset stereo width measurements">
         Reset
       </button>
-    </div>
+    </div> -->
 
     <!-- Measurements Display -->
     <div class="space-y-1.5">

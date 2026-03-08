@@ -9,7 +9,7 @@
   <!-- Expanded View: Full Meters -->
   <div v-else class="loudness-meter w-full">
     <!-- Header with Reset Button -->
-    <div class="flex items-center justify-between mb-2">
+    <!-- <div class="flex items-center justify-between mb-2">
       <div class="text-[10px] font-bold text-purple-400 uppercase tracking-wider">LUFS Metering</div>
       <button 
         @click="emit('reset')"
@@ -17,7 +17,7 @@
         title="Reset loudness measurements">
         Reset
       </button>
-    </div>
+    </div> -->
 
     <!-- Measurements Display -->
     <div class="space-y-1.5">

@@ -9,7 +9,7 @@
   <!-- Expanded View: Full Meter -->
   <div v-else class="headroom-meter w-full">
     <!-- Header with Reset Button -->
-    <div class="flex items-center justify-between mb-2">
+    <!-- <div class="flex items-center justify-between mb-2">
       <div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Headroom</div>
       <button 
         @click="emit('reset')"
@@ -17,7 +17,7 @@
         title="Reset headroom measurements">
         Reset
       </button>
-    </div>
+    </div> -->
 
     <!-- Measurements Display -->
     <div class="space-y-1.5">
