@@ -45,6 +45,45 @@ const MINIMUM_SPLASH_DURATION = 3000 // 3 seconds
 // Power Save Blocker - prevent system from throttling audio
 let powerSaveBlockerId: number | null = null
 
+// Track active temp files for cleanup
+const activeTempFiles = new Set<string>()
+
+/**
+ * Clean up temporary audio files from previous sessions
+ */
+const cleanupTempAudioFiles = () => {
+  try {
+    const tempDir = app.getPath('temp')
+    const mmpro3TempDir = path.join(tempDir, 'mmpro3-audio')
+    
+    if (fs.existsSync(mmpro3TempDir)) {
+      const files = fs.readdirSync(mmpro3TempDir)
+      let deletedCount = 0
+      
+      for (const file of files) {
+        try {
+          const filePath = path.join(mmpro3TempDir, file)
+          const stats = fs.statSync(filePath)
+          
+          // Delete files older than 1 hour or not in active set
+          const oneHourAgo = Date.now() - (60 * 60 * 1000)
+          if (stats.mtimeMs < oneHourAgo || !activeTempFiles.has(filePath)) {
+            fs.unlinkSync(filePath)
+            activeTempFiles.delete(filePath)
+            deletedCount++
+          }
+        } catch (err) {
+          console.error(`[Main] Failed to delete temp file ${file}:`, err)
+        }
+      }
+      
+      console.log(`[Main] Cleaned up ${deletedCount} temporary audio files`)
+    }
+  } catch (error) {
+    console.error('[Main] Error cleaning up temp audio files:', error)
+  }
+}
+
 const startAudioEngine = () => {
   // If audio engine is already running, stop it first
   if (audioEngineProcess) {
@@ -281,10 +320,26 @@ ipcMain.handle('audio-engine:save-temp-audio-file', async (_, arrayBuffer: Array
     const buffer = Buffer.from(arrayBuffer)
     fs.writeFileSync(tempFilePath, buffer)
     
+    // Track this file for cleanup
+    activeTempFiles.add(tempFilePath)
+    
     return tempFilePath
   } catch (error) {
     console.error('[Main] Error saving temp audio file:', error)
     throw error
+  }
+})
+
+// Delete a specific temp file (called when track stops/changes)
+ipcMain.handle('audio-engine:delete-temp-file', async (_, filePath: string) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath)
+      activeTempFiles.delete(filePath)
+      console.log('[Main] Deleted temp file:', path.basename(filePath))
+    }
+  } catch (error) {
+    console.error('[Main] Error deleting temp file:', error)
   }
 })
 
@@ -1434,6 +1489,9 @@ const createWindow = () => {
 }
 
 app.whenReady().then(() => {
+  // Clean up old temporary audio files from previous sessions
+  cleanupTempAudioFiles()
+  
   // Prevent system from throttling audio playback
   powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension')
   console.log('[Main] Power save blocker started:', powerSaveBlocker.isStarted(powerSaveBlockerId))
@@ -1469,6 +1527,7 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   stopAudioEngine()
+  cleanupTempAudioFiles() // Clean up temp files on exit
   // Stop power save blocker
   if (powerSaveBlockerId !== null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
     powerSaveBlocker.stop(powerSaveBlockerId)
@@ -1481,6 +1540,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   stopAudioEngine()
+  cleanupTempAudioFiles() // Clean up temp files before quit
   // Stop power save blocker
   if (powerSaveBlockerId !== null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
     powerSaveBlocker.stop(powerSaveBlockerId)

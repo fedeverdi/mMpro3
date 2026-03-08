@@ -61,6 +61,7 @@ interface AudioEngine {
   clearTrackSource: (trackIndex: number) => Promise<void>
   setTrackSourceFile: (trackIndex: number, filePath: string) => Promise<void>
   saveTempAudioFile: (arrayBuffer: ArrayBuffer, fileName: string) => Promise<string>
+  deleteTempFile: (filePath: string) => Promise<void>
   
   // File Playback Controls
   playFile: (trackIndex: number, fileId?: string) => Promise<void>

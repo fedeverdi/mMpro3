@@ -139,8 +139,10 @@ pub struct LoudnessMeter {
     // Block history for windows
     block_history: VecDeque<BlockPower>,
     
-    // Integrated loudness (gated)
-    integrated_blocks: Vec<f64>,
+    // Integrated loudness (gated) - LIMITED to prevent memory leak
+    // Store maximum 10 minutes of blocks (~56,250 blocks at 48kHz)
+    integrated_blocks: VecDeque<f64>,
+    max_integrated_blocks: usize,
     
     // Momentary/Short-term windows
     momentary_blocks: usize,
@@ -159,6 +161,10 @@ impl LoudnessMeter {
         let momentary_blocks = ((MOMENTARY_WINDOW * sample_rate / BLOCK_SIZE as f64).ceil() as usize).max(1);
         let short_term_blocks = ((SHORT_TERM_WINDOW * sample_rate / BLOCK_SIZE as f64).ceil() as usize).max(1);
         
+        // MEMORY LEAK FIX: Limit integrated blocks to 10 minutes maximum
+        // At 48kHz: 48000 / 512 = 93.75 blocks/sec * 600 sec = ~56,250 blocks
+        let max_integrated_blocks = ((sample_rate / BLOCK_SIZE as f64) * 600.0).ceil() as usize;
+        
         Self {
             sample_rate,
             k_filter: KWeightFilter::new(sample_rate),
@@ -166,7 +172,8 @@ impl LoudnessMeter {
             block_right_sum: 0.0,
             block_sample_count: 0,
             block_history: VecDeque::new(),
-            integrated_blocks: Vec::new(),
+            integrated_blocks: VecDeque::with_capacity(max_integrated_blocks),
+            max_integrated_blocks,
             momentary_blocks,
             short_term_blocks,
             samples_processed: 0,
@@ -224,8 +231,13 @@ impl LoudnessMeter {
             self.block_history.pop_front();
         }
         
-        // Store for integrated calculation
-        self.integrated_blocks.push(block_power);
+        // MEMORY LEAK FIX: Store for integrated calculation with limit
+        self.integrated_blocks.push_back(block_power);
+        
+        // Remove oldest blocks if we exceed the limit (10 minutes rolling window)
+        while self.integrated_blocks.len() > self.max_integrated_blocks {
+            self.integrated_blocks.pop_front();
+        }
         
         // Reset accumulators
         self.block_left_sum = 0.0;

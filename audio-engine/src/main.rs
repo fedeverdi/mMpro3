@@ -1471,8 +1471,6 @@ impl AudioEngine {
         
         // If device changed, close existing stream
         if device_changed && self.input_stream.is_some() {
-            eprintln!("[Engine] Input device changed from {:?} to {:?}, reopening stream", 
-                self.current_input_device, requested_device);
             if let Some(stream) = self.input_stream.take() {
                 drop(stream);
             }
@@ -1484,16 +1482,13 @@ impl AudioEngine {
         
         // If already open with the same device and had other users, just return
         if !was_empty && !device_changed {
-            eprintln!("[Engine] Track {} using audio input (total users: {})", track_id, self.input_users.len());
             return Ok(());
         }
 
         // Get input device
         let input_device = if let Some(name) = &requested_device {
-            eprintln!("[Engine] Opening input device: {}", name);
             self.audio_io.find_device_by_name(name, true)?
         } else {
-            eprintln!("[Engine] Opening default input device");
             self.audio_io.default_input_device()?
         };
 
@@ -1503,9 +1498,6 @@ impl AudioEngine {
         let buffer_size = self.output_buffer_size;
         
         let input_config = self.audio_io.get_supported_config(&input_device, true, Some(self.sample_rate), buffer_size)?;
-        
-        eprintln!("[Engine] Input device sample rate: {} Hz (output: {} Hz)", 
-            input_config.sample_rate.0, self.sample_rate);
         
         if let Some(size) = buffer_size {
             eprintln!("[Engine] Input buffer size: {} frames (matched to output)", size);
@@ -1518,8 +1510,6 @@ impl AudioEngine {
         self.input_channels.store(input_config.channels as usize, Ordering::Relaxed);
         
         let input_buffer_clone = Arc::clone(&self.input_buffer);
-        
-        eprintln!("[Engine] Using shared buffer for input audio");
         
         let err_fn = |err| eprintln!("[Engine] Input stream error: {}", err);
 
@@ -1787,7 +1777,6 @@ impl AudioEngine {
                     _ => return Err(anyhow::anyhow!("Unknown waveform: {}", waveform)),
                 };
                 generator.set_waveform(wave);
-                eprintln!("[Track {}] Signal waveform: {:?}", track, wave);
                 Ok(())
             } else {
                 Err(anyhow::anyhow!("Track {} has no signal generator", track))
@@ -1819,7 +1808,6 @@ impl AudioEngine {
         if let Some(t) = router.get_track_mut(track) {
             t.set_file_player(player);
             t.source = routing::TrackSource::FilePlayer;
-            eprintln!("[Track {}] Source: File Player ({})", track, file_path);
             Ok(())
         } else {
             Err(anyhow::anyhow!("Track {} not found", track))
@@ -1835,7 +1823,6 @@ impl AudioEngine {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.get_track_mut(track) {
             t.source = routing::TrackSource::AuxReturn(aux);
-            eprintln!("[Track {}] Source: Aux Return (Aux {})", track, aux);
             Ok(())
         } else {
             Err(anyhow::anyhow!("Track {} not found", track))

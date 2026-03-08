@@ -845,6 +845,10 @@ pub struct Router {
     // Cached outputs for multi-channel routing (populated by process_frame)
     pub last_subgroup_outputs: Vec<(f32, f32)>,
     pub last_aux_outputs: Vec<(f32,f32)>,
+    // Pre-allocated buffers to avoid allocations in audio thread (PERFORMANCE CRITICAL)
+    track_outputs_buffer: Vec<(f32, f32)>,
+    aux_outputs_buffer: Vec<(f32, f32)>,
+    subgroup_outputs_buffer: Vec<(f32, f32)>,
 }
 
 impl Router {
@@ -868,6 +872,10 @@ impl Router {
             last_master_output: (0.0, 0.0),
             last_subgroup_outputs: Vec::new(),
             last_aux_outputs: Vec::new(),
+            // Pre-allocate buffers with initial capacity (will grow as needed)
+            track_outputs_buffer: Vec::with_capacity(num_tracks),
+            aux_outputs_buffer: Vec::with_capacity(MAX_AUX_BUSES),
+            subgroup_outputs_buffer: Vec::with_capacity(8), // Start with capacity for 8 subgroups
         }
     }
 
@@ -906,16 +914,19 @@ impl Router {
 
     /// Process one frame of audio
     pub fn process_frame(&mut self, input_frame: Option<&[f32]>) -> (f32, f32) {
+        // PERFORMANCE OPTIMIZATION: Reuse pre-allocated buffers instead of allocating every frame
+        // This eliminates ~144,000 allocations per second at 48kHz!
+        
         // Process all tracks once and cache their outputs
         // Note: Tracks with AuxReturn source read from last_aux_outputs (1 frame latency)
-        let mut track_outputs: Vec<(f32, f32)> = Vec::new();
+        self.track_outputs_buffer.clear();
         for track in self.tracks.iter_mut() {
             let output = track.process(input_frame, &self.last_aux_outputs);
-            track_outputs.push(output);
+            self.track_outputs_buffer.push(output);
         }
 
         // Process all aux buses (sum all track aux sends for each aux)
-        let mut aux_outputs: Vec<(f32, f32)> = Vec::new();
+        self.aux_outputs_buffer.clear();
         for aux_index in 0..self.aux_buses.len() {
             // Sum all track aux sends for this aux bus
             let mut aux_sum_l = 0.0;
@@ -929,37 +940,39 @@ impl Router {
             
             // Process through aux bus (reverb, delay, gain)
             let aux_output = self.aux_buses[aux_index].process(aux_sum_l, aux_sum_r);
-            aux_outputs.push(aux_output);
+            self.aux_outputs_buffer.push(aux_output);
         }
 
         // Process all subgroups (using cached track and aux outputs)
-        let mut subgroup_outputs: Vec<(f32, f32)> = Vec::new();
+        self.subgroup_outputs_buffer.clear();
         for subgroup in self.subgroups.iter_mut() {
-            let output = subgroup.process_cached(&self.tracks, &track_outputs, &self.aux_buses, &aux_outputs);
-            subgroup_outputs.push(output);
+            let output = subgroup.process_cached(&self.tracks, &self.track_outputs_buffer, &self.aux_buses, &self.aux_outputs_buffer);
+            self.subgroup_outputs_buffer.push(output);
         }
 
-        // Cache outputs for multi-channel routing
-        self.last_subgroup_outputs = subgroup_outputs.clone();
-        self.last_aux_outputs = aux_outputs.clone();
+        // Cache outputs for multi-channel routing (copy from buffers)
+        self.last_subgroup_outputs.clear();
+        self.last_subgroup_outputs.extend_from_slice(&self.subgroup_outputs_buffer);
+        self.last_aux_outputs.clear();
+        self.last_aux_outputs.extend_from_slice(&self.aux_outputs_buffer);
 
         // Process master bus (using cached track outputs)
         // Master processes all tracks with route_to_master enabled (parallel with subgroups)
-        let mut master_output = self.master.process_cached(&self.tracks, &track_outputs);
+        let mut master_output = self.master.process_cached(&self.tracks, &self.track_outputs_buffer);
 
         // Add subgroups routed to master INTO the master (apply master gain)
         for (i, subgroup) in self.subgroups.iter().enumerate() {
             if subgroup.route_to_master {
-                master_output.0 += subgroup_outputs[i].0 * self.master.gain;
-                master_output.1 += subgroup_outputs[i].1 * self.master.gain;
+                master_output.0 += self.subgroup_outputs_buffer[i].0 * self.master.gain;
+                master_output.1 += self.subgroup_outputs_buffer[i].1 * self.master.gain;
             }
         }
         
         // Add aux buses routed to master INTO the master (apply master gain)
         for (i, aux_bus) in self.aux_buses.iter().enumerate() {
             if aux_bus.route_to_master {
-                master_output.0 += aux_outputs[i].0 * self.master.gain;
-                master_output.1 += aux_outputs[i].1 * self.master.gain;
+                master_output.0 += self.aux_outputs_buffer[i].0 * self.master.gain;
+                master_output.1 += self.aux_outputs_buffer[i].1 * self.master.gain;
             }
         }
         
