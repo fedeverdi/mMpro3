@@ -367,3 +367,37 @@ const formatLufs = (lufs: number | null | undefined): string => {
   return lufs.toFixed(1)
 }
 </script>
+
+<style scoped>
+/* Custom scrollbar styling */
+.overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.3) rgba(31, 41, 55, 0.15);
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: rgba(31, 41, 55, 0.15);
+  border-radius: 2px;
+  margin-left: 2px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 2px;
+  border-left: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s ease;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:active {
+  background: rgba(59, 130, 246, 0.7);
+}
+</style>
