@@ -506,18 +506,26 @@ function handleStopFile() {
 }
 
 // Method to load file from library by ID or file object
-async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = false) {
+async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = false, fromPlaylist = false) {
   try {
     // If string ID is passed, fetch file data from library
     let fileData: any
+    
     if (typeof fileIdOrObject === 'string') {
       fileData = await window.audioEngine.getLibraryFile(fileIdOrObject)
       if (!fileData) {
         throw new Error(`File not found in library: ${fileIdOrObject}`)
       }
     } else {
-      // File object passed directly (e.g., from playlist)
+      // File object passed directly
       fileData = fileIdOrObject
+    }
+    
+    // Reset playlist mode if NOT loading from playlist
+    if (!fromPlaylist) {
+      currentPlaylist.value = null
+      playlistFiles.value = []
+      currentPlaylistIndex.value = 0
     }
     
     selectedAudioFile.value = fileData.id
@@ -568,7 +576,8 @@ async function loadPlaylistFromLibrary(playlist: any) {
     selectedFileName.value = `${playlist.name} (1/${files.length}) - ${trackDisplay}`
     audioSourceType.value = 'file'
     
-    await loadFileFromLibrary(firstFile)
+    // Load first file from playlist (fromPlaylist = true)
+    await loadFileFromLibrary(firstFile, false, true)
   } catch (error) {
     console.error('Error loading playlist:', error)
   }
@@ -600,8 +609,8 @@ async function playNextInPlaylist() {
   const trackDisplay = nextFile.artist ? `${nextFile.artist} - ${trackName}` : trackName
   selectedFileName.value = `${currentPlaylist.value.name} (${nextIndex + 1}/${playlistFiles.value.length}) - ${trackDisplay}`
   
-  // Load and auto-play if it was playing before
-  await loadFileFromLibrary(nextFile, wasPlaying)
+  // Load and auto-play if it was playing before (fromPlaylist = true)
+  await loadFileFromLibrary(nextFile, wasPlaying, true)
 }
 
 function toggleMute() {
@@ -1002,6 +1011,7 @@ onUnmounted(() => {
 
 // Expose methods to parent component
 defineExpose({
+  loadFileFromLibrary,
   loadPlaylistFromLibrary,
   getState: () => ({
     // Audio source (single file or playlist)
@@ -1077,8 +1087,8 @@ defineExpose({
             selectedFileName.value = `${currentPlaylist.value.name} (${currentIndex + 1}/${playlistFiles.value.length}) - ${trackDisplay}`
             audioSourceType.value = 'file'
             
-            // Load the file without auto-playing
-            await loadFileFromLibrary(currentFile, false)
+            // Load the file without auto-playing (fromPlaylist = true)
+            await loadFileFromLibrary(currentFile, false, true)
           }
         }
       } catch (error) {
