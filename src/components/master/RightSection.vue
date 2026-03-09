@@ -4,6 +4,7 @@
     <div 
       :class="['absolute left-0 top-0 bottom-0 w-3 z-50 group bg-gray-900/20', isCollapsed ? 'cursor-default' : 'cursor-grab']"
       @mousedown.stop="startResize"
+      @touchstart.stop="startResizeTouch"
       :title="isCollapsed ? 'Panel collapsed' : 'Drag to resize'"
     >
 
@@ -485,6 +486,77 @@ function stopResize() {
   }
 }
 
+// Touch resize functionality
+function startResizeTouch(event: TouchEvent) {
+  if (isCollapsed.value) return // Don't allow resize when collapsed
+  
+  // Prevent default to avoid scrolling during resize
+  event.preventDefault()
+  
+  isResizing.value = true
+  const touch = event.touches[0]
+  startX = touch.clientX
+  startWidth = sectionWidth.value
+  
+  document.addEventListener('touchmove', onResizeTouch, { passive: false })
+  document.addEventListener('touchend', stopResizeTouch)
+  document.addEventListener('touchcancel', stopResizeTouch)
+  
+  // Prevent text selection during resize
+  document.body.style.userSelect = 'none'
+}
+
+function onResizeTouch(event: TouchEvent) {
+  if (!isResizing.value) return
+  
+  // Prevent default to avoid scrolling
+  event.preventDefault()
+  
+  const touch = event.touches[0]
+  
+  // Calculate new width (drag left = reduce width, drag right = increase width)
+  const deltaX = startX - touch.clientX // Inverted because we're dragging from left edge
+  const maxWidth = window.innerWidth / 2 // Max: half of window width
+  const newWidth = Math.max(300, Math.min(maxWidth, startWidth + deltaX)) // Min 300px
+  
+  // Store pending width
+  pendingWidth = newWidth
+  
+  // Use RAF to throttle updates to once per frame
+  if (resizeRafId === null) {
+    resizeRafId = requestAnimationFrame(() => {
+      if (pendingWidth !== null) {
+        sectionWidth.value = pendingWidth
+        pendingWidth = null
+      }
+      resizeRafId = null
+    })
+  }
+}
+
+function stopResizeTouch() {
+  if (isResizing.value) {
+    isResizing.value = false
+    document.removeEventListener('touchmove', onResizeTouch)
+    document.removeEventListener('touchend', stopResizeTouch)
+    document.removeEventListener('touchcancel', stopResizeTouch)
+    document.body.style.userSelect = ''
+    
+    // Cancel any pending RAF and apply final width
+    if (resizeRafId !== null) {
+      cancelAnimationFrame(resizeRafId)
+      resizeRafId = null
+    }
+    if (pendingWidth !== null) {
+      sectionWidth.value = pendingWidth
+      pendingWidth = null
+    }
+    
+    // Save to localStorage
+    saveWidth()
+  }
+}
+
 function saveWidth() {
   try {
     localStorage.setItem('rightSectionWidth', sectionWidth.value.toString())
@@ -575,6 +647,9 @@ onUnmounted(() => {
   if (isResizing.value) {
     document.removeEventListener('mousemove', onResize)
     document.removeEventListener('mouseup', stopResize)
+    document.removeEventListener('touchmove', onResizeTouch)
+    document.removeEventListener('touchend', stopResizeTouch)
+    document.removeEventListener('touchcancel', stopResizeTouch)
     document.body.style.cursor = ''
     document.body.style.userSelect = ''
   }
