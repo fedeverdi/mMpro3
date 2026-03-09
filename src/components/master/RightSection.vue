@@ -55,7 +55,7 @@
       <!-- Master EQ Display -->
       <div v-if="component.id === 'eq'"
         v-show="!isCollapsed"
-        :class="[component.size === 'flex' && component.isExpanded ? 'flex-1 min-h-0' : '', 'w-full mixer-fade-in relative']"
+        :class="[component.size === 'flex' && component.isExpanded ? 'flex-1 min-h-0 max-h-[50vh]' : '', 'w-full mixer-fade-in relative']"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
         @drop="handleDrop($event, component.id)">
@@ -87,7 +87,7 @@
           </div>
           
           <!-- Content -->
-          <div v-show="component.isExpanded" class="flex-1 min-h-0">
+          <div v-show="component.isExpanded" class="flex-1 min-h-0 overflow-auto">
             <MasterEQDisplay :filters-data="props.masterEqFilters || []" :master-channel="masterChannel"
               @update:filters-data="handleMasterEQFiltersUpdate" />
           </div>
@@ -97,7 +97,7 @@
       <!-- Spectrum Meter -->
       <div v-if="component.id === 'spectrum'"
         v-show="!isCollapsed"
-        :class="[component.size === 'flex' && component.isExpanded ? 'flex-1 min-h-0' : '', 'w-full mixer-fade-in relative']"
+        :class="[component.size === 'flex' && component.isExpanded ? 'flex-1 min-h-0 max-h-[50vh]' : '', 'w-full mixer-fade-in relative']"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
         @drop="handleDrop($event, component.id)">
@@ -129,7 +129,7 @@
           </div>
           
           <!-- Content -->
-          <div v-show="component.isExpanded" class="flex-1 min-h-0">
+          <div v-show="component.isExpanded" class="flex-1 min-h-0 overflow-auto">
             <SpectrumMeter :master-fx-output-node="masterFxOutputNode" />
           </div>
         </div>
