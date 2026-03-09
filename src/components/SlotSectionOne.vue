@@ -10,14 +10,9 @@
       :class="{ 'left-1/2' : isCollapsed, 'left-3' : !isCollapsed }"
       :title="isCollapsed ? 'Expand Meters Panel' : 'Collapse Meters Panel'"
     >
-      <svg 
-        class="w-3 h-3 text-gray-400 transition-transform rotate-180" 
-        :class="{ 'rotate-0': isCollapsed }" 
-        fill="currentColor" 
-        viewBox="0 0 20 20"
-      >
-        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-      </svg>
+      <svg class="w-3 h-3 text-gray-300 transition-transform" :class="{ 'rotate-180': !isCollapsed }" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+        </svg>
     </button>
 
     <!-- Meters Container -->
