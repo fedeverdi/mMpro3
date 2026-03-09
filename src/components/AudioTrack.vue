@@ -499,17 +499,18 @@ function handlePlayFile() {
     return
   }
   
-  // Otherwise, play the current file (pass ID to auto-load if needed)
-  if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
-    audioEngine.playFile(props.trackNumber - 1, selectedAudioFile.value)
-    isPlaying.value = true
+  // Otherwise, play the current file (file is already loaded in Rust)
+  if (audioEngine?.state.value.isRunning && selectedFileName.value) {
+    // Don't pass file_id - just play the already loaded file
+    audioEngine.playFile(props.trackNumber - 1)
+    // isPlaying will be updated via Rust engine broadcast
   }
 }
 
 function handleStopFile() {
-  if (audioEngine?.state.value.isRunning && selectedAudioFile.value) {
+  if (audioEngine?.state.value.isRunning && selectedFileName.value) {
     audioEngine.stopFile(props.trackNumber - 1)
-    isPlaying.value = false
+    // isPlaying will be updated via Rust engine broadcast
   }
 }
 
@@ -550,7 +551,7 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
       // Auto-play the file only if requested
       if (autoPlay) {
         audioEngine.playFile(props.trackNumber - 1)
-        isPlaying.value = true
+        // isPlaying will be updated via Rust engine broadcast
       }
     }
   } catch (error) {
@@ -601,7 +602,7 @@ async function playNextInPlaylist() {
   // Stop current playback
   if (audioEngine?.state.value.isRunning) {
     audioEngine.stopFile(props.trackNumber - 1)
-    isPlaying.value = false
+    // isPlaying will be updated via Rust engine broadcast
   }
 
   // Wait a bit for the audio buffer to clear
@@ -1097,16 +1098,27 @@ onMounted(async () => {
     if (params.eqHigh !== undefined) eqHigh.value = params.eqHigh
     
     // Update file player state (sync fileName from Rust)
-    if (params.fileName) {
-      // If we have artist/title metadata, use that; otherwise use fileName
-      if (params.fileArtist && params.fileTitle) {
-        selectedFileName.value = `${params.fileArtist} - ${params.fileTitle}`
-      } else if (params.fileTitle) {
-        selectedFileName.value = params.fileTitle
-      } else if (params.fileName) {
-        selectedFileName.value = params.fileName
-      }
+    // Build display name from Rust data
+    let displayName: string | null = null
+    if (params.fileArtist && params.fileTitle) {
+      displayName = `${params.fileArtist} - ${params.fileTitle}`
+    } else if (params.fileTitle) {
+      displayName = params.fileTitle
+    } else if (params.fileName && params.fileName.trim() !== '') {
+      displayName = params.fileName
+    }
+    
+    // Update selectedFileName when we have content from Rust
+    if (displayName) {
+      selectedFileName.value = displayName
+      // If we have file data, ensure audioSourceType is set to 'file'
+      // This is critical for remote clients that need to sync state
       audioSourceType.value = 'file'
+    }
+    
+    // Sync play state from Rust engine
+    if (params.isPlaying !== undefined) {
+      isPlaying.value = params.isPlaying
     }
     
     // Re-enable watches after Vue reactivity cycle completes

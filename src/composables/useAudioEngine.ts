@@ -59,6 +59,7 @@ export interface AudioEngineState {
     fileArtist?: string
     fileTitle?: string
     isStereo: boolean
+    isPlaying: boolean
   }>
   subgroupLevels: Map<number, { left: number; right: number }>
   masterLevels: { left: number; right: number }
@@ -247,7 +248,8 @@ export const useAudioEngine = () => {
                   fileName: trackLevel.file_name || '',
                   fileArtist: trackLevel.file_artist,
                   fileTitle: trackLevel.file_title,
-                  isStereo: trackLevel.is_stereo ?? false
+                  isStereo: trackLevel.is_stereo ?? false,
+                  isPlaying: trackLevel.is_playing ?? false
                 })
               }
             })

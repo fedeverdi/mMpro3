@@ -205,7 +205,9 @@ export class RemoteAudioEngine {
   }
 
   async playFile(track: number, fileId?: string): Promise<void> {
-    return this.send({ type: 'play_file', track, file_id: fileId })
+    // Note: fileId is kept for API compatibility but ignored for now
+    // Remote clients play already-loaded files, file loading happens via setTrackSourceFile
+    return this.send({ type: 'play_file', track, file_path: undefined })
   }
 
   async pauseFile(track: number): Promise<void> {

@@ -512,6 +512,7 @@ struct TrackLevels {
     file_artist: Option<String>, // File metadata: artist
     file_title: Option<String>, // File metadata: title
     is_stereo: bool, // True if file has 2+ channels
+    is_playing: bool, // True if file is currently playing
     // Track parameters (for full state sync)
     gain: f32,
     volume: f32,
@@ -1229,6 +1230,7 @@ impl AudioEngine {
                                 file_artist: t.file_player.as_ref().and_then(|p| p.file_artist.clone()),
                                 file_title: t.file_player.as_ref().and_then(|p| p.file_title.clone()),
                                 is_stereo: t.file_player.as_ref().map_or(false, |p| p.channels >= 2),
+                                is_playing: t.file_player.as_ref().map_or(false, |p| p.playing),
                                 // Track parameters
                                 gain: t.gain,
                                 volume: t.volume,
