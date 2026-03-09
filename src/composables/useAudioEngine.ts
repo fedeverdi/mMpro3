@@ -433,26 +433,20 @@ export const useAudioEngine = () => {
           break
 
         case 'master_eq_filters_updated':
-          console.log('[useAudioEngine] Master EQ filters updated remotely:', response.filters)
           break
 
         case 'track_eq_filters_updated':
-          console.log('[useAudioEngine] Track EQ filters updated remotely:', response.track, response.filters)
           break
 
         case 'license':
-          console.log('[useAudioEngine] License received from Rust:', response.license_type)
           // Trigger event for useLicense to pick up (both Electron and remote)
           window.dispatchEvent(new CustomEvent('license-updated', { detail: response }))
           break
 
         case 'connected':
-          console.log('[useAudioEngine] Remote connection established:', response.message || 'Connected')
           break
 
         case 'license-update':
-          // Legacy: kept for backwards compatibility but Rust 'license' response is preferred
-          console.log('[useAudioEngine] Legacy license-update received')
           break
 
         default:

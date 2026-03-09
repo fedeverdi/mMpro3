@@ -60,7 +60,7 @@
       </div>
 
       <!-- Waveform Display - Always visible -->
-      <WaveformDisplay :track-number="trackNumber - 1" :show-mode-buttons="false" mode="signal"
+      <WaveformDisplay v-if="isLargeSize" :track-number="trackNumber - 1" :show-mode-buttons="false" mode="signal"
         :is-active="(audioSourceType === 'file' && isPlaying) || (audioSourceType === 'input' && selectedAudioInput !== '')" />
     </div>
 
@@ -108,7 +108,7 @@
         </div>
 
         <!-- EQ Thumbnail (Frequency Response Curve) -->
-        <EQThumbnail :system-filters="eq4BandFilters" :filters="parametricEQFilters" />
+        <EQThumbnail v-if="isLargeSize" :system-filters="eq4BandFilters" :filters="parametricEQFilters" />
 
         <!-- 4-Band Parametric EQ - Absolute positioned -->
         <div class="absolute top-full left-0 right-0 z-[1000] mt-1">
@@ -153,10 +153,10 @@
 
 
       <!-- Pan Knob -->
-      <div class="flex justify-center scale-[0.75]">
+      <div class="flex justify-center scale-[0.75]" :class="{ 'scale-[0.5] -mt-5' : !isLargeSize }">
         <PanKnob v-model="pan" label="Pan" @drag-start="isDraggingPan = true" @drag-end="isDraggingPan = false" />
       </div>
-      <div class="text-[0.455rem] uppercase text-center mb-6">Volume</div>
+      <div class="text-[0.455rem] uppercase text-center mb-6" :class="{ 'mb-[0.8rem] -mt-5' : !isLargeSize }">Volume</div>
 
       <!-- Volume Fader and VU Meter -->
       <div class="flex flex-col flex-1 min-h-0 pb-6 ">
@@ -270,6 +270,11 @@ const props = defineProps<{
 
 // Import audio engine from context
 const audioEngine = inject('audioEngine') as any
+
+// Definiscom una computed isLargeSize per determinare l'altezza window disponibile in modo da avere spazio per la traccia
+const isLargeSize = computed(() => {
+  return window.innerHeight > 800
+})
 
 // Emits
 const emit = defineEmits<{

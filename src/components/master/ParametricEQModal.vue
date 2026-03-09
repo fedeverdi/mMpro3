@@ -40,6 +40,10 @@
               @mousemove="handleCanvasMouseMove"
               @mouseup="handleCanvasMouseUp"
               @mouseleave="handleCanvasMouseUp"
+              @touchstart.prevent="handleCanvasTouchStart"
+              @touchmove.prevent="handleCanvasTouchMove"
+              @touchend.prevent="handleCanvasTouchEnd"
+              @touchcancel.prevent="handleCanvasTouchEnd"
             ></canvas>
             
             <!-- Drag Popover -->
@@ -614,6 +618,179 @@ function handleCanvasMouseMove(e: MouseEvent) {
 }
 
 function handleCanvasMouseUp() {
+  // Emit final update when dragging ends
+  if (draggedFilterIndex.value !== null) {
+    // Always emit final update for Rust backend
+    emit('update', {
+      input: null,
+      output: null,
+      filters: [],
+      filtersData: filters.value
+    })
+  }
+  
+  isDragging.value = false
+  isDraggingQ.value = false
+  draggedFilterIndex.value = null
+  popoverPosition.value = { x: 0, y: 0 }
+}
+
+// Touch handlers
+function handleCanvasTouchStart(e: TouchEvent) {
+  if (!canvasRect || e.touches.length === 0) return
+  
+  const touch = e.touches[0]
+  const x = touch.clientX - canvasRect.left
+  const y = touch.clientY - canvasRect.top
+  
+  // Check if we touched on Q arrows
+  const width = canvasRect.width
+  const height = 450
+  const minFreq = Math.log10(20)
+  const maxFreq = Math.log10(20000)
+  
+  for (let index = 0; index < displayFilters.value.length; index++) {
+    const filter = displayFilters.value[index]
+    
+    // Skip system filters - no Q control for them
+    if (filter.isSystem) continue
+    
+    // Only check for peaking, lowpass, highpass filters
+    if (filter.type === 'peaking' || filter.type === 'lowpass' || filter.type === 'highpass') {
+      const filterX = ((Math.log10(filter.frequency) - minFreq) / (maxFreq - minFreq)) * width
+      const actualGain = calculateFilterGain(filter, filter.frequency) * -1
+      const filterY = (actualGain * (height / 48)) + (height / 2)
+      
+      // Position arrows based on gain: above if positive, below if negative
+      const arrowY = filterY < height / 2 ? filterY - 28 : filterY + 28
+      const arrowSize = 10
+      
+      // Check if touched in rectangular area between arrows (from left arrow to right arrow)
+      const leftArrowX = filterX - 18 - arrowSize
+      const rightArrowX = filterX + 18 + arrowSize
+      const topY = arrowY - arrowSize
+      const bottomY = arrowY + arrowSize
+      
+      if (x >= leftArrowX && x <= rightArrowX && y >= topY && y <= bottomY) {
+        // Start dragging Q
+        draggedFilterIndex.value = index
+        isDraggingQ.value = true
+        dragStartX = x
+        dragStartQ = filter.Q
+        
+        // Set initial popover position
+        popoverPosition.value = { x: filterX, y: filterY }
+        return
+      }
+    }
+  }
+  
+  // Find if we touched near a filter point
+  const filterIndex = findNearestFilter(x, y)
+  
+  if (filterIndex !== -1) {
+    draggedFilterIndex.value = filterIndex
+    isDragging.value = true
+    
+    // Set initial popover position
+    const filter = displayFilters.value[filterIndex]
+    const filterX = ((Math.log10(filter.frequency) - minFreq) / (maxFreq - minFreq)) * width
+    const actualGain = calculateFilterGain(filter, filter.frequency) * -1
+    const filterY = (actualGain * (height / 48)) + (height / 2)
+    popoverPosition.value = { x: filterX, y: filterY }
+  }
+}
+
+function handleCanvasTouchMove(e: TouchEvent) {
+  if (!canvasRect || e.touches.length === 0) return
+  
+  const touch = e.touches[0]
+  const x = touch.clientX - canvasRect.left
+  const y = touch.clientY - canvasRect.top
+  
+  if (!isDragging.value && !isDraggingQ.value) {
+    return
+  }
+  
+  // Update popover position during drag
+  if (draggedFilterIndex.value !== null) {
+    const filter = displayFilters.value[draggedFilterIndex.value]
+    const width = canvasRect.width
+    const height = 450
+    const minFreq = Math.log10(20)
+    const maxFreq = Math.log10(20000)
+    
+    // Calculate x from filter frequency
+    const filterX = ((Math.log10(filter.frequency) - minFreq) / (maxFreq - minFreq)) * width
+    
+    // Calculate y from filter gain
+    const actualGain = calculateFilterGain(filter, filter.frequency) * -1
+    const filterY = (actualGain * (height / 48)) + (height / 2)
+    
+    popoverPosition.value = { x: filterX, y: filterY }
+  }
+  
+  if (isDraggingQ.value && draggedFilterIndex.value !== null) {
+    // Dragging Q value horizontally
+    const deltaX = x - dragStartX
+    const sensitivity = 0.01
+    const newQ = Math.max(0.1, Math.min(10, dragStartQ + deltaX * sensitivity))
+    
+    filters.value[draggedFilterIndex.value].Q = newQ
+    
+    drawEQCurve()
+    
+    // Emit update for real-time preview
+    emit('update', {
+      input: null,
+      output: null,
+      filters: [],
+      filtersData: filters.value
+    })
+  } else if (isDragging.value && draggedFilterIndex.value !== null) {
+    const filter = displayFilters.value[draggedFilterIndex.value]
+    
+    // Don't allow dragging system filters
+    if (filter.isSystem) return
+    
+    const width = canvasRect.width
+    const height = 450
+    
+    const minFreq = Math.log10(20)
+    const maxFreq = Math.log10(20000)
+    const freqRatio = (x / width) * (maxFreq - minFreq) + minFreq
+    const newFreq = Math.pow(10, freqRatio)
+    
+    // Clamp frequency to valid range
+    const clampedFreq = Math.max(20, Math.min(20000, newFreq))
+    
+    // Clamp gain based on filter type
+    let newGain = 0
+    if (filter.type === 'peaking' || filter.type === 'lowshelf' || filter.type === 'highshelf') {
+      const gainRange = 24 // ±24 dB
+      newGain = 24 - (y / height) * 48 // -24 to +24 dB (same as mouse handler)
+      newGain = Math.max(-gainRange, Math.min(gainRange, newGain))
+    }
+    
+    // Update filter parameters
+    filters.value[draggedFilterIndex.value].frequency = clampedFreq
+    if (filter.type === 'peaking' || filter.type === 'lowshelf' || filter.type === 'highshelf') {
+      filters.value[draggedFilterIndex.value].gain = newGain
+    }
+    
+    drawEQCurve()
+    
+    // Emit update for real-time preview
+    emit('update', {
+      input: null,
+      output: null,
+      filters: [],
+      filtersData: filters.value
+    })
+  }
+}
+
+function handleCanvasTouchEnd() {
   // Emit final update when dragging ends
   if (draggedFilterIndex.value !== null) {
     // Always emit final update for Rust backend

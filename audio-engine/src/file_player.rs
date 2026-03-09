@@ -184,7 +184,6 @@ impl AudioFilePlayer {
                 // File reached the end, signal that it ended naturally
                 self.playing = false;
                 self.file_ended = true;
-                eprintln!("[FilePlayer] File ended naturally (frames: {})", frames_count);
                 return (0.0, 0.0);
             }
         }
