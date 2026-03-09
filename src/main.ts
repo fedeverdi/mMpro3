@@ -38,6 +38,7 @@ if (process.platform === 'darwin') {
 
 // Audio Engine Process
 let audioEngineProcess: ChildProcess | null = null
+let isAudioEngineStarted: boolean = false // Track if audio engine is currently started (processing audio)
 
 // Main Window
 let mainWindow: BrowserWindow | null = null
@@ -67,9 +68,19 @@ const startWebSocketServer = () => {
     console.log(`[WebSocket] Server started on port ${WS_PORT}`)
     
     wss.on('connection', (ws: WebSocket) => {
+      console.log('[WebSocket] New client connected')
       
       // Send initial connection success message
       ws.send(JSON.stringify({ type: 'connected', message: 'Connected to mMpro3 Audio Engine' }))
+      
+      // Send current audio engine state immediately to the new client
+      if (isAudioEngineStarted) {
+        ws.send(JSON.stringify({ type: 'started' }))
+        console.log('[WebSocket] Sent current engine state (started) to new client')
+      } else {
+        ws.send(JSON.stringify({ type: 'stopped' }))
+        console.log('[WebSocket] Sent current engine state (stopped) to new client')
+      }
       
       // Handle messages from remote clients
       ws.on('message', async (data: Buffer) => {
@@ -380,6 +391,15 @@ const startAudioEngineInternal = () => {
           if (handler) {
             handler(response)
           }
+        }
+        
+        // Track audio engine started/stopped state
+        if (responseType === 'started') {
+          isAudioEngineStarted = true
+          console.log('[Main] Audio engine started - state updated')
+        } else if (responseType === 'stopped') {
+          isAudioEngineStarted = false
+          console.log('[Main] Audio engine stopped - state updated')
         }
         
         // Forward to renderer windows

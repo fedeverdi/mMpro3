@@ -37,6 +37,13 @@ const initializeEngine = async () => {
     // Wait for both to complete (allow partial failures)
     await Promise.allSettled([loadDevicesPromise, loadInputsPromise])
     
+    // If in remote mode, give WebSocket time to sync engine state
+    const isRemoteMode = !(window as any).electronAPI
+    if (isRemoteMode) {
+      console.log('[App] Remote mode - waiting for state synchronization...')
+      await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms for state sync
+    }
+    
     // Pre-initialize engine (but don't start audio yet - requires user interaction)
     engineReady.value = true
     console.log('[App] Engine and devices ready')
@@ -63,6 +70,28 @@ const initializeEngine = async () => {
 const handleUserStart = async () => {
   console.log('[App] Starting audio engine...')
   
+  // Check if we're in remote mode (browser client)
+  const isRemoteMode = !(window as any).electronAPI
+  
+  if (isRemoteMode) {
+    console.log('[App] Remote mode detected, checking if engine is already running...')
+    
+    // Check if the audio engine is already running on the host
+    if (audioEngine.state.value.isRunning) {
+      console.log('[App] Audio engine is already running, skipping start command')
+      isAppReady.value = true
+      return
+    } else {
+      // Engine not running - show error message
+      showError(
+        'L\'audio engine non è attivo sull\'host. Avvia l\'audio engine dall\'applicazione Electron prima di connetterti da remoto.',
+        8000
+      )
+      return
+    }
+  }
+  
+  // Electron mode - start the engine normally
   try {
     // Start engine with user gesture
     await audioEngine.start()
