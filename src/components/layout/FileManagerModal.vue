@@ -26,56 +26,53 @@
           @dragleave.prevent="isDragging = false"
           @dragenter.prevent="isDragging = true"
           :class="[
-            'border-2 border-dashed rounded-lg p-6 transition-all',
+            'border-2 border-dashed rounded-lg p-3 transition-all',
             isDragging 
               ? 'border-blue-500 bg-blue-500/10' 
               : 'border-gray-600 bg-gray-800/50 hover:border-gray-500'
           ]"
         >
-          <div class="flex flex-col items-center gap-3">
-            <svg v-if="!isUploading" class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="flex items-center justify-center gap-3">
+            <svg v-if="!isUploading" class="w-8 h-8 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
-            <svg v-else class="w-12 h-12 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+            <svg v-else class="w-8 h-8 animate-spin text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor"
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
               </path>
             </svg>
-            <div class="text-center">
-              <p class="text-white font-semibold mb-1">
+            <div class="flex items-center gap-3">
+              <p class="text-white text-sm">
                 {{ isUploading ? 'Uploading files...' : 'Drag & drop audio files here' }}
-              </p>
-              <p v-if="!isUploading" class="text-sm text-gray-400 mb-3">
-                Supports MP3, WAV, FLAC, M4A, AAC, OGG, WMA, AIFF
               </p>
               <button 
                 v-if="!isUploading"
                 @click="triggerFilePicker"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white text-sm font-semibold transition-colors"
+                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs font-semibold transition-colors whitespace-nowrap"
               >
-                Or click to browse files
+                Browse files
               </button>
-              <p v-if="uploadProgress" class="text-sm text-blue-400 mt-2">
+              <p v-if="uploadProgress" class="text-xs text-blue-400">
                 {{ uploadProgress }}
               </p>
-              <!-- Hidden file input -->
-              <input 
-                ref="fileInput"
-                type="file"
-                multiple
-                accept="audio/mp3,audio/wav,audio/flac,audio/m4a,audio/aac,audio/ogg,audio/x-m4a,audio/mpeg,.mp3,.wav,.flac,.m4a,.aac,.ogg,.wma,.aiff"
-                @change="handleFileInput"
-                class="hidden"
-              />
             </div>
+            <!-- Hidden file input -->
+            <input 
+              ref="fileInput"
+              type="file"
+              multiple
+              accept="audio/mp3,audio/wav,audio/flac,audio/m4a,audio/aac,audio/ogg,audio/x-m4a,audio/mpeg,.mp3,.wav,.flac,.m4a,.aac,.ogg,.wma,.aiff"
+              @change="handleFileInput"
+              class="hidden"
+            />
           </div>
         </div>
       </div>
 
       <!-- Search Bar -->
-      <div class="px-4 pb-3 border-b border-gray-700">
+      <div class="px-4 pb-3 border-b border-gray-700 mt-3">
         <div class="flex gap-2 mb-2">
           <button @click="viewMode = 'all'"
             :class="[
