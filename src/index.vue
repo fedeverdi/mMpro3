@@ -8,8 +8,8 @@
     <!-- Remote Mode Banner -->
     <RemoteModeBanner />
     
-    <!-- Custom Title Bar -->
-    <CustomTitleBar :project-name="currentProjectName" />
+    <!-- Custom Title Bar (Electron only) -->
+    <CustomTitleBar v-if="isElectronMode" :project-name="currentProjectName" />
     
     <!-- Header -->
     <AppHeader 
@@ -283,6 +283,9 @@ const showNDIModal = ref(false)
 const showRecorder = ref(false)
 const isRecording = ref(false)
 const showLimitModal = ref(false)
+
+// Detect if running in Electron (vs browser)
+const isElectronMode = ref(!!window.electronAPI)
 
 // Lock system
 const isLocked = ref(false)
