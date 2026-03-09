@@ -10,6 +10,27 @@ pub enum FilterType {
     HighPass,
 }
 
+impl FilterType {
+    pub fn to_string(&self) -> String {
+        match self {
+            FilterType::LowShelf => "lowshelf".to_string(),
+            FilterType::Peaking => "peaking".to_string(),
+            FilterType::HighShelf => "highshelf".to_string(),
+            FilterType::LowPass => "lowpass".to_string(),
+            FilterType::HighPass => "highpass".to_string(),
+        }
+    }
+}
+
+/// Exported filter data for serialization
+#[derive(Debug, Clone)]
+pub struct FilterData {
+    pub filter_type: String,
+    pub frequency: f32,
+    pub gain: f32,
+    pub q: f32,
+}
+
 /// Biquad filter coefficients
 #[derive(Debug, Clone, Copy)]
 struct BiquadCoeffs {
@@ -260,6 +281,16 @@ impl EQBand {
         self.state_l.reset();
         self.state_r.reset();
     }
+
+    /// Export filter data for serialization
+    pub fn export_data(&self) -> FilterData {
+        FilterData {
+            filter_type: self.filter_type.to_string(),
+            frequency: self.target_frequency,
+            gain: self.target_gain_db,
+            q: self.target_q,
+        }
+    }
 }
 
 /// 4-band parametric equalizer
@@ -419,6 +450,11 @@ impl ParametricEqualizer {
         for band in &mut self.bands {
             band.reset();
         }
+    }
+
+    /// Export all filter data for serialization
+    pub fn export_filters(&self) -> Vec<FilterData> {
+        self.bands.iter().map(|band| band.export_data()).collect()
     }
 }
 

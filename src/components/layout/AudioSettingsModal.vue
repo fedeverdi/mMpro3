@@ -65,6 +65,45 @@
           </div>
         </div>
 
+        <!-- Network URL Section -->
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-3">
+            Network Access URL
+          </label>
+          <div class="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
+            <div class="p-4">
+              <div v-if="!networkUrlLoading" class="flex items-center gap-3">
+                <div class="flex-1 bg-gray-900 rounded px-3 py-2 font-mono text-sm text-blue-400 border border-gray-700">
+                  {{ networkUrl || 'Loading...' }}
+                </div>
+                <button
+                  @click="copyNetworkUrl"
+                  :disabled="!networkUrl"
+                  class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white transition-colors flex items-center gap-2"
+                  :title="networkUrl ? 'Copy URL to clipboard' : 'URL not available'"
+                >
+                  <svg v-if="!urlCopied" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>{{ urlCopied ? 'Copied!' : 'Copy' }}</span>
+                </button>
+              </div>
+              <div v-else class="flex items-center justify-center py-2">
+                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+              </div>
+              <div class="mt-3 text-xs text-gray-400">
+                💡 Share this URL to access the application from other devices on your network
+              </div>
+              <div class="mt-1 text-xs text-gray-500">
+                WebSocket server listening on port 3001 for remote control
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- NDI Streaming Section -->
         <div>
           <label class="block text-sm font-medium text-gray-300 mb-3">
@@ -135,6 +174,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useNetworkUrl } from '~/composables/useNetworkUrl'
 
 const props = defineProps<{
   isOpen: boolean
@@ -163,6 +203,10 @@ const bufferSizes = [
 const selectedSampleRate = ref(48000)
 const selectedBufferSize = ref(256)
 
+// Network URL composable
+const { networkUrl, isLoading: networkUrlLoading, copyToClipboard } = useNetworkUrl()
+const urlCopied = ref(false)
+
 const close = () => {
   emit('close')
 }
@@ -170,6 +214,16 @@ const close = () => {
 const openNDISettings = () => {
   emit('open-ndi')
   close()
+}
+
+const copyNetworkUrl = async () => {
+  const success = await copyToClipboard()
+  if (success) {
+    urlCopied.value = true
+    setTimeout(() => {
+      urlCopied.value = false
+    }, 2000)
+  }
 }
 
 const apply = () => {

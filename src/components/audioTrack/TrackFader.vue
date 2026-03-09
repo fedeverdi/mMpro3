@@ -124,6 +124,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: number): void
+  (e: 'dragStart'): void
+  (e: 'dragEnd'): void
 }>()
 
 const trackRef = ref<HTMLElement | null>(null)
@@ -211,6 +213,7 @@ const scaleMarks = computed(() => {
 function startDrag(e: MouseEvent | TouchEvent) {
   e.preventDefault()
   isDragging.value = true
+  emit('dragStart')
   
   if (trackRef.value) {
     trackRect = trackRef.value.getBoundingClientRect()
@@ -257,6 +260,7 @@ function updateValue(e: MouseEvent | TouchEvent) {
 
 function stopDrag() {
   isDragging.value = false
+  emit('dragEnd')
   trackRect = null
   
   if (rafId !== null) {

@@ -164,6 +164,13 @@ interface AudioEngine {
 interface ElectronAPI {
   // Platform detection
   getPlatform: () => Promise<string>
+  getAppVersion: () => Promise<string>
+  
+  // License verification
+  verifyLicense: (licenseKey: string) => Promise<{ valid: boolean, message?: string, type?: string }>
+  
+  // Network URL
+  getLocalIp: () => Promise<{ ip: string, port: number, wsPort: number }>
   
   // Window controls
   minimizeWindow: () => void

@@ -99,7 +99,7 @@
 
     <!-- Pan Knob -->
     <div class="flex justify-center scale-[0.75]">
-      <PanKnob v-model="pan" label="Pan" />
+      <PanKnob v-model="pan" label="Pan" @drag-start="isDraggingPan = true" @drag-end="isDraggingPan = false" />
     </div>
 
     <!-- Volume Fader and VU Meter -->
@@ -115,7 +115,7 @@
           M
         </button>
         
-        <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
+        <TrackFader v-if="faderHeight > 0" v-model="volume" :trackHeight="faderHeight" @drag-start="isDraggingVolume = true" @drag-end="isDraggingVolume = false" />
         
         <TrackMeter 
           class="absolute -right-[1.8rem] top-1/2 transform -translate-y-1/2 z-50 -mt-3"
@@ -179,6 +179,9 @@ let isTogglingFrequencySweep = false // Flag to prevent multiple rapid toggles
 // Meter levels (in dB)
 const trackLevelL = ref(-60)
 const trackLevelR = ref(-60)
+const isUpdatingFromEngine = ref(false)
+const isDraggingVolume = ref(false)
+const isDraggingPan = ref(false)
 
 // Computed
 const isOscillator = computed(() => 
@@ -370,6 +373,7 @@ watch(isPlaying, (playing) => {
 })
 
 watch(volume, (newVolume) => {
+  if (isUpdatingFromEngine.value) return
   if (audioEngine?.state.value.isRunning && audioEngine?.setTrackVolume) {
     // Convert dB to linear: linear = 10^(dB/20)
     const linearVolume = newVolume <= -85 ? 0 : Math.pow(10, newVolume / 20)
@@ -378,6 +382,7 @@ watch(volume, (newVolume) => {
 })
 
 watch(pan, (newPan) => {
+  if (isUpdatingFromEngine.value) return
   if (audioEngine?.state.value.isRunning && audioEngine?.setTrackPan) {
     audioEngine.setTrackPan(props.trackNumber - 1, newPan)
   }
@@ -395,6 +400,29 @@ watch(
   },
   { deep: true }
 )
+
+// Watch for track parameter updates from Rust engine (incoming sync)
+watch(() => audioEngine?.state.value.trackParameters, (trackParamsMap) => {
+  if (!trackParamsMap) return
+  
+  const params = trackParamsMap.get(props.trackNumber - 1)
+  if (!params) return
+  
+  isUpdatingFromEngine.value = true
+  
+  // Update volume (skip if dragging)
+  if (params.volume !== undefined && !isDraggingVolume.value) {
+    volume.value = params.volume > 0 ? 20 * Math.log10(params.volume) : -85
+  }
+  
+  // Update pan (skip if dragging)
+  if (params.pan !== undefined && !isDraggingPan.value) {
+    pan.value = params.pan
+  }
+  
+  // Re-enable watches after Vue reactivity cycle completes
+  nextTick(() => { isUpdatingFromEngine.value = false })
+}, { deep: true })
 
 // Watch for audio engine to become ready and initialize
 watch(

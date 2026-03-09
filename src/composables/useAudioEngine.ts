@@ -1,4 +1,5 @@
 import { ref, onUnmounted } from 'vue'
+import { RemoteAudioEngine } from '~/lib/remoteAudioEngine'
 
 export interface AudioDevice {
   id: string
@@ -12,20 +13,46 @@ export interface AudioEngineState {
   devices: AudioDevice[]
   selectedInputDevice: string | null
   selectedOutputDevice: string | null
-  trackLevels: Map<number, { 
-    left: number, 
-    right: number,
-    phaseCorrelation: number,
-    compressorInputDb: number,
-    compressorReductionDb: number,
-    gateInputDb: number,
-    gateAttenuationDb: number,
+  trackLevels: Map<number, {
+    left: number
+    right: number
+    phaseCorrelation: number
+    compressorInputDb: number
+    compressorReductionDb: number
+    gateInputDb: number
+    gateAttenuationDb: number
     fileEnded: boolean
   }>
   trackWaveforms: Map<number, number[]>
-  subgroupLevels: Map<number, { left: number, right: number }>
-  masterLevels: { left: number, right: number }
-  fftData: { binsLeft: Float32Array, binsRight: Float32Array, sampleRate: number } | null
+  trackEQFilters: Map<number, any[]>
+  trackParameters: Map<number, {
+    gain: number
+    volume: number
+    mute: boolean
+    pan: number
+    routeToMaster: boolean
+    padEnabled: boolean
+    hpfEnabled: boolean
+    phaseInverted: boolean
+    compressor: {
+      enabled: boolean
+      thresholdDb: number
+      ratio: number
+      attackMs: number
+      releaseMs: number
+    }
+    gate: {
+      enabled: boolean
+      thresholdDb: number
+      rangeDb: number
+      attackMs: number
+      releaseMs: number
+    }
+  }>
+  subgroupLevels: Map<number, { left: number; right: number }>
+  masterLevels: { left: number; right: number }
+  masterEQFilters: any[]
+  fftData: { binsLeft: Float32Array; binsRight: Float32Array; sampleRate: number } | null
   performanceStats: {
     bufferSize: number
     sampleRate: number
@@ -75,6 +102,12 @@ export interface AudioEngineState {
   } | null
 }
 
+declare global {
+  interface Window {
+    audioEngine: any
+  }
+}
+
 const state = ref<AudioEngineState>({
   isRunning: false,
   devices: [],
@@ -82,8 +115,11 @@ const state = ref<AudioEngineState>({
   selectedOutputDevice: null,
   trackLevels: new Map(),
   trackWaveforms: new Map(),
+  trackEQFilters: new Map(),
+  trackParameters: new Map(),
   subgroupLevels: new Map(),
   masterLevels: { left: -60, right: -60 },
+  masterEQFilters: [],
   fftData: null,
   performanceStats: null,
   recordingStats: null,
@@ -95,14 +131,35 @@ const state = ref<AudioEngineState>({
 })
 
 let isListening = false
+let remoteEngineInitialized = false
 
 export const useAudioEngine = () => {
-  // Start listening immediately
+  const initializeRemoteEngine = async () => {
+    if (remoteEngineInitialized || window.audioEngine) {
+      return
+    }
+
+    console.log('[useAudioEngine] Detected browser mode - initializing remote audio engine')
+
+    try {
+      const host = window.location.hostname
+      const remoteEngine = new RemoteAudioEngine(host, 3001)
+      await remoteEngine.connect()
+
+      ;(window as any).audioEngine = remoteEngine
+      remoteEngineInitialized = true
+
+      console.log('[useAudioEngine] Remote audio engine connected successfully')
+    } catch (error) {
+      console.error('[useAudioEngine] Failed to connect to remote audio engine:', error)
+      throw new Error('Failed to connect to remote audio engine. Make sure the Electron app is running.')
+    }
+  }
+
   const startListening = () => {
     if (isListening || !window.audioEngine) return
 
     window.audioEngine.onResponse((response: any) => {
-
       switch (response.type) {
         case 'devices':
           state.value.devices = response.devices
@@ -117,7 +174,6 @@ export const useAudioEngine = () => {
           break
 
         case 'ok':
-          // Command acknowledged successfully (silent)
           break
 
         case 'error':
@@ -125,7 +181,6 @@ export const useAudioEngine = () => {
           break
 
         case 'levels':
-          // Update track levels and waveforms
           if (response.tracks) {
             response.tracks.forEach((trackLevel: any) => {
               state.value.trackLevels.set(trackLevel.track, {
@@ -139,40 +194,71 @@ export const useAudioEngine = () => {
                 fileEnded: trackLevel.file_ended || false
               })
 
-              // Update waveform data if present
               if (trackLevel.waveform) {
                 state.value.trackWaveforms.set(trackLevel.track, trackLevel.waveform)
               }
+
+              if (trackLevel.eq_filters) {
+                state.value.trackEQFilters.set(trackLevel.track, trackLevel.eq_filters)
+              }
+
+              if (trackLevel.gain !== undefined) {
+                state.value.trackParameters.set(trackLevel.track, {
+                  gain: trackLevel.gain,
+                  volume: trackLevel.volume,
+                  mute: trackLevel.mute,
+                  pan: trackLevel.pan,
+                  routeToMaster: trackLevel.route_to_master,
+                  padEnabled: trackLevel.pad_enabled,
+                  hpfEnabled: trackLevel.hpf_enabled,
+                  phaseInverted: trackLevel.phase_inverted,
+                  compressor: {
+                    enabled: trackLevel.compressor_enabled,
+                    thresholdDb: trackLevel.compressor_threshold_db,
+                    ratio: trackLevel.compressor_ratio,
+                    attackMs: trackLevel.compressor_attack_ms,
+                    releaseMs: trackLevel.compressor_release_ms
+                  },
+                  gate: {
+                    enabled: trackLevel.gate_enabled,
+                    thresholdDb: trackLevel.gate_threshold_db,
+                    rangeDb: trackLevel.gate_range_db,
+                    attackMs: trackLevel.gate_attack_ms,
+                    releaseMs: trackLevel.gate_release_ms
+                  }
+                })
+              }
             })
           }
-          // Update subgroup levels - Create new Map to trigger reactivity
+
           if (response.subgroups) {
-            const newSubgroupLevels = new Map(state.value.subgroupLevels)
             response.subgroups.forEach((subgroupLevel: any) => {
-              // Convert linear levels (0.0-1.0) to dB (-90 to 0)
-              const leftDb = subgroupLevel.level_l > 0.0 
-                ? 20 * Math.log10(subgroupLevel.level_l) 
+              const leftDb = subgroupLevel.level_l > 0.0
+                ? 20 * Math.log10(subgroupLevel.level_l)
                 : -90
-              const rightDb = subgroupLevel.level_r > 0.0 
-                ? 20 * Math.log10(subgroupLevel.level_r) 
+
+              const rightDb = subgroupLevel.level_r > 0.0
+                ? 20 * Math.log10(subgroupLevel.level_r)
                 : -90
-              
-              newSubgroupLevels.set(subgroupLevel.subgroup, {
+
+              state.value.subgroupLevels.set(subgroupLevel.subgroup, {
                 left: leftDb,
                 right: rightDb
               })
             })
-            state.value.subgroupLevels = newSubgroupLevels
           }
-          // Update master levels - convert linear (0-1) to dB (-60 to 0)
+
           if (response.master_l !== undefined && response.master_r !== undefined) {
             state.value.masterLevels = {
               left: response.master_l > 0 ? 20 * Math.log10(response.master_l) : -60,
               right: response.master_r > 0 ? 20 * Math.log10(response.master_r) : -60
             }
           }
-          
-          // Update loudness data if present
+
+          if (response.master_eq_filters) {
+            state.value.masterEQFilters = response.master_eq_filters
+          }
+
           if (response.loudness_data) {
             state.value.loudnessData = {
               momentaryLufs: response.loudness_data.momentary_lufs,
@@ -182,8 +268,7 @@ export const useAudioEngine = () => {
               truePeakDbtp: response.loudness_data.true_peak_dbtp
             }
           }
-          
-          // Update dynamic range data if present
+
           if (response.dynamic_range_data) {
             state.value.dynamicRangeData = {
               peakDbL: response.dynamic_range_data.peak_db_l,
@@ -195,16 +280,14 @@ export const useAudioEngine = () => {
               dynamicRangeStereo: response.dynamic_range_data.dynamic_range_stereo
             }
           }
-          
-          // Update phase correlation data if present
+
           if (response.phase_correlation_data) {
             state.value.phaseCorrelationData = {
               correlation: response.phase_correlation_data.correlation,
               monoCompatible: response.phase_correlation_data.mono_compatible
             }
           }
-          
-          // Update stereo width data if present
+
           if (response.stereo_width_data) {
             state.value.stereoWidthData = {
               widthPercent: response.stereo_width_data.width_percent,
@@ -213,8 +296,7 @@ export const useAudioEngine = () => {
               balance: response.stereo_width_data.balance
             }
           }
-          
-          // Update headroom data if present
+
           if (response.headroom_peak_l !== undefined) {
             state.value.headroomData = {
               peakL: response.headroom_peak_l,
@@ -227,7 +309,6 @@ export const useAudioEngine = () => {
           break
 
         case 'fft':
-          // Update FFT data for spectrum analyzer
           if (response.bins_left && response.bins_right && response.sample_rate) {
             state.value.fftData = {
               binsLeft: new Float32Array(response.bins_left),
@@ -238,7 +319,6 @@ export const useAudioEngine = () => {
           break
 
         case 'performance':
-          // Update performance stats
           state.value.performanceStats = {
             bufferSize: response.buffer_size,
             sampleRate: response.sample_rate,
@@ -251,7 +331,6 @@ export const useAudioEngine = () => {
           break
 
         case 'recording_stats':
-          // Update recording stats from Rust
           state.value.recordingStats = {
             elapsedSeconds: response.elapsed_seconds,
             fileSizeBytes: response.file_size_bytes,
@@ -260,7 +339,6 @@ export const useAudioEngine = () => {
           break
 
         case 'loudness':
-          // Update loudness measurements (EBU R128)
           state.value.loudnessData = {
             momentaryLufs: response.momentary_lufs,
             shortTermLufs: response.short_term_lufs,
@@ -271,7 +349,6 @@ export const useAudioEngine = () => {
           break
 
         case 'dynamic_range':
-          // Update dynamic range measurements
           state.value.dynamicRangeData = {
             peakDbL: response.peak_db_l,
             peakDbR: response.peak_db_r,
@@ -284,7 +361,6 @@ export const useAudioEngine = () => {
           break
 
         case 'phase_correlation':
-          // Update phase correlation measurements
           state.value.phaseCorrelationData = {
             correlation: response.correlation,
             monoCompatible: response.mono_compatible
@@ -292,7 +368,6 @@ export const useAudioEngine = () => {
           break
 
         case 'stereo_width':
-          // Update stereo width measurements
           state.value.stereoWidthData = {
             widthPercent: response.width_percent,
             midRms: response.mid_rms,
@@ -302,7 +377,6 @@ export const useAudioEngine = () => {
           break
 
         case 'headroom':
-          // Update headroom measurements
           state.value.headroomData = {
             peakL: response.peak_l,
             peakR: response.peak_r,
@@ -310,6 +384,18 @@ export const useAudioEngine = () => {
             headroomR: response.headroom_r,
             headroomStereo: response.headroom_stereo
           }
+          break
+
+        case 'master_eq_filters_updated':
+          console.log('[useAudioEngine] Master EQ filters updated remotely:', response.filters)
+          break
+
+        case 'track_eq_filters_updated':
+          console.log('[useAudioEngine] Track EQ filters updated remotely:', response.track, response.filters)
+          break
+
+        case 'connected':
+          console.log('[useAudioEngine] Remote connection established:', response.message || 'Connected')
           break
 
         default:
@@ -320,12 +406,15 @@ export const useAudioEngine = () => {
     isListening = true
   }
 
-  // Start listening as soon as the composable is created
   if (window.audioEngine && !isListening) {
     startListening()
   }
 
   const loadDevices = async () => {
+    if (!window.audioEngine) {
+      await initializeRemoteEngine()
+    }
+
     if (!window.audioEngine) {
       console.warn('[useAudioEngine] Audio engine API not available')
       return
@@ -337,6 +426,10 @@ export const useAudioEngine = () => {
 
   const start = async (inputDevice?: string, outputDevice?: string) => {
     if (!window.audioEngine) {
+      await initializeRemoteEngine()
+    }
+
+    if (!window.audioEngine) {
       console.warn('[useAudioEngine] Audio engine API not available')
       return
     }
@@ -347,7 +440,6 @@ export const useAudioEngine = () => {
 
   const stop = async () => {
     if (!window.audioEngine) return
-
     await window.audioEngine.stop()
   }
 
@@ -355,203 +447,205 @@ export const useAudioEngine = () => {
     if (!window.audioEngine) return
 
     await stop()
-    // Increased delay to ensure streams are fully closed before restart
     await new Promise(resolve => setTimeout(resolve, 250))
     await start(inputDevice, outputDevice)
   }
 
   const setTrackGain = (track: number, gain: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setGain(track, gain)
   }
 
   const setTrackVolume = (track: number, volume: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setVolume(track, volume)
   }
 
   const setTrackMute = (track: number, mute: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setMute(track, mute)
   }
 
   const setTrackRouteToMaster = (track: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setRouteToMaster(track, route)
   }
 
-  const setTrackCompressor = (track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
+  const setTrackCompressor = (
+    track: number,
+    enabled: boolean,
+    threshold: number,
+    ratio: number,
+    attack: number,
+    release: number
+  ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setCompressor(track, enabled, threshold, ratio, attack, release)
   }
 
-  const setTrackGate = (track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => {
+  const setTrackGate = (
+    track: number,
+    enabled: boolean,
+    threshold: number,
+    range: number,
+    attack: number,
+    release: number
+  ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setGate(track, enabled, threshold, range, attack, release)
   }
 
-  // Track source selection
-  const setTrackSourceInput = (track: number, leftChannel: number, rightChannel: number, deviceName?: string | null) => {
+  const setTrackSourceInput = (
+    track: number,
+    leftChannel: number,
+    rightChannel: number,
+    deviceName?: string | null
+  ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setTrackSourceInput(track, leftChannel, rightChannel, deviceName)
   }
 
   const setTrackSourceSignal = (track: number, waveform: string, frequency: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setTrackSourceSignal(track, waveform, frequency)
   }
 
   const setSignalFrequency = (track: number, frequency: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setSignalFrequency(track, frequency)
   }
 
   const setSignalWaveform = (track: number, waveform: string) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setSignalWaveform(track, waveform)
   }
 
   const clearTrackSource = (track: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.clearTrackSource(track)
   }
 
   const setTrackSourceFile = (track: number, filePath: string) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setTrackSourceFile(track, filePath)
   }
 
-  // File playback controls
   const playFile = (track: number, fileId?: string) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.playFile(track, fileId)
   }
 
   const pauseFile = (track: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.pauseFile(track)
   }
 
   const stopFile = (track: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.stopFile(track)
   }
 
   const setTrackPan = (track: number, pan: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setPan(track, pan)
   }
 
   const setTrackPad = (track: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setTrackPad(track, enabled)
   }
 
   const setTrackHPF = (track: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setTrackHPF(track, enabled)
   }
 
   const setTrackPhaseInvert = (track: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setTrackPhaseInvert(track, enabled)
   }
 
   const setTrackEQ = (track: number, low: number, lowMid: number, highMid: number, high: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setEQ(track, low, lowMid, highMid, high)
   }
 
   const setTrackEQEnabled = (track: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setEQEnabled(track, enabled)
   }
 
-  // Parametric EQ controls
-  const setParametricEQFilters = (track: number, filters: Array<{ type: string, frequency: number, gain: number, q: number }>) => {
+  const setParametricEQFilters = (
+    track: number,
+    filters: Array<{ type: string; frequency: number; gain: number; q: number }>
+  ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setParametricEQFilters(track, filters)
   }
 
   const setParametricEQEnabled = (track: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setParametricEQEnabled(track, enabled)
   }
 
   const clearParametricEQ = (track: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.clearParametricEQ(track)
   }
 
-  // Master controls
   const setMasterGain = (gain: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setMasterGain(gain)
   }
 
   const setMasterMute = (mute: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setMasterMute(mute)
   }
 
   const setMasterOutputChannels = (leftChannel: number, rightChannel: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
   }
 
-  // Master FX controls
-  const setMasterCompressor = (enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
+  const setMasterCompressor = (
+    enabled: boolean,
+    threshold: number,
+    ratio: number,
+    attack: number,
+    release: number
+  ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setMasterCompressor(enabled, threshold, ratio, attack, release)
   }
 
   const setMasterLimiter = (enabled: boolean, ceiling: number, release: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setMasterLimiter(enabled, ceiling, release)
   }
 
-  const setMasterDelay = (enabled: boolean, timeL: number, timeR: number, feedback: number, mix: number) => {
+  const setMasterDelay = (
+    enabled: boolean,
+    timeL: number,
+    timeR: number,
+    feedback: number,
+    mix: number
+  ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setMasterDelay(enabled, timeL, timeR, feedback, mix)
   }
 
-  const setMasterReverb = (enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
+  const setMasterReverb = (
+    enabled: boolean,
+    roomSize: number,
+    damping: number,
+    wet: number,
+    width: number
+  ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width)
   }
 
-  // Subgroup methods
   const addSubgroup = async (): Promise<number | null> => {
     if (!window.audioEngine) return null
 
@@ -566,104 +660,105 @@ export const useAudioEngine = () => {
 
   const removeSubgroup = (subgroup: number) => {
     if (!window.audioEngine) return
-
     window.audioEngine.removeSubgroup(subgroup)
   }
 
   const setSubgroupGain = (subgroup: number, gain: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setSubgroupGain(subgroup, gain)
   }
 
   const setSubgroupMute = (subgroup: number, mute: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setSubgroupMute(subgroup, mute)
   }
 
   const setSubgroupOutputEnabled = (subgroup: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setSubgroupOutputEnabled(subgroup, enabled)
   }
 
   const setSubgroupRouteToMaster = (subgroup: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setSubgroupRouteToMaster(subgroup, route)
   }
 
   const setSubgroupOutputChannels = (subgroup: number, leftChannel: number, rightChannel: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setSubgroupOutputChannels(subgroup, leftChannel, rightChannel)
   }
 
   const setTrackRouteToSubgroup = (track: number, subgroup: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setTrackRouteToSubgroup(track, subgroup, route)
   }
 
-  // Aux bus methods
-  const setTrackAuxSend = (track: number, aux: number, level: number, preFader: boolean, muted: boolean) => {
+  const setTrackAuxSend = (
+    track: number,
+    aux: number,
+    level: number,
+    preFader: boolean,
+    muted: boolean
+  ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setTrackAuxSend(track, aux, level, preFader, muted)
   }
 
   const setAuxBusGain = (aux: number, gain: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setAuxBusGain(aux, gain)
   }
 
   const setAuxBusMute = (aux: number, mute: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setAuxBusMute(aux, mute)
   }
 
-  const setAuxBusReverb = (aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
+  const setAuxBusReverb = (
+    aux: number,
+    enabled: boolean,
+    roomSize: number,
+    damping: number,
+    wet: number,
+    width: number
+  ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setAuxBusReverb(aux, enabled, roomSize, damping, wet, width)
   }
 
-  const setAuxBusDelay = (aux: number, enabled: boolean, time: number, feedback: number, mix: number) => {
+  const setAuxBusDelay = (
+    aux: number,
+    enabled: boolean,
+    time: number,
+    feedback: number,
+    mix: number
+  ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setAuxBusDelay(aux, enabled, time, feedback, mix)
   }
 
   const setAuxBusRouteToMaster = (aux: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setAuxBusRouteToMaster(aux, route)
   }
 
   const setAuxBusOutputEnabled = (aux: number, enabled: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setAuxBusOutputEnabled(aux, enabled)
   }
 
   const setAuxBusOutputChannels = (aux: number, leftChannel: number, rightChannel: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setAuxBusOutputChannels(aux, leftChannel, rightChannel)
   }
 
   const setAuxBusRouteToSubgroup = (aux: number, subgroup: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setAuxBusRouteToSubgroup(aux, subgroup, route)
   }
 
   const setTrackSourceAuxReturn = (track: number, aux: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
-
     window.audioEngine.setTrackSourceAuxReturn(track, aux)
   }
 
@@ -727,7 +822,7 @@ export const useAudioEngine = () => {
 
   onUnmounted(() => {
     if (state.value.isRunning) {
-      stop()
+      void stop()
     }
   })
 
@@ -790,25 +885,19 @@ export const useAudioEngine = () => {
     getOutputDevices,
     showOpenFileDialog: () => window.audioEngine.showOpenFileDialog(),
     readFileAsBuffer: (filePath: string) => window.audioEngine.readFileAsBuffer(filePath),
-    // NDI Streaming
     startNdi: (streamName: string, source: string) => window.audioEngine.startNdi(streamName, source),
     stopNdi: () => window.audioEngine.stopNdi(),
     setNdiSource: (source: string) => window.audioEngine.setNdiSource(source),
     setNdiName: (name: string) => window.audioEngine.setNdiName(name),
     setNdiVideoText: (text: string) => window.audioEngine.setNdiVideoText(text),
-    // Loudness metering
     getLoudness,
     resetLoudness,
-    // Dynamic Range metering
     getDynamicRange,
     resetDynamicRange,
-    // Phase Correlation metering (Master)
     getPhaseCorrelation,
     resetPhaseCorrelation,
-    // Stereo Width metering (Master)
     getStereoWidth,
     resetStereoWidth,
-    // Headroom metering (Master)
     getHeadroom,
     resetHeadroom
   }

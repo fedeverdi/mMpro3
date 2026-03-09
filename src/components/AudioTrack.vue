@@ -75,7 +75,7 @@
         </div>
         <div class="scale-[0.65]">
           <Knob v-model="gain" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Gain" unit="dB"
-            color="#8b5cf6" />
+            color="#8b5cf6" @drag-start="isDraggingGain = true" @drag-end="isDraggingGain = false" />
         </div>
       </div>
 
@@ -154,7 +154,7 @@
 
       <!-- Pan Knob -->
       <div class="flex justify-center scale-[0.75]">
-        <PanKnob v-model="pan" label="Pan" />
+        <PanKnob v-model="pan" label="Pan" @drag-start="isDraggingPan = true" @drag-end="isDraggingPan = false" />
       </div>
       <div class="text-[0.455rem] uppercase text-center mb-6">Volume</div>
 
@@ -205,10 +205,11 @@
             </button>
           </div>
 
-          <TrackFader v-if="useFader && faderHeight > 0" v-model="volume" :trackHeight="faderHeight" />
+          <TrackFader v-if="useFader && faderHeight > 0" v-model="volume" :trackHeight="faderHeight" 
+            @drag-start="isDraggingVolume = true" @drag-end="isDraggingVolume = false" />
           
           <div v-else-if="!useFader" class="flex items-center justify-center flex-1">
-            <KnobVolume v-model="volume" />
+            <KnobVolume v-model="volume" @drag-start="isDraggingVolume = true" @drag-end="isDraggingVolume = false" />
           </div>
 
           <TrackMeter class="absolute right-[0.4rem] top-1/2 transform -translate-y-1/2 z-50" v-if="faderHeight > 0"
@@ -235,7 +236,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
+import { computed, inject, onMounted, onUnmounted, ref, watch, nextTick, type Ref } from 'vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import HPFButton from './audioTrack/HPFButton.vue'
 import InputSelector from './audioTrack/InputSelector.vue'
@@ -832,8 +833,15 @@ function handleParametricEQUpdate(filters: any) {
   }
 }
 
+// Flag to prevent watch loops when updating from engine
+const isUpdatingFromEngine = ref(false)
+const isDraggingVolume = ref(false)
+const isDraggingGain = ref(false)
+const isDraggingPan = ref(false)
+
 // Watchers - Send changes to Rust engine
 watch(volume, (newVolume) => {
+  if (isUpdatingFromEngine.value) return
   // Convert dB to linear gain: gain = 10^(dB/20)
   // volume is in dB range (-90 to +12)
   let gainValue: number
@@ -849,6 +857,7 @@ watch(volume, (newVolume) => {
 })
 
 watch(gain, (newGain) => {
+  if (isUpdatingFromEngine.value) return
   // Convert dB to linear gain: gain = 10^(dB/20)
   // gain knob is in dB range (-12 to +12)
   const gainValue = Math.pow(10, newGain / 20)
@@ -865,24 +874,28 @@ watch(padEnabled, (enabled) => {
 })
 
 watch(hpfEnabled, (enabled) => {
+  if (isUpdatingFromEngine.value) return
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackHPF(props.trackNumber - 1, enabled)
   }
 })
 
 watch(phaseInverted, (enabled) => {
+  if (isUpdatingFromEngine.value) return
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackPhaseInvert(props.trackNumber - 1, enabled)
   }
 })
 
 watch(isMuted, (muted) => {
+  if (isUpdatingFromEngine.value) return
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackMute(props.trackNumber - 1, muted)
   }
 })
 
 watch(routeToMaster, (route) => {
+  if (isUpdatingFromEngine.value) return
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackRouteToMaster(props.trackNumber - 1, route)
   }
@@ -921,6 +934,7 @@ watch(gateEnabled, (enabled) => {
 })
 
 watch(pan, (newPan) => {
+  if (isUpdatingFromEngine.value) return
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackPan(props.trackNumber - 1, newPan)
   }
@@ -996,6 +1010,83 @@ onMounted(async () => {
   })
 
   updateFaderHeight()
+  
+  // Watch for track parameter updates from Rust engine (incoming sync)
+  watch(() => audioEngine?.state.value.trackParameters, (trackParamsMap) => {
+    if (!trackParamsMap) return
+    
+    // NOTE: Rust uses 0-indexed tracks, but frontend trackNumber is 1-indexed
+    const params = trackParamsMap.get(props.trackNumber - 1)
+    if (!params) return
+    
+    isUpdatingFromEngine.value = true
+    
+    // Convert linear gain to dB for volume (skip if dragging)
+    if (params.volume !== undefined && !isDraggingVolume.value) {
+      volume.value = params.volume > 0 ? 20 * Math.log10(params.volume) : -90
+    }
+    
+    // Convert linear gain to dB for gain (skip if dragging)
+    if (params.gain !== undefined && !isDraggingGain.value) {
+      gain.value = params.gain > 0 ? 20 * Math.log10(params.gain) : -12
+    }
+    
+    // Update other parameters
+    if (params.mute !== undefined) isMuted.value = params.mute
+    if (params.pan !== undefined && !isDraggingPan.value) pan.value = params.pan
+    if (params.routeToMaster !== undefined) routeToMaster.value = params.routeToMaster
+    if (params.padEnabled !== undefined) padEnabled.value = params.padEnabled
+    if (params.hpfEnabled !== undefined) hpfEnabled.value = params.hpfEnabled
+    if (params.phaseInverted !== undefined) phaseInverted.value = params.phaseInverted
+    
+    // Update compressor state
+    if (params.compressor) {
+      compressorEnabled.value = params.compressor.enabled
+      // Sync compressor params using the component's setParams method
+      if (trackCompressorRef.value && params.compressor.enabled) {
+        trackCompressorRef.value.setParams({
+          threshold: params.compressor.thresholdDb,
+          ratio: params.compressor.ratio,
+          attack: params.compressor.attackMs / 1000,  // Convert ms to seconds
+          release: params.compressor.releaseMs / 1000  // Convert ms to seconds
+        })
+      }
+    }
+    
+    // Update gate state  
+    if (params.gate) {
+      gateEnabled.value = params.gate.enabled
+      // Sync gate params using the component's setParams method
+      if (trackGateRef.value && params.gate.enabled) {
+        trackGateRef.value.setParams({
+          threshold: params.gate.thresholdDb,
+          range: params.gate.rangeDb,
+          attack: params.gate.attackMs / 1000,  // Convert ms to seconds
+          release: params.gate.releaseMs / 1000  // Convert ms to seconds
+        })
+      }
+    }
+    
+    // Re-enable watches after Vue reactivity cycle completes
+    nextTick(() => { isUpdatingFromEngine.value = false })
+  }, { deep: true })
+  
+  // Watch for EQ filter updates from Rust engine
+  watch(() => audioEngine?.state.value.trackEQFilters, (trackEQMap) => {
+    if (!trackEQMap) return
+    
+    // NOTE: Rust uses 0-indexed tracks, but frontend trackNumber is 1-indexed
+    const filters = trackEQMap.get(props.trackNumber - 1)
+    if (!filters) return
+    
+    // Convert q (lowercase) to Q (uppercase) for frontend
+    parametricEQFilters.value = filters.map((f: any) => ({
+      type: f.type,
+      frequency: f.frequency,
+      gain: f.gain,
+      Q: f.q  // Rust uses lowercase 'q', frontend uses uppercase 'Q'
+    }))
+  }, { deep: true })
   
   // Cleanup on unmount
   onUnmounted(() => {

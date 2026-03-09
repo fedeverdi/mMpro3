@@ -24,7 +24,23 @@ export function useAudioDevices() {
 
     // Start enumeration from Rust audio engine
     enumerationPromise = (async () => {
-      try {        
+      try {
+        // Check if audio engine is available
+        if (!window.audioEngine) {
+          console.warn('[useAudioDevices] Audio engine not yet available, skipping input enumeration')
+          devicesEnumerated = true
+          return
+        }
+        
+        // Check if we're in remote mode (browser)
+        const isRemote = !window.electronAPI
+        if (isRemote) {
+          console.log('[useAudioDevices] Remote mode detected - input devices not available')
+          audioInputDevices.value = []
+          devicesEnumerated = true
+          return
+        }
+        
         // Get input devices from Rust engine (already expanded with channels)
         const devices = await window.audioEngine.listAudioInputs()
                 
@@ -32,6 +48,9 @@ export function useAudioDevices() {
         devicesEnumerated = true
       } catch (error) {
         console.error('[useAudioDevices] Error enumerating audio inputs:', error)
+        // Set to empty array instead of failing
+        audioInputDevices.value = []
+        devicesEnumerated = true
       } finally {
         enumerationPromise = null
       }
@@ -58,7 +77,23 @@ export function useAudioDevices() {
     
     // Start enumeration from Rust audio engine
     outputEnumerationPromise = (async () => {
-      try {       
+      try {
+        // Check if audio engine is available
+        if (!window.audioEngine) {
+          console.warn('[useAudioDevices] Audio engine not yet available, skipping output enumeration')
+          outputDevicesEnumerated = true
+          return
+        }
+        
+        // Check if we're in remote mode (browser)
+        const isRemote = !window.electronAPI
+        if (isRemote) {
+          console.log('[useAudioDevices] Remote mode detected - output devices not available')
+          audioOutputDevices.value = []
+          outputDevicesEnumerated = true
+          return
+        }
+        
         // Get all devices from Rust engine and filter only outputs
         const allDevices = await window.audioEngine.listDevices()
         const outputDevices = allDevices.filter((device: RustAudioDevice) => device.output_channels > 0)
@@ -67,6 +102,9 @@ export function useAudioDevices() {
         outputDevicesEnumerated = true
       } catch (error) {
         console.error('[useAudioDevices] Error enumerating audio outputs:', error)
+        // Set to empty array instead of failing
+        audioOutputDevices.value = []
+        outputDevicesEnumerated = true
       } finally {
         outputEnumerationPromise = null
       }

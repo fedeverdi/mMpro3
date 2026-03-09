@@ -31,11 +31,11 @@ const initializeEngine = async () => {
     // Load available audio devices from Rust engine (outputs)
     const loadDevicesPromise = audioEngine.loadDevices()
     
-    // Enumerate audio input devices
+    // Enumerate audio input devices (skip if in remote mode)
     const loadInputsPromise = enumerateAudioInputs()
     
-    // Wait for both to complete
-    await Promise.all([loadDevicesPromise, loadInputsPromise])
+    // Wait for both to complete (allow partial failures)
+    await Promise.allSettled([loadDevicesPromise, loadInputsPromise])
     
     // Pre-initialize engine (but don't start audio yet - requires user interaction)
     engineReady.value = true

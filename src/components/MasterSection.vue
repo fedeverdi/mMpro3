@@ -23,8 +23,8 @@
 
       <!-- Faders Row -->
       <div v-if="fadersHeight > 0" class="flex gap-2 items-end mb-6 mt-2">
-        <MasterFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" />
-        <MasterFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" />
+        <MasterFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" @drag-start="isDraggingLeft = true" @drag-end="isDraggingLeft = false" />
+        <MasterFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" @drag-start="isDraggingRight = true" @drag-end="isDraggingRight = false" />
       </div>
     </div>
 
@@ -116,6 +116,9 @@ const rightVolume = ref(0) // dB
 const headphonesVolume = ref(-60) // dB
 const isLinked = ref(true)
 const masterMuted = ref(false)
+const isDraggingLeft = ref(false)
+const isDraggingRight = ref(false)
+const isUpdatingFromEngine = ref(false)
 
 // NDI Stream
 const { isStreaming: isNdiStreaming } = useNDI()
@@ -214,6 +217,7 @@ function toggleMasterMute() {
 
 // Watchers - Send changes to Rust engine
 watch([leftVolume, rightVolume], ([left, right]) => {
+  if (isUpdatingFromEngine.value) return
   if (audioEngine?.state.value.isRunning) {
     // Use average of L/R for master gain (since Rust has single master gain)
     const avgDb = (left + right) / 2

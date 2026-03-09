@@ -90,6 +90,8 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: number): void
+  (e: 'dragStart'): void
+  (e: 'dragEnd'): void
 }>()
 
 const isDragging = ref(false)
@@ -181,6 +183,8 @@ function startDrag(e: MouseEvent | TouchEvent) {
   startY.value = 'touches' in e ? e.touches[0].clientY : e.clientY
   startValue.value = props.modelValue
   
+  emit('dragStart')
+  
   document.addEventListener('mousemove', onDrag)
   document.addEventListener('touchmove', onDrag)
   document.addEventListener('mouseup', stopDrag)
@@ -213,6 +217,8 @@ function stopDrag() {
   document.removeEventListener('touchmove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
   document.removeEventListener('touchend', stopDrag)
+  
+  emit('dragEnd')
 }
 
 function resetToZero() {

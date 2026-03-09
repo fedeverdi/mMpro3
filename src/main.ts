@@ -3,8 +3,10 @@ import { app, BrowserWindow, screen, ipcMain, shell, dialog, powerSaveBlocker } 
 import { spawn, ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
+import os from 'node:os'
 import started from 'electron-squirrel-startup'
 import { createClient } from '@vercel/edge-config'
+import { WebSocketServer, WebSocket } from 'ws'
 
 
 // Lazy initialization of Edge Config client
@@ -37,6 +39,9 @@ if (process.platform === 'darwin') {
 // Audio Engine Process
 let audioEngineProcess: ChildProcess | null = null
 
+// Main Window
+let mainWindow: BrowserWindow | null = null
+
 // Splash Window
 let splashWindow: BrowserWindow | null = null
 let splashStartTime: number = 0
@@ -47,6 +52,80 @@ let powerSaveBlockerId: number | null = null
 
 // Track active temp files for cleanup
 const activeTempFiles = new Set<string>()
+
+// WebSocket Server for remote control
+let wss: WebSocketServer | null = null
+const WS_PORT = 3001
+
+/**
+ * Start WebSocket server for remote browser control
+ */
+const startWebSocketServer = () => {
+  try {
+    wss = new WebSocketServer({ port: WS_PORT })
+    
+    console.log(`[WebSocket] Server started on port ${WS_PORT}`)
+    
+    wss.on('connection', (ws: WebSocket) => {
+      
+      // Send initial connection success message
+      ws.send(JSON.stringify({ type: 'connected', message: 'Connected to mMpro3 Audio Engine' }))
+      
+      // Handle messages from remote clients
+      ws.on('message', async (data: Buffer) => {
+        try {
+          const message = JSON.parse(data.toString())
+          
+          // Forward the command to audio engine
+          if (audioEngineProcess && audioEngineProcess.stdin) {
+            audioEngineProcess.stdin.write(JSON.stringify(message) + '\n')
+            // NOTE: EQ filter updates are now included in the regular Levels response from Rust
+            // No need for synthetic broadcasts anymore
+          } else {
+            ws.send(JSON.stringify({ 
+              type: 'error', 
+              message: 'Audio engine not running' 
+            }))
+          }
+        } catch (error) {
+          console.error('[WebSocket] Error processing message:', error)
+          ws.send(JSON.stringify({ 
+            type: 'error', 
+            message: 'Invalid message format' 
+          }))
+        }
+      })
+      
+      ws.on('close', () => {
+        console.log('[WebSocket] Client disconnected')
+      })
+      
+      ws.on('error', (error) => {
+        console.error('[WebSocket] Client error:', error)
+      })
+    })
+    
+    wss.on('error', (error) => {
+      console.error('[WebSocket] Server error:', error)
+    })
+  } catch (error) {
+    console.error('[WebSocket] Failed to start server:', error)
+  }
+}
+
+/**
+ * Broadcast audio engine response to all WebSocket clients
+ */
+const broadcastToWebSocketClients = (response: any) => {
+  if (!wss) return
+  
+  const message = JSON.stringify(response)
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message)
+    }
+  })
+}
 
 /**
  * Clean up temporary audio files from previous sessions
@@ -138,10 +217,13 @@ const startAudioEngineInternal = () => {
           }
         }
         
-        // Forward to renderer
+        // Forward to renderer windows
         BrowserWindow.getAllWindows().forEach(win => {
           win.webContents.send('audio-engine-response', response)
         })
+        
+        // Broadcast to WebSocket clients
+        broadcastToWebSocketClients(response)
       } catch (err) {
         // Not JSON, just log as plain text
       }
@@ -392,6 +474,7 @@ ipcMain.handle('audio-engine:set-eq-enabled', async (_, track: number, enabled: 
 // Parametric EQ controls
 ipcMain.handle('audio-engine:set-parametric-eq-filters', async (_, track: number, filters: Array<{type: string, frequency: number, gain: number, q: number}>) => {
   await sendCommandToEngine({ type: 'set_parametric_eq_filters', track, filters })
+  // NOTE: EQ filters now included in Levels response - no synthetic broadcast needed
 })
 
 ipcMain.handle('audio-engine:set-parametric-eq-enabled', async (_, track: number, enabled: boolean) => {
@@ -400,6 +483,7 @@ ipcMain.handle('audio-engine:set-parametric-eq-enabled', async (_, track: number
 
 ipcMain.handle('audio-engine:clear-parametric-eq', async (_, track: number) => {
   await sendCommandToEngine({ type: 'clear_parametric_eq', track })
+  // NOTE: EQ filters now included in Levels response - no synthetic broadcast needed
 })
 
 // Master controls
@@ -413,6 +497,7 @@ ipcMain.handle('audio-engine:set-master-mute', async (_, mute: boolean) => {
 
 ipcMain.handle('audio-engine:set-master-parametric-eq-filters', async (_, filters: Array<{type: string, frequency: number, gain: number, q: number}>) => {
   await sendCommandToEngine({ type: 'set_master_parametric_eq_filters', filters })
+  // NOTE: EQ filters now included in Levels response - no synthetic broadcast needed
 })
 
 ipcMain.handle('audio-engine:set-master-parametric-eq-enabled', async (_, enabled: boolean) => {
@@ -421,6 +506,7 @@ ipcMain.handle('audio-engine:set-master-parametric-eq-enabled', async (_, enable
 
 ipcMain.handle('audio-engine:clear-master-parametric-eq', async () => {
   await sendCommandToEngine({ type: 'clear_master_parametric_eq' })
+  // NOTE: EQ filters now included in Levels response - no synthetic broadcast needed
 })
 
 ipcMain.handle('audio-engine:set-master-output-channels', async (_, leftChannel: number, rightChannel: number) => {
@@ -700,6 +786,43 @@ ipcMain.handle('get-platform', () => {
 
 ipcMain.handle('get-app-version', () => {
   return app.getVersion()
+})
+
+// Get local network IP address and port
+ipcMain.handle('get-local-ip', () => {
+  try {
+    const networkInterfaces = os.networkInterfaces()
+    let localIp = 'localhost'
+    
+    // Find the first non-internal IPv4 address
+    for (const interfaceName in networkInterfaces) {
+      const interfaces = networkInterfaces[interfaceName]
+      if (!interfaces) continue
+      
+      for (const iface of interfaces) {
+        // Skip internal (loopback) and non-IPv4 addresses
+        if (iface.family === 'IPv4' && !iface.internal) {
+          localIp = iface.address
+          break
+        }
+      }
+      
+      if (localIp !== 'localhost') break
+    }
+    
+    return {
+      ip: localIp,
+      port: 5173, // Default Vite dev server port
+      wsPort: WS_PORT // WebSocket port for audio engine control
+    }
+  } catch (error) {
+    console.error('[Main] Error getting local IP:', error)
+    return {
+      ip: 'localhost',
+      port: 5173,
+      wsPort: WS_PORT
+    }
+  }
 })
 
 // License verification handler
@@ -1346,7 +1469,7 @@ const createWindow = () => {
   }
   // macOS uses icon.icns from the app bundle, set via packagerConfig
   
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     x: windowState.x,
     y: windowState.y,
     width: windowState.width,
@@ -1379,11 +1502,11 @@ const createWindow = () => {
         splashWindow.close()
       }
       // Restore maximized state before showing
-      if (windowState.isMaximized) {
+      if (windowState.isMaximized && mainWindow) {
         mainWindow.maximize()
       }
       setTimeout(() => {
-        mainWindow.show()
+        mainWindow?.show()
       }, 100) // Small delay to ensure splash closes first
     }
   }
@@ -1407,22 +1530,27 @@ const createWindow = () => {
       clearTimeout(saveStateTimeout)
     }
     saveStateTimeout = setTimeout(() => {
-      saveWindowState(mainWindow)
+      saveWindowState(mainWindow!)
     }, 500) // Save after 500ms of inactivity
   }
 
   mainWindow.on('resize', debouncedSaveState)
   mainWindow.on('move', debouncedSaveState)
   
-  mainWindow.on('maximize', () => saveWindowState(mainWindow))
-  mainWindow.on('unmaximize', () => saveWindowState(mainWindow))
+  mainWindow.on('maximize', () => saveWindowState(mainWindow!))
+  mainWindow.on('unmaximize', () => saveWindowState(mainWindow!))
 
   // Save state before closing
   mainWindow.on('close', () => {
     if (saveStateTimeout) {
       clearTimeout(saveStateTimeout)
     }
-    saveWindowState(mainWindow)
+    saveWindowState(mainWindow!)
+  })
+
+  // Clean up reference when window is closed
+  mainWindow.on('closed', () => {
+    mainWindow = null
   })
 
   // Automatically grant permission for media access
@@ -1498,6 +1626,9 @@ app.whenReady().then(() => {
   
   startAudioEngine()
   
+  // Start WebSocket server for remote control
+  startWebSocketServer()
+  
   // Show splash screen first
   createSplashWindow()
   
@@ -1528,6 +1659,12 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   stopAudioEngine()
   cleanupTempAudioFiles() // Clean up temp files on exit
+  // Stop WebSocket server
+  if (wss) {
+    wss.close(() => {
+      console.log('[WebSocket] Server closed')
+    })
+  }
   // Stop power save blocker
   if (powerSaveBlockerId !== null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
     powerSaveBlocker.stop(powerSaveBlockerId)
@@ -1541,6 +1678,12 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   stopAudioEngine()
   cleanupTempAudioFiles() // Clean up temp files before quit
+  // Stop WebSocket server
+  if (wss) {
+    wss.close(() => {
+      console.log('[WebSocket] Server closed')
+    })
+  }
   // Stop power save blocker
   if (powerSaveBlockerId !== null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
     powerSaveBlocker.stop(powerSaveBlockerId)

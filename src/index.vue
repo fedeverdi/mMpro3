@@ -5,6 +5,9 @@
       <div v-for="i in 40" :key="i" class="particle" :style="getParticleStyle(i)"></div>
     </div>
     
+    <!-- Remote Mode Banner -->
+    <RemoteModeBanner />
+    
     <!-- Custom Title Bar -->
     <CustomTitleBar :project-name="currentProjectName" />
     
@@ -163,7 +166,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, toRaw, nextTick, inject, onUnmounted, provide, type Ref } from 'vue'
+import { ref, onMounted, computed, toRaw, nextTick, inject, onUnmounted, provide, watch, type Ref } from 'vue'
 import AudioTrack from './components/AudioTrack.vue'
 import SignalTrack from './components/SignalTrack.vue'
 import AudioFlowModal from './components/layout/AudioFlowModal.vue'
@@ -180,6 +183,7 @@ import Footer from './components/layout/Footer.vue'
 import NotificationToast from './components/core/NotificationToast.vue'
 import CustomTitleBar from './components/layout/CustomTitleBar.vue'
 import AppHeader from './components/layout/AppHeader.vue'
+import RemoteModeBanner from './components/layout/RemoteModeBanner.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioEngine } from '~/composables/useAudioEngine'
 import { useNotifications } from '~/composables/useNotifications'
@@ -620,6 +624,8 @@ const masterFxComponent = ref<any>(null) // For getSnapshot only
 
 // Master EQ state (source of truth)
 const masterEqFiltersData = ref<any[]>([])
+// Flag to prevent watch updates during drag operations
+const isDraggingMasterEQ = ref(false)
 
 // Handlers for output node updates
 function handleMasterFxOutputNode(node: any) {
@@ -632,13 +638,17 @@ function handleMasterFxComponent(component: any) {
 
 // Handle master EQ filters update from RightSection
 async function handleMasterEQFiltersUpdate(filters: any[]) {
-  // Update local state (source of truth)
-  masterEqFiltersData.value = filters
+  console.log('[Index] handleMasterEQFiltersUpdate called with filters:', JSON.stringify(filters))
+  
+  // Set flag to prevent watch from updating during our own update
+  isDraggingMasterEQ.value = true
 
   if (!filters || filters.length === 0) {
     // Clear master EQ if no filters
     await window.audioEngine?.clearMasterParametricEQ()
     console.log('[Master EQ] Cleared filters')
+    // Allow watch to update after a short delay (wait for Rust response)
+    setTimeout(() => { isDraggingMasterEQ.value = false }, 100)
     return
   }
 
@@ -647,15 +657,19 @@ async function handleMasterEQFiltersUpdate(filters: any[]) {
     type: f.type, // 'peaking', 'lowshelf', 'highshelf', etc.
     frequency: f.frequency,
     gain: f.gain,
-    q: f.Q
+    q: f.Q ?? 1.0  // Use Q if present, otherwise default to 1.0
   }))
+
+  console.log('[Index] Sending backend filters to Rust:', JSON.stringify(backendFilters))
 
   try {
     await window.audioEngine?.setMasterParametricEQFilters(backendFilters)
-    console.log('[Master EQ] Updated filters:', backendFilters.length, 'bands')
   } catch (error) {
     console.error('[Master EQ] Failed to update filters:', error)
   }
+
+  // Allow watch to update after a short delay (wait for Rust response)
+  setTimeout(() => { isDraggingMasterEQ.value = false }, 100)
 }
 
 function setTrackRef(trackId: number, el: any | null) {
@@ -1345,6 +1359,24 @@ onMounted(async () => {
 
   // Wait for next tick to ensure all components are ready
   await nextTick()
+
+  // NEW: Watch for master EQ filter changes from Rust Levels response
+  watch(() => audioEngineState.value.masterEQFilters, (newFilters) => {
+    // Skip update if user is currently dragging EQ controls
+    if (isDraggingMasterEQ.value) {
+      return
+    }
+
+    if (newFilters && newFilters.length >= 0) {  // Allow empty array to clear filters
+      // Convert 'q' (lowercase) to 'Q' (uppercase) for frontend compatibility
+      masterEqFiltersData.value = newFilters.map((f: any) => ({
+        type: f.type,
+        frequency: f.frequency,
+        gain: f.gain,
+        Q: f.q  // Rust uses lowercase 'q', frontend uses uppercase 'Q'
+      }))
+    }
+  }, { deep: true })
 
   // Set up centralized ResizeObserver for all tracks
   // Throttled to prevent blocking during window animations

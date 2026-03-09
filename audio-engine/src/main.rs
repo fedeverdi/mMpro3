@@ -37,9 +37,10 @@ use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
 use routing::Router;
 use signal_gen::WaveformType;
 use ndi_stream::{NdiStream, NdiSource};
+use equalizer::FilterData;
 
 /// Parametric filter specification from frontend
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ParametricFilter {
     #[serde(rename = "type")]
     pub filter_type: String, // "lowshelf", "highshelf", "peaking", "lowpass", "highpass"
@@ -416,6 +417,7 @@ enum Response {
         subgroups: Vec<SubgroupLevels>,
         master_l: f32,
         master_r: f32,
+        master_eq_filters: Vec<ParametricFilter>,  // NEW: Master EQ filters
         headroom_peak_l: Option<f32>,
         headroom_peak_r: Option<f32>,
         headroom_l: Option<f32>,
@@ -500,6 +502,28 @@ struct TrackLevels {
     gate_input_db: f32,
     gate_attenuation_db: f32,
     file_ended: bool, // NEW: True when file finishes playing
+    eq_filters: Vec<ParametricFilter>, // NEW: Track EQ filters
+    // Track parameters (for full state sync)
+    gain: f32,
+    volume: f32,
+    mute: bool,
+    pan: f32,
+    route_to_master: bool,
+    pad_enabled: bool,
+    hpf_enabled: bool,
+    phase_inverted: bool,
+    // Compressor parameters
+    compressor_enabled: bool,
+    compressor_threshold_db: f32,
+    compressor_ratio: f32,
+    compressor_attack_ms: f32,
+    compressor_release_ms: f32,
+    // Gate parameters
+    gate_enabled: bool,
+    gate_threshold_db: f32,
+    gate_range_db: f32,
+    gate_attack_ms: f32,
+    gate_release_ms: f32,
 }
 
 #[derive(Debug, Serialize)]
@@ -956,9 +980,9 @@ impl AudioEngine {
         let router_output = Arc::clone(&self.router);
         let updates_suspended_flag = Arc::clone(&self.updates_suspended);
 
-        // Meter update counter and interval (send levels every ~50ms at 48kHz = 2400 frames)
+        // Meter update counter and interval (send levels every ~66ms at 48kHz = 3200 frames)
         let meter_update_frames = Arc::new(Mutex::new(0_usize));
-        let meter_interval = 2400_usize;
+        let meter_interval = 3200_usize;
 
         // Performance tracking
         let perf_stats = Arc::new(Mutex::new(PerformanceStats::new()));
@@ -1161,9 +1185,8 @@ impl AudioEngine {
                         *counter = 0;
                         
                         // Copy levels data while we have the lock
-                        // Only send data for tracks that have a source (not TrackSource::None)
+                        // Send data for ALL tracks (need parameters for UI sync even without source)
                         let track_levels: Vec<TrackLevels> = router.tracks.iter()
-                            .filter(|t| !matches!(t.source, crate::routing::TrackSource::None))
                             .map(|t| TrackLevels {
                                 track: t.id,
                                 level_l: t.level_l,
@@ -1175,11 +1198,52 @@ impl AudioEngine {
                                 gate_input_db: t.gate.input_level_db,
                                 gate_attenuation_db: t.gate.attenuation_db,
                                 file_ended: t.file_player.as_ref().map_or(false, |p| p.file_ended),
+                                eq_filters: t.parametric_eq.export_filters()
+                                    .iter()
+                                    .map(|f| ParametricFilter {
+                                        filter_type: f.filter_type.clone(),
+                                        frequency: f.frequency,
+                                        gain: f.gain,
+                                        q: f.q,
+                                    })
+                                    .collect(),
+                                // Track parameters
+                                gain: t.gain,
+                                volume: t.volume,
+                                mute: t.mute,
+                                pan: t.pan,
+                                route_to_master: t.route_to_master,
+                                pad_enabled: t.pad_enabled,
+                                hpf_enabled: t.hpf_enabled,
+                                phase_inverted: t.phase_inverted,
+                                // Compressor parameters
+                                compressor_enabled: t.compressor.is_enabled(),
+                                compressor_threshold_db: t.compressor.get_threshold_db(),
+                                compressor_ratio: t.compressor.get_ratio(),
+                                compressor_attack_ms: t.compressor.get_attack_ms(),
+                                compressor_release_ms: t.compressor.get_release_ms(),
+                                // Gate parameters
+                                gate_enabled: t.gate.is_enabled(),
+                                gate_threshold_db: t.gate.get_threshold_db(),
+                                gate_range_db: t.gate.get_range_db(),
+                                gate_attack_ms: t.gate.get_attack_ms(),
+                                gate_release_ms: t.gate.get_release_ms(),
                             })
                             .collect();
                         
                         let master_l = router.master.level_l;
                         let master_r = router.master.level_r;
+                        
+                        // Collect master EQ filters
+                        let master_eq_filters: Vec<ParametricFilter> = router.master.parametric_eq.export_filters()
+                            .iter()
+                            .map(|f| ParametricFilter {
+                                filter_type: f.filter_type.clone(),
+                                frequency: f.frequency,
+                                gain: f.gain,
+                                q: f.q,
+                            })
+                            .collect();
                         
                         // Collect subgroup levels
                         let subgroup_levels: Vec<SubgroupLevels> = router
@@ -1247,6 +1311,7 @@ impl AudioEngine {
                             subgroup_levels, 
                             master_l, 
                             master_r, 
+                            master_eq_filters,
                             headroom_data,
                             loudness_data,
                             dynamic_range_data,
@@ -1274,6 +1339,7 @@ impl AudioEngine {
                         subgroup_levels, 
                         master_l, 
                         master_r, 
+                        master_eq_filters,
                         headroom_data,
                         loudness_data,
                         dynamic_range_data,
@@ -1285,6 +1351,7 @@ impl AudioEngine {
                             subgroups: subgroup_levels,
                             master_l,
                             master_r,
+                            master_eq_filters,
                             headroom_peak_l: Some(headroom_data.peak_l),
                             headroom_peak_r: Some(headroom_data.peak_r),
                             headroom_l: Some(headroom_data.headroom_l),

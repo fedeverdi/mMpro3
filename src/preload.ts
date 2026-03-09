@@ -197,6 +197,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // License verification
   verifyLicense: (licenseKey: string) => ipcRenderer.invoke('verify-license', licenseKey),
   
+  // Network URL
+  getLocalIp: () => ipcRenderer.invoke('get-local-ip'),
+  
   // Window controls
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
   maximizeWindow: () => ipcRenderer.send('window-maximize'),
