@@ -570,8 +570,11 @@ impl Track {
 }
 
 pub struct MasterBus {
-    pub gain: f32,
+    pub gain: f32,          // Used when linked=true
+    pub gain_left: f32,     // Used when linked=false
+    pub gain_right: f32,    // Used when linked=false
     pub mute: bool,
+    pub linked: bool, // Link L/R channels
     pub parametric_eq: ParametricEqualizer,
     pub output_channel_selection: ChannelSelection,
     pub level_l: f32,
@@ -588,7 +591,10 @@ impl MasterBus {
     pub fn new() -> Self {
         Self {
             gain: 1.0,
+            gain_left: 1.0,
+            gain_right: 1.0,
             mute: false,
+            linked: true, // Default to linked
             parametric_eq: ParametricEqualizer::new(48000.0),
             output_channel_selection: ChannelSelection::stereo(),
             level_l: 0.0,
@@ -639,9 +645,17 @@ impl MasterBus {
         // Apply master parametric EQ BEFORE gain (typical mixing practice)
         let (mix_l, mix_r) = self.parametric_eq.process(mix_l, mix_r);
 
-        // Apply master gain
-        let mix_l = mix_l * self.gain;
-        let mix_r = mix_r * self.gain;
+        // Apply master gain (use separate gains when unlinked)
+        let mix_l = if self.linked {
+            mix_l * self.gain
+        } else {
+            mix_l * self.gain_left
+        };
+        let mix_r = if self.linked {
+            mix_r * self.gain
+        } else {
+            mix_r * self.gain_right
+        };
 
         // ===== MASTER FX CHAIN (in series) =====
         // 1. Compressor: Dynamic range control
@@ -963,16 +977,26 @@ impl Router {
         // Add subgroups routed to master INTO the master (apply master gain)
         for (i, subgroup) in self.subgroups.iter().enumerate() {
             if subgroup.route_to_master {
-                master_output.0 += self.subgroup_outputs_buffer[i].0 * self.master.gain;
-                master_output.1 += self.subgroup_outputs_buffer[i].1 * self.master.gain;
+                if self.master.linked {
+                    master_output.0 += self.subgroup_outputs_buffer[i].0 * self.master.gain;
+                    master_output.1 += self.subgroup_outputs_buffer[i].1 * self.master.gain;
+                } else {
+                    master_output.0 += self.subgroup_outputs_buffer[i].0 * self.master.gain_left;
+                    master_output.1 += self.subgroup_outputs_buffer[i].1 * self.master.gain_right;
+                }
             }
         }
         
         // Add aux buses routed to master INTO the master (apply master gain)
         for (i, aux_bus) in self.aux_buses.iter().enumerate() {
             if aux_bus.route_to_master {
-                master_output.0 += self.aux_outputs_buffer[i].0 * self.master.gain;
-                master_output.1 += self.aux_outputs_buffer[i].1 * self.master.gain;
+                if self.master.linked {
+                    master_output.0 += self.aux_outputs_buffer[i].0 * self.master.gain;
+                    master_output.1 += self.aux_outputs_buffer[i].1 * self.master.gain;
+                } else {
+                    master_output.0 += self.aux_outputs_buffer[i].0 * self.master.gain_left;
+                    master_output.1 += self.aux_outputs_buffer[i].1 * self.master.gain_right;
+                }
             }
         }
         

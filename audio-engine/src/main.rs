@@ -184,8 +184,14 @@ enum Command {
     // Master controls
     #[serde(rename = "set_master_gain")]
     SetMasterGain { gain: f32 },
+    #[serde(rename = "set_master_gain_left")]
+    SetMasterGainLeft { gain: f32 },
+    #[serde(rename = "set_master_gain_right")]
+    SetMasterGainRight { gain: f32 },
     #[serde(rename = "set_master_mute")]
     SetMasterMute { mute: bool },
+    #[serde(rename = "set_master_linked")]
+    SetMasterLinked { linked: bool },
     #[serde(rename = "set_master_parametric_eq_filters")]
     SetMasterParametricEQFilters {
         filters: Vec<ParametricFilter>,
@@ -421,6 +427,11 @@ enum Response {
         subgroups: Vec<SubgroupLevels>,
         master_l: f32,
         master_r: f32,
+        master_gain: f32,
+        master_gain_left: f32,
+        master_gain_right: f32,
+        master_mute: bool,
+        master_linked: bool,
         master_eq_filters: Vec<ParametricFilter>,  // NEW: Master EQ filters
         headroom_peak_l: Option<f32>,
         headroom_peak_r: Option<f32>,
@@ -548,6 +559,9 @@ struct SubgroupLevels {
     subgroup: usize,
     level_l: f32,
     level_r: f32,
+    gain: f32,
+    mute: bool,
+    route_to_master: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -1265,6 +1279,11 @@ impl AudioEngine {
                         
                         let master_l = router.master.level_l;
                         let master_r = router.master.level_r;
+                        let master_gain = router.master.gain;
+                        let master_gain_left = router.master.gain_left;
+                        let master_gain_right = router.master.gain_right;
+                        let master_mute = router.master.mute;
+                        let master_linked = router.master.linked;
                         
                         // Collect master EQ filters
                         let master_eq_filters: Vec<ParametricFilter> = router.master.parametric_eq.export_filters()
@@ -1285,6 +1304,9 @@ impl AudioEngine {
                                 subgroup: sg.id,
                                 level_l: sg.level_l,
                                 level_r: sg.level_r,
+                                gain: sg.gain,
+                                mute: sg.mute,
+                                route_to_master: sg.route_to_master,
                             })
                             .collect();
                         
@@ -1342,7 +1364,12 @@ impl AudioEngine {
                             track_levels, 
                             subgroup_levels, 
                             master_l, 
-                            master_r, 
+                            master_r,
+                            master_gain,
+                            master_gain_left,
+                            master_gain_right,
+                            master_mute,
+                            master_linked,
                             master_eq_filters,
                             headroom_data,
                             loudness_data,
@@ -1370,7 +1397,12 @@ impl AudioEngine {
                         track_levels, 
                         subgroup_levels, 
                         master_l, 
-                        master_r, 
+                        master_r,
+                        master_gain,
+                        master_gain_left,
+                        master_gain_right,
+                        master_mute,
+                        master_linked,
                         master_eq_filters,
                         headroom_data,
                         loudness_data,
@@ -1383,6 +1415,11 @@ impl AudioEngine {
                             subgroups: subgroup_levels,
                             master_l,
                             master_r,
+                            master_gain,
+                            master_gain_left,
+                            master_gain_right,
+                            master_mute,
+                            master_linked,
                             master_eq_filters,
                             headroom_peak_l: Some(headroom_data.peak_l),
                             headroom_peak_r: Some(headroom_data.peak_r),
@@ -2092,12 +2129,30 @@ impl AudioEngine {
     fn set_master_gain(&self, gain: f32) {
         let mut router = self.router.lock().unwrap();
         router.master.gain = gain.max(0.0); // No upper limit
+        // When setting unified gain, also update left/right
+        router.master.gain_left = gain.max(0.0);
+        router.master.gain_right = gain.max(0.0);
         let gain_db = if gain > 0.0 { 20.0 * gain.log10() } else { -90.0 };
+    }
+
+    fn set_master_gain_left(&self, gain: f32) {
+        let mut router = self.router.lock().unwrap();
+        router.master.gain_left = gain.max(0.0);
+    }
+
+    fn set_master_gain_right(&self, gain: f32) {
+        let mut router = self.router.lock().unwrap();
+        router.master.gain_right = gain.max(0.0);
     }
 
     fn set_master_mute(&self, mute: bool) {
         let mut router = self.router.lock().unwrap();
         router.master.mute = mute;
+    }
+
+    fn set_master_linked(&self, linked: bool) {
+        let mut router = self.router.lock().unwrap();
+        router.master.linked = linked;
     }
 
     fn set_master_parametric_eq_filters(&self, filters: &[ParametricFilter]) {
@@ -2510,8 +2565,20 @@ impl AudioEngine {
                 self.set_master_gain(gain);
                 None
             }
+            Command::SetMasterGainLeft { gain } => {
+                self.set_master_gain_left(gain);
+                None
+            }
+            Command::SetMasterGainRight { gain } => {
+                self.set_master_gain_right(gain);
+                None
+            }
             Command::SetMasterMute { mute } => {
                 self.set_master_mute(mute);
+                None
+            }
+            Command::SetMasterLinked { linked } => {
+                self.set_master_linked(linked);
                 None
             }
             Command::SetMasterParametricEQFilters { filters } => {

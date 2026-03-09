@@ -61,8 +61,22 @@ export interface AudioEngineState {
     isStereo: boolean
     isPlaying: boolean
   }>
-  subgroupLevels: Map<number, { left: number; right: number }>
-  masterLevels: { left: number; right: number }
+  subgroupLevels: Map<number, { 
+    left: number; 
+    right: number;
+    gain: number;
+    mute: boolean;
+    routeToMaster: boolean;
+  }>
+  masterLevels: { 
+    left: number; 
+    right: number;
+    gain: number;
+    gainLeft: number;
+    gainRight: number;
+    mute: boolean;
+    linked: boolean;
+  }
   masterEQFilters: any[]
   fftData: { binsLeft: Float32Array; binsRight: Float32Array; sampleRate: number } | null
   performanceStats: {
@@ -130,7 +144,7 @@ const state = ref<AudioEngineState>({
   trackEQFilters: new Map(),
   trackParameters: new Map(),
   subgroupLevels: new Map(),
-  masterLevels: { left: -60, right: -60 },
+  masterLevels: { left: -60, right: -60, gain: 1.0, gainLeft: 1.0, gainRight: 1.0, mute: false, linked: true },
   masterEQFilters: [],
   fftData: null,
   performanceStats: null,
@@ -267,7 +281,10 @@ export const useAudioEngine = () => {
 
               state.value.subgroupLevels.set(subgroupLevel.subgroup, {
                 left: leftDb,
-                right: rightDb
+                right: rightDb,
+                gain: subgroupLevel.gain ?? 1.0,
+                mute: subgroupLevel.mute ?? false,
+                routeToMaster: subgroupLevel.route_to_master ?? false
               })
             })
           }
@@ -275,7 +292,12 @@ export const useAudioEngine = () => {
           if (response.master_l !== undefined && response.master_r !== undefined) {
             state.value.masterLevels = {
               left: response.master_l > 0 ? 20 * Math.log10(response.master_l) : -60,
-              right: response.master_r > 0 ? 20 * Math.log10(response.master_r) : -60
+              right: response.master_r > 0 ? 20 * Math.log10(response.master_r) : -60,
+              gain: response.master_gain ?? 1.0,
+              gainLeft: response.master_gain_left ?? 1.0,
+              gainRight: response.master_gain_right ?? 1.0,
+              mute: response.master_mute ?? false,
+              linked: response.master_linked ?? true
             }
           }
 
@@ -622,9 +644,28 @@ export const useAudioEngine = () => {
     window.audioEngine.setMasterGain(gain)
   }
 
+  const setMasterGainLeft = (gain: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setMasterGainLeft(gain)
+  }
+
+  const setMasterGainRight = (gain: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setMasterGainRight(gain)
+  }
+
   const setMasterMute = (mute: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
     window.audioEngine.setMasterMute(mute)
+  }
+
+  const setMasterLinked = (linked: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    if (linked === undefined || linked === null) {
+      console.error('[useAudioEngine] setMasterLinked called with invalid value:', linked)
+      return
+    }
+    window.audioEngine.setMasterLinked(linked)
   }
 
   const setMasterOutputChannels = (leftChannel: number, rightChannel: number) => {
@@ -881,7 +922,10 @@ export const useAudioEngine = () => {
     setTrackHPF,
     setTrackPhaseInvert,
     setMasterGain,
+    setMasterGainLeft,
+    setMasterGainRight,
     setMasterMute,
+    setMasterLinked,
     setMasterOutputChannels,
     setMasterCompressor,
     setMasterLimiter,

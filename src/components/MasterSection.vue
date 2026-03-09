@@ -118,6 +118,7 @@ const isLinked = ref(true)
 const masterMuted = ref(false)
 const isDraggingLeft = ref(false)
 const isDraggingRight = ref(false)
+const isTogglingLink = ref(false)
 const isUpdatingFromEngine = ref(false)
 
 // NDI Stream
@@ -204,6 +205,7 @@ function onHeadphonesOutputSelect(deviceId: string | null) {
 
 // Link/unlink channels
 function toggleLink() {
+  isTogglingLink.value = true
   isLinked.value = !isLinked.value
   if (isLinked.value) {
     rightVolume.value = leftVolume.value
@@ -218,19 +220,26 @@ function toggleMasterMute() {
 // Watchers - Send changes to Rust engine
 watch([leftVolume, rightVolume], ([left, right]) => {
   if (isUpdatingFromEngine.value) return
+  // Allow updates during drag - we need to send values to Rust in real-time
+  
   if (audioEngine?.state.value.isRunning) {
-    // Use average of L/R for master gain (since Rust has single master gain)
-    const avgDb = (left + right) / 2
-
-    // Convert dB to linear gain: gain = 10^(dB/20)
-    let gainValue: number
-    if (avgDb <= -90) {
-      gainValue = 0.0 // Mute
+    if (isLinked.value) {
+      // When linked, send average as unified gain
+      const avgDb = (left + right) / 2
+      let gainValue: number
+      if (avgDb <= -90) {
+        gainValue = 0.0 // Mute
+      } else {
+        gainValue = Math.pow(10, avgDb / 20)
+      }
+      audioEngine.setMasterGain(gainValue)
     } else {
-      gainValue = Math.pow(10, avgDb / 20)
+      // When unlinked, send left and right separately
+      const leftGain = left <= -90 ? 0.0 : Math.pow(10, left / 20)
+      const rightGain = right <= -90 ? 0.0 : Math.pow(10, right / 20)
+      audioEngine.setMasterGainLeft(leftGain)
+      audioEngine.setMasterGainRight(rightGain)
     }
-
-    audioEngine.setMasterGain(gainValue)
   }
 })
 
@@ -243,10 +252,26 @@ watch(headphonesVolume, (volume) => {
 })
 
 watch(masterMuted, (muted) => {
+  if (isUpdatingFromEngine.value) return
+  
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setMasterMute(muted)
   }
-})
+}, { flush: 'sync' })
+
+watch(isLinked, (linked) => {
+  if (isUpdatingFromEngine.value) return
+  if (linked === undefined) return // Skip initial undefined values
+  
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setMasterLinked(linked)
+  }
+  
+  // Reset toggling flag after command is sent
+  setTimeout(() => {
+    isTogglingLink.value = false
+  }, 150)
+}, { flush: 'sync' })
 
 // Watch for meter level updates from audio engine
 watch(
@@ -256,9 +281,36 @@ watch(
       // Values are already in dB from useAudioEngine
       leftLevel.value = levels.left
       rightLevel.value = levels.right
+      
+      // Sync master parameters from Rust engine
+      if (!isDraggingLeft.value && !isDraggingRight.value) {
+        isUpdatingFromEngine.value = true
+        
+        if (levels.linked) {
+          // When linked, sync both from unified gain
+          const gainDb = levels.gain > 0 ? 20 * Math.log10(levels.gain) : -90
+          leftVolume.value = gainDb
+          rightVolume.value = gainDb
+        } else {
+          // When unlinked, sync from separate gains
+          const leftGainDb = levels.gainLeft > 0 ? 20 * Math.log10(levels.gainLeft) : -90
+          const rightGainDb = levels.gainRight > 0 ? 20 * Math.log10(levels.gainRight) : -90
+          leftVolume.value = leftGainDb
+          rightVolume.value = rightGainDb
+        }
+        
+        masterMuted.value = levels.mute
+        
+        // Don't update isLinked if user is actively toggling it
+        if (!isTogglingLink.value) {
+          isLinked.value = levels.linked ?? true
+        }
+        
+        isUpdatingFromEngine.value = false
+      }
     }
   },
-  { deep: true }
+  { deep: true, flush: 'sync' }
 )
 
 // When linked, sync right to left

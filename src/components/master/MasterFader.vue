@@ -260,7 +260,6 @@ function updateValue(e: MouseEvent | TouchEvent) {
 
 function stopDrag() {
   isDragging.value = false
-  emit('dragEnd')
   trackRect = null
   
   if (rafId !== null) {
@@ -272,6 +271,8 @@ function stopDrag() {
     emit('update:modelValue', pendingValue)
     pendingValue = null
   }
+  
+  emit('dragEnd')
   
   document.removeEventListener('mousemove', updateValue)
   document.removeEventListener('touchmove', updateValue)

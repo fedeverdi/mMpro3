@@ -125,6 +125,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: number): void
+  (e: 'drag-start'): void
+  (e: 'drag-end'): void
 }>()
 
 const trackRef = ref<HTMLElement | null>(null)
@@ -212,6 +214,8 @@ function startDrag(e: MouseEvent | TouchEvent) {
   e.preventDefault()
   isDragging.value = true
   
+  emit('drag-start')
+  
   if (trackRef.value) {
     trackRect = trackRef.value.getBoundingClientRect()
   }
@@ -267,6 +271,8 @@ function stopDrag() {
   if (pendingValue !== null) {
     emit('update:modelValue', pendingValue)
     pendingValue = null
+  emit('drag-end')
+  
   }
   
   document.removeEventListener('mousemove', updateValue)

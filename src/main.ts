@@ -651,8 +651,20 @@ ipcMain.handle('audio-engine:set-master-gain', async (_, gain: number) => {
   await sendCommandToEngine({ type: 'set_master_gain', gain })
 })
 
+ipcMain.handle('audio-engine:set-master-gain-left', async (_, gain: number) => {
+  await sendCommandToEngine({ type: 'set_master_gain_left', gain })
+})
+
+ipcMain.handle('audio-engine:set-master-gain-right', async (_, gain: number) => {
+  await sendCommandToEngine({ type: 'set_master_gain_right', gain })
+})
+
 ipcMain.handle('audio-engine:set-master-mute', async (_, mute: boolean) => {
   await sendCommandToEngine({ type: 'set_master_mute', mute })
+})
+
+ipcMain.handle('audio-engine:set-master-linked', async (_, linked: boolean) => {
+  await sendCommandToEngine({ type: 'set_master_linked', linked })
 })
 
 ipcMain.handle('audio-engine:set-master-parametric-eq-filters', async (_, filters: Array<{type: string, frequency: number, gain: number, q: number}>) => {

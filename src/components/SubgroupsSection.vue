@@ -31,7 +31,9 @@
 
       <!-- Fader -->
       <div v-if="fadersHeight > 0" class="flex gap-1 items-end mt-3 pb-6">
-        <SubgroupFader v-model="volume" label="SUB" :trackHeight="fadersHeight" />
+        <SubgroupFader v-model="volume" label="SUB" :trackHeight="fadersHeight" 
+          @drag-start="isDraggingVolume = true" 
+          @drag-end="isDraggingVolume = false" />
       </div>
     </div>
 
@@ -99,6 +101,10 @@ const selectedOutput = computed({
 const leftLevel = ref(-60)
 const rightLevel = ref(-60)
 
+// Anti-loop flags
+const isUpdatingFromEngine = ref(false)
+const isDraggingVolume = ref(false)
+
 // Audio outputs
 const { audioOutputDevices } = useAudioDevices()
 
@@ -156,6 +162,9 @@ function toggleRouteToMaster() {
 
 // Watchers - Send changes to Rust engine
 watch(volume, (newVolume) => {
+  if (isUpdatingFromEngine.value) return
+  if (isDraggingVolume.value) return // Don't update while dragging
+  
   if (audioEngine && props.subgroupId !== undefined) {
     // Convert dB to linear gain: gain = 10^(dB/20)
     let gainValue: number
@@ -170,6 +179,8 @@ watch(volume, (newVolume) => {
 })
 
 watch(routeToMaster, (route) => {
+  if (isUpdatingFromEngine.value) return
+  
   if (audioEngine && props.subgroupId !== undefined) {
     audioEngine.setSubgroupRouteToMaster(props.subgroupId, route)
   }
@@ -182,9 +193,21 @@ watch(
     if (levels) {
       leftLevel.value = levels.left
       rightLevel.value = levels.right
+      
+      // Sync subgroup parameters from Rust engine
+      if (!isDraggingVolume.value) {
+        isUpdatingFromEngine.value = true
+        
+        // Convert gain to dB: dB = 20 * log10(gain)
+        const gainDb = levels.gain > 0 ? 20 * Math.log10(levels.gain) : -90
+        volume.value = gainDb
+        routeToMaster.value = levels.routeToMaster
+        
+        isUpdatingFromEngine.value = false
+      }
     }
   },
-  { immediate: true }
+  { immediate: true, flush: 'sync' }
 )
 
 // Initialize
