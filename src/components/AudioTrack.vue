@@ -271,9 +271,12 @@ const props = defineProps<{
 // Import audio engine from context
 const audioEngine = inject('audioEngine') as any
 
+// Track window height reactively for responsive layout
+const windowHeight = ref(window.innerHeight)
+
 // Definiscom una computed isLargeSize per determinare l'altezza window disponibile in modo da avere spazio per la traccia
 const isLargeSize = computed(() => {
-  return window.innerHeight > 800
+  return windowHeight.value > 800
 })
 
 // Emits
@@ -1029,6 +1032,7 @@ onMounted(async () => {
   // Watch for centralized resize trigger instead of using ResizeObserver
   watch(resizeTrigger, () => {
     updateFaderHeight()
+    windowHeight.value = window.innerHeight // Update window height on resize
   })
 
   updateFaderHeight()
