@@ -70,30 +70,8 @@ const initializeEngine = async () => {
 const handleUserStart = async () => {
   console.log('[App] Starting audio engine...')
   
-  // Check if we're in remote mode (browser client)
-  const isRemoteMode = !(window as any).electronAPI
-  
-  if (isRemoteMode) {
-    console.log('[App] Remote mode detected, checking if engine is already running...')
-    
-    // Check if the audio engine is already running on the host
-    if (audioEngine.state.value.isRunning) {
-      console.log('[App] Audio engine is already running, skipping start command')
-      isAppReady.value = true
-      return
-    } else {
-      // Engine not running - show error message
-      showError(
-        'L\'audio engine non è attivo sull\'host. Avvia l\'audio engine dall\'applicazione Electron prima di connetterti da remoto.',
-        8000
-      )
-      return
-    }
-  }
-  
-  // Electron mode - start the engine normally
   try {
-    // Start engine with user gesture
+    // Start engine with user gesture (will check if already running internally)
     await audioEngine.start()
     isAppReady.value = true
   } catch (error) {

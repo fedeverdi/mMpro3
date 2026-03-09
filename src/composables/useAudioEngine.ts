@@ -485,6 +485,12 @@ export const useAudioEngine = () => {
       return
     }
 
+    // Check if already running - don't restart to avoid interruptions
+    if (state.value.isRunning) {
+      console.log('[useAudioEngine] Audio engine already running, skipping start command')
+      return
+    }
+
     startListening()
     await window.audioEngine.start(inputDevice, outputDevice)
   }
