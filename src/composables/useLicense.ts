@@ -71,7 +71,6 @@ async function loadStoredLicense() {
       if (audioEngine) {
         try {
           const license = await audioEngine.getLicense()
-          console.log('[useLicense] Received license from Rust:', license)
           
           if (license && license.key !== 'DEMO') {
             currentLicense.value = {

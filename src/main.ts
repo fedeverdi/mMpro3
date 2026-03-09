@@ -1073,13 +1073,7 @@ ipcMain.handle('verify-license', async (_, licenseKey: string) => {
 
 // License management - forward to Rust engine
 ipcMain.handle('audio-engine:save-license', async (_, key: string, licenseType: string, expiresAt: string | null) => {
-  console.log('[Main.ts] ===== SAVE LICENSE IPC CALLED =====')
-  console.log('[Main.ts] Key:', key)
-  console.log('[Main.ts] Type:', licenseType)
-  console.log('[Main.ts] Expires:', expiresAt)
-  
   if (!audioEngineProcess || !audioEngineProcess.stdin) {
-    console.error('[Main.ts] Audio engine not running!')
     throw new Error('Audio engine not running')
   }
   
@@ -1090,30 +1084,22 @@ ipcMain.handle('audio-engine:save-license', async (_, key: string, licenseType: 
       license_type: licenseType,
       expires_at: expiresAt
     }
-    
-    console.log('[Main.ts] Sending command to Rust:', JSON.stringify(command))
-    
+        
     // Use the existing sendCommandAndWaitForResponse system
     const response = await sendCommandAndWaitForResponse(command, 'ok', 3000)
-    
-    console.log('[Main.ts] Received response from Rust:', response)
-    
+        
     if (response.message?.includes('License saved')) {
-      console.log('[Main.ts] ✓ License saved successfully:', licenseType)
       
       // Now request license to broadcast to all clients (including remote browser clients)
-      console.log('[Main.ts] Requesting license from Rust to broadcast to clients...')
       try {
         const getLicenseCommand = { type: 'get_license' }
         await sendCommandAndWaitForResponse(getLicenseCommand, 'license', 2000)
-        console.log('[Main.ts] ✓ License broadcasted to all clients')
       } catch (err) {
         console.warn('[Main.ts] Failed to broadcast license, but save was successful:', err)
       }
       
       return true
     } else {
-      console.warn('[Main.ts] Unexpected ok response:', response)
       return true // Assume success
     }
   } catch (error) {
@@ -1124,21 +1110,16 @@ ipcMain.handle('audio-engine:save-license', async (_, key: string, licenseType: 
 })
 
 ipcMain.handle('audio-engine:get-license', async () => {
-  console.log('[Main.ts] ===== GET LICENSE IPC CALLED =====')
   
   if (!audioEngineProcess || !audioEngineProcess.stdin) {
-    console.log('[Main.ts] Audio engine not running, returning demo license')
     return { key: 'DEMO', license_type: 'demo', expires_at: null, is_valid: true }
   }
   
   try {
-    const command = { type: 'get_license' }
-    console.log('[Main.ts] Sending get_license command to Rust')
-    
+    const command = { type: 'get_license' }    
     // Use the existing sendCommandAndWaitForResponse system
     const response = await sendCommandAndWaitForResponse(command, 'license', 2000)
     
-    console.log('[Main.ts] Received license from Rust:', response)
     return response
   } catch (error) {
     console.warn('[Main.ts] Timeout or error getting license from Rust:', error)
