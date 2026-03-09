@@ -1749,11 +1749,11 @@ const createWindow = () => {
 
   // Send maximize/unmaximize events to renderer
   mainWindow.on('maximize', () => {
-    mainWindow.webContents.send('window-maximized')
+    mainWindow?.webContents.send('window-maximized')
   })
 
   mainWindow.on('unmaximize', () => {
-    mainWindow.webContents.send('window-unmaximized')
+    mainWindow?.webContents.send('window-unmaximized')
   })
 
   // Track both conditions: window ready AND minimum splash time elapsed

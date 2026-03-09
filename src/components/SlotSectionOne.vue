@@ -69,7 +69,7 @@
         <!-- Engine not running message -->
         <div v-show="!audioEngine?.state.value.isRunning" class="flex items-center justify-center" :class="{ 'h-full': isCollapsed, 'py-8': !isCollapsed }">
           <div class="text-xs text-gray-500 text-center" :class="{ 'transform -rotate-90': isCollapsed }">
-            <div class="mb-2">⏸️</div>
+            <div class="text-[0.6rem]">Loading...</div>
             <div v-if="!isCollapsed">Audio engine<br/>not running</div>
           </div>
         </div>

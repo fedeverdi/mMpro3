@@ -50,13 +50,13 @@ async function loadStoredLicense() {
           if (license && license.key !== 'DEMO') {
             currentLicense.value = {
               key: license.key,
-              type: license.license_type,
-              expiresAt: license.expires_at,
+              type: license.license_type as BuildMode,
+              expiresAt: license.expires_at ?? undefined,
               isValid: license.is_valid
             }
             // Save to localStorage AFTER Rust confirms
             localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(currentLicense.value))
-            console.log('[useLicense] License loaded from Rust (remote):', currentLicense.value.type)
+            console.log('[useLicense] License loaded from Rust (remote):', currentLicense.value?.type)
             return
           }
         } catch (err) {
@@ -75,14 +75,14 @@ async function loadStoredLicense() {
           if (license && license.key !== 'DEMO') {
             currentLicense.value = {
               key: license.key,
-              type: license.license_type || license.type,
-              expiresAt: license.expires_at,
+              type: license.license_type as BuildMode,
+              expiresAt: license.expires_at ?? undefined,
               isValid: license.is_valid
             }
             
             // Save to localStorage AFTER Rust confirms
             localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(currentLicense.value))
-            console.log('[useLicense] License loaded from Rust:', currentLicense.value.type)
+            console.log('[useLicense] License loaded from Rust:', currentLicense.value?.type)
             return
           }
         } catch (err) {
