@@ -17,6 +17,9 @@ pub struct AudioFilePlayer {
     pub looping: bool,
     pub playing: bool,
     pub file_ended: bool, // NEW: Track when file finishes playing
+    pub file_name: String, // File name or path
+    pub file_artist: Option<String>, // Metadata: artist
+    pub file_title: Option<String>, // Metadata: title
     // Resampling state
     pub output_sample_rate: u32,
     pub resample_position: f64,
@@ -33,6 +36,9 @@ impl AudioFilePlayer {
             looping: false,
             file_ended: false,
             playing: false,
+            file_name: String::new(),
+            file_artist: None,
+            file_title: None,
             output_sample_rate: 44100,
             resample_position: 0.0,
         }
@@ -111,6 +117,14 @@ impl AudioFilePlayer {
 
         self.samples = all_samples;
         self.position = 0;
+        self.file_ended = false;
+        
+        // Extract filename from path
+        if let Some(filename) = path.as_ref().file_name() {
+            if let Some(filename_str) = filename.to_str() {
+                self.file_name = filename_str.to_string();
+            }
+        }
         
         // Calculate peak level in the file
         let peak = self.samples.iter()

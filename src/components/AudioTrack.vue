@@ -213,7 +213,7 @@
           </div>
 
           <TrackMeter class="absolute right-[0.4rem] top-1/2 transform -translate-y-1/2 z-50" v-if="faderHeight > 0"
-            :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="audioSourceType === 'file'"
+            :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
             :height="faderHeight + 20" />
         </div>
       </div>
@@ -232,7 +232,7 @@
     :correlation="trackPhaseCorrelation"
     :audio-data-l="trackWaveformData.left"
     :audio-data-r="trackWaveformData.right"
-    :is-stereo="audioSourceType === 'file'"
+    :is-stereo="isStereo"
   />
 </template>
 
@@ -424,6 +424,12 @@ const hasSignal = computed(() => {
   return trackLevelL.value > -55 || trackLevelR.value > -55
 })
 
+// Check if track is stereo (from Rust file player state)
+const isStereo = computed(() => {
+  const params = audioEngine?.state.value.trackParameters.get(props.trackNumber - 1)
+  return params?.isStereo ?? false
+})
+
 // Waveform data from audio engine
 const trackWaveformData = computed(() => {
   const waveform = audioEngine?.state.value.trackWaveforms.get(props.trackNumber - 1)
@@ -539,7 +545,7 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
 
     // Use file path directly from library (no need for temp file)
     if (audioEngine?.state.value.isRunning && fileData.filePath) {
-      audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath)
+      audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath, fileData.artist, fileData.title)
       
       // Auto-play the file only if requested
       if (autoPlay) {
@@ -1089,6 +1095,19 @@ onMounted(async () => {
     if (params.eqLowMid !== undefined) eqLowMid.value = params.eqLowMid
     if (params.eqHighMid !== undefined) eqHighMid.value = params.eqHighMid
     if (params.eqHigh !== undefined) eqHigh.value = params.eqHigh
+    
+    // Update file player state (sync fileName from Rust)
+    if (params.fileName) {
+      // If we have artist/title metadata, use that; otherwise use fileName
+      if (params.fileArtist && params.fileTitle) {
+        selectedFileName.value = `${params.fileArtist} - ${params.fileTitle}`
+      } else if (params.fileTitle) {
+        selectedFileName.value = params.fileTitle
+      } else if (params.fileName) {
+        selectedFileName.value = params.fileName
+      }
+      audioSourceType.value = 'file'
+    }
     
     // Re-enable watches after Vue reactivity cycle completes
     nextTick(() => { isUpdatingFromEngine.value = false })

@@ -59,7 +59,7 @@ interface AudioEngine {
   setSignalFrequency: (trackIndex: number, frequency: number) => Promise<void>
   setSignalWaveform: (trackIndex: number, waveform: string) => Promise<void>
   clearTrackSource: (trackIndex: number) => Promise<void>
-  setTrackSourceFile: (trackIndex: number, filePath: string) => Promise<void>
+  setTrackSourceFile: (trackIndex: number, filePath: string, artist?: string|null, title?: string|null) => Promise<void>
   saveTempAudioFile: (arrayBuffer: ArrayBuffer, fileName: string) => Promise<string>
   deleteTempFile: (filePath: string) => Promise<void>
   

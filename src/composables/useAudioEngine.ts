@@ -54,6 +54,11 @@ export interface AudioEngineState {
     eqLowMid: number
     eqHighMid: number
     eqHigh: number
+    // File player state
+    fileName: string
+    fileArtist?: string
+    fileTitle?: string
+    isStereo: boolean
   }>
   subgroupLevels: Map<number, { left: number; right: number }>
   masterLevels: { left: number; right: number }
@@ -237,7 +242,12 @@ export const useAudioEngine = () => {
                   eqLow: trackLevel.eq_low ?? 0,
                   eqLowMid: trackLevel.eq_low_mid ?? 0,
                   eqHighMid: trackLevel.eq_high_mid ?? 0,
-                  eqHigh: trackLevel.eq_high ?? 0
+                  eqHigh: trackLevel.eq_high ?? 0,
+                  // File player state
+                  fileName: trackLevel.file_name || '',
+                  fileArtist: trackLevel.file_artist,
+                  fileTitle: trackLevel.file_title,
+                  isStereo: trackLevel.is_stereo ?? false
                 })
               }
             })
@@ -537,9 +547,9 @@ export const useAudioEngine = () => {
     window.audioEngine.clearTrackSource(track)
   }
 
-  const setTrackSourceFile = (track: number, filePath: string) => {
+  const setTrackSourceFile = (track: number, filePath: string, artist?: string|null, title?: string|null) => {
     if (!window.audioEngine || !state.value.isRunning) return
-    window.audioEngine.setTrackSourceFile(track, filePath)
+    window.audioEngine.setTrackSourceFile(track, filePath, artist, title)
   }
 
   const playFile = (track: number, fileId?: string) => {

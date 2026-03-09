@@ -45,8 +45,8 @@ contextBridge.exposeInMainWorld('audioEngine', {
     ipcRenderer.invoke('audio-engine:set-signal-waveform', track, waveform),
   clearTrackSource: (track: number) => 
     ipcRenderer.invoke('audio-engine:clear-track-source', track),
-  setTrackSourceFile: (track: number, filePath: string) => 
-    ipcRenderer.invoke('audio-engine:set-track-source-file', track, filePath),
+  setTrackSourceFile: (track: number, filePath: string, artist?: string|null, title?: string|null) => 
+    ipcRenderer.invoke('audio-engine:set-track-source-file', track, filePath, artist, title),
   saveTempAudioFile: (arrayBuffer: ArrayBuffer, fileName: string) => 
     ipcRenderer.invoke('audio-engine:save-temp-audio-file', arrayBuffer, fileName),
   deleteTempFile: (filePath: string) => 

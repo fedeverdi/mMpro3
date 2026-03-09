@@ -76,11 +76,168 @@ const startWebSocketServer = () => {
         try {
           const message = JSON.parse(data.toString())
           
-          // Forward the command to audio engine
+          // Handle library operations via IPC-like pattern for WebSocket clients
+          if (message.type === 'ipc:audio-engine:list-library-files') {
+            try {
+              const libraryDir = path.join(app.getPath('userData'), 'Library')
+              if (!fs.existsSync(libraryDir)) {
+                fs.mkdirSync(libraryDir, { recursive: true })
+                ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: [] }))
+                return
+              }
+              
+              const files = fs.readdirSync(libraryDir)
+                .filter(file => !file.endsWith('.meta.json'))
+                .map(file => {
+                  const filePath = path.join(libraryDir, file)
+                  const stats = fs.statSync(filePath)
+                  
+                  let size = '0 KB'
+                  if (stats.size < 1024) {
+                    size = stats.size + ' B'
+                  } else if (stats.size < 1024 * 1024) {
+                    size = (stats.size / 1024).toFixed(1) + ' KB'
+                  } else {
+                    size = (stats.size / (1024 * 1024)).toFixed(1) + ' MB'
+                  }
+                  
+                  let metadata: any = {}
+                  const metadataPath = path.join(libraryDir, `${file}.meta.json`)
+                  if (fs.existsSync(metadataPath)) {
+                    try {
+                      metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'))
+                    } catch (error) {
+                      console.error('[WebSocket] Error parsing metadata:', error)
+                    }
+                  }
+                  
+                  return {
+                    id: metadata.id || file,
+                    fileName: metadata.originalFileName || file,
+                    filePath, // Include full path for Rust
+                    mimeType: metadata.mimeType || 'audio/mpeg',
+                    size,
+                    timestamp: metadata.timestamp || stats.birthtimeMs,
+                    artist: metadata.artist,
+                    title: metadata.title,
+                    artwork: metadata.artwork
+                  }
+                })
+                .sort((a, b) => b.timestamp - a.timestamp)
+              
+              ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: files }))
+            } catch (error) {
+              console.error('[WebSocket] Error listing library files:', error)
+              ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: 'Failed to list library files' }))
+            }
+            return
+          }
+          
+          if (message.type === 'ipc:audio-engine:get-library-file') {
+            try {
+              const libraryDir = path.join(app.getPath('userData'), 'Library')
+              const filePath = path.join(libraryDir, message.fileId)
+              
+              if (!fs.existsSync(filePath)) {
+                ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: `File not found: ${message.fileId}` }))
+                return
+              }
+              
+              const buffer = fs.readFileSync(filePath)
+              const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+              
+              let metadata: any = {}
+              const metadataPath = path.join(libraryDir, `${message.fileId}.meta.json`)
+              if (fs.existsSync(metadataPath)) {
+                try {
+                  metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'))
+                } catch (error) {
+                  console.error('[WebSocket] Error parsing metadata:', error)
+                }
+              }
+              
+              ws.send(JSON.stringify({
+                type: 'ipc:response',
+                id: message.id,
+                data: {
+                  id: message.fileId,
+                  fileName: metadata.originalFileName || message.fileId,
+                  filePath: filePath,
+                  arrayBuffer: Array.from(new Uint8Array(arrayBuffer)), // Convert to array for JSON
+                  mimeType: metadata.mimeType || 'audio/mpeg',
+                  timestamp: metadata.timestamp || Date.now(),
+                  artist: metadata.artist,
+                  title: metadata.title,
+                  artwork: metadata.artwork
+                }
+              }))
+            } catch (error) {
+              console.error('[WebSocket] Error getting library file:', error)
+              ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: 'Failed to get library file' }))
+            }
+            return
+          }
+          
+          if (message.type === 'ipc:audio-engine:save-library-file') {
+            try {
+              const libraryDir = path.join(app.getPath('userData'), 'Library')
+              if (!fs.existsSync(libraryDir)) {
+                fs.mkdirSync(libraryDir, { recursive: true })
+              }
+              
+              const fileId = message.metadata?.id || `${Date.now()}-${message.fileName}`
+              const filePath = path.join(libraryDir, fileId)
+              
+              // Convert array back to Buffer
+              const buffer = Buffer.from(message.arrayBuffer)
+              fs.writeFileSync(filePath, buffer)
+              
+              // Save metadata
+              const metadata = {
+                id: fileId,
+                originalFileName: message.fileName,
+                timestamp: Date.now(),
+                mimeType: message.metadata?.mimeType || 'audio/mpeg',
+                artist: message.metadata?.artist,
+                title: message.metadata?.title,
+                artwork: message.metadata?.artwork
+              }
+              
+              const metadataPath = path.join(libraryDir, `${fileId}.meta.json`)
+              fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2))
+              
+              ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: fileId }))
+            } catch (error) {
+              console.error('[WebSocket] Error saving library file:', error)
+              ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: 'Failed to save library file' }))
+            }
+            return
+          }
+          
+          if (message.type === 'ipc:audio-engine:delete-library-file') {
+            try {
+              const libraryDir = path.join(app.getPath('userData'), 'Library')
+              const filePath = path.join(libraryDir, message.fileId)
+              const metadataPath = path.join(libraryDir, `${message.fileId}.meta.json`)
+              
+              if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath)
+              }
+              if (fs.existsSync(metadataPath)) {
+                fs.unlinkSync(metadataPath)
+              }
+              
+              ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: true }))
+            } catch (error) {
+              console.error('[WebSocket] Error deleting library file:', error)
+              ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: 'Failed to delete library file' }))
+            }
+            return
+          }
+          
+          // Forward audio engine commands to Rust
           if (audioEngineProcess && audioEngineProcess.stdin) {
             audioEngineProcess.stdin.write(JSON.stringify(message) + '\n')
-            // NOTE: EQ filter updates are now included in the regular Levels response from Rust
-            // No need for synthetic broadcasts anymore
           } else {
             ws.send(JSON.stringify({ 
               type: 'error', 
@@ -376,8 +533,11 @@ ipcMain.handle('audio-engine:clear-track-source', async (_, track: number) => {
   await sendCommandToEngine({ type: 'clear_track_source', track })
 })
 
-ipcMain.handle('audio-engine:set-track-source-file', async (_, track: number, filePath: string) => {
-  await sendCommandToEngine({ type: 'set_track_source_file', track, file_path: filePath })
+ipcMain.handle('audio-engine:set-track-source-file', async (_, track: number, filePath: string, artist?: string|null, title?: string|null) => {
+  const payload: any = { type: 'set_track_source_file', track, file_path: filePath }
+  if (artist !== undefined && artist !== null) payload.artist = artist
+  if (title !== undefined && title !== null) payload.title = title
+  await sendCommandToEngine(payload)
 })
 
 // Save audio buffer to temp file and return path
@@ -1144,6 +1304,7 @@ ipcMain.handle('audio-engine:get-library-file', async (_event, fileId: string) =
     return {
       id: fileId,
       fileName: metadata.originalFileName || fileId,
+      filePath: filePath,
       arrayBuffer,
       mimeType: metadata.mimeType || 'audio/mpeg',
       timestamp: metadata.timestamp || Date.now(),

@@ -188,8 +188,11 @@ export class RemoteAudioEngine {
     return this.send({ type: 'clear_track_source', track })
   }
 
-  async setTrackSourceFile(track: number, filePath: string): Promise<void> {
-    return this.send({ type: 'set_track_source_file', track, file_path: filePath })
+  async setTrackSourceFile(track: number, filePath: string, artist?: string|null, title?: string|null): Promise<void> {
+    const payload: any = { type: 'set_track_source_file', track, file_path: filePath }
+    if (artist !== undefined && artist !== null) payload.artist = artist
+    if (title !== undefined && title !== null) payload.title = title
+    return this.send(payload)
   }
 
   // File operations not supported in remote mode

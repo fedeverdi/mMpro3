@@ -95,11 +95,15 @@ enum Command {
     SetTrackSourceFile {
         track: usize,
         file_path: String,
+        artist: Option<String>,
+        title: Option<String>,
     },
     #[serde(rename = "play_file")]
     PlayFile { 
         track: usize,
         file_path: Option<String>,
+        artist: Option<String>,
+        title: Option<String>,
     },
     #[serde(rename = "pause_file")]
     PauseFile { track: usize },
@@ -503,6 +507,11 @@ struct TrackLevels {
     gate_attenuation_db: f32,
     file_ended: bool, // NEW: True when file finishes playing
     eq_filters: Vec<ParametricFilter>, // NEW: Track EQ filters
+    // File player state
+    file_name: String, // Current loaded file name
+    file_artist: Option<String>, // File metadata: artist
+    file_title: Option<String>, // File metadata: title
+    is_stereo: bool, // True if file has 2+ channels
     // Track parameters (for full state sync)
     gain: f32,
     volume: f32,
@@ -1215,6 +1224,11 @@ impl AudioEngine {
                                         q: f.q,
                                     })
                                     .collect(),
+                                // File player state
+                                file_name: t.file_player.as_ref().map_or(String::new(), |p| p.file_name.clone()),
+                                file_artist: t.file_player.as_ref().and_then(|p| p.file_artist.clone()),
+                                file_title: t.file_player.as_ref().and_then(|p| p.file_title.clone()),
+                                is_stereo: t.file_player.as_ref().map_or(false, |p| p.channels >= 2),
                                 // Track parameters
                                 gain: t.gain,
                                 volume: t.volume,
@@ -1878,7 +1892,7 @@ impl AudioEngine {
         track::clear_source(&mut router, track)
     }
 
-    fn set_track_source_file(&mut self, track: usize, file_path: &str) -> Result<()> {
+    fn set_track_source_file(&mut self, track: usize, file_path: &str, artist: Option<&str>, title: Option<&str>) -> Result<()> {
         // Close input stream when track switches away from audio input
         if let Err(e) = self.close_audio_input(track) {
             eprintln!("[Engine] Failed to close audio input for track {}: {}", track, e);
@@ -1889,6 +1903,14 @@ impl AudioEngine {
         let mut player = file_player::AudioFilePlayer::new();
         player.load_file(file_path)?;
         player.set_output_sample_rate(self.sample_rate);
+        
+        // Set metadata if provided
+        if let Some(a) = artist {
+            player.file_artist = Some(a.to_string());
+        }
+        if let Some(t) = title {
+            player.file_title = Some(t.to_string());
+        }
         
         // Now quickly assign the pre-loaded player to the track (fast operation)
         let mut router = self.router.lock().unwrap();
@@ -1916,10 +1938,10 @@ impl AudioEngine {
         }
     }
 
-    fn play_file(&mut self, track: usize, file_path: Option<&str>) -> Result<()> {
+    fn play_file(&mut self, track: usize, file_path: Option<&str>, artist: Option<&str>, title: Option<&str>) -> Result<()> {
         // If file_path is provided, set the source file first
         if let Some(path) = file_path {
-            self.set_track_source_file(track, path)?;
+            self.set_track_source_file(track, path, artist, title)?;
         }
         
         let mut router = self.router.lock().unwrap();
@@ -2372,8 +2394,8 @@ impl AudioEngine {
                 let _ = self.clear_track_source(track);
                 None
             }
-            Command::SetTrackSourceFile { track, file_path } => {
-                match self.set_track_source_file(track, &file_path) {
+            Command::SetTrackSourceFile { track, file_path, artist, title } => {
+                match self.set_track_source_file(track, &file_path, artist.as_deref(), title.as_deref()) {
                     Ok(_) => {}
                     Err(e) => {
                         eprintln!("[Engine] SetTrackSourceFile FAILED for track {}: {}", track, e);
@@ -2381,8 +2403,8 @@ impl AudioEngine {
                 }
                 None
             }
-            Command::PlayFile { track, file_path } => {
-                match self.play_file(track, file_path.as_deref()) {
+            Command::PlayFile { track, file_path, artist, title } => {
+                match self.play_file(track, file_path.as_deref(), artist.as_deref(), title.as_deref()) {
                     Ok(_) => {}
                     Err(e) => {
                         eprintln!("[Engine] PlayFile FAILED for track {}: {}", track, e);
