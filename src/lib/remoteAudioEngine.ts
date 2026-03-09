@@ -105,6 +105,49 @@ export class RemoteAudioEngine {
     })
   }
 
+  // Send IPC-like message and wait for response
+  private sendIPC(type: string, payload: any = {}): Promise<any> {
+    return new Promise((resolve, reject) => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        reject(new Error('WebSocket not connected'))
+        return
+      }
+
+      const messageId = `${type}-${Date.now()}-${Math.random()}`
+      const message = { type, id: messageId, ...payload }
+
+      // Set up one-time listener for this specific response
+      const listener = (response: any) => {
+        if (response.id === messageId) {
+          // Remove listener
+          const index = this.responseListeners.indexOf(listener)
+          if (index > -1) {
+            this.responseListeners.splice(index, 1)
+          }
+
+          if (response.type === 'ipc:error') {
+            reject(new Error(response.error || 'IPC request failed'))
+          } else if (response.type === 'ipc:response') {
+            resolve(response.data)
+          }
+        }
+      }
+
+      this.responseListeners.push(listener)
+
+      try {
+        this.ws.send(JSON.stringify(message))
+      } catch (error) {
+        // Remove listener on send error
+        const index = this.responseListeners.indexOf(listener)
+        if (index > -1) {
+          this.responseListeners.splice(index, 1)
+        }
+        reject(error)
+      }
+    })
+  }
+
   // Implement all audioEngine methods
   async start(inputDevice?: string | null, outputDevice?: string | null, sampleRate?: number | null, bufferSize?: number | null): Promise<void> {
     return this.send({ type: 'start', input_device: inputDevice, output_device: outputDevice, sample_rate: sampleRate, buffer_size: bufferSize })
@@ -435,19 +478,35 @@ export class RemoteAudioEngine {
   }
 
   async saveLibraryFile(arrayBuffer: ArrayBuffer, fileName: string, metadata?: any): Promise<string> {
-    throw new Error('Library operations not supported in remote mode')
+    // Convert ArrayBuffer to Array for JSON serialization
+    const arrayData = Array.from(new Uint8Array(arrayBuffer))
+    return this.sendIPC('ipc:audio-engine:save-library-file', {
+      arrayBuffer: arrayData,
+      fileName,
+      metadata
+    })
   }
 
   async listLibraryFiles(): Promise<any[]> {
-    return []
+    try {
+      return await this.sendIPC('ipc:audio-engine:list-library-files')
+    } catch (error) {
+      console.error('[RemoteAudioEngine] Error listing library files:', error)
+      return []
+    }
   }
 
   async getLibraryFile(fileId: string): Promise<any> {
-    throw new Error('Library operations not supported in remote mode')
+    const result = await this.sendIPC('ipc:audio-engine:get-library-file', { fileId })
+    // Convert array back to ArrayBuffer if present
+    if (result.arrayBuffer && Array.isArray(result.arrayBuffer)) {
+      result.arrayBuffer = new Uint8Array(result.arrayBuffer).buffer
+    }
+    return result
   }
 
   async deleteLibraryFile(fileId: string): Promise<void> {
-    throw new Error('Library operations not supported in remote mode')
+    await this.sendIPC('ipc:audio-engine:delete-library-file', { fileId })
   }
 
   async savePlaylist(playlist: any): Promise<void> {
