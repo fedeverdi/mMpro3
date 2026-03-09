@@ -11,6 +11,7 @@
       <!-- Collapse/Expand Button -->
       <button
         @click.stop="toggleCollapse"
+        @touchend.stop.prevent="toggleCollapse"
         class="absolute top-2 -left-2 w-5 h-5 -translate-x-1/2 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg"
         :title="isCollapsed ? 'Expand panel' : 'Collapse panel'"
       >
