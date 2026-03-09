@@ -109,6 +109,22 @@
           </button>
         </div>
 
+        <!-- Fullscreen Button (Browser only) -->
+        <template v-if="isBrowser">
+          <div class="w-px h-6 bg-gray-600"></div>
+
+          <button @click="toggleFullscreen"
+            class="px-3 py-1.5 hover:bg-purple-500/10 rounded text-xs font-semibold text-gray-300 hover:text-purple-400 transition-all flex items-center gap-1.5">
+            <svg v-if="!isFullscreen" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+            <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+            </svg>
+            {{ isFullscreen ? 'Exit' : 'Full' }}
+          </button>
+        </template>
+
         <!-- Remove Dropdown Menu (Teleported to body) -->
         <Teleport to="body">
           <div v-if="showRemoveMenu"
@@ -185,6 +201,9 @@ const showRemoveMenu = ref(false)
 const removeButtonRef = ref<HTMLElement | null>(null)
 const removeMenuPosition = reactive({ top: 0, left: 0 })
 
+const isBrowser = ref(false)
+const isFullscreen = ref(false)
+
 const handleAddButtonClick = () => {
   showAddTrackMenu.value = !showAddTrackMenu.value
   
@@ -228,6 +247,39 @@ const handleRemoveSubgroup = () => {
 const handleLoadScene = (sceneId: number) => {
   emit('load-scene', sceneId)
 }
+
+const toggleFullscreen = async () => {
+  if (!document.fullscreenElement) {
+    try {
+      await document.documentElement.requestFullscreen()
+    } catch (err) {
+      console.error('Error entering fullscreen:', err)
+    }
+  } else {
+    try {
+      await document.exitFullscreen()
+    } catch (err) {
+      console.error('Error exiting fullscreen:', err)
+    }
+  }
+}
+
+// Detect browser mode and setup fullscreen listener
+onMounted(() => {
+  isBrowser.value = !(window as any).electronAPI
+  
+  if (isBrowser.value) {
+    const handleFullscreenChange = () => {
+      isFullscreen.value = !!document.fullscreenElement
+    }
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    
+    onUnmounted(() => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+    })
+  }
+})
 
 // Close menus when clicking outside
 if (typeof document !== 'undefined') {
