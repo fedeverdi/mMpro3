@@ -63,7 +63,7 @@
         <!-- Accordion Container -->
         <div class="border border-gray-700 rounded overflow-hidden" :class="{ 'h-full flex flex-col': component.isExpanded }">
           <!-- Accordion Header -->
-          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-0.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
+          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
             @click="toggleComponentExpansion(component.id)">
             <div class="flex items-center gap-1.5">
               <!-- Drag Handle -->
@@ -72,7 +72,7 @@
                 @dragstart.stop="handleDragStart(component.id, $event)"
                 @dragend="handleDragEnd"
                 @click.stop
-                class="drag-handle opacity-0 group-hover:opacity-100 transition-opacity"
+                class="drag-handle opacity-100 group-hover:opacity-100 transition-opacity"
                 :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
                 <svg class="w-2.5 h-2.5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
@@ -105,7 +105,7 @@
         <!-- Accordion Container -->
         <div class="border border-gray-700 rounded overflow-hidden" :class="{ 'h-full flex flex-col': component.isExpanded }">
           <!-- Accordion Header -->
-          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-0.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
+          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
             @click="toggleComponentExpansion(component.id)">
             <div class="flex items-center gap-1.5">
               <!-- Drag Handle -->
@@ -114,7 +114,7 @@
                 @dragstart.stop="handleDragStart(component.id, $event)"
                 @dragend="handleDragEnd"
                 @click.stop
-                class="drag-handle opacity-0 group-hover:opacity-100 transition-opacity"
+                class="drag-handle opacity-100 group-hover:opacity-100 transition-opacity"
                 :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
                 <svg class="w-2.5 h-2.5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
@@ -146,7 +146,7 @@
         <!-- Accordion Container -->
         <div class="border border-gray-700 rounded overflow-hidden">
           <!-- Accordion Header -->
-          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-0.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
+          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
             @click="toggleComponentExpansion(component.id)">
             <div class="flex items-center gap-1.5">
               <!-- Drag Handle -->
@@ -155,7 +155,7 @@
                 @dragstart.stop="handleDragStart(component.id, $event)"
                 @dragend="handleDragEnd"
                 @click.stop
-                class="drag-handle opacity-0 group-hover:opacity-100 transition-opacity"
+                class="drag-handle opacity-100 group-hover:opacity-100 transition-opacity"
                 :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
                 <svg class="w-2.5 h-2.5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
@@ -195,7 +195,7 @@
         <!-- Accordion Container -->
         <div class="border border-gray-700 rounded overflow-hidden">
           <!-- Accordion Header -->
-          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-0.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
+          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-1.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
             @click="toggleComponentExpansion(component.id)">
             <div class="flex items-center gap-1.5">
               <!-- Drag Handle -->
@@ -204,7 +204,7 @@
                 @dragstart.stop="handleDragStart(component.id, $event)"
                 @dragend="handleDragEnd"
                 @click.stop
-                class="drag-handle opacity-0 group-hover:opacity-100 transition-opacity"
+                class="drag-handle opacity-100 group-hover:opacity-100 transition-opacity"
                 :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
                 <svg class="w-2.5 h-2.5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
