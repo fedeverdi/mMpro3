@@ -1,5 +1,5 @@
 <template>
-  <div class="custom-title-bar bg-black/20 backdrop-blur-md flex items-center justify-between px-3 py-1 select-none relative z-[300]">
+  <div v-if="isElectron" class="custom-title-bar bg-black/20 backdrop-blur-md flex items-center justify-between px-3 py-1 select-none relative z-[300]">
     <!-- Wave Effect Background -->
     <div class="wave-effect"></div>
     <!-- Shiny Reflection Effect -->
@@ -73,8 +73,14 @@ withDefaults(defineProps<Props>(), {
 
 const isMac = ref(false)
 const isMaximized = ref(false)
+const isElectron = ref(false)
 
 onMounted(async () => {
+  // Check if running in Electron
+  isElectron.value = !!(window as any).electronAPI
+  
+  if (!isElectron.value) return
+  
   // Detect platform
   isMac.value = await window.electronAPI?.getPlatform() === 'darwin'
   
