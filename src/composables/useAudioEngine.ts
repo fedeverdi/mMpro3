@@ -48,6 +48,12 @@ export interface AudioEngineState {
       attackMs: number
       releaseMs: number
     }
+    eqEnabled: boolean
+    parametricEqEnabled: boolean
+    eqLow: number
+    eqLowMid: number
+    eqHighMid: number
+    eqHigh: number
   }>
   subgroupLevels: Map<number, { left: number; right: number }>
   masterLevels: { left: number; right: number }
@@ -104,7 +110,7 @@ export interface AudioEngineState {
 
 declare global {
   interface Window {
-    audioEngine: any
+    audioEngine: AudioEngine
   }
 }
 
@@ -225,7 +231,13 @@ export const useAudioEngine = () => {
                     rangeDb: trackLevel.gate_range_db,
                     attackMs: trackLevel.gate_attack_ms,
                     releaseMs: trackLevel.gate_release_ms
-                  }
+                  },
+                  eqEnabled: trackLevel.eq_enabled ?? true,
+                  parametricEqEnabled: trackLevel.parametric_eq_enabled ?? true,
+                  eqLow: trackLevel.eq_low ?? 0,
+                  eqLowMid: trackLevel.eq_low_mid ?? 0,
+                  eqHighMid: trackLevel.eq_high_mid ?? 0,
+                  eqHigh: trackLevel.eq_high ?? 0
                 })
               }
             })

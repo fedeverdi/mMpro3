@@ -524,6 +524,13 @@ struct TrackLevels {
     gate_range_db: f32,
     gate_attack_ms: f32,
     gate_release_ms: f32,
+    // EQ parameters
+    eq_enabled: bool,
+    parametric_eq_enabled: bool,
+    eq_low: f32,
+    eq_low_mid: f32,
+    eq_high_mid: f32,
+    eq_high: f32,
 }
 
 #[derive(Debug, Serialize)]
@@ -1187,12 +1194,13 @@ impl AudioEngine {
                         // Copy levels data while we have the lock
                         // Send data for ALL tracks (need parameters for UI sync even without source)
                         let track_levels: Vec<TrackLevels> = router.tracks.iter()
-                            .map(|t| TrackLevels {
-                                track: t.id,
-                                level_l: t.level_l,
-                                level_r: t.level_r,
-                                waveform: t.get_waveform_buffer(128), // 128 samples for efficient streaming
-                                phase_correlation: t.phase_correlation,
+                            .map(|t| {
+                                TrackLevels {
+                                    track: t.id,
+                                    level_l: t.level_l,
+                                    level_r: t.level_r,
+                                    waveform: t.get_waveform_buffer(128), // 128 samples for efficient streaming
+                                    phase_correlation: t.phase_correlation,
                                 compressor_input_db: t.compressor.input_level_db,
                                 compressor_reduction_db: t.compressor.gain_reduction_db,
                                 gate_input_db: t.gate.input_level_db,
@@ -1228,6 +1236,14 @@ impl AudioEngine {
                                 gate_range_db: t.gate.get_range_db(),
                                 gate_attack_ms: t.gate.get_attack_ms(),
                                 gate_release_ms: t.gate.get_release_ms(),
+                                // EQ parameters
+                                eq_enabled: t.equalizer.is_enabled(),
+                                parametric_eq_enabled: t.parametric_eq.is_enabled(),
+                                eq_low: t.equalizer.get_low_shelf(),
+                                eq_low_mid: t.equalizer.get_low_mid(),
+                                eq_high_mid: t.equalizer.get_high_mid(),
+                                eq_high: t.equalizer.get_high_shelf(),
+                                }
                             })
                             .collect();
                         

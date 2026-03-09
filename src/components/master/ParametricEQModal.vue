@@ -301,6 +301,9 @@ onUnmounted(() => {
 // Watch for external changes to eqFilters (e.g., when loading a scene)
 // Watch for external changes to eqFilters (user filters only)
 watch(() => props.eqFilters, (newFilters) => {
+  // Don't update while user is actively dragging a filter on THIS client
+  if (isDragging.value) return
+  
   // Only sync if we have actual filter data
   if (!newFilters || newFilters.length === 0) return
   
@@ -327,9 +330,9 @@ watch(() => props.eqFilters, (newFilters) => {
     color: f.color || filterColors[index % filterColors.length]
   }))
   
-  // Recreate filter chain with new data
+  // Redraw curve with new data
   nextTick(() => {
-    createFilterChain()
+    drawEQCurve()
   })
 })
 
@@ -342,6 +345,18 @@ watch(() => props.systemFilters, () => {
 // Also sync when modal opens (for immediate visual update)
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
+    // Reload filters from props when modal opens (to get latest sync from other clients)
+    if (props.eqFilters && props.eqFilters.length > 0) {
+      filters.value = props.eqFilters.map((f: any, index: number) => ({
+        id: index + 1,
+        type: f.type,
+        frequency: f.frequency,
+        gain: f.gain,
+        Q: f.Q,
+        color: f.color || filterColors[index % filterColors.length]
+      }))
+    }
+    
     nextTick(() => {
       setupCanvas()
       drawEQCurve()

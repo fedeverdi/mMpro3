@@ -222,6 +222,7 @@
 
   <!-- Parametric EQ Modal -->
   <ParametricEQModal v-model="showParametricEQ" :track-number="trackNumber"
+    :eq-filters="parametricEQFilters"
     :title="`Parametric EQ - Track ${trackNumber + 1}`" @update="handleParametricEQUpdate" />
   
   <!-- Phase Correlation Modal -->
@@ -810,6 +811,9 @@ function toggleAuxMute(auxId: string | number) {
 }
 
 function handleParametricEQUpdate(filters: any) {
+  // Set flag to prevent watch loop
+  isUpdatingParametricFromUser.value = true
+  
   // Save filters for EQThumbnail display
   if (filters.filtersData) {
     parametricEQFilters.value = filters.filtersData.map((f: any) => ({
@@ -831,10 +835,16 @@ function handleParametricEQUpdate(filters: any) {
 
     audioEngine.setParametricEQFilters(props.trackNumber - 1, rustFilters)
   }
+  
+  // Reset flag after a short delay to allow Rust broadcast to complete
+  setTimeout(() => {
+    isUpdatingParametricFromUser.value = false
+  }, 100)
 }
 
 // Flag to prevent watch loops when updating from engine
 const isUpdatingFromEngine = ref(false)
+const isUpdatingParametricFromUser = ref(false)
 const isDraggingVolume = ref(false)
 const isDraggingGain = ref(false)
 const isDraggingPan = ref(false)
@@ -1067,6 +1077,19 @@ onMounted(async () => {
       }
     }
     
+    // Update EQ enabled states
+    if (params.eqEnabled !== undefined) eqEnabled.value = params.eqEnabled
+    if (params.parametricEqEnabled !== undefined) {
+      // Note: parametricEqEnabled from backend doesn't directly map to showParametricEQ (which is modal visibility)
+      // We just sync the enabled state, modal visibility is controlled by user
+    }
+    
+    // Update EQ band values
+    if (params.eqLow !== undefined) eqLow.value = params.eqLow
+    if (params.eqLowMid !== undefined) eqLowMid.value = params.eqLowMid
+    if (params.eqHighMid !== undefined) eqHighMid.value = params.eqHighMid
+    if (params.eqHigh !== undefined) eqHigh.value = params.eqHigh
+    
     // Re-enable watches after Vue reactivity cycle completes
     nextTick(() => { isUpdatingFromEngine.value = false })
   }, { deep: true })
@@ -1075,11 +1098,15 @@ onMounted(async () => {
   watch(() => audioEngine?.state.value.trackEQFilters, (trackEQMap) => {
     if (!trackEQMap) return
     
+    // Don't update if we just sent the changes (prevent loop)
+    if (isUpdatingParametricFromUser.value) return
+    
     // NOTE: Rust uses 0-indexed tracks, but frontend trackNumber is 1-indexed
     const filters = trackEQMap.get(props.trackNumber - 1)
     if (!filters) return
     
     // Convert q (lowercase) to Q (uppercase) for frontend
+    // The modal will handle its own blocking during drag via isDragging flag
     parametricEQFilters.value = filters.map((f: any) => ({
       type: f.type,
       frequency: f.frequency,

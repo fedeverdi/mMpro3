@@ -35,6 +35,8 @@
               unit="dB"
               color="#10b981"
               :disabled="!enabled"
+              @drag-start="isDraggingLow = true"
+              @drag-end="isDraggingLow = false"
             />
           </div>
           <div class="flex-1 text-[9px]">
@@ -56,6 +58,8 @@
               unit="dB"
               color="#f59e0b"
               :disabled="!enabled"
+              @drag-start="isDraggingLowMid = true"
+              @drag-end="isDraggingLowMid = false"
             />
           </div>
           <div class="flex-1 text-[9px]">
@@ -77,6 +81,8 @@
               unit="dB"
               color="#f59e0b"
               :disabled="!enabled"
+              @drag-start="isDraggingHighMid = true"
+              @drag-end="isDraggingHighMid = false"
             />
           </div>
           <div class="flex-1 text-[9px]">
@@ -98,6 +104,8 @@
               unit="dB"
               color="#ef4444"
               :disabled="!enabled"
+              @drag-start="isDraggingHigh = true"
+              @drag-end="isDraggingHigh = false"
             />
           </div>
           <div class="flex-1 text-[9px]">
@@ -111,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, inject } from 'vue'
+import { ref, watch, inject, nextTick } from 'vue'
 import Knob from '../core/Knob.vue'
 import { useAudioEngine } from '../../composables/useAudioEngine'
 
@@ -151,13 +159,45 @@ const low = ref(props.modelLow)       // -24 to +24 dB
 const lowMid = ref(props.modelLowMid)    // -24 to +24 dB
 const highMid = ref(props.modelHighMid)   // -24 to +24 dB
 const high = ref(props.modelHigh)      // -24 to +24 dB
+const isUpdatingFromProps = ref(false)
 
-// Watch props changes
-watch(() => props.modelLow, (val) => { low.value = val })
-watch(() => props.modelLowMid, (val) => { lowMid.value = val })
-watch(() => props.modelHighMid, (val) => { highMid.value = val })
-watch(() => props.modelHigh, (val) => { high.value = val })
-watch(() => props.modelEnabled, (val) => { enabled.value = val })
+// Flag per tracciare quale knob sta venendo trascinato
+const isDraggingLow = ref(false)
+const isDraggingLowMid = ref(false)
+const isDraggingHighMid = ref(false)
+const isDraggingHigh = ref(false)
+
+// Watch props changes (from parent, which comes from Rust broadcast)
+// Solo aggiorna se l'utente NON sta trascinando quel knob
+watch(() => props.modelLow, (val) => { 
+  if (isDraggingLow.value) return  // Non sovrascrivere mentre l'utente trascina
+  isUpdatingFromProps.value = true
+  low.value = val 
+  isUpdatingFromProps.value = false
+})
+watch(() => props.modelLowMid, (val) => { 
+  if (isDraggingLowMid.value) return
+  isUpdatingFromProps.value = true
+  lowMid.value = val 
+  isUpdatingFromProps.value = false
+})
+watch(() => props.modelHighMid, (val) => { 
+  if (isDraggingHighMid.value) return
+  isUpdatingFromProps.value = true
+  highMid.value = val 
+  isUpdatingFromProps.value = false
+})
+watch(() => props.modelHigh, (val) => { 
+  if (isDraggingHigh.value) return
+  isUpdatingFromProps.value = true
+  high.value = val 
+  isUpdatingFromProps.value = false
+})
+watch(() => props.modelEnabled, (val) => { 
+  isUpdatingFromProps.value = true
+  enabled.value = val 
+  isUpdatingFromProps.value = false
+})
 
 function toggleEnabled() {
   enabled.value = !enabled.value
@@ -166,23 +206,28 @@ function toggleEnabled() {
 
 // Watch for changes and emit to parent
 watch(low, (val) => {
+  if (isUpdatingFromProps.value) return
   emit('update:modelLow', val)
-})
+}, { flush: 'sync' })
 
 watch(lowMid, (val) => {
+  if (isUpdatingFromProps.value) return
   emit('update:modelLowMid', val)
-})
+}, { flush: 'sync' })
 
 watch(highMid, (val) => {
+  if (isUpdatingFromProps.value) return
   emit('update:modelHighMid', val)
-})
+}, { flush: 'sync' })
 
 watch(high, (val) => {
+  if (isUpdatingFromProps.value) return
   emit('update:modelHigh', val)
-})
+}, { flush: 'sync' })
 
 // Watch for changes and send to engine (kept for backward compatibility)
 watch([low, lowMid, highMid, high], () => {
+  if (isUpdatingFromProps.value) return
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackEQ(
       props.trackNumber - 1,
@@ -192,11 +237,12 @@ watch([low, lowMid, highMid, high], () => {
       high.value
     )
   }
-})
+}, { flush: 'sync' })
 
 watch(enabled, (newEnabled) => {
+  if (isUpdatingFromProps.value) return
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackEQEnabled(props.trackNumber - 1, newEnabled)
   }
-})
+}, { flush: 'sync' })
 </script>
