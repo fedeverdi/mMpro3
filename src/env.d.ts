@@ -84,6 +84,7 @@ interface AudioEngine {
   setMasterParametricEQEnabled: (enabled: boolean) => Promise<void>
   clearMasterParametricEQ: () => Promise<void>
   setMasterOutputChannels: (leftChannel: number, rightChannel: number) => Promise<void>
+  setSelectedMasterOutput: (deviceId: string | null) => Promise<void>
   
   // Master FX Controls
   setMasterCompressor: (enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => Promise<void>
@@ -99,6 +100,7 @@ interface AudioEngine {
   setSubgroupOutputEnabled: (subgroup: number, enabled: boolean) => Promise<void>
   setSubgroupRouteToMaster: (subgroup: number, route: boolean) => Promise<void>
   setSubgroupOutputChannels: (subgroup: number, leftChannel: number, rightChannel: number) => Promise<void>
+  setSelectedSubgroupOutput: (subgroup: number, deviceId: string | null) => Promise<void>
   setTrackRouteToSubgroup: (track: number, subgroup: number, route: boolean) => Promise<void>
   
   // Aux Bus Controls

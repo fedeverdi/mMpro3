@@ -207,6 +207,10 @@ enum Command {
         left_channel: u16,
         right_channel: u16,
     },
+    #[serde(rename = "set_selected_master_output")]
+    SetSelectedMasterOutput {
+        device_id: Option<String>,
+    },
 
     // Master FX controls
     #[serde(rename = "set_master_compressor")]
@@ -258,6 +262,11 @@ enum Command {
         subgroup: usize,
         left_channel: u16,
         right_channel: u16,
+    },
+    #[serde(rename = "set_selected_subgroup_output")]
+    SetSelectedSubgroupOutput {
+        subgroup: usize,
+        device_id: Option<String>,
     },
     #[serde(rename = "set_track_route_to_subgroup")]
     SetTrackRouteToSubgroup {
@@ -443,6 +452,8 @@ enum Response {
         master_mute: bool,
         master_linked: bool,
         master_eq_filters: Vec<ParametricFilter>,  // NEW: Master EQ filters
+        selected_master_output: Option<String>,
+        available_output_devices: Vec<DeviceInfo>,
         headroom_peak_l: Option<f32>,
         headroom_peak_r: Option<f32>,
         headroom_l: Option<f32>,
@@ -579,6 +590,7 @@ struct SubgroupLevels {
     gain: f32,
     mute: bool,
     route_to_master: bool,
+    selected_output: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -787,6 +799,8 @@ struct AudioEngine {
     recording_format: Arc<Mutex<String>>, // Recording format ("wav", "mp3", "opus")
     output_sender: mpsc::SyncSender<String>, // Non-blocking channel for sending updates to frontend
     ndi_stream: Arc<NdiStream>, // NDI audio streaming
+    selected_master_output: Option<String>, // Selected master output device ID
+    available_output_devices: Vec<DeviceInfo>, // List of available output devices
 }
 
 impl AudioEngine {
@@ -845,6 +859,8 @@ impl AudioEngine {
             recording_format,
             output_sender,
             ndi_stream,
+            selected_master_output: None,
+            available_output_devices: Vec::new(),
         }
     }
 
@@ -1044,6 +1060,14 @@ impl AudioEngine {
         // Mark this stream as the active one
         self.active_stream_id.store(stream_id, Ordering::SeqCst);
         
+        // Collect available output devices BEFORE cloning for callback
+        if let Ok(devices) = self.list_devices() {
+            // Filter to only output-capable devices
+            self.available_output_devices = devices.into_iter()
+                .filter(|d| d.output_channels > 0)
+                .collect();
+        }
+        
         // Clone active_stream_id for callback to check if it's still the active stream
         let active_stream_id_check = Arc::clone(&self.active_stream_id);
 
@@ -1062,6 +1086,12 @@ impl AudioEngine {
         let recording_path = Arc::clone(&self.recording_path);
         let recording_bit_depth = Arc::clone(&self.recording_bit_depth);
         let ndi_stream = Arc::clone(&self.ndi_stream);
+        
+        // Clone selected output for thread-safe access in closure
+        let selected_master_output = self.selected_master_output.clone();
+        
+        // Clone available output devices for thread-safe access in closure
+        let available_output_devices = self.available_output_devices.clone();
         
         // Clone output sender for non-blocking updates
         let output_sender = self.output_sender.clone();
@@ -1153,7 +1183,6 @@ impl AudioEngine {
                             use std::sync::atomic::{AtomicBool, AtomicU64, Ordering as AtomicOrdering};
                             static NDI_FIRST_SAMPLE: AtomicBool = AtomicBool::new(true);
                             static NDI_SAMPLE_COUNT: AtomicU64 = AtomicU64::new(0);
-                            
                             let ndi_source = ndi_stream.get_source();
                             let (ndi_l, ndi_r) = match ndi_source {
                                 ndi_stream::NdiSource::Master => {
@@ -1323,6 +1352,7 @@ impl AudioEngine {
                                 gain: sg.gain,
                                 mute: sg.mute,
                                 route_to_master: sg.route_to_master,
+                                selected_output: sg.selected_output.clone(),
                             })
                             .collect();
                         
@@ -1437,6 +1467,8 @@ impl AudioEngine {
                             master_mute,
                             master_linked,
                             master_eq_filters,
+                            selected_master_output: selected_master_output.clone(),
+                            available_output_devices: available_output_devices.clone(),
                             headroom_peak_l: Some(headroom_data.peak_l),
                             headroom_peak_r: Some(headroom_data.peak_r),
                             headroom_l: Some(headroom_data.headroom_l),
@@ -2642,6 +2674,10 @@ impl AudioEngine {
                 self.set_master_output_channels(left_channel, right_channel);
                 None
             }
+            Command::SetSelectedMasterOutput { device_id } => {
+                self.selected_master_output = device_id;
+                None
+            }
             Command::SetMasterCompressor {
                 enabled,
                 threshold,
@@ -2710,6 +2746,14 @@ impl AudioEngine {
                 right_channel,
             } => {
                 self.set_subgroup_output_channels(subgroup, left_channel, right_channel);
+                None
+            }
+            Command::SetSelectedSubgroupOutput { subgroup, device_id } => {
+                if let Ok(mut router) = self.router.try_lock() {
+                    if let Some(sg) = router.subgroups.iter_mut().find(|s| s.id == subgroup) {
+                        sg.selected_output = device_id;
+                    }
+                }
                 None
             }
             Command::SetTrackRouteToSubgroup {
@@ -3059,7 +3103,6 @@ fn load_license_from_file() -> Result<LicenseData> {
     
     let json = std::fs::read_to_string(&path)?;
     let license: LicenseData = serde_json::from_str(&json)?;
-    eprintln!("[Engine] ✓ License loaded from file: {}", license.license_type);
     Ok(license)
 }
 

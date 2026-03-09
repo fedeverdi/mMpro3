@@ -699,6 +699,7 @@ pub struct SubgroupBus {
     pub output_channel_selection: ChannelSelection,
     pub level_l: f32,
     pub level_r: f32,
+    pub selected_output: Option<String>, // Device ID for selected output
 }
 
 impl SubgroupBus {
@@ -712,6 +713,7 @@ impl SubgroupBus {
             output_channel_selection: ChannelSelection::stereo(),
             level_l: 0.0,
             level_r: 0.0,
+            selected_output: None,
         }
     }
 

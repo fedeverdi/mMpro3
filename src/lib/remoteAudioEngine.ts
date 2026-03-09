@@ -366,6 +366,10 @@ export class RemoteAudioEngine {
     return this.send({ type: 'set_master_output_channels', left_channel: leftChannel, right_channel: rightChannel })
   }
 
+  async setSelectedMasterOutput(deviceId: string | null): Promise<void> {
+    return this.send({ type: 'set_selected_master_output', device_id: deviceId })
+  }
+
   async setMasterCompressor(enabled: boolean, threshold: number, ratio: number, attack: number, release: number): Promise<void> {
     return this.send({ type: 'set_master_compressor', enabled, threshold, ratio, attack, release })
   }
@@ -408,6 +412,10 @@ export class RemoteAudioEngine {
 
   async setSubgroupOutputChannels(subgroup: number, leftChannel: number, rightChannel: number): Promise<void> {
     return this.send({ type: 'set_subgroup_output_channels', subgroup, left_channel: leftChannel, right_channel: rightChannel })
+  }
+
+  async setSelectedSubgroupOutput(subgroup: number, deviceId: string | null): Promise<void> {
+    return this.send({ type: 'set_selected_subgroup_output', subgroup, device_id: deviceId })
   }
 
   async setTrackRouteToSubgroup(track: number, subgroup: number, route: boolean): Promise<void> {

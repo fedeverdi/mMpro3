@@ -70,6 +70,8 @@ contextBridge.exposeInMainWorld('audioEngine', {
   clearMasterParametricEQ: () => ipcRenderer.invoke('audio-engine:clear-master-parametric-eq'),
   setMasterOutputChannels: (leftChannel: number, rightChannel: number) => 
     ipcRenderer.invoke('audio-engine:set-master-output-channels', leftChannel, rightChannel),
+  setSelectedMasterOutput: (deviceId: string | null) =>
+    ipcRenderer.invoke('audio-engine:set-selected-master-output', deviceId),
   
   // Master FX controls
   setMasterCompressor: (enabled: boolean, threshold: number, ratio: number, attack: number, release: number) =>
@@ -92,6 +94,8 @@ contextBridge.exposeInMainWorld('audioEngine', {
     ipcRenderer.invoke('audio-engine:set-subgroup-route-to-master', subgroup, route),
   setSubgroupOutputChannels: (subgroup: number, leftChannel: number, rightChannel: number) => 
     ipcRenderer.invoke('audio-engine:set-subgroup-output-channels', subgroup, leftChannel, rightChannel),
+  setSelectedSubgroupOutput: (subgroup: number, deviceId: string | null) =>
+    ipcRenderer.invoke('audio-engine:set-selected-subgroup-output', subgroup, deviceId),
   setTrackRouteToSubgroup: (track: number, subgroup: number, route: boolean) => 
     ipcRenderer.invoke('audio-engine:set-track-route-to-subgroup', track, subgroup, route),
   

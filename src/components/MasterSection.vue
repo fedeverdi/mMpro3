@@ -86,9 +86,9 @@ import MasterMeter from './master/MasterMeter.vue'
 import HeadphonesControl from './master/HeadphonesControl.vue'
 import OutputSelector from './master/OutputSelector.vue'
 import RecorderButton from './recorder/RecorderButton.vue'
-import { ref, watch, onMounted, onUnmounted, nextTick, inject, type Ref } from 'vue'
-import { useAudioDevices } from '../composables/useAudioDevices'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, inject, type Ref, type ComputedRef } from 'vue'
 import { useNDI } from '../composables/useNDI'
+import type { AudioDevice } from '../composables/useAudioEngine'
 
 // Props
 interface Props {
@@ -129,10 +129,10 @@ const leftLevel = ref(-60)
 const rightLevel = ref(-60)
 const headphonesLevel = ref(-60)
 
-// Audio outputs
-const { audioOutputDevices } = useAudioDevices()
+// Audio outputs from engine
+const audioOutputDevices: ComputedRef<AudioDevice[]> = computed(() => audioEngine?.state.value.availableOutputDevices || [])
 const selectedHeadphonesOutput = ref<string | null>(null)
-const selectedMasterOutput = ref<string | null>(null)
+const selectedMasterOutput = computed(() => audioEngine?.state.value.masterLevels.selectedMasterOutput ?? null)
 
 // Container and dynamic height
 const metersContainer = ref<HTMLElement | null>(null)
@@ -161,7 +161,11 @@ const resizeTrigger = inject<Ref<number>>('resizeTrigger', ref(0))
 
 // Handle master output selection
 async function onMasterOutputSelect(deviceId: string | null) {
-  selectedMasterOutput.value = deviceId
+  // Save selected output to engine BEFORE restart so it's available during engine initialization
+  // Convert empty string to null for "default" selection
+  if (audioEngine) {
+    await audioEngine.setSelectedMasterOutput(deviceId && deviceId !== '' ? deviceId : null)
+  }
 
   // Restart audio engine with new output device
   if (audioEngine) {
@@ -387,7 +391,7 @@ defineExpose({
     headphonesVolume.value = state.headphonesVolume ?? -60
     isLinked.value = state.isLinked ?? true
     masterMuted.value = state.masterMuted ?? false
-    selectedMasterOutput.value = state.selectedMasterOutput ?? null
+    // selectedMasterOutput is computed from engine state
     selectedHeadphonesOutput.value = state.selectedHeadphonesOutput ?? null
   }
 })

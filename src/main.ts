@@ -713,6 +713,10 @@ ipcMain.handle('audio-engine:set-master-output-channels', async (_, leftChannel:
   await sendCommandToEngine({ type: 'set_master_output_channels', left_channel: leftChannel, right_channel: rightChannel })
 })
 
+ipcMain.handle('audio-engine:set-selected-master-output', async (_, deviceId: string | null) => {
+  await sendCommandToEngine({ type: 'set_selected_master_output', device_id: deviceId })
+})
+
 // Master FX handlers
 ipcMain.handle('audio-engine:set-master-compressor', async (_, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
   await sendCommandToEngine({ type: 'set_master_compressor', enabled, threshold, ratio, attack, release })
@@ -878,6 +882,10 @@ ipcMain.handle('audio-engine:set-subgroup-route-to-master', async (_, subgroup: 
 
 ipcMain.handle('audio-engine:set-subgroup-output-channels', async (_, subgroup: number, leftChannel: number, rightChannel: number) => {
   await sendCommandToEngine({ type: 'set_subgroup_output_channels', subgroup, left_channel: leftChannel, right_channel: rightChannel })
+})
+
+ipcMain.handle('audio-engine:set-selected-subgroup-output', async (_, subgroup: number, deviceId: string | null) => {
+  await sendCommandToEngine({ type: 'set_selected_subgroup_output', subgroup, device_id: deviceId })
 })
 
 ipcMain.handle('audio-engine:set-track-route-to-subgroup', async (_, track: number, subgroup: number, route: boolean) => {

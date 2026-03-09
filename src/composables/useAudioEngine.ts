@@ -6,11 +6,13 @@ export interface AudioDevice {
   name: string
   input_channels: number
   output_channels: number
+  default_sample_rate: number
 }
 
 export interface AudioEngineState {
   isRunning: boolean
   devices: AudioDevice[]
+  availableOutputDevices: AudioDevice[]
   selectedInputDevice: string | null
   selectedOutputDevice: string | null
   trackLevels: Map<number, {
@@ -67,6 +69,7 @@ export interface AudioEngineState {
     gain: number;
     mute: boolean;
     routeToMaster: boolean;
+    selectedOutput?: string | null;
   }>
   masterLevels: { 
     left: number; 
@@ -76,6 +79,7 @@ export interface AudioEngineState {
     gainRight: number;
     mute: boolean;
     linked: boolean;
+    selectedMasterOutput?: string | null;
   }
   masterEQFilters: any[]
   fftData: { binsLeft: Float32Array; binsRight: Float32Array; sampleRate: number } | null
@@ -137,6 +141,7 @@ declare global {
 const state = ref<AudioEngineState>({
   isRunning: false,
   devices: [],
+  availableOutputDevices: [],
   selectedInputDevice: null,
   selectedOutputDevice: null,
   trackLevels: new Map(),
@@ -144,7 +149,7 @@ const state = ref<AudioEngineState>({
   trackEQFilters: new Map(),
   trackParameters: new Map(),
   subgroupLevels: new Map(),
-  masterLevels: { left: -60, right: -60, gain: 1.0, gainLeft: 1.0, gainRight: 1.0, mute: false, linked: true },
+  masterLevels: { left: -60, right: -60, gain: 1.0, gainLeft: 1.0, gainRight: 1.0, mute: false, linked: true, selectedMasterOutput: null },
   masterEQFilters: [],
   fftData: null,
   performanceStats: null,
@@ -284,7 +289,8 @@ export const useAudioEngine = () => {
                 right: rightDb,
                 gain: subgroupLevel.gain ?? 1.0,
                 mute: subgroupLevel.mute ?? false,
-                routeToMaster: subgroupLevel.route_to_master ?? false
+                routeToMaster: subgroupLevel.route_to_master ?? false,
+                selectedOutput: subgroupLevel.selected_output
               })
             })
           }
@@ -297,8 +303,14 @@ export const useAudioEngine = () => {
               gainLeft: response.master_gain_left ?? 1.0,
               gainRight: response.master_gain_right ?? 1.0,
               mute: response.master_mute ?? false,
-              linked: response.master_linked ?? true
+              linked: response.master_linked ?? true,
+              selectedMasterOutput: response.selected_master_output
             }
+          }
+
+          // Update available output devices list
+          if (response.available_output_devices) {
+            state.value.availableOutputDevices = response.available_output_devices
           }
 
           if (response.master_eq_filters) {
@@ -684,6 +696,16 @@ export const useAudioEngine = () => {
     window.audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
   }
 
+  const setSelectedMasterOutput = async (deviceId: string | null) => {
+    if (!window.audioEngine) return
+    await window.audioEngine.setSelectedMasterOutput(deviceId)
+  }
+
+  const setSelectedSubgroupOutput = async (subgroup: number, deviceId: string | null) => {
+    if (!window.audioEngine) return
+    await window.audioEngine.setSelectedSubgroupOutput(subgroup, deviceId)
+  }
+
   const setMasterCompressor = (
     enabled: boolean,
     threshold: number,
@@ -949,6 +971,8 @@ export const useAudioEngine = () => {
     setMasterMute,
     setMasterLinked,
     setMasterOutputChannels,
+    setSelectedMasterOutput,
+    setSelectedSubgroupOutput,
     setMasterCompressor,
     setMasterLimiter,
     setMasterDelay,
