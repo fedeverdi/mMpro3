@@ -2,7 +2,7 @@
   <div class="flex flex-col h-full gap-2 relative transition-all duration-300 ease-out" :class="{ 'pl-2': !isCollapsed }" :style="{ width: sectionWidth + 'px' }">
     <!-- Resize Handle -->
     <div 
-      :class="['absolute left-0 top-0 bottom-0 w-3 z-50 group bg-gray-900/20', isCollapsed ? 'cursor-default' : 'cursor-grab']"
+      :class="['absolute left-0 top-0 bottom-0 w-3 z-50 group bg-gray-900/20', isCollapsed ? 'cursor-default pointer-events-none' : 'cursor-grab']"
       @mousedown.stop="startResize"
       @touchstart.stop="startResizeTouch"
       :title="isCollapsed ? 'Panel collapsed' : 'Drag to resize'"
@@ -12,7 +12,7 @@
       <button
         @click.stop="toggleCollapse"
         @touchend.stop.prevent="toggleCollapse"
-        class="absolute top-2 -left-2 w-5 h-5 -translate-x-1/2 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg"
+        class="absolute top-2 -left-2 w-5 h-5 -translate-x-1/2 bg-gray-800 hover:bg-blue-600 border border-gray-700 hover:border-blue-500 rounded flex items-center justify-center transition-all shadow-lg pointer-events-auto"
         :title="isCollapsed ? 'Expand panel' : 'Collapse panel'"
       >
         <svg class="w-3 h-3 text-gray-300 transition-transform" :class="{ 'rotate-180': !isCollapsed }" fill="currentColor" viewBox="0 0 20 20">
