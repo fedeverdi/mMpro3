@@ -161,6 +161,10 @@ interface AudioEngine {
   // Headroom Metering (Master)
   getHeadroom: () => Promise<void>
   resetHeadroom: () => Promise<void>
+  
+  // License management
+  saveLicense: (key: string, licenseType: string, expiresAt: string | null) => Promise<void>
+  getLicense: () => Promise<{ key: string; license_type: string; expires_at: string | null; is_valid: boolean } | null>
 }
 
 // Electron API for window controls

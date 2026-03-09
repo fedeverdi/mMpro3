@@ -11,6 +11,7 @@ export class RemoteAudioEngine {
   private reconnectTimer: number | null = null
   private responseListeners: Array<(response: any) => void> = []
   private isConnecting: boolean = false
+  private pendingLicenseRequest: boolean = false // Track if we're waiting for a license response
   
   // Local state cache for UI synchronization
   private masterEqFilters: any[] = []
@@ -45,6 +46,29 @@ export class RemoteAudioEngine {
       this.ws.onmessage = (event) => {
         try {
           const response = JSON.parse(event.data)
+          
+          // Handle license updates specifically
+          if (response.type === 'license') {
+            console.log('[RemoteAudioEngine] License update received:', response)
+            
+            // Only dispatch license-updated event if this is a broadcast (not a response to our request)
+            // If we have a pending request, let the listener handle it instead
+            if (!this.pendingLicenseRequest) {
+              console.log('[RemoteAudioEngine] Broadcasting license update to app')
+              // Dispatch custom event for license updates
+              const licenseEvent = new CustomEvent('license-updated', {
+                detail: {
+                  key: response.key,
+                  license_type: response.license_type,
+                  expires_at: response.expires_at,
+                  is_valid: response.is_valid
+                }
+              })
+              window.dispatchEvent(licenseEvent)
+            } else {
+              console.log('[RemoteAudioEngine] License response received for pending request, not broadcasting')
+            }
+          }
           
           // Notify all response listeners
           this.responseListeners.forEach(listener => listener(response))
@@ -100,6 +124,58 @@ export class RemoteAudioEngine {
         this.ws.send(JSON.stringify(command))
         resolve()
       } catch (error) {
+        reject(error)
+      }
+    })
+  }
+
+  // Send command and wait for specific response type
+  private sendAndWaitForResponse(command: any, expectedResponseType: string, timeout: number = 5000): Promise<any> {
+    return new Promise((resolve, reject) => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        reject(new Error('WebSocket not connected'))
+        return
+      }
+
+      console.log(`[RemoteAudioEngine] Sending command and waiting for ${expectedResponseType}:`, command)
+
+      const timeoutId = setTimeout(() => {
+        // Remove listener
+        const index = this.responseListeners.indexOf(listener)
+        if (index > -1) {
+          this.responseListeners.splice(index, 1)
+        }
+        console.error(`[RemoteAudioEngine] Timeout waiting for ${expectedResponseType} response after ${timeout}ms`)
+        reject(new Error(`Timeout waiting for ${expectedResponseType} response`))
+      }, timeout)
+
+      // Set up one-time listener for this response type
+      const listener = (response: any) => {
+        if (response.type === expectedResponseType) {
+          console.log(`[RemoteAudioEngine] Received expected response type ${expectedResponseType}:`, response)
+          clearTimeout(timeoutId)
+          // Remove listener
+          const index = this.responseListeners.indexOf(listener)
+          if (index > -1) {
+            this.responseListeners.splice(index, 1)
+          }
+          resolve(response)
+        }
+      }
+
+      this.responseListeners.push(listener)
+
+      try {
+        this.ws.send(JSON.stringify(command))
+        console.log('[RemoteAudioEngine] Command sent to WebSocket')
+      } catch (error) {
+        clearTimeout(timeoutId)
+        // Remove listener on send error
+        const index = this.responseListeners.indexOf(listener)
+        if (index > -1) {
+          this.responseListeners.splice(index, 1)
+        }
+        console.error('[RemoteAudioEngine] Error sending command:', error)
         reject(error)
       }
     })
@@ -551,5 +627,68 @@ export class RemoteAudioEngine {
 
   async readFileAsBuffer(filePath: string): Promise<ArrayBuffer> {
     throw new Error('File operations not supported in remote mode')
+  }
+
+  // License management
+  async getLicense(): Promise<any> {
+    console.log('[RemoteAudioEngine] Requesting license from Rust...')
+    console.log('[RemoteAudioEngine] WebSocket state:', this.ws?.readyState)
+    
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.error('[RemoteAudioEngine] WebSocket not connected!')
+      return {
+        key: 'DEMO',
+        license_type: 'demo',
+        expires_at: null,
+        is_valid: true
+      }
+    }
+    
+    try {
+      // Mark that we're waiting for a license response (don't broadcast this one)
+      this.pendingLicenseRequest = true
+      
+      const response = await this.sendAndWaitForResponse({ type: 'get_license' }, 'license', 5000)
+      console.log('[RemoteAudioEngine] License received:', response)
+      
+      // Clear the pending flag after receiving response
+      this.pendingLicenseRequest = false
+      
+      return response
+    } catch (error) {
+      console.error('[RemoteAudioEngine] Failed to get license (timeout or error):', error)
+      
+      // Clear the pending flag on error
+      this.pendingLicenseRequest = false
+      
+      // Return demo license on error
+      return {
+        key: 'DEMO',
+        license_type: 'demo',
+        expires_at: null,
+        is_valid: true
+      }
+    }
+  }
+
+  async saveLicense(key: string, licenseType: string, expiresAt: string | null): Promise<boolean> {
+    console.log('[RemoteAudioEngine] Saving license:', key, licenseType)
+    try {
+      await this.sendAndWaitForResponse(
+        { 
+          type: 'save_license', 
+          key, 
+          license_type: licenseType, 
+          expires_at: expiresAt 
+        }, 
+        'ok', 
+        3000
+      )
+      console.log('[RemoteAudioEngine] License saved successfully')
+      return true
+    } catch (error) {
+      console.error('[RemoteAudioEngine] Failed to save license:', error)
+      return false
+    }
   }
 }

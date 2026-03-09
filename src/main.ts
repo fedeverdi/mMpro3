@@ -239,6 +239,7 @@ const startWebSocketServer = () => {
           if (audioEngineProcess && audioEngineProcess.stdin) {
             audioEngineProcess.stdin.write(JSON.stringify(message) + '\n')
           } else {
+            console.error('[WebSocket] Audio engine not running!')
             ws.send(JSON.stringify({ 
               type: 'error', 
               message: 'Audio engine not running' 
@@ -350,8 +351,15 @@ const startAudioEngineInternal = () => {
     return
   }
   
+  const licensePath = app.getPath('userData')
+  console.log('[Main.ts] Starting audio engine with LICENSE_PATH:', licensePath)
+  
   audioEngineProcess = spawn(enginePath, [], {
-    stdio: ['pipe', 'pipe', 'pipe']
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      LICENSE_PATH: licensePath // Rust will save license.json here
+    }
   })
 
   audioEngineProcess.stdout?.on('data', (data) => {
@@ -1028,7 +1036,7 @@ ipcMain.handle('verify-license', async (_, licenseKey: string) => {
       }
     }
 
-    // License is valid
+    // License is valid - return info (frontend will save to Rust)
     return {
       valid: true,
       type: license.type,
@@ -1040,6 +1048,81 @@ ipcMain.handle('verify-license', async (_, licenseKey: string) => {
       valid: false,
       message: error instanceof Error ? error.message : 'Failed to verify license'
     }
+  }
+})
+
+// License management - forward to Rust engine
+ipcMain.handle('audio-engine:save-license', async (_, key: string, licenseType: string, expiresAt: string | null) => {
+  console.log('[Main.ts] ===== SAVE LICENSE IPC CALLED =====')
+  console.log('[Main.ts] Key:', key)
+  console.log('[Main.ts] Type:', licenseType)
+  console.log('[Main.ts] Expires:', expiresAt)
+  
+  if (!audioEngineProcess || !audioEngineProcess.stdin) {
+    console.error('[Main.ts] Audio engine not running!')
+    throw new Error('Audio engine not running')
+  }
+  
+  try {
+    const command = {
+      type: 'save_license',
+      key,
+      license_type: licenseType,
+      expires_at: expiresAt
+    }
+    
+    console.log('[Main.ts] Sending command to Rust:', JSON.stringify(command))
+    
+    // Use the existing sendCommandAndWaitForResponse system
+    const response = await sendCommandAndWaitForResponse(command, 'ok', 3000)
+    
+    console.log('[Main.ts] Received response from Rust:', response)
+    
+    if (response.message?.includes('License saved')) {
+      console.log('[Main.ts] ✓ License saved successfully:', licenseType)
+      
+      // Now request license to broadcast to all clients (including remote browser clients)
+      console.log('[Main.ts] Requesting license from Rust to broadcast to clients...')
+      try {
+        const getLicenseCommand = { type: 'get_license' }
+        await sendCommandAndWaitForResponse(getLicenseCommand, 'license', 2000)
+        console.log('[Main.ts] ✓ License broadcasted to all clients')
+      } catch (err) {
+        console.warn('[Main.ts] Failed to broadcast license, but save was successful:', err)
+      }
+      
+      return true
+    } else {
+      console.warn('[Main.ts] Unexpected ok response:', response)
+      return true // Assume success
+    }
+  } catch (error) {
+    console.error('[Main.ts] ✗ Failed to save license:', error)
+    // Don't throw, just log - we might be in timeout which is ok
+    return true
+  }
+})
+
+ipcMain.handle('audio-engine:get-license', async () => {
+  console.log('[Main.ts] ===== GET LICENSE IPC CALLED =====')
+  
+  if (!audioEngineProcess || !audioEngineProcess.stdin) {
+    console.log('[Main.ts] Audio engine not running, returning demo license')
+    return { key: 'DEMO', license_type: 'demo', expires_at: null, is_valid: true }
+  }
+  
+  try {
+    const command = { type: 'get_license' }
+    console.log('[Main.ts] Sending get_license command to Rust')
+    
+    // Use the existing sendCommandAndWaitForResponse system
+    const response = await sendCommandAndWaitForResponse(command, 'license', 2000)
+    
+    console.log('[Main.ts] Received license from Rust:', response)
+    return response
+  } catch (error) {
+    console.warn('[Main.ts] Timeout or error getting license from Rust:', error)
+    return { key: 'DEMO', license_type: 'demo', expires_at: null, is_valid: true }
   }
 })
 

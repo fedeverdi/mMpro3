@@ -40,8 +40,9 @@
 
       <!-- Center/Right: Recording Info, Version, License and Buttons -->
       <div class="flex items-center gap-3">
-        <!-- License Badge -->
+        <!-- License Badge (Only on Electron app, not on remote clients) -->
         <button 
+          v-if="!isRemoteClient"
           @click="showLicenseModal = true"
           class="flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded border transition-all"
           :class="licenseBadgeClass"
@@ -51,7 +52,7 @@
           </svg>
           <span>{{ licenseType.toUpperCase() }}</span>
         </button>
-        <div class="w-px h-4 bg-gray-600"></div>
+        <div v-if="!isRemoteClient" class="w-px h-4 bg-gray-600"></div>
         
         <!-- Version -->
         <div class="flex items-center gap-1.5 text-[10px] font-mono">
@@ -140,6 +141,9 @@ defineEmits<{
 // License
 const { licenseType } = useLicense()
 const showLicenseModal = ref(false)
+
+// Detect if we're in a remote client (browser) or Electron app
+const isRemoteClient = computed(() => !(window as any).electronAPI)
 
 const licenseBadgeClass = computed(() => {
   const baseClasses = 'cursor-pointer hover:opacity-80'

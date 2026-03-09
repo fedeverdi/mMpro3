@@ -440,8 +440,19 @@ export const useAudioEngine = () => {
           console.log('[useAudioEngine] Track EQ filters updated remotely:', response.track, response.filters)
           break
 
+        case 'license':
+          console.log('[useAudioEngine] License received from Rust:', response.license_type)
+          // Trigger event for useLicense to pick up (both Electron and remote)
+          window.dispatchEvent(new CustomEvent('license-updated', { detail: response }))
+          break
+
         case 'connected':
           console.log('[useAudioEngine] Remote connection established:', response.message || 'Connected')
+          break
+
+        case 'license-update':
+          // Legacy: kept for backwards compatibility but Rust 'license' response is preferred
+          console.log('[useAudioEngine] Legacy license-update received')
           break
 
         default:
@@ -885,6 +896,17 @@ export const useAudioEngine = () => {
     void window.audioEngine.resetHeadroom()
   }
 
+  const saveLicense = async (key: string, licenseType: string, expiresAt: string | null) => {
+    if (!window.audioEngine) return
+    console.log('[useAudioEngine] Saving license with key:', key, 'type:', licenseType, 'expiresAt:', expiresAt)
+    await window.audioEngine.saveLicense(key, licenseType, expiresAt)
+  }
+
+  const getLicense = async () => {
+    if (!window.audioEngine) return null
+    return await window.audioEngine.getLicense()
+  }
+
   onUnmounted(() => {
     if (state.value.isRunning) {
       void stop()
@@ -967,6 +989,8 @@ export const useAudioEngine = () => {
     getStereoWidth,
     resetStereoWidth,
     getHeadroom,
-    resetHeadroom
+    resetHeadroom,
+    saveLicense,
+    getLicense
   }
 }

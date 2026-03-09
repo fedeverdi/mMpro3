@@ -277,6 +277,16 @@ enum Command {
     #[serde(rename = "disable_master_tap")]
     DisableMasterTap,
 
+    // License management
+    #[serde(rename = "save_license")]
+    SaveLicense {
+        key: String,
+        license_type: String,
+        expires_at: Option<String>,
+    },
+    #[serde(rename = "get_license")]
+    GetLicense,
+
     // Aux bus controls
     #[serde(rename = "set_track_aux_send")]
     SetTrackAuxSend {
@@ -502,6 +512,13 @@ enum Response {
         headroom_l: f32,
         headroom_r: f32,
         headroom_stereo: f32,
+    },
+    #[serde(rename = "license")]
+    License {
+        key: String,
+        license_type: String,
+        expires_at: Option<String>,
+        is_valid: bool,
     },
 }
 
@@ -842,7 +859,6 @@ impl AudioEngine {
         sample_rate: Option<u32>,
         buffer_size: Option<u32>,
     ) -> Result<()> {
-        eprintln!("[Engine] start() called with: sample_rate={:?}, buffer_size={:?}", sample_rate, buffer_size);
         
         // Force stop if streams are still active (restart scenario)
         if self.input_stream.is_some() || self.output_stream.is_some() {
@@ -2417,6 +2433,32 @@ impl AudioEngine {
                     message: "Recording stopped and saved".to_string(),
                 })
             }
+            Command::SaveLicense { key, license_type, expires_at } => {
+                match save_license_to_file(&key, &license_type, expires_at.as_deref()) {
+                    Ok(_) => Some(Response::Ok {
+                        message: "License saved".to_string(),
+                    }),
+                    Err(e) => Some(Response::Error {
+                        message: format!("Failed to save license: {}", e),
+                    }),
+                }
+            }
+            Command::GetLicense => {
+                match load_license_from_file() {
+                    Ok(license) => Some(Response::License {
+                        key: license.key,
+                        license_type: license.license_type,
+                        expires_at: license.expires_at,
+                        is_valid: license.is_valid,
+                    }),
+                    Err(e) => Some(Response::License {
+                        key: "DEMO".to_string(),
+                        license_type: "demo".to_string(),
+                        expires_at: None,
+                        is_valid: true,
+                    }),
+                }
+            }
             Command::SetTrackSourceInput {
                 track,
                 left_channel,
@@ -2960,6 +3002,65 @@ impl AudioEngine {
             },
         }
     }
+}
+
+// License management structures and functions
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct LicenseData {
+    key: String,
+    license_type: String,
+    expires_at: Option<String>,
+    is_valid: bool,
+}
+
+fn get_license_file_path() -> PathBuf {
+    // Use environment variable or default to current directory
+    let base_path = std::env::var("LICENSE_PATH")
+        .unwrap_or_else(|_| ".".to_string());
+    let path = PathBuf::from(base_path).join("license.json");
+    path
+}
+
+fn save_license_to_file(key: &str, license_type: &str, expires_at: Option<&str>) -> Result<()> {
+    let license = LicenseData {
+        key: key.to_string(),
+        license_type: license_type.to_string(),
+        expires_at: expires_at.map(|s| s.to_string()),
+        is_valid: true,
+    };
+    
+    let path = get_license_file_path();
+    
+    let json = serde_json::to_string_pretty(&license)?;
+    
+    match std::fs::write(&path, &json) {
+        Ok(_) => {
+            Ok(())
+        },
+        Err(e) => {
+            eprintln!("[Engine] ✗ Failed to write license file: {}", e);
+            Err(e.into())
+        }
+    }
+}
+
+fn load_license_from_file() -> Result<LicenseData> {
+    let path = get_license_file_path();
+    
+    if !path.exists() {
+        eprintln!("[Engine] No license file found at {:?}, using demo mode", path);
+        return Ok(LicenseData {
+            key: "DEMO".to_string(),
+            license_type: "demo".to_string(),
+            expires_at: None,
+            is_valid: true,
+        });
+    }
+    
+    let json = std::fs::read_to_string(&path)?;
+    let license: LicenseData = serde_json::from_str(&json)?;
+    eprintln!("[Engine] ✓ License loaded from file: {}", license.license_type);
+    Ok(license)
 }
 
 fn send_response(response: &Response) {

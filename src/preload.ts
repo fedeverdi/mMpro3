@@ -162,6 +162,11 @@ contextBridge.exposeInMainWorld('audioEngine', {
   deleteRecordingFile: (filePath: string) => ipcRenderer.invoke('audio-engine:delete-recording-file', filePath),
   listRecordings: () => ipcRenderer.invoke('audio-engine:list-recordings'),
   
+  // License management
+  saveLicense: (key: string, licenseType: string, expiresAt: string | null) =>
+    ipcRenderer.invoke('audio-engine:save-license', key, licenseType, expiresAt),
+  getLicense: () => ipcRenderer.invoke('audio-engine:get-license'),
+  
   // Library files
   saveLibraryFile: (arrayBuffer: ArrayBuffer, fileName: string, metadata?: any) => 
     ipcRenderer.invoke('audio-engine:save-library-file', arrayBuffer, fileName, metadata),
