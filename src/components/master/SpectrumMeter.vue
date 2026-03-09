@@ -1,5 +1,5 @@
 <template>
-  <div class="spectrum-meter bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-purple-600/60 p-2 flex flex-col gap-3 h-full">
+  <div class="spectrum-meter bg-gradient-to-b from-gray-900 to-black border border-purple-600/60 p-2 flex flex-col gap-3 h-full">
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>

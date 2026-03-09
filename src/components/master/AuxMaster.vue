@@ -1,6 +1,6 @@
 <template>
     <div
-        class="aux-master bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-teal-600/60 p-2 flex flex-col gap-2">
+        class="aux-master bg-gradient-to-b from-gray-900 to-black border border-teal-600/60 p-2 flex flex-col gap-2">
         <div class="text-left flex-shrink-0">
             <p class="text-[0.7rem] font-bold text-teal-200 tracking-wide uppercase">Auxiliary Buses</p>
             <p class="text-[0.5rem] text-gray-400">Click + to add aux send</p>

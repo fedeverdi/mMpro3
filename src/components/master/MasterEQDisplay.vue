@@ -1,5 +1,5 @@
 <template>
-  <div class="master-eq-track relative bg-gradient-to-b from-gray-900 to-gray-950 rounded-lg border-2 border-blue-500/70 p-2 flex flex-col gap-3 h-full">
+  <div class="master-eq-track relative bg-gradient-to-b from-gray-900 to-gray-950 border border-blue-500/70 p-2 flex flex-col gap-3 h-full">
     <button
       @click="showMasterEQ = true"
       class="absolute top-2.5 right-2 flex items-center justify-center gap-1 text-[0.65rem] font-semibold px-2 py-1 rounded bg-blue-600/80 hover:bg-blue-500 text-white transition-colors z-10"

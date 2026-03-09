@@ -1,5 +1,5 @@
 <template>
-  <div class="master-fx bg-gradient-to-b from-gray-900 to-black rounded-lg border-2 border-green-600/60 p-2 flex flex-col gap-2 ">
+  <div class="master-fx bg-gradient-to-b from-gray-900 to-black border border-green-600/60 p-2 flex flex-col gap-2 ">
     <div class="text-left flex-shrink-0">
       <p class="text-[0.7rem] font-bold text-green-200 tracking-wide uppercase">Master FX Chain</p>
       <p class="text-[0.5rem] text-gray-400">Click + to add effects</p>

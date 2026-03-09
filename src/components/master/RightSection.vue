@@ -48,114 +48,184 @@
     </div>
 
     <!-- Components (hidden when collapsed) -->
-    <template v-for="component in rightSectionComponents" :key="component.id">
+    <div v-show="!isCollapsed" class="flex flex-col gap-2 flex-1 min-h-0">
+      <template v-for="component in rightSectionComponents" :key="component.id">
       <!-- Master EQ Display -->
       <div v-if="component.id === 'eq'"
         v-show="!isCollapsed"
-        :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-full mixer-fade-in relative group']"
+        :class="[component.size === 'flex' && component.isExpanded ? 'flex-1 min-h-0' : '', 'w-full mixer-fade-in relative']"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
         @drop="handleDrop($event, component.id)">
-        <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div
-            draggable="true"
-            @dragstart="handleDragStart(component.id, $event)"
-            @dragend="handleDragEnd"
-            class="drag-handle bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1"
-            :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-              <path
-                d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
+        
+        <!-- Accordion Container -->
+        <div class="border border-gray-700 rounded overflow-hidden" :class="{ 'h-full flex flex-col': component.isExpanded }">
+          <!-- Accordion Header -->
+          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-0.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
+            @click="toggleComponentExpansion(component.id)">
+            <div class="flex items-center gap-1.5">
+              <!-- Drag Handle -->
+              <div
+                draggable="true"
+                @dragstart.stop="handleDragStart(component.id, $event)"
+                @dragend="handleDragEnd"
+                @click.stop
+                class="drag-handle opacity-0 group-hover:opacity-100 transition-opacity"
+                :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
+                <svg class="w-2.5 h-2.5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
+                </svg>
+              </div>
+              <span class="text-[10px] font-semibold text-gray-300">{{ component.name }}</span>
+            </div>
+            <!-- Chevron -->
+            <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
-            <span>{{ component.name }}</span>
+          </div>
+          
+          <!-- Content -->
+          <div v-show="component.isExpanded" class="flex-1 min-h-0">
+            <MasterEQDisplay :filters-data="props.masterEqFilters || []" :master-channel="masterChannel"
+              @update:filters-data="handleMasterEQFiltersUpdate" />
           </div>
         </div>
-        <MasterEQDisplay :filters-data="props.masterEqFilters || []" :master-channel="masterChannel"
-          @update:filters-data="handleMasterEQFiltersUpdate" />
       </div>
 
       <!-- Spectrum Meter -->
       <div v-if="component.id === 'spectrum'"
         v-show="!isCollapsed"
-        :class="[component.size === 'flex' ? 'flex-1 min-h-0' : '', 'w-full mixer-fade-in relative group']"
+        :class="[component.size === 'flex' && component.isExpanded ? 'flex-1 min-h-0' : '', 'w-full mixer-fade-in relative']"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
         @drop="handleDrop($event, component.id)">
-        <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div
-            draggable="true"
-            @dragstart="handleDragStart(component.id, $event)"
-            @dragend="handleDragEnd"
-            class="drag-handle bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1"
-            :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-              <path
-                d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
+        
+        <!-- Accordion Container -->
+        <div class="border border-gray-700 rounded overflow-hidden" :class="{ 'h-full flex flex-col': component.isExpanded }">
+          <!-- Accordion Header -->
+          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-0.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
+            @click="toggleComponentExpansion(component.id)">
+            <div class="flex items-center gap-1.5">
+              <!-- Drag Handle -->
+              <div
+                draggable="true"
+                @dragstart.stop="handleDragStart(component.id, $event)"
+                @dragend="handleDragEnd"
+                @click.stop
+                class="drag-handle opacity-0 group-hover:opacity-100 transition-opacity"
+                :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
+                <svg class="w-2.5 h-2.5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
+                </svg>
+              </div>
+              <span class="text-[10px] font-semibold text-gray-300">{{ component.name }}</span>
+            </div>
+            <!-- Chevron -->
+            <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
-            <span>{{ component.name }}</span>
+          </div>
+          
+          <!-- Content -->
+          <div v-show="component.isExpanded" class="flex-1 min-h-0">
+            <SpectrumMeter :master-fx-output-node="masterFxOutputNode" />
           </div>
         </div>
-        <SpectrumMeter :master-fx-output-node="masterFxOutputNode" />
       </div>
 
       <!-- Aux Buses -->
       <div v-if="component.id === 'aux'"
         v-show="!isCollapsed"
-        class="w-full mixer-fade-in relative group"
+        class="w-full mixer-fade-in relative"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
         @drop="handleDrop($event, component.id)">
-        <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div
-            draggable="true"
-            @dragstart="handleDragStart(component.id, $event)"
-            @dragend="handleDragEnd"
-            class="drag-handle bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1"
-            :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-              <path
-                d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
+        
+        <!-- Accordion Container -->
+        <div class="border border-gray-700 rounded overflow-hidden">
+          <!-- Accordion Header -->
+          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-0.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
+            @click="toggleComponentExpansion(component.id)">
+            <div class="flex items-center gap-1.5">
+              <!-- Drag Handle -->
+              <div
+                draggable="true"
+                @dragstart.stop="handleDragStart(component.id, $event)"
+                @dragend="handleDragEnd"
+                @click.stop
+                class="drag-handle opacity-0 group-hover:opacity-100 transition-opacity"
+                :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
+                <svg class="w-2.5 h-2.5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
+                </svg>
+              </div>
+              <span class="text-[10px] font-semibold text-gray-300">{{ component.name }}</span>
+            </div>
+            <!-- Chevron -->
+            <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
-            <span>{{ component.name }}</span>
+          </div>
+          
+          <!-- Content -->
+          <div v-show="component.isExpanded">
+            <AuxMaster 
+              ref="auxMasterRef"
+              :aux-buses="auxBuses" 
+              :master-channel="masterChannel"
+              :subgroups="props.subgroups"
+              @add-aux="emit('add-aux')"
+              @remove-aux="(index) => emit('remove-aux', index)"
+              @update-aux="(index, aux) => emit('update-aux', index, aux)"
+            />
           </div>
         </div>
-        <AuxMaster 
-          ref="auxMasterRef"
-          :aux-buses="auxBuses" 
-          :master-channel="masterChannel"
-          :subgroups="props.subgroups"
-          @add-aux="emit('add-aux')"
-          @remove-aux="(index) => emit('remove-aux', index)"
-          @update-aux="(index, aux) => emit('update-aux', index, aux)"
-        />
       </div>
 
       <!-- Master FX -->
       <div v-if="component.id === 'fx'"
         v-show="!isCollapsed"
-        class="w-full mixer-fade-in relative group"
+        class="w-full mixer-fade-in relative"
         :style="getDragStyles(component.id)"
         @dragover="handleDragOver($event, component.id)"
         @drop="handleDrop($event, component.id)">
-        <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div
-            draggable="true"
-            @dragstart="handleDragStart(component.id, $event)"
-            @dragend="handleDragEnd"
-            class="drag-handle bg-gray-900/90 backdrop-blur-sm px-2 py-1 rounded text-xs text-gray-400 flex items-center gap-1"
-            :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-              <path
-                d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
+        
+        <!-- Accordion Container -->
+        <div class="border border-gray-700 rounded overflow-hidden">
+          <!-- Accordion Header -->
+          <div class="bg-gray-900/90 backdrop-blur-sm px-2 py-0.5 flex items-center justify-between group cursor-pointer hover:bg-gray-800/90 transition-colors border-b border-gray-700"
+            @click="toggleComponentExpansion(component.id)">
+            <div class="flex items-center gap-1.5">
+              <!-- Drag Handle -->
+              <div
+                draggable="true"
+                @dragstart.stop="handleDragStart(component.id, $event)"
+                @dragend="handleDragEnd"
+                @click.stop
+                class="drag-handle opacity-0 group-hover:opacity-100 transition-opacity"
+                :style="{ cursor: draggedComponent ? 'grabbing' : 'grab' }">
+                <svg class="w-2.5 h-2.5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
+                </svg>
+              </div>
+              <span class="text-[10px] font-semibold text-gray-300">{{ component.name }}</span>
+            </div>
+            <!-- Chevron -->
+            <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
-            <span>{{ component.name }}</span>
+          </div>
+          
+          <!-- Content -->
+          <div v-show="component.isExpanded">
+            <MasterFX :master-section="masterSectionRef"
+              @output-node="(node: any) => emit('master-fx-output-node', node)" 
+              @component="(component: any) => emit('master-fx-component', component)" />
           </div>
         </div>
-        <MasterFX :master-section="masterSectionRef"
-          @output-node="(node: any) => emit('master-fx-output-node', node)" 
-          @component="(component: any) => emit('master-fx-component', component)" />
       </div>
     </template>
+    </div>
   </div>
 </template>
 
@@ -211,17 +281,26 @@ interface RightSectionComponent {
   id: string
   name: string
   size: 'flex' | 'fixed'
+  isExpanded: boolean
 }
 
 const rightSectionComponents = ref<RightSectionComponent[]>([
-  { id: 'eq', name: 'Master EQ', size: 'flex' },
-  { id: 'spectrum', name: 'Spectrum', size: 'flex' },
-  { id: 'aux', name: 'Aux Buses', size: 'fixed' },
-  { id: 'fx', name: 'Master FX', size: 'fixed' }
+  { id: 'eq', name: 'Master EQ', size: 'flex', isExpanded: true },
+  { id: 'spectrum', name: 'Spectrum', size: 'flex', isExpanded: true },
+  { id: 'aux', name: 'Aux Buses', size: 'fixed', isExpanded: true },
+  { id: 'fx', name: 'Master FX', size: 'fixed', isExpanded: true }
 ])
 
 const draggedComponent = ref<string | null>(null)
 const dragOverComponent = ref<string | null>(null)
+
+// Toggle component expansion
+function toggleComponentExpansion(componentId: string) {
+  const component = rightSectionComponents.value.find(c => c.id === componentId)
+  if (component) {
+    component.isExpanded = !component.isExpanded
+  }
+}
 
 // Component refs
 const auxMasterRef = ref<any>(null)
