@@ -77,6 +77,46 @@ module.exports = {
           }
         }
         
+        // Copy web build for remote access
+        const distSource = path.join(__dirname, 'dist');
+        const distDest = path.join(buildPath, '..', 'dist');
+        
+        console.log('[Packager] Copying web build from:', distSource);
+        console.log('[Packager] To:', distDest);
+        
+        if (fs.existsSync(distSource)) {
+          try {
+            // Recursive copy function
+            const copyRecursive = (src, dest) => {
+              if (!fs.existsSync(dest)) {
+                fs.mkdirSync(dest, { recursive: true });
+              }
+              
+              const entries = fs.readdirSync(src, { withFileTypes: true });
+              
+              for (const entry of entries) {
+                const srcPath = path.join(src, entry.name);
+                const destPath = path.join(dest, entry.name);
+                
+                if (entry.isDirectory()) {
+                  copyRecursive(srcPath, destPath);
+                } else {
+                  fs.copyFileSync(srcPath, destPath);
+                }
+              }
+            };
+            
+            copyRecursive(distSource, distDest);
+            console.log('[Packager] ✅ Web build copied');
+          } catch (error) {
+            console.error('[Packager] ⚠ Failed to copy web build:', error);
+            console.error('[Packager] Remote web access will not be available');
+          }
+        } else {
+          console.log('[Packager] ⚠ Web build not found at:', distSource);
+          console.log('[Packager] Run "npm run build:web" to enable remote web access');
+        }
+        
         callback();
       }
     ]

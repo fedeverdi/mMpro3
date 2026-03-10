@@ -8,8 +8,8 @@ echo "🦀 Building Rust audio engine..."
 cd audio-engine
 cargo build --release
 cd ..
-
-
+echo "🌐 Building web interface..."
+npm run build:web
 echo "�🔨 Building app (without signing)..."
 npm run package
 
