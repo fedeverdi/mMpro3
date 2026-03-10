@@ -268,12 +268,14 @@ function stopDrag() {
     rafId = null
   }
   
+  // Emit final value if pending
   if (pendingValue !== null) {
     emit('update:modelValue', pendingValue)
     pendingValue = null
-  emit('drag-end')
-  
   }
+  
+  // Always emit drag-end
+  emit('drag-end')
   
   document.removeEventListener('mousemove', updateValue)
   document.removeEventListener('touchmove', updateValue)

@@ -275,6 +275,9 @@ export const useAudioEngine = () => {
           }
 
           if (response.subgroups) {
+            // Create new Map to trigger reactivity (Map.set() doesn't trigger watchers)
+            const newSubgroupLevels = new Map(state.value.subgroupLevels)
+            
             response.subgroups.forEach((subgroupLevel: any) => {
               const leftDb = subgroupLevel.level_l > 0.0
                 ? 20 * Math.log10(subgroupLevel.level_l)
@@ -284,7 +287,7 @@ export const useAudioEngine = () => {
                 ? 20 * Math.log10(subgroupLevel.level_r)
                 : -90
 
-              state.value.subgroupLevels.set(subgroupLevel.subgroup, {
+              newSubgroupLevels.set(subgroupLevel.subgroup, {
                 left: leftDb,
                 right: rightDb,
                 gain: subgroupLevel.gain ?? 1.0,
@@ -293,6 +296,9 @@ export const useAudioEngine = () => {
                 selectedOutput: subgroupLevel.selected_output
               })
             })
+            
+            // Replace Map reference to trigger watchers
+            state.value.subgroupLevels = newSubgroupLevels
           }
 
           if (response.master_l !== undefined && response.master_r !== undefined) {
@@ -459,6 +465,13 @@ export const useAudioEngine = () => {
           break
 
         case 'license-update':
+          break
+
+        case 'subgroup_created':
+          // Broadcast subgroup creation to the app
+          window.dispatchEvent(new CustomEvent('subgroup-created', { 
+            detail: { id: response.id } 
+          }))
           break
 
         default:

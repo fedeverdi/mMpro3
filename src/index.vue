@@ -201,6 +201,9 @@ const audioEngine = inject('audioEngine') as any
 const audioEngineState = audioEngine.state
 const notify = useNotifications()
 
+// Check if we're in remote mode (WebSocket browser)
+const isRemoteMode = !(window as any).electronAPI
+
 // Project name for title bar
 const currentProjectName = ref('mMpro3 - Your Multitrack Mixer')
 
@@ -1077,6 +1080,14 @@ async function addSubgroup() {
     return
   }
 
+  // In remote mode, just send the command and let the broadcast handle creation
+  if (isRemoteMode) {
+    await audioEngine.addSubgroup()
+    // The subgroup will be added when we receive the 'subgroup-created' event
+    return
+  }
+
+  // Electron mode: optimistic UI update
   const name = `SUB ${subgroups.value.length + 1}`
 
   // Add to frontend state IMMEDIATELY (optimistic UI)
@@ -1341,15 +1352,18 @@ onMounted(async () => {
   masterChannel.value = null
 
   // Add initial subgroup and aux buses FIRST (before async operations) for immediate rendering
-  const limits = getBuildLimits()
-  if (limits.maxSubgroups > 0) {
-    addSubgroup()
-  }
+  // Skip in remote mode - remote clients will sync state from the host
+  if (!isRemoteMode) {
+    const limits = getBuildLimits()
+    if (limits.maxSubgroups > 0) {
+      addSubgroup()
+    }
 
-  // Add default aux buses (up to the build limit)
-  const maxAuxToAdd = Math.min(6, limits.maxAuxBuses)
-  for (let i = 0; i < maxAuxToAdd; i++) {
-    addAux()
+    // Add default aux buses (up to the build limit)
+    const maxAuxToAdd = Math.min(6, limits.maxAuxBuses)
+    for (let i = 0; i < maxAuxToAdd; i++) {
+      addAux()
+    }
   }
 
   // Then refresh audio outputs
@@ -1380,6 +1394,80 @@ onMounted(async () => {
       }))
     }
   }, { deep: true })
+
+  // Sync subgroups from backend (for remote WebSocket mode)
+  if (isRemoteMode) {
+    watch(() => audioEngineState.value.subgroupLevels, (subgroupLevels) => {
+      console.log('[Index] Remote mode - syncing subgroups from backend:', subgroupLevels.size)
+      
+      // Get all subgroup IDs from the backend
+      const backendSubgroupIds = new Set(Array.from(subgroupLevels.keys()))
+      
+      // Remove subgroups that no longer exist in backend
+      subgroups.value = subgroups.value.filter(sg => backendSubgroupIds.has(sg.id))
+      
+      // Add new subgroups that exist in backend but not in frontend
+      for (const [subgroupId, subgroupData] of subgroupLevels.entries()) {
+        const existingSubgroup = subgroups.value.find(sg => sg.id === subgroupId)
+        
+        if (!existingSubgroup) {
+          console.log('[Index] Creating subgroup from backend:', subgroupId)
+          // Create new subgroup in frontend
+          const name = `SUB ${subgroupId + 1}`
+          subgroups.value.push({
+            id: subgroupId,
+            name,
+            volume: subgroupData.gain !== undefined ? 20 * Math.log10(Math.max(0.00001, subgroupData.gain)) : 0,
+            routeToMaster: subgroupData.routeToMaster ?? false,
+            selectedOutput: subgroupData.selectedOutput ?? 'no-output',
+            channel: null,
+            ref: null
+          })
+        }
+        // DON'T update existing subgroup volume/routeToMaster here!
+        // SubgroupsSection component handles that through its own watcher
+      }
+      
+      // Sort by ID to maintain order
+      subgroups.value.sort((a, b) => a.id - b.id)
+    }, { deep: true, immediate: true })
+  }
+
+  // Listen for subgroup creation events from backend (both Electron and remote)
+  const handleSubgroupCreated = (event: CustomEvent) => {
+    const { id } = event.detail
+    
+    // In Electron mode, skip the broadcast since we handle it optimistically
+    if (!isRemoteMode) {
+      return
+    }
+    
+    // Check if subgroup already exists (remote mode)
+    if (subgroups.value.find(sg => sg.id === id)) {
+      return
+    }
+    
+    // Create new subgroup in frontend
+    const name = `SUB ${id + 1}`
+    subgroups.value.push({
+      id,
+      name,
+      volume: 0,
+      routeToMaster: false,
+      selectedOutput: 'no-output',
+      channel: null,
+      ref: null
+    })
+    
+    // Sort by ID to maintain order
+    subgroups.value.sort((a, b) => a.id - b.id)
+  }
+  
+  window.addEventListener('subgroup-created', handleSubgroupCreated as EventListener)
+  
+  onUnmounted(() => {
+    window.removeEventListener('subgroup-created', handleSubgroupCreated as EventListener)
+  })
 
   // Set up centralized ResizeObserver for all tracks
   // Throttled to prevent blocking during window animations

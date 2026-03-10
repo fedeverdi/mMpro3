@@ -13,6 +13,11 @@ export class RemoteAudioEngine {
   private isConnecting: boolean = false
   private pendingLicenseRequest: boolean = false // Track if we're waiting for a license response
   
+  // Throttling system for continuous controls
+  private pendingUpdates: Map<string, any> = new Map()
+  private throttleTimer: number | null = null
+  private readonly THROTTLE_MS = 16 // ~60fps
+  
   // Local state cache for UI synchronization
   private masterEqFilters: any[] = []
   private trackEqFilters: Map<number, any[]> = new Map()
@@ -102,6 +107,12 @@ export class RemoteAudioEngine {
   }
 
   disconnect(): void {
+    // Flush any pending throttled updates before disconnecting
+    if (this.throttleTimer) {
+      clearTimeout(this.throttleTimer)
+      this.flushPendingUpdates()
+    }
+
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
@@ -224,6 +235,52 @@ export class RemoteAudioEngine {
     })
   }
 
+  /**
+   * Throttled send for continuous controls (volume, pan, etc.)
+   * Batches rapid updates and sends them at ~60fps to prevent WebSocket congestion
+   */
+  private throttleSend(key: string, command: any): Promise<void> {
+    // Store the latest command for this key (overwrites previous if exists)
+    this.pendingUpdates.set(key, command)
+
+    // If no timer is active, start one
+    if (!this.throttleTimer) {
+      this.throttleTimer = window.setTimeout(() => {
+        this.flushPendingUpdatesInternal()
+      }, this.THROTTLE_MS)
+    }
+
+    return Promise.resolve()
+  }
+
+  /**
+   * Manually flush pending throttled updates (called when user releases fader)
+   */
+  flushPendingUpdates(): void {
+    if (this.throttleTimer) {
+      clearTimeout(this.throttleTimer)
+    }
+    this.flushPendingUpdatesInternal()
+  }
+
+  private flushPendingUpdatesInternal(): void {
+    this.throttleTimer = null
+
+    if (this.pendingUpdates.size === 0) {
+      return
+    }
+
+    // Send all pending updates
+    const updates = Array.from(this.pendingUpdates.values())
+    this.pendingUpdates.clear()
+
+    updates.forEach(command => {
+      this.send(command).catch(error => {
+        console.error('[RemoteAudioEngine] Error sending throttled update:', error)
+      })
+    })
+  }
+
   // Implement all audioEngine methods
   async start(inputDevice?: string | null, outputDevice?: string | null, sampleRate?: number | null, bufferSize?: number | null): Promise<void> {
     return this.send({ type: 'start', input_device: inputDevice, output_device: outputDevice, sample_rate: sampleRate, buffer_size: bufferSize })
@@ -234,11 +291,11 @@ export class RemoteAudioEngine {
   }
 
   async setGain(track: number, gain: number): Promise<void> {
-    return this.send({ type: 'set_gain', track, gain })
+    return this.throttleSend(`gain_${track}`, { type: 'set_gain', track, gain })
   }
 
   async setVolume(track: number, volume: number): Promise<void> {
-    return this.send({ type: 'set_volume', track, volume })
+    return this.throttleSend(`volume_${track}`, { type: 'set_volume', track, volume })
   }
 
   async setMute(track: number, mute: boolean): Promise<void> {
@@ -250,7 +307,7 @@ export class RemoteAudioEngine {
   }
 
   async setPan(track: number, pan: number): Promise<void> {
-    return this.send({ type: 'set_pan', track, pan })
+    return this.throttleSend(`pan_${track}`, { type: 'set_pan', track, pan })
   }
 
   async setTrackPad(track: number, enabled: boolean): Promise<void> {
@@ -338,7 +395,7 @@ export class RemoteAudioEngine {
   }
 
   async setMasterGain(gain: number): Promise<void> {
-    return this.send({ type: 'set_master_gain', gain })
+    return this.throttleSend('master_gain', { type: 'set_master_gain', gain })
   }
 
   async setMasterMute(mute: boolean): Promise<void> {
@@ -386,8 +443,14 @@ export class RemoteAudioEngine {
     return this.send({ type: 'set_master_reverb', enabled, room_size: roomSize, damping, wet, width })
   }
 
-  async addSubgroup(): Promise<void> {
-    return this.send({ type: 'add_subgroup' })
+  async addSubgroup(): Promise<number | null> {
+    try {
+      const response = await this.sendAndWaitForResponse({ type: 'add_subgroup' }, 'subgroup_created', 5000)
+      return response.id
+    } catch (error) {
+      console.error('[RemoteAudioEngine] Failed to add subgroup:', error)
+      return null
+    }
   }
 
   async removeSubgroup(subgroup: number): Promise<void> {
@@ -395,7 +458,7 @@ export class RemoteAudioEngine {
   }
 
   async setSubgroupGain(subgroup: number, gain: number): Promise<void> {
-    return this.send({ type: 'set_subgroup_gain', subgroup, gain })
+    return this.throttleSend(`subgroup_gain_${subgroup}`, { type: 'set_subgroup_gain', subgroup, gain })
   }
 
   async setSubgroupMute(subgroup: number, mute: boolean): Promise<void> {
@@ -423,11 +486,11 @@ export class RemoteAudioEngine {
   }
 
   async setTrackAuxSend(track: number, aux: number, level: number, preFader: boolean, muted: boolean): Promise<void> {
-    return this.send({ type: 'set_track_aux_send', track, aux, level, pre_fader: preFader, muted })
+    return this.throttleSend(`aux_send_${track}_${aux}`, { type: 'set_track_aux_send', track, aux, level, pre_fader: preFader, muted })
   }
 
   async setAuxBusGain(aux: number, gain: number): Promise<void> {
-    return this.send({ type: 'set_aux_bus_gain', aux, gain })
+    return this.throttleSend(`aux_gain_${aux}`, { type: 'set_aux_bus_gain', aux, gain })
   }
 
   async setAuxBusMute(aux: number, mute: boolean): Promise<void> {

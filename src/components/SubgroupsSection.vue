@@ -32,8 +32,8 @@
       <!-- Fader -->
       <div v-if="fadersHeight > 0" class="flex gap-1 items-end mt-3 pb-6">
         <SubgroupFader v-model="volume" label="SUB" :trackHeight="fadersHeight" 
-          @drag-start="isDraggingVolume = true" 
-          @drag-end="isDraggingVolume = false" />
+          @drag-start="handleDragStart" 
+          @drag-end="handleDragEnd" />
       </div>
     </div>
 
@@ -81,21 +81,11 @@ const emit = defineEmits<{
 // Inject Rust audio engine
 const audioEngine = inject<any>('audioEngine', null)
 
-// Use computed for two-way binding with props
-const volume = computed({
-  get: () => props.volume ?? 0,
-  set: (value: number) => emit('update:volume', value)
-})
-
-const routeToMaster = computed({
-  get: () => props.routeToMaster ?? false,
-  set: (value: boolean) => emit('update:routeToMaster', value)
-})
-
-const selectedOutput = computed({
-  get: () => props.selectedOutput ?? 'no-output',
-  set: (value: string | null) => emit('update:selectedOutput', value)
-})
+// Local refs for reactive state (like AudioTrack does)
+// These are the source of truth for UI state
+const volume = ref(props.volume ?? 0)
+const routeToMaster = ref(props.routeToMaster ?? false)
+const selectedOutput = ref(props.selectedOutput ?? 'no-output')
 
 // VU meter levels (will be updated by Rust engine)
 const leftLevel = ref(-60)
@@ -104,6 +94,27 @@ const rightLevel = ref(-60)
 // Anti-loop flags
 const isUpdatingFromEngine = ref(false)
 const isDraggingVolume = ref(false)
+
+// Track last known backend values to detect actual changes
+const lastBackendValues = ref({
+  gain: 1.0,
+  routeToMaster: false
+})
+
+// Handle drag events
+const handleDragStart = () => {
+  isDraggingVolume.value = true
+}
+
+const handleDragEnd = () => {
+  // Immediately flush any pending throttled updates when user releases fader
+  if (audioEngine && (audioEngine as any).flushPendingUpdates) {
+    ;(audioEngine as any).flushPendingUpdates()
+  }
+  
+  // Release drag flag immediately like AudioTrack does
+  isDraggingVolume.value = false
+}
 
 // Audio outputs
 const { audioOutputDevices } = useAudioDevices()
@@ -160,10 +171,13 @@ function toggleRouteToMaster() {
   routeToMaster.value = !routeToMaster.value
 }
 
-// Watchers - Send changes to Rust engine
+// Watchers - Send changes to Rust engine AND emit to parent (for v-model sync)
 watch(volume, (newVolume) => {
+  // Skip if updating from backend (prevents loop)
   if (isUpdatingFromEngine.value) return
-  if (isDraggingVolume.value) return // Don't update while dragging
+  
+  // Emit to parent for v-model sync
+  emit('update:volume', newVolume)
   
   if (audioEngine && props.subgroupId !== undefined) {
     // Convert dB to linear gain: gain = 10^(dB/20)
@@ -179,35 +193,62 @@ watch(volume, (newVolume) => {
 })
 
 watch(routeToMaster, (route) => {
+  // Skip if updating from backend (prevents loop)
   if (isUpdatingFromEngine.value) return
+  
+  // Emit to parent for v-model sync
+  emit('update:routeToMaster', route)
   
   if (audioEngine && props.subgroupId !== undefined) {
     audioEngine.setSubgroupRouteToMaster(props.subgroupId, route)
   }
 })
 
+watch(selectedOutput, (output) => {
+  // Emit to parent for v-model sync
+  emit('update:selectedOutput', output)
+  
+  if (audioEngine && props.subgroupId !== undefined) {
+    audioEngine.setSubgroupOutput(props.subgroupId, output || 'no-output')
+  }
+})
+
 // Watch for meter level updates from audio engine
+// Only update UI values when backend values actually change
 watch(
-  () => audioEngine?.state.value.subgroupLevels.get(props.subgroupId ?? 0),
-  (levels) => {
+  () => audioEngine?.state.value.subgroupLevels,
+  (levelsMap) => {
+    if (!levelsMap) return
+    const levels = levelsMap.get(props.subgroupId ?? 0)
+    
     if (levels) {
+      // Always update meters
       leftLevel.value = levels.left
       rightLevel.value = levels.right
       
-      // Sync subgroup parameters from Rust engine
+      // Only update volume if not dragging AND value actually changed
       if (!isDraggingVolume.value) {
+        const gainDiff = Math.abs(levels.gain - lastBackendValues.value.gain)
+        
+        if (gainDiff > 0.001) {
+          isUpdatingFromEngine.value = true
+          const gainDb = levels.gain > 0 ? 20 * Math.log10(levels.gain) : -90
+          volume.value = gainDb
+          lastBackendValues.value.gain = levels.gain
+          isUpdatingFromEngine.value = false
+        }
+      }
+      
+      // Only update routeToMaster if value actually changed
+      if (levels.routeToMaster !== lastBackendValues.value.routeToMaster) {
         isUpdatingFromEngine.value = true
-        
-        // Convert gain to dB: dB = 20 * log10(gain)
-        const gainDb = levels.gain > 0 ? 20 * Math.log10(levels.gain) : -90
-        volume.value = gainDb
         routeToMaster.value = levels.routeToMaster
-        
+        lastBackendValues.value.routeToMaster = levels.routeToMaster
         isUpdatingFromEngine.value = false
       }
     }
   },
-  { immediate: true, flush: 'sync' }
+  { immediate: true, deep: true }
 )
 
 // Initialize
