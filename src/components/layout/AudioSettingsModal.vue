@@ -12,7 +12,7 @@
       </div>
 
       <!-- Content -->
-      <div class="p-6 space-y-6">
+      <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
         <!-- Sample Rate Selection -->
         <div>
           <label class="block text-sm font-medium text-gray-300 mb-3">

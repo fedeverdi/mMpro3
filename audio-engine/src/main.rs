@@ -1043,9 +1043,9 @@ impl AudioEngine {
         let router_output = Arc::clone(&self.router);
         let updates_suspended_flag = Arc::clone(&self.updates_suspended);
 
-        // Meter update counter and interval (send levels every ~66ms at 48kHz = 3200 frames)
+        // Meter update counter and interval (send levels every 50ms at 48kHz = 2400 frames for 20 FPS)
         let meter_update_frames = Arc::new(Mutex::new(0_usize));
-        let meter_interval = 3200_usize;
+        let meter_interval = 2400_usize;
 
         // Performance tracking
         let perf_stats = Arc::new(Mutex::new(PerformanceStats::new()));

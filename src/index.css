@@ -24,6 +24,37 @@
     min-height: -webkit-fill-available;
     overflow: auto;
   }
+
+  /* Custom Scrollbar Styles - Global */
+  * {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: rgb(75, 85, 99) rgb(31, 41, 55);
+  }
+
+  /* Webkit browsers (Chrome, Safari, Edge) */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: rgb(31, 41, 55); /* gray-800 */
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgb(75, 85, 99); /* gray-600 */
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgb(107, 114, 128); /* gray-500 */
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: rgb(31, 41, 55); /* gray-800 */
+  }
 }
 
 @layer utilities {
