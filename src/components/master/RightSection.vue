@@ -1,8 +1,8 @@
 <template>
-  <div class="flex flex-col h-full gap-2 relative transition-all duration-300 ease-out" :class="{ 'pl-2': !isCollapsed }" :style="{ width: sectionWidth + 'px' }">
+  <div class="flex flex-col h-full gap-2 relative transition-all duration-300 ease-out" :class="{ 'pl-2': !isCollapsed, 'pointer-events-none': isCollapsed }" :style="{ width: sectionWidth + 'px' }">
     <!-- Resize Handle -->
     <div 
-      :class="['absolute left-0 top-0 bottom-0 w-3 z-50 group bg-gray-900/20', isCollapsed ? 'cursor-default pointer-events-none' : 'cursor-grab']"
+      :class="['absolute left-0 top-0 bottom-0 w-3 z-50 group bg-gray-900/20', isCollapsed ? 'cursor-default' : 'cursor-grab']"
       @mousedown.stop="startResize"
       @touchstart.stop="startResizeTouch"
       :title="isCollapsed ? 'Panel collapsed' : 'Drag to resize'"
