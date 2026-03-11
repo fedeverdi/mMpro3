@@ -134,7 +134,8 @@
           <div class="grid grid-cols-1 gap-2">
             <AuxSendControl v-for="aux in props.auxBuses.slice(0, 6)" :key="aux.id" :aux="aux"
               :aux-send-data="auxSendsData[aux.id]" @update-level="(val) => updateAuxSend(aux.id, val)"
-              @toggle-pre-post="toggleAuxPrePost(aux.id)" @toggle-mute="toggleAuxMute(aux.id)" />
+              @toggle-pre-post="toggleAuxPrePost(aux.id)" @toggle-mute="toggleAuxMute(aux.id)" 
+              @drag-start="handleAuxDragStart(aux.id)" @drag-end="handleAuxDragEnd(aux.id)" />
           </div>
         </div>
       </div>
@@ -265,7 +266,6 @@ const props = defineProps<{
   subgroups?: Array<{ id: number; name: string; channel?: any }>
   auxBuses?: Array<{ id: string | number; name: string; channel?: any }>
   allowSubgroupRouting?: boolean
-  auxSends?: Record<string, { level: number, preFader: boolean, muted: boolean }>
 }>()
 
 // Import audio engine from context
@@ -329,11 +329,23 @@ const isPlaylistMode = computed(() => {
   return currentPlaylist.value !== null && playlistFiles.value.length > 0
 })
 
-// Aux sends state - use computed for two-way binding with props
-const auxSendsData = computed({
-  get: () => props.auxSends || {},
-  set: (value) => emit('update:auxSends', value)
+// Aux sends state - local ref-based state like volume/gain/pan
+const auxSendsState = ref<Map<number, {
+  level: number,
+  muted: boolean,
+  preFader: boolean
+}>>(new Map())
+const auxSendsIsDragging = ref<Map<number, boolean>>(new Map())
+
+// Computed: Convert auxSendsState Map to Record format for component compatibility
+const auxSendsData = computed(() => {
+  const result: Record<string, { level: number, preFader: boolean, muted: boolean }> = {}
+  auxSendsState.value.forEach((value, auxId) => {
+    result[`aux-${auxId}`] = value
+  })
+  return result
 })
+
 const showAuxSendsPanel = ref(false)
 
 // Effects state
@@ -717,7 +729,15 @@ function handleGateParamsUpdate(params: { threshold: number; attack: number; rel
 
 // Handle aux sends updates
 function handleAuxSendsUpdate(sends: Record<string, { level: number, preFader: boolean, muted: boolean }>) {
-  auxSendsData.value = sends
+  // Update local state Map
+  Object.entries(sends).forEach(([auxId, send]) => {
+    const auxIndex = parseInt(auxId.replace(/\D/g, ''))
+    auxSendsState.value.set(auxIndex, {
+      level: send.level,
+      muted: send.muted,
+      preFader: send.preFader
+    })
+  })
 
   // Send to Rust engine for each aux
   if (audioEngine?.state.value.isRunning) {
@@ -733,35 +753,27 @@ function handleAuxSendsUpdate(sends: Record<string, { level: number, preFader: b
 
 // Update individual aux send level
 function updateAuxSend(auxId: string | number, level: number) {
-  const auxKey = typeof auxId === 'number' ? `aux${auxId}` : auxId
+  // Extract numeric index from aux ID (aux-0, aux-1, etc.)
+  const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
   
-  // Create a new copy of auxSendsData to trigger reactivity
-  const newAuxSends = { ...auxSendsData.value }
-  
-  if (!newAuxSends[auxKey]) {
-    newAuxSends[auxKey] = {
-      level: -60,
-      preFader: false,
-      muted: true
-    }
+  // Get existing state or create default
+  const existingState = auxSendsState.value.get(auxIndex) || {
+    level: -60,
+    preFader: false,
+    muted: true
   }
 
-  newAuxSends[auxKey] = {
-    ...newAuxSends[auxKey],
+  // Update state with new level
+  auxSendsState.value.set(auxIndex, {
+    ...existingState,
     level: level,
-    preFader: newAuxSends[auxKey].preFader ?? false,
     // Auto-unmute if level > -60
-    muted: level > -60 ? false : newAuxSends[auxKey].muted
-  }
-
-  // Update the computed (triggers setter)
-  auxSendsData.value = newAuxSends
+    muted: level > -60 ? false : existingState.muted
+  })
 
   // Send to Rust engine
   if (audioEngine?.state.value.isRunning) {
-    const send = newAuxSends[auxKey]
-    // Extract numeric index from aux ID (aux-0, aux-1, etc. - already 0-based)
-    const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
+    const send = auxSendsState.value.get(auxIndex)!
     const linearGain = Math.pow(10, send.level / 20)
     audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader ?? false, send.muted)
   }
@@ -769,31 +781,25 @@ function updateAuxSend(auxId: string | number, level: number) {
 
 // Toggle aux send pre/post fader
 function toggleAuxPrePost(auxId: string | number) {
-  const auxKey = typeof auxId === 'number' ? `aux${auxId}` : auxId
+  // Extract numeric index from aux ID
+  const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
   
-  // Create a new copy of auxSendsData to trigger reactivity
-  const newAuxSends = { ...auxSendsData.value }
-  
-  if (!newAuxSends[auxKey]) {
-    newAuxSends[auxKey] = {
-      level: -60,
-      preFader: false,
-      muted: true
-    }
+  // Get existing state or create default
+  const existingState = auxSendsState.value.get(auxIndex) || {
+    level: -60,
+    preFader: false,
+    muted: true
   }
 
-  newAuxSends[auxKey] = {
-    ...newAuxSends[auxKey],
-    preFader: !newAuxSends[auxKey].preFader
-  }
-
-  // Update the computed (triggers setter)
-  auxSendsData.value = newAuxSends
+  // Toggle preFader
+  auxSendsState.value.set(auxIndex, {
+    ...existingState,
+    preFader: !existingState.preFader
+  })
 
   // Send to Rust engine
   if (audioEngine?.state.value.isRunning) {
-    const send = newAuxSends[auxKey]
-    const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
+    const send = auxSendsState.value.get(auxIndex)!
     const linearGain = Math.pow(10, send.level / 20)
     audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader ?? false, send.muted)
   }
@@ -801,34 +807,40 @@ function toggleAuxPrePost(auxId: string | number) {
 
 // Toggle aux send mute
 function toggleAuxMute(auxId: string | number) {
-  const auxKey = typeof auxId === 'number' ? `aux${auxId}` : auxId
+  // Extract numeric index from aux ID
+  const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
   
-  // Create a new copy of auxSendsData to trigger reactivity
-  const newAuxSends = { ...auxSendsData.value }
-  
-  if (!newAuxSends[auxKey]) {
-    newAuxSends[auxKey] = {
-      level: -60,
-      preFader: false,
-      muted: true
-    }
+  // Get existing state or create default
+  const existingState = auxSendsState.value.get(auxIndex) || {
+    level: -60,
+    preFader: false,
+    muted: true
   }
 
-  newAuxSends[auxKey] = {
-    ...newAuxSends[auxKey],
-    muted: !newAuxSends[auxKey].muted
-  }
-
-  // Update the computed (triggers setter)
-  auxSendsData.value = newAuxSends
+  // Toggle muted
+  auxSendsState.value.set(auxIndex, {
+    ...existingState,
+    muted: !existingState.muted
+  })
 
   // Send to Rust engine
   if (audioEngine?.state.value.isRunning) {
-    const send = newAuxSends[auxKey]
-    const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
+    const send = auxSendsState.value.get(auxIndex)!
     const linearGain = Math.pow(10, send.level / 20)
     audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader ?? false, send.muted)
   }
+}
+
+// Handle aux send drag start - set isDragging flag
+function handleAuxDragStart(auxId: string | number) {
+  const auxIndex = typeof auxId === 'number' ? auxId : parseInt(String(auxId).replace(/\D/g, ''))
+  auxSendsIsDragging.value.set(auxIndex, true)
+}
+
+// Handle aux send drag end - clear isDragging flag
+function handleAuxDragEnd(auxId: string | number) {
+  const auxIndex = typeof auxId === 'number' ? auxId : parseInt(String(auxId).replace(/\D/g, ''))
+  auxSendsIsDragging.value.set(auxIndex, false)
 }
 
 function handleParametricEQUpdate(filters: any) {
@@ -1049,6 +1061,21 @@ onMounted(async () => {
     routedSubgroups.value = new Set(initialParams.routeToSubgroups)
   }
   
+  // Load initial aux sends state (critical for remote browsers)
+  if (initialParams?.auxSends && Array.isArray(initialParams.auxSends)) {
+    initialParams.auxSends.forEach((send: any, auxId: number) => {
+      // Convert linear to dB, use -60 as default for uninitialized (0.0) sends
+      const levelDb = send.level > 0 ? 20 * Math.log10(send.level) : -60
+      auxSendsState.value.set(auxId, {
+        level: levelDb,
+        muted: send.muted ?? false,
+        preFader: send.pre_fader ?? false
+      })
+      // Initialize isDragging flag
+      auxSendsIsDragging.value.set(auxId, false)
+    })
+  }
+  
   // Watch for track parameter updates from Rust engine (incoming sync)
   watch(() => audioEngine?.state.value.trackParameters?.get(props.trackNumber - 1), (params) => {
     if (!params) return
@@ -1139,6 +1166,31 @@ onMounted(async () => {
     // Sync play state from Rust engine
     if (params.isPlaying !== undefined) {
       isPlaying.value = params.isPlaying
+    }
+    
+    // Sync aux sends from Rust engine (only when not dragging)
+    if (params.auxSends && Array.isArray(params.auxSends)) {
+      params.auxSends.forEach((send: any, auxId: number) => {
+        // Check if this particular aux send is being dragged
+        const isDragging = auxSendsIsDragging.value.get(auxId)
+        if (!isDragging) {
+          // Only sync if backend has a meaningful value (level > 0)
+          // or if we don't have existing state yet
+          const existingState = auxSendsState.value.get(auxId)
+          
+          if (send.level > 0 || !existingState) {
+            // Convert linear to dB for level, use -60 as default for uninitialized (0.0) sends
+            const levelDb = send.level > 0 ? 20 * Math.log10(send.level) : -60
+            
+            // Update or create the aux send state
+            auxSendsState.value.set(auxId, {
+              level: levelDb,
+              muted: send.muted ?? false,
+              preFader: send.pre_fader ?? false
+            })
+          }
+        }
+      })
     }
     
     // Re-enable watches after Vue reactivity cycle completes
@@ -1298,14 +1350,22 @@ defineExpose({
       }
     }
     
-    // Aux Sends
-    auxSendsData.value = state.auxSends || {}
-    // Apply aux sends to backend
-    if (audioEngine?.state.value.isRunning && state.auxSends) {
+    // Aux Sends - populate local state Map and apply to backend
+    if (state.auxSends) {
       for (const [auxKey, sendData] of Object.entries(state.auxSends)) {
-        const auxIndex = props.auxBuses?.findIndex(a => a.id === auxKey)
-        if (auxIndex !== undefined && auxIndex >= 0) {
-          const send = sendData as { level: number, preFader: boolean, muted: boolean }
+        const send = sendData as { level: number, preFader: boolean, muted: boolean }
+        // Extract numeric index from aux key (aux-0, aux-1, etc.)
+        const auxIndex = typeof auxKey === 'string' ? parseInt(auxKey.replace(/\D/g, '')) : auxKey
+        
+        // Update local state
+        auxSendsState.value.set(auxIndex, {
+          level: send.level,
+          preFader: send.preFader,
+          muted: send.muted
+        })
+        
+        // Apply to backend
+        if (audioEngine?.state.value.isRunning) {
           const linearGain = Math.pow(10, send.level / 20)
           audioEngine.setTrackAuxSend(
             props.trackNumber - 1,

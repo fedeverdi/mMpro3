@@ -47,7 +47,7 @@ impl Default for AuxSend {
         Self {
             level: 0.0,      // -∞ dB
             pre_fader: false, // Post-fader by default
-            muted: true,     // Muted by default
+            muted: false,    // Unmuted by default
         }
     }
 }

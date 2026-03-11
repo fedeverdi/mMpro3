@@ -45,11 +45,10 @@
                 :allow-subgroup-routing="buildLimits.allowSubgroupRouting" :is-dragging="draggedTrackId === track.id"
                 @soloChange="handleSoloChange" @remove="removeTrack(track.id)"
                 @drag-start="handleTrackDragStart(track.id)" />
-              <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
-                :master-channel="masterChannel" :subgroups="subgroups" :aux-buses="auxBuses"
-                :aux-sends="trackAuxSends.get(track.id) || {}"
+                           <AudioTrack v-else :ref="el => setTrackRef(track.id, el)" :trackNumber="track.id"
+                :master-channel="masterChannel" :subgroups="subgroups" :auxBuses="auxBuses"
                 :allow-subgroup-routing="buildLimits.allowSubgroupRouting" @open-library="handleOpenLibrary"
-                @remove="removeTrack(track.id)" @update:aux-sends="(sends) => updateTrackAuxSends(track.id, sends)" />
+                @remove="removeTrack(track.id)" />
             </div>
           </div>
         </div>
@@ -252,21 +251,12 @@ interface AuxBus {
 }
 
 const auxBuses = ref<AuxBus[]>([])
-let nextAuxId = 1
+let nextAuxId = 0
 
 interface Track {
   id: number
   type: 'audio' | 'signal'
   order: number
-}
-
-// Track aux sends state - map trackId to aux sends config
-type AuxSendConfig = Record<string, { level: number, preFader: boolean, muted: boolean }>
-const trackAuxSends = ref<Map<number, AuxSendConfig>>(new Map())
-
-// Update track aux sends
-function updateTrackAuxSends(trackId: number, sends: AuxSendConfig) {
-  trackAuxSends.value.set(trackId, sends)
 }
 
 // App ready state - not needed anymore since splash screen handles initialization
@@ -550,8 +540,6 @@ async function removeTrack(trackId: number) {
     trackRefs.value.delete(removedTrack.id)
     // Also remove from solo tracks if it was soloed
     soloTracks.value.delete(removedTrack.id)
-    // Remove aux sends for this track
-    trackAuxSends.value.delete(removedTrack.id)
   }
 }
 
@@ -1125,8 +1113,9 @@ function addAux() {
     return
   }
 
-  const id = `aux-${nextAuxId++}`
-  const name = `AUX ${nextAuxId - 1}`
+  const id = `aux-${nextAuxId}`
+  const name = `AUX ${nextAuxId + 1}`
+  nextAuxId++
 
   // Aux buses now managed by Rust backend with zero latency direct output
   const newAux: AuxBus = {
@@ -1555,26 +1544,6 @@ onMounted(async () => {
       const bId = parseInt(b.id.replace('aux-', ''))
       return aId - bId
     })
-  }, { deep: true })
-
-  // Sync track aux sends from backend
-  // Watch trackParameters to sync aux sends for all tracks
-  watch(() => audioEngineState.value.trackParameters, (newTrackParams) => {
-    for (const [trackId, params] of newTrackParams.entries()) {
-      if (params.auxSends && params.auxSends.length > 0) {
-        // Convert array of aux sends to keyed object
-        const auxSendsObj: AuxSendConfig = {}
-        params.auxSends.forEach((send: { level: number, preFader: boolean, muted: boolean }, index: number) => {
-          const auxId = `aux-${index}`
-          auxSendsObj[auxId] = {
-            level: send.level,
-            preFader: send.preFader,
-            muted: send.muted
-          }
-        })
-        trackAuxSends.value.set(trackId, auxSendsObj)
-      }
-    }
   }, { deep: true })
 
   // Add event listener for subgroup creation

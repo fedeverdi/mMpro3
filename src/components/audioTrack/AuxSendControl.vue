@@ -10,6 +10,8 @@
       <Knob 
         :modelValue="auxSendData?.level ?? -60"
         @update:modelValue="(val) => emit('update-level', val)" 
+        @dragStart="emit('drag-start')"
+        @dragEnd="emit('drag-end')"
         :min="-60" 
         :max="10" 
         :step="0.1"
@@ -90,5 +92,7 @@ const emit = defineEmits<{
   (e: 'update-level', value: number): void
   (e: 'toggle-pre-post'): void
   (e: 'toggle-mute'): void
+  (e: 'drag-start'): void
+  (e: 'drag-end'): void
 }>()
 </script>
