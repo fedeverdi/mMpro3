@@ -125,14 +125,14 @@
 
         <!-- Aux Send Controls Grid (expandable) -->
         <div v-if="showAuxSendsPanel"
-          class="w-full z-[200] absolute bg-gray-800 left-0 top-[6.8rem] max-h-[50rem] overflow-y-auto custom-scrollbar">
+          class="w-full z-[200] absolute bg-gray-800 left-0 top-[6.8rem] max-h-[calc(100vh-12rem)] overflow-y-auto aux-scrollbar p-2">
           <button @click="showAuxSendsPanel = false"
-            class="absolute right-2 top-2 w-4 h-4 pb-[0.05rem] rounded-full bg-white/20 hover:bg-white/30 text-white/60 hover:text-white/80 text-xs flex items-center justify-center transition-all"
-            title="Remove Track">
+            class="absolute right-2 top-2 w-4 h-4 pb-[0.05rem] rounded-full bg-white/20 hover:bg-white/30 text-white/60 hover:text-white/80 text-xs flex items-center justify-center transition-all z-10"
+            title="Close">
             ×
           </button>
-          <div class="grid grid-cols-1 gap-2">
-            <AuxSendControl v-for="aux in props.auxBuses.slice(0, 6)" :key="aux.id" :aux="aux"
+          <div class="grid grid-cols-1 gap-2 pt-6">
+            <AuxSendControl v-for="aux in props.auxBuses" :key="aux.id" :aux="aux"
               :aux-send-data="auxSendsData[aux.id]" @update-level="(val) => updateAuxSend(aux.id, val)"
               @toggle-pre-post="toggleAuxPrePost(aux.id)" @toggle-mute="toggleAuxMute(aux.id)" 
               @drag-start="handleAuxDragStart(aux.id)" @drag-end="handleAuxDragEnd(aux.id)" />
@@ -1394,4 +1394,32 @@ defineExpose({
   }
 })
 </script>
+
+<style scoped>
+/* Thin scrollbar for aux sends panel */
+.aux-scrollbar::-webkit-scrollbar {
+  width: 3px;
+}
+
+.aux-scrollbar::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-radius: 2px;
+}
+
+.aux-scrollbar::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+
+.aux-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Firefox scrollbar */
+.aux-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #1f2937;
+}
+</style>
 
