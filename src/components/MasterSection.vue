@@ -338,15 +338,14 @@ onMounted(async () => {
     updateMetersHeight()
   })
 
-  // Cleanup on unmount
-  onUnmounted(() => {
-    if (updateMetersHeightTimeout) {
-      clearTimeout(updateMetersHeightTimeout)
-    }
-  })
-
   // TODO: Start receiving meter levels from Rust engine
   // Set up periodic updates from Rust engine
+})
+
+onUnmounted(() => {
+  if (updateMetersHeightTimeout) {
+    clearTimeout(updateMetersHeightTimeout)
+  }
 })
 
 // Method to get current meter values for FX visualization

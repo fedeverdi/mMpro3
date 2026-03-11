@@ -264,13 +264,12 @@ onMounted(async () => {
   watch(resizeTrigger, () => {
     updateMetersHeight()
   })
+})
 
-  // Cleanup on unmount
-  onUnmounted(() => {
-    if (updateMetersHeightTimeout) {
-      clearTimeout(updateMetersHeightTimeout)
-    }
-  })
+onUnmounted(() => {
+  if (updateMetersHeightTimeout) {
+    clearTimeout(updateMetersHeightTimeout)
+  }
 })
 
 // Remove defineExpose - now using props/emit pattern

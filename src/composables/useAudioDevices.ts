@@ -27,7 +27,6 @@ export function useAudioDevices() {
       try {
         // Check if audio engine is available
         if (!window.audioEngine) {
-          console.warn('[useAudioDevices] Audio engine not yet available, skipping input enumeration')
           devicesEnumerated = true
           return
         }
@@ -35,7 +34,6 @@ export function useAudioDevices() {
         // Check if we're in remote mode (browser)
         const isRemote = !window.electronAPI
         if (isRemote) {
-          console.log('[useAudioDevices] Remote mode detected - input devices not available')
           audioInputDevices.value = []
           devicesEnumerated = true
           return
@@ -80,7 +78,6 @@ export function useAudioDevices() {
       try {
         // Check if audio engine is available
         if (!window.audioEngine) {
-          console.warn('[useAudioDevices] Audio engine not yet available, skipping output enumeration')
           outputDevicesEnumerated = true
           return
         }
@@ -88,7 +85,6 @@ export function useAudioDevices() {
         // Check if we're in remote mode (browser)
         const isRemote = !window.electronAPI
         if (isRemote) {
-          console.log('[useAudioDevices] Remote mode detected - output devices not available')
           audioOutputDevices.value = []
           outputDevicesEnumerated = true
           return

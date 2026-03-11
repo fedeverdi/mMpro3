@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, getCurrentInstance } from 'vue'
 
 /**
  * Composable per gestire l'URL di rete dell'applicazione
@@ -66,9 +66,15 @@ export function useNetworkUrl() {
     }
   }
 
-  onMounted(() => {
+  // Only register onMounted if called within a component context
+  if (getCurrentInstance()) {
+    onMounted(() => {
+      fetchLocalIp()
+    })
+  } else {
+    // If called outside component, fetch immediately
     fetchLocalIp()
-  })
+  }
 
   return {
     localIp,

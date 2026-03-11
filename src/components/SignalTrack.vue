@@ -469,17 +469,15 @@ onMounted(async () => {
   
   updateFaderHeight()
   
-  // Cleanup on unmount
-  onUnmounted(() => {
-    if (updateFaderHeightTimeout) {
-      clearTimeout(updateFaderHeightTimeout)
-    }
-  })
-  
   // Note: Signal generator initialization is handled by the audioEngine running watch
 })
 
 onUnmounted(() => {
+  // Cleanup timeout
+  if (updateFaderHeightTimeout) {
+    clearTimeout(updateFaderHeightTimeout)
+  }
+  
   // Stop frequency sweep
   stopFrequencySweep()
   

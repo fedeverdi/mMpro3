@@ -101,16 +101,12 @@ onMounted(async () => {
   watch(resizeTrigger, () => {
     requestRedraw()
   })
-  
-  // Cleanup on unmount
-  onUnmounted(() => {
-    if (resizeTimeout) {
-      clearTimeout(resizeTimeout)
-    }
-  })
 })
 
 onUnmounted(() => {
+  if (resizeTimeout) {
+    clearTimeout(resizeTimeout)
+  }
   if (rafId) cancelAnimationFrame(rafId)
   window.removeEventListener('resize', throttledRequestRedraw)
 })

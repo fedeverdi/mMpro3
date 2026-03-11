@@ -1080,41 +1080,9 @@ async function addSubgroup() {
     return
   }
 
-  // In remote mode, just send the command and let the broadcast handle creation
-  if (isRemoteMode) {
-    await audioEngine.addSubgroup()
-    // The subgroup will be added when we receive the 'subgroup-created' event
-    return
-  }
-
-  // Electron mode: optimistic UI update
-  const name = `SUB ${subgroups.value.length + 1}`
-
-  // Add to frontend state IMMEDIATELY (optimistic UI)
-  const tempSubgroup = {
-    id: 0, // Temporary id, will be updated when backend responds
-    name,
-    volume: 0,
-    routeToMaster: false,
-    selectedOutput: 'no-output',
-    channel: null,
-    ref: null
-  }
-  subgroups.value.push(tempSubgroup)
-
-  // Create subgroup in Rust backend (async)
-  const id = await audioEngine.addSubgroup()
-  if (id === null) {
-    // Remove the optimistically added subgroup on failure
-    const index = subgroups.value.indexOf(tempSubgroup)
-    if (index > -1) {
-      subgroups.value.splice(index, 1)
-    }
-    return
-  }
-
-  // Update the id when backend responds
-  tempSubgroup.id = id
+  // Send command to backend - the subgroup will be added when we receive the data from Rust
+  await audioEngine.addSubgroup()
+  // The subgroup will be created by the watch on subgroupLevels when Rust sends the data
 }
 
 async function removeSubgroup(subgroupId: number) {
@@ -1345,19 +1313,62 @@ function handleOpenNDI() {
   showNDIModal.value = true
 }
 
+// Refs for cleanup handlers (need to be accessible in onUnmounted)
+let resizeObserver: ResizeObserver | null = null
+let resizeTimeout: ReturnType<typeof setTimeout> | null = null
+
+// Listen for subgroup creation events from backend (both Electron and remote)
+const handleSubgroupCreated = (event: CustomEvent) => {
+  const { id } = event.detail
+  
+  // In Electron mode, skip the broadcast since we handle it optimistically
+  if (!isRemoteMode) {
+    return
+  }
+  
+  // Check if subgroup already exists (remote mode)
+  if (subgroups.value.find(sg => sg.id === id)) {
+    return
+  }
+  
+  // Create new subgroup in frontend
+  const name = `SUB ${id + 1}`
+  subgroups.value.push({
+    id,
+    name,
+    volume: 0,
+    routeToMaster: false,
+    selectedOutput: 'no-output',
+    channel: null,
+    ref: null
+  })
+  
+  // Sort by ID to maintain order
+  subgroups.value.sort((a, b) => a.id - b.id)
+}
+
+// Handle visibility changes for ResizeObserver
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    resizeObserver?.disconnect()
+  } else if (tracksContainerRef.value && resizeObserver) {
+    resizeObserver.observe(tracksContainerRef.value)
+    resizeTrigger.value++ // Force update when visible again
+  }
+}
+
 // Initialize audio
 onMounted(async () => {
   document.title = 'Audio Mixer Pro - Multi-Track Mixer'
 
   masterChannel.value = null
 
-  // Add initial subgroup and aux buses FIRST (before async operations) for immediate rendering
+  // Add initial aux buses FIRST (before async operations) for immediate rendering
   // Skip in remote mode - remote clients will sync state from the host
   if (!isRemoteMode) {
     const limits = getBuildLimits()
-    if (limits.maxSubgroups > 0) {
-      addSubgroup()
-    }
+    
+    // Subgroups are now created automatically by Rust backend, no need to add them here
 
     // Add default aux buses (up to the build limit)
     const maxAuxToAdd = Math.min(6, limits.maxAuxBuses)
@@ -1368,6 +1379,26 @@ onMounted(async () => {
 
   // Then refresh audio outputs
   await refreshAudioOutputs()
+
+  // Sync subgroups immediately from audioEngineState if available
+  const initialSubgroups = audioEngineState.value.subgroupLevels
+  if (initialSubgroups && initialSubgroups.size > 0) {
+    for (const [subgroupId, subgroupData] of initialSubgroups.entries()) {
+      if (!subgroups.value.find(sg => sg.id === subgroupId)) {
+        const name = `SUB ${subgroupId + 1}`
+        subgroups.value.push({
+          id: subgroupId,
+          name,
+          volume: subgroupData.gain !== undefined ? 20 * Math.log10(Math.max(0.00001, subgroupData.gain)) : 0,
+          routeToMaster: subgroupData.routeToMaster ?? false,
+          selectedOutput: subgroupData.selectedOutput ?? 'no-output',
+          channel: null,
+          ref: null
+        })
+      }
+    }
+    subgroups.value.sort((a, b) => a.id - b.id)
+  }
 
   // Don't start connection here - wait for component to mount
 
@@ -1395,85 +1426,48 @@ onMounted(async () => {
     }
   }, { deep: true })
 
-  // Sync subgroups from backend (for remote WebSocket mode)
-  if (isRemoteMode) {
-    watch(() => audioEngineState.value.subgroupLevels, (subgroupLevels) => {
-      console.log('[Index] Remote mode - syncing subgroups from backend:', subgroupLevels.size)
+  // Sync subgroups from backend (both Electron and remote browser)
+  // Watch only the Map size to avoid triggering on every levels update (every 50ms)
+  watch(() => audioEngineState.value.subgroupLevels.size, () => {
+    const subgroupLevels = audioEngineState.value.subgroupLevels
+    // Get all subgroup IDs from the backend
+    const backendSubgroupIds = new Set(Array.from(subgroupLevels.keys()))
+    
+    // Remove subgroups that no longer exist in backend
+    subgroups.value = subgroups.value.filter(sg => backendSubgroupIds.has(sg.id))
+    
+    // Add new subgroups that exist in backend but not in frontend
+    for (const [subgroupId, subgroupData] of subgroupLevels.entries()) {
+      const existingSubgroup = subgroups.value.find(sg => sg.id === subgroupId)
       
-      // Get all subgroup IDs from the backend
-      const backendSubgroupIds = new Set(Array.from(subgroupLevels.keys()))
-      
-      // Remove subgroups that no longer exist in backend
-      subgroups.value = subgroups.value.filter(sg => backendSubgroupIds.has(sg.id))
-      
-      // Add new subgroups that exist in backend but not in frontend
-      for (const [subgroupId, subgroupData] of subgroupLevels.entries()) {
-        const existingSubgroup = subgroups.value.find(sg => sg.id === subgroupId)
-        
-        if (!existingSubgroup) {
-          console.log('[Index] Creating subgroup from backend:', subgroupId)
-          // Create new subgroup in frontend
-          const name = `SUB ${subgroupId + 1}`
-          subgroups.value.push({
-            id: subgroupId,
-            name,
-            volume: subgroupData.gain !== undefined ? 20 * Math.log10(Math.max(0.00001, subgroupData.gain)) : 0,
-            routeToMaster: subgroupData.routeToMaster ?? false,
-            selectedOutput: subgroupData.selectedOutput ?? 'no-output',
-            channel: null,
-            ref: null
-          })
-        }
-        // DON'T update existing subgroup volume/routeToMaster here!
-        // SubgroupsSection component handles that through its own watcher
+      if (!existingSubgroup) {
+        // Create new subgroup in frontend
+        const name = `SUB ${subgroupId + 1}`
+        subgroups.value.push({
+          id: subgroupId,
+          name,
+          volume: subgroupData.gain !== undefined ? 20 * Math.log10(Math.max(0.00001, subgroupData.gain)) : 0,
+          routeToMaster: subgroupData.routeToMaster ?? false,
+          selectedOutput: subgroupData.selectedOutput ?? 'no-output',
+          channel: null,
+          ref: null
+        })
       }
-      
-      // Sort by ID to maintain order
-      subgroups.value.sort((a, b) => a.id - b.id)
-    }, { deep: true, immediate: true })
-  }
-
-  // Listen for subgroup creation events from backend (both Electron and remote)
-  const handleSubgroupCreated = (event: CustomEvent) => {
-    const { id } = event.detail
-    
-    // In Electron mode, skip the broadcast since we handle it optimistically
-    if (!isRemoteMode) {
-      return
+      // DON'T update existing subgroup volume/routeToMaster here!
+      // SubgroupsSection component handles that through its own watcher
     }
-    
-    // Check if subgroup already exists (remote mode)
-    if (subgroups.value.find(sg => sg.id === id)) {
-      return
-    }
-    
-    // Create new subgroup in frontend
-    const name = `SUB ${id + 1}`
-    subgroups.value.push({
-      id,
-      name,
-      volume: 0,
-      routeToMaster: false,
-      selectedOutput: 'no-output',
-      channel: null,
-      ref: null
-    })
     
     // Sort by ID to maintain order
     subgroups.value.sort((a, b) => a.id - b.id)
-  }
-  
-  window.addEventListener('subgroup-created', handleSubgroupCreated as EventListener)
-  
-  onUnmounted(() => {
-    window.removeEventListener('subgroup-created', handleSubgroupCreated as EventListener)
   })
+
+  // Add event listener for subgroup creation
+  window.addEventListener('subgroup-created', handleSubgroupCreated as EventListener)
 
   // Set up centralized ResizeObserver for all tracks
   // Throttled to prevent blocking during window animations
-  let resizeTimeout: ReturnType<typeof setTimeout> | null = null
   if (tracksContainerRef.value) {
-    const resizeObserver = new ResizeObserver(() => {
+    resizeObserver = new ResizeObserver(() => {
       if (resizeTimeout) return
       resizeTimeout = setTimeout(() => {
         resizeTrigger.value++
@@ -1483,21 +1477,24 @@ onMounted(async () => {
     resizeObserver.observe(tracksContainerRef.value)
 
     // Disconnect observer when window is hidden to prevent blocking during minimize
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        resizeObserver.disconnect()
-      } else if (tracksContainerRef.value) {
-        resizeObserver.observe(tracksContainerRef.value)
-        resizeTrigger.value++ // Force update when visible again
-      }
-    }
     document.addEventListener('visibilitychange', handleVisibilityChange)
+  }
+})
 
-    onUnmounted(() => {
-      resizeObserver.disconnect()
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      if (resizeTimeout) clearTimeout(resizeTimeout)
-    })
+// Cleanup: Remove event listeners and disconnect observers
+onUnmounted(() => {
+  window.removeEventListener('subgroup-created', handleSubgroupCreated as EventListener)
+  
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+  
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  
+  if (resizeTimeout) {
+    clearTimeout(resizeTimeout)
+    resizeTimeout = null
   }
 })
 </script>

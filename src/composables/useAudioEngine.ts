@@ -1,4 +1,4 @@
-import { ref, onUnmounted } from 'vue'
+import { ref, onUnmounted, triggerRef, getCurrentInstance } from 'vue'
 import { RemoteAudioEngine } from '~/lib/remoteAudioEngine'
 
 export interface AudioDevice {
@@ -33,6 +33,7 @@ export interface AudioEngineState {
     mute: boolean
     pan: number
     routeToMaster: boolean
+    routeToSubgroups: number[]
     padEnabled: boolean
     hpfEnabled: boolean
     phaseInverted: boolean
@@ -170,8 +171,6 @@ export const useAudioEngine = () => {
       return
     }
 
-    console.log('[useAudioEngine] Detected browser mode - initializing remote audio engine')
-
     try {
       const host = window.location.hostname
       const remoteEngine = new RemoteAudioEngine(host, 3001)
@@ -180,7 +179,6 @@ export const useAudioEngine = () => {
       ;(window as any).audioEngine = remoteEngine
       remoteEngineInitialized = true
 
-      console.log('[useAudioEngine] Remote audio engine connected successfully')
     } catch (error) {
       console.error('[useAudioEngine] Failed to connect to remote audio engine:', error)
       throw new Error('Failed to connect to remote audio engine. Make sure the Electron app is running.')
@@ -234,12 +232,19 @@ export const useAudioEngine = () => {
               }
 
               if (trackLevel.gain !== undefined) {
+                // Check if routeToSubgroups changed
+                const oldParams = state.value.trackParameters.get(trackLevel.track)
+                const oldRoutes = oldParams?.routeToSubgroups || []
+                const newRoutes = trackLevel.route_to_subgroups || []
+                const routesChanged = JSON.stringify(oldRoutes) !== JSON.stringify(newRoutes)
+                
                 state.value.trackParameters.set(trackLevel.track, {
                   gain: trackLevel.gain,
                   volume: trackLevel.volume,
                   mute: trackLevel.mute,
                   pan: trackLevel.pan,
                   routeToMaster: trackLevel.route_to_master,
+                  routeToSubgroups: newRoutes,
                   padEnabled: trackLevel.pad_enabled,
                   hpfEnabled: trackLevel.hpf_enabled,
                   phaseInverted: trackLevel.phase_inverted,
@@ -270,14 +275,16 @@ export const useAudioEngine = () => {
                   isStereo: trackLevel.is_stereo ?? false,
                   isPlaying: trackLevel.is_playing ?? false
                 })
+                
+                // Trigger ref only if routeToSubgroups changed to update component watchers
+                if (routesChanged) {
+                  triggerRef(state)
+                }
               }
             })
           }
 
           if (response.subgroups) {
-            // Create new Map to trigger reactivity (Map.set() doesn't trigger watchers)
-            const newSubgroupLevels = new Map(state.value.subgroupLevels)
-            
             response.subgroups.forEach((subgroupLevel: any) => {
               const leftDb = subgroupLevel.level_l > 0.0
                 ? 20 * Math.log10(subgroupLevel.level_l)
@@ -287,7 +294,7 @@ export const useAudioEngine = () => {
                 ? 20 * Math.log10(subgroupLevel.level_r)
                 : -90
 
-              newSubgroupLevels.set(subgroupLevel.subgroup, {
+              state.value.subgroupLevels.set(subgroupLevel.subgroup, {
                 left: leftDb,
                 right: rightDb,
                 gain: subgroupLevel.gain ?? 1.0,
@@ -296,9 +303,6 @@ export const useAudioEngine = () => {
                 selectedOutput: subgroupLevel.selected_output
               })
             })
-            
-            // Replace Map reference to trigger watchers
-            state.value.subgroupLevels = newSubgroupLevels
           }
 
           if (response.master_l !== undefined && response.master_r !== undefined) {
@@ -942,11 +946,14 @@ export const useAudioEngine = () => {
     return await window.audioEngine.getLicense()
   }
 
-  onUnmounted(() => {
-    if (state.value.isRunning) {
-      void stop()
-    }
-  })
+  // Only register onUnmounted if called within a component context
+  if (getCurrentInstance()) {
+    onUnmounted(() => {
+      if (state.value.isRunning) {
+        void stop()
+      }
+    })
+  }
 
   return {
     state,

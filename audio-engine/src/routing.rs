@@ -874,9 +874,15 @@ impl Router {
         // Initialize 6 aux buses by default
         let aux_buses = (0..MAX_AUX_BUSES).map(|i| AuxBus::new(i, 48000.0)).collect();
         
+        // Initialize 2 subgroups by default
+        let subgroups = vec![
+            SubgroupBus::new(0),
+            SubgroupBus::new(1),
+        ];
+        
         Self {
             tracks,
-            subgroups: Vec::new(),
+            subgroups,
             aux_buses,
             master: MasterBus::new(),
             fft_analyzer: FFTAnalyzer::new(),

@@ -647,14 +647,19 @@ function toggleRouteToMaster() {
 }
 
 function toggleSubgroupRoute(subgroupId: number) {
-  if (routedSubgroups.value.has(subgroupId)) {
-    routedSubgroups.value.delete(subgroupId)
+  // Create a new Set to trigger Vue reactivity
+  const newRoutes = new Set(routedSubgroups.value)
+  
+  if (newRoutes.has(subgroupId)) {
+    newRoutes.delete(subgroupId)
+    routedSubgroups.value = newRoutes
     // Send to backend
     if (audioEngine?.state.value.isRunning) {
       audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, false)
     }
   } else {
-    routedSubgroups.value.add(subgroupId)
+    newRoutes.add(subgroupId)
+    routedSubgroups.value = newRoutes
     // Send to backend
     if (audioEngine?.state.value.isRunning) {
       audioEngine.setTrackRouteToSubgroup(props.trackNumber - 1, subgroupId, true)
@@ -1037,12 +1042,14 @@ onMounted(async () => {
 
   updateFaderHeight()
   
+  // Load initial state from trackParameters if available
+  const initialParams = audioEngine?.state.value.trackParameters?.get(props.trackNumber - 1)
+  if (initialParams?.routeToSubgroups) {
+    routedSubgroups.value = new Set(initialParams.routeToSubgroups)
+  }
+  
   // Watch for track parameter updates from Rust engine (incoming sync)
-  watch(() => audioEngine?.state.value.trackParameters, (trackParamsMap) => {
-    if (!trackParamsMap) return
-    
-    // NOTE: Rust uses 0-indexed tracks, but frontend trackNumber is 1-indexed
-    const params = trackParamsMap.get(props.trackNumber - 1)
+  watch(() => audioEngine?.state.value.trackParameters?.get(props.trackNumber - 1), (params) => {
     if (!params) return
     
     isUpdatingFromEngine.value = true
@@ -1061,6 +1068,9 @@ onMounted(async () => {
     if (params.mute !== undefined) isMuted.value = params.mute
     if (params.pan !== undefined && !isDraggingPan.value) pan.value = params.pan
     if (params.routeToMaster !== undefined) routeToMaster.value = params.routeToMaster
+    if (params.routeToSubgroups !== undefined) {
+      routedSubgroups.value = new Set(params.routeToSubgroups)
+    }
     if (params.padEnabled !== undefined) padEnabled.value = params.padEnabled
     if (params.hpfEnabled !== undefined) hpfEnabled.value = params.hpfEnabled
     if (params.phaseInverted !== undefined) phaseInverted.value = params.phaseInverted
@@ -1132,7 +1142,7 @@ onMounted(async () => {
     
     // Re-enable watches after Vue reactivity cycle completes
     nextTick(() => { isUpdatingFromEngine.value = false })
-  }, { deep: true })
+  }, { deep: true, immediate: true })
   
   // Watch for EQ filter updates from Rust engine
   watch(() => audioEngine?.state.value.trackEQFilters, (trackEQMap) => {
@@ -1154,17 +1164,12 @@ onMounted(async () => {
       Q: f.q  // Rust uses lowercase 'q', frontend uses uppercase 'Q'
     }))
   }, { deep: true })
-  
-  // Cleanup on unmount
-  onUnmounted(() => {
-    if (updateFaderHeightTimeout) {
-      clearTimeout(updateFaderHeightTimeout)
-    }
-  })
 })
 
 onUnmounted(() => {
-  // Nothing to cleanup
+  if (updateFaderHeightTimeout) {
+    clearTimeout(updateFaderHeightTimeout)
+  }
 })
 
 // Expose methods to parent component

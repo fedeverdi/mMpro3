@@ -24,7 +24,6 @@ export class RemoteAudioEngine {
 
   constructor(host: string, port: number = 3001) {
     this.url = `ws://${host}:${port}`
-    console.log('[RemoteAudioEngine] Initializing with URL:', this.url)
   }
 
   async connect(): Promise<void> {
@@ -34,12 +33,10 @@ export class RemoteAudioEngine {
 
     return new Promise((resolve, reject) => {
       this.isConnecting = true
-      console.log('[RemoteAudioEngine] Connecting to:', this.url)
 
       this.ws = new WebSocket(this.url)
 
       this.ws.onopen = () => {
-        console.log('[RemoteAudioEngine] Connected successfully')
         this.isConnecting = false
         if (this.reconnectTimer) {
           clearTimeout(this.reconnectTimer)
@@ -54,12 +51,10 @@ export class RemoteAudioEngine {
           
           // Handle license updates specifically
           if (response.type === 'license') {
-            console.log('[RemoteAudioEngine] License update received:', response)
             
             // Only dispatch license-updated event if this is a broadcast (not a response to our request)
             // If we have a pending request, let the listener handle it instead
             if (!this.pendingLicenseRequest) {
-              console.log('[RemoteAudioEngine] Broadcasting license update to app')
               // Dispatch custom event for license updates
               const licenseEvent = new CustomEvent('license-updated', {
                 detail: {
@@ -70,8 +65,6 @@ export class RemoteAudioEngine {
                 }
               })
               window.dispatchEvent(licenseEvent)
-            } else {
-              console.log('[RemoteAudioEngine] License response received for pending request, not broadcasting')
             }
           }
           
@@ -148,8 +141,6 @@ export class RemoteAudioEngine {
         return
       }
 
-      console.log(`[RemoteAudioEngine] Sending command and waiting for ${expectedResponseType}:`, command)
-
       const timeoutId = setTimeout(() => {
         // Remove listener
         const index = this.responseListeners.indexOf(listener)
@@ -163,7 +154,6 @@ export class RemoteAudioEngine {
       // Set up one-time listener for this response type
       const listener = (response: any) => {
         if (response.type === expectedResponseType) {
-          console.log(`[RemoteAudioEngine] Received expected response type ${expectedResponseType}:`, response)
           clearTimeout(timeoutId)
           // Remove listener
           const index = this.responseListeners.indexOf(listener)
@@ -178,7 +168,6 @@ export class RemoteAudioEngine {
 
       try {
         this.ws.send(JSON.stringify(command))
-        console.log('[RemoteAudioEngine] Command sent to WebSocket')
       } catch (error) {
         clearTimeout(timeoutId)
         // Remove listener on send error
@@ -702,8 +691,6 @@ export class RemoteAudioEngine {
 
   // License management
   async getLicense(): Promise<any> {
-    console.log('[RemoteAudioEngine] Requesting license from Rust...')
-    console.log('[RemoteAudioEngine] WebSocket state:', this.ws?.readyState)
     
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.error('[RemoteAudioEngine] WebSocket not connected!')
@@ -720,7 +707,6 @@ export class RemoteAudioEngine {
       this.pendingLicenseRequest = true
       
       const response = await this.sendAndWaitForResponse({ type: 'get_license' }, 'license', 5000)
-      console.log('[RemoteAudioEngine] License received:', response)
       
       // Clear the pending flag after receiving response
       this.pendingLicenseRequest = false

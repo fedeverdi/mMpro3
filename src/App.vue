@@ -25,7 +25,6 @@ const { error: showError } = useNotifications()
 
 // Initialize audio engine during splash screen
 const initializeEngine = async () => {
-  console.log('[App] Initializing Rust audio engine...')
   
   try {
     // Load available audio devices from Rust engine (outputs)
@@ -40,13 +39,11 @@ const initializeEngine = async () => {
     // If in remote mode, give WebSocket time to sync engine state
     const isRemoteMode = !(window as any).electronAPI
     if (isRemoteMode) {
-      console.log('[App] Remote mode - waiting for state synchronization...')
       await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms for state sync
     }
     
     // Pre-initialize engine (but don't start audio yet - requires user interaction)
     engineReady.value = true
-    console.log('[App] Engine and devices ready')
   } catch (error) {
     console.error('[App] Failed to initialize engine:', error)
     

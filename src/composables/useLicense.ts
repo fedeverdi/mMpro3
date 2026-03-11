@@ -36,16 +36,13 @@ async function loadStoredLicense() {
       const maxRetries = 10
       
       while (!window.audioEngine && retries < maxRetries) {
-        console.log('[useLicense] Waiting for audioEngine to be ready...')
         await new Promise(resolve => setTimeout(resolve, 200))
         retries++
       }
       
       if (window.audioEngine && typeof window.audioEngine.getLicense === 'function') {
         try {
-          console.log('[useLicense] Remote client requesting license from Rust...')
           const license = await window.audioEngine.getLicense()
-          console.log('[useLicense] Remote client received license:', license)
           
           if (license && license.key !== 'DEMO') {
             currentLicense.value = {
@@ -56,7 +53,6 @@ async function loadStoredLicense() {
             }
             // Save to localStorage AFTER Rust confirms
             localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(currentLicense.value))
-            console.log('[useLicense] License loaded from Rust (remote):', currentLicense.value?.type)
             return
           }
         } catch (err) {
@@ -123,19 +119,14 @@ function ensureInitialized() {
     
     // For remote clients, listen to license updates from Rust engine
     const isRemoteClient = !(window as any).electronAPI
-    if (isRemoteClient) {
-      console.log('[useLicense] Setting up remote client license listener')
-      
+    if (isRemoteClient) {      
       // Wait for initial loading to complete before setting up the listener
       // This prevents reload loops during initial license fetch
       initPromise.finally(() => {
         setTimeout(() => {
-          console.log('[useLicense] Initial license loaded, now listening for updates')
           
           window.addEventListener('license-updated', ((event: CustomEvent) => {
             const license = event.detail
-            console.log('[useLicense] Remote license update received:', license.license_type)
-            console.log('[useLicense] Current license:', currentLicense.value?.type)
             
             // Only reload if the license actually changed
             const hasChanged = 
@@ -144,12 +135,9 @@ function ensureInitialized() {
               currentLicense.value.key !== license.key
             
             if (!hasChanged) {
-              console.log('[useLicense] License unchanged, skipping reload')
               return
             }
-            
-            console.log('[useLicense] License changed from', currentLicense.value?.type, 'to', license.license_type)
-            
+                        
             // Update the current license
             currentLicense.value = {
               key: license.key,
