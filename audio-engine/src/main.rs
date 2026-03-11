@@ -446,34 +446,7 @@ enum Response {
     #[serde(rename = "subgroup_created")]
     SubgroupCreated { id: usize },
     
-    // LEGACY: Full state (kept for backwards compatibility, will be deprecated)
-    #[serde(rename = "levels")]
-    Levels {
-        tracks: Vec<TrackLevels>,
-        subgroups: Vec<SubgroupLevels>,
-        auxes: Vec<AuxLevels>,
-        master_l: f32,
-        master_r: f32,
-        master_gain: f32,
-        master_gain_left: f32,
-        master_gain_right: f32,
-        master_mute: bool,
-        master_linked: bool,
-        master_eq_filters: Vec<ParametricFilter>,
-        selected_master_output: Option<String>,
-        available_output_devices: Vec<DeviceInfo>,
-        headroom_peak_l: Option<f32>,
-        headroom_peak_r: Option<f32>,
-        headroom_l: Option<f32>,
-        headroom_r: Option<f32>,
-        headroom_stereo: Option<f32>,
-        loudness_data: Option<LoudnessDataStruct>,
-        dynamic_range_data: Option<DynamicRangeDataStruct>,
-        phase_correlation_data: Option<PhaseCorrelationDataStruct>,
-        stereo_width_data: Option<StereoWidthDataStruct>,
-    },
-    
-    // NEW: Optimized meters stream (60fps) - Only real-time data that changes continuously
+    // Optimized meters stream (60fps) - Only real-time data that changes continuously
     #[serde(rename = "meters")]
     Meters {
         tracks: Vec<TrackMeters>,
@@ -686,70 +659,6 @@ struct MasterParameters {
     available_output_devices: Option<Vec<DeviceInfo>>,
 }
 
-// === LEGACY STRUCTS (for backwards compatibility) ===
-
-#[derive(Debug, Serialize, Clone)]
-struct TrackLevels {
-    track: usize,
-    level_l: f32,
-    level_r: f32,
-    waveform: Vec<f32>,
-    phase_correlation: f32,
-    compressor_input_db: f32,
-    compressor_reduction_db: f32,
-    gate_input_db: f32,
-    gate_attenuation_db: f32,
-    file_ended: bool,
-    eq_filters: Vec<ParametricFilter>,
-    file_name: String,
-    file_artist: Option<String>,
-    file_title: Option<String>,
-    is_stereo: bool,
-    is_playing: bool,
-    // Track parameters (for full state sync)
-    gain: f32,
-    volume: f32,
-    mute: bool,
-    pan: f32,
-    route_to_master: bool,
-    route_to_subgroups: Vec<usize>,
-    pad_enabled: bool,
-    hpf_enabled: bool,
-    phase_inverted: bool,
-    // Compressor parameters
-    compressor_enabled: bool,
-    compressor_threshold_db: f32,
-    compressor_ratio: f32,
-    compressor_attack_ms: f32,
-    compressor_release_ms: f32,
-    // Gate parameters
-    gate_enabled: bool,
-    gate_threshold_db: f32,
-    gate_range_db: f32,
-    gate_attack_ms: f32,
-    gate_release_ms: f32,
-    // EQ parameters
-    eq_enabled: bool,
-    parametric_eq_enabled: bool,
-    eq_low: f32,
-    eq_low_mid: f32,
-    eq_high_mid: f32,
-    eq_high: f32,
-    // Aux sends
-    aux_sends: Vec<AuxSendData>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-struct SubgroupLevels {
-    subgroup: usize,
-    level_l: f32,
-    level_r: f32,
-    gain: f32,
-    mute: bool,
-    route_to_master: bool,
-    selected_output: Option<String>,
-}
-
 #[derive(Debug, Serialize, Clone)]
 struct AuxSendData {
     level: f32,
@@ -773,23 +682,6 @@ struct AuxDelayParams {
     delay_time_r_ms: f32,
     feedback: f32,
     mix: f32,
-}
-
-#[derive(Debug, Serialize, Clone)]
-struct AuxLevels {
-    aux: usize,
-    level_l: f32,
-    level_r: f32,
-    gain: f32,
-    mute: bool,
-    route_to_master: bool,
-    route_to_subgroups: Vec<usize>,
-    output_enabled: bool,
-    output_channel_selection_left: u16,
-    output_channel_selection_right: u16,
-    selected_output: Option<String>,
-    reverb: AuxReverbParams,
-    delay: AuxDelayParams,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -1482,143 +1374,41 @@ impl AudioEngine {
                     let levels_to_send = if *counter >= meter_interval {
                         *counter = 0;
                         
-                        // Copy levels data while we have the lock
-                        // Send data for ALL tracks (need parameters for UI sync even without source)
-                        let track_levels: Vec<TrackLevels> = router.tracks.iter()
-                            .map(|t| {
-                                TrackLevels {
-                                    track: t.id,
-                                    level_l: t.level_l,
-                                    level_r: t.level_r,
-                                    waveform: t.get_waveform_buffer(128), // 128 samples for efficient streaming
-                                    phase_correlation: t.phase_correlation,
+                        // Build meter structs directly (optimized - no legacy intermediate structs)
+                        let track_meters: Vec<TrackMeters> = router.tracks.iter()
+                            .map(|t| TrackMeters {
+                                track: t.id,
+                                level_l: t.level_l,
+                                level_r: t.level_r,
+                                waveform: t.get_waveform_buffer(128),
+                                phase_correlation: t.phase_correlation,
                                 compressor_input_db: t.compressor.input_level_db,
                                 compressor_reduction_db: t.compressor.gain_reduction_db,
                                 gate_input_db: t.gate.input_level_db,
                                 gate_attenuation_db: t.gate.attenuation_db,
                                 file_ended: t.file_player.as_ref().map_or(false, |p| p.file_ended),
-                                eq_filters: t.parametric_eq.export_filters()
-                                    .iter()
-                                    .map(|f| ParametricFilter {
-                                        filter_type: f.filter_type.clone(),
-                                        frequency: f.frequency,
-                                        gain: f.gain,
-                                        q: f.q,
-                                    })
-                                    .collect(),
-                                // File player state
-                                file_name: t.file_player.as_ref().map_or(String::new(), |p| p.file_name.clone()),
-                                file_artist: t.file_player.as_ref().and_then(|p| p.file_artist.clone()),
-                                file_title: t.file_player.as_ref().and_then(|p| p.file_title.clone()),
-                                is_stereo: t.file_player.as_ref().map_or(false, |p| p.channels >= 2),
                                 is_playing: t.file_player.as_ref().map_or(false, |p| p.playing),
-                                // Track parameters
-                                gain: t.gain,
-                                volume: t.volume,
-                                mute: t.mute,
-                                pan: t.pan,
-                                route_to_master: t.route_to_master,
-                                route_to_subgroups: t.route_to_subgroups.clone(),
-                                pad_enabled: t.pad_enabled,
-                                hpf_enabled: t.hpf_enabled,
-                                phase_inverted: t.phase_inverted,
-                                // Compressor parameters
-                                compressor_enabled: t.compressor.is_enabled(),
-                                compressor_threshold_db: t.compressor.get_threshold_db(),
-                                compressor_ratio: t.compressor.get_ratio(),
-                                compressor_attack_ms: t.compressor.get_attack_ms(),
-                                compressor_release_ms: t.compressor.get_release_ms(),
-                                // Gate parameters
-                                gate_enabled: t.gate.is_enabled(),
-                                gate_threshold_db: t.gate.get_threshold_db(),
-                                gate_range_db: t.gate.get_range_db(),
-                                gate_attack_ms: t.gate.get_attack_ms(),
-                                gate_release_ms: t.gate.get_release_ms(),
-                                // EQ parameters
-                                eq_enabled: t.equalizer.is_enabled(),
-                                parametric_eq_enabled: t.parametric_eq.is_enabled(),
-                                eq_low: t.equalizer.get_low_shelf(),
-                                eq_low_mid: t.equalizer.get_low_mid(),
-                                eq_high_mid: t.equalizer.get_high_mid(),
-                                eq_high: t.equalizer.get_high_shelf(),
-                                // Aux sends
-                                aux_sends: t.aux_sends.iter()
-                                    .map(|send| AuxSendData {
-                                        level: send.level,
-                                        pre_fader: send.pre_fader,
-                                        muted: send.muted,
-                                    })
-                                    .collect(),
-                                }
+                            })
+                            .collect();
+                        
+                        let subgroup_meters: Vec<SubgroupMeters> = router.subgroups.iter()
+                            .map(|sg| SubgroupMeters {
+                                subgroup: sg.id,
+                                level_l: sg.level_l,
+                                level_r: sg.level_r,
+                            })
+                            .collect();
+                        
+                        let aux_meters: Vec<AuxMeters> = router.aux_buses.iter()
+                            .map(|aux| AuxMeters {
+                                aux: aux.id,
+                                level_l: aux.level_l,
+                                level_r: aux.level_r,
                             })
                             .collect();
                         
                         let master_l = router.master.level_l;
                         let master_r = router.master.level_r;
-                        let master_gain = router.master.gain;
-                        let master_gain_left = router.master.gain_left;
-                        let master_gain_right = router.master.gain_right;
-                        let master_mute = router.master.mute;
-                        let master_linked = router.master.linked;
-                        
-                        // Collect master EQ filters
-                        let master_eq_filters: Vec<ParametricFilter> = router.master.parametric_eq.export_filters()
-                            .iter()
-                            .map(|f| ParametricFilter {
-                                filter_type: f.filter_type.clone(),
-                                frequency: f.frequency,
-                                gain: f.gain,
-                                q: f.q,
-                            })
-                            .collect();
-                        
-                        // Collect subgroup levels
-                        let subgroup_levels: Vec<SubgroupLevels> = router
-                            .subgroups
-                            .iter()
-                            .map(|sg| SubgroupLevels {
-                                subgroup: sg.id,
-                                level_l: sg.level_l,
-                                level_r: sg.level_r,
-                                gain: sg.gain,
-                                mute: sg.mute,
-                                route_to_master: sg.route_to_master,
-                                selected_output: sg.selected_output.clone(),
-                            })
-                            .collect();
-                        
-                        // Collect aux bus levels
-                        let aux_levels: Vec<AuxLevels> = router
-                            .aux_buses
-                            .iter()
-                            .map(|aux| AuxLevels {
-                                aux: aux.id,
-                                level_l: aux.level_l,
-                                level_r: aux.level_r,
-                                gain: aux.gain,
-                                mute: aux.mute,
-                                route_to_master: aux.route_to_master,
-                                route_to_subgroups: aux.route_to_subgroups.clone(),
-                                output_enabled: aux.output_enabled,
-                                output_channel_selection_left: aux.output_channel_selection.left,
-                                output_channel_selection_right: aux.output_channel_selection.right,
-                                selected_output: aux.selected_output.clone(),
-                                reverb: AuxReverbParams {
-                                    enabled: aux.reverb.is_enabled(),
-                                    room_size: aux.reverb.get_room_size(),
-                                    damping: aux.reverb.get_damping(),
-                                    wet: aux.reverb.get_wet(),
-                                    width: aux.reverb.get_width(),
-                                },
-                                delay: AuxDelayParams {
-                                    enabled: aux.delay.is_enabled(),
-                                    delay_time_l_ms: aux.delay.get_delay_time_l_ms(),
-                                    delay_time_r_ms: aux.delay.get_delay_time_r_ms(),
-                                    feedback: aux.delay.get_feedback(),
-                                    mix: aux.delay.get_mix(),
-                                },
-                            })
-                            .collect();
                         
                         // Collect headroom data
                         let headroom_data = router.headroom_meter.get_measurement();
@@ -1669,19 +1459,13 @@ impl AudioEngine {
                             subgroup.reset_levels();
                         }
                         
-                        // Return data to serialize outside the lock
+                        // Return meter data to serialize outside the lock
                         Some((
-                            track_levels, 
-                            subgroup_levels,
-                            aux_levels,
-                            master_l, 
+                            track_meters,
+                            subgroup_meters,
+                            aux_meters,
+                            master_l,
                             master_r,
-                            master_gain,
-                            master_gain_left,
-                            master_gain_right,
-                            master_mute,
-                            master_linked,
-                            master_eq_filters,
                             headroom_data,
                             loudness_data,
                             dynamic_range_data,
@@ -1705,50 +1489,17 @@ impl AudioEngine {
                 if !suspended {
                     // Send meter updates outside the lock
                     if let Some((
-                        track_levels, 
-                        subgroup_levels,
-                        aux_levels,
-                        master_l, 
+                        track_meters,
+                        subgroup_meters,
+                        aux_meters,
+                        master_l,
                         master_r,
-                        master_gain,
-                        master_gain_left,
-                        master_gain_right,
-                        master_mute,
-                        master_linked,
-                        master_eq_filters,
                         headroom_data,
                         loudness_data,
                         dynamic_range_data,
                         phase_correlation_data,
                         stereo_width_data
                     )) = levels_to_send {
-                        // Send optimized meters-only format (real-time data at 60fps)
-                        let track_meters: Vec<TrackMeters> = track_levels.iter().map(|t| TrackMeters {
-                            track: t.track,
-                            level_l: t.level_l,
-                            level_r: t.level_r,
-                            waveform: t.waveform.clone(),
-                            phase_correlation: t.phase_correlation,
-                            compressor_input_db: t.compressor_input_db,
-                            compressor_reduction_db: t.compressor_reduction_db,
-                            gate_input_db: t.gate_input_db,
-                            gate_attenuation_db: t.gate_attenuation_db,
-                            file_ended: t.file_ended,
-                            is_playing: t.is_playing,
-                        }).collect();
-                        
-                        let subgroup_meters: Vec<SubgroupMeters> = subgroup_levels.iter().map(|sg| SubgroupMeters {
-                            subgroup: sg.subgroup,
-                            level_l: sg.level_l,
-                            level_r: sg.level_r,
-                        }).collect();
-                        
-                        let aux_meters: Vec<AuxMeters> = aux_levels.iter().map(|aux| AuxMeters {
-                            aux: aux.aux,
-                            level_l: aux.level_l,
-                            level_r: aux.level_r,
-                        }).collect();
-                        
                         let headroom_struct = HeadroomDataStruct {
                             peak_l: headroom_data.peak_l,
                             peak_r: headroom_data.peak_r,
