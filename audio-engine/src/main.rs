@@ -1307,11 +1307,21 @@ impl AudioEngine {
                                 let (aux_l, aux_r) = router.last_aux_outputs[i];
                                 let aux_left_ch = aux_bus.output_channel_selection.left as usize;
                                 let aux_right_ch = aux_bus.output_channel_selection.right as usize;
-                                if aux_left_ch < output_channels {
-                                    data[out_frame_start + aux_left_ch] += aux_l.clamp(-1.0, 1.0);
-                                }
-                                if aux_right_ch < output_channels {
-                                    data[out_frame_start + aux_right_ch] += aux_r.clamp(-1.0, 1.0);
+                                
+                                // If both channels are the same, send mono mix to single channel
+                                if aux_left_ch == aux_right_ch {
+                                    let mono = (aux_l + aux_r) * 0.5;
+                                    if aux_left_ch < output_channels {
+                                        data[out_frame_start + aux_left_ch] += mono.clamp(-1.0, 1.0);
+                                    }
+                                } else {
+                                    // Send stereo to different channels
+                                    if aux_left_ch < output_channels {
+                                        data[out_frame_start + aux_left_ch] += aux_l.clamp(-1.0, 1.0);
+                                    }
+                                    if aux_right_ch < output_channels {
+                                        data[out_frame_start + aux_right_ch] += aux_r.clamp(-1.0, 1.0);
+                                    }
                                 }
                             }
                         }

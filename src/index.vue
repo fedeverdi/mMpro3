@@ -965,7 +965,10 @@ async function handleLoadScene(scene: any) {
               if (aux.selectedOutputDevice) {
                 const parts = aux.selectedOutputDevice.split(':')
                 const actualDeviceId = parts[0]
-                const channel = parts[1] ? parseInt(parts[1]) : 0
+                // UI channels are 1-based, backend is 0-based
+                const uiChannel = parts[1] ? parseInt(parts[1]) : 1
+                const backendChannel = uiChannel - 1
+                const channel = backendChannel
 
                 if (actualDeviceId === 'no-output' || actualDeviceId === null) {
                   audioEngine.setAuxBusOutputEnabled(auxIndex, false)
@@ -1226,11 +1229,15 @@ async function updateAux(index: number, updatedAux: AuxBus) {
       // Save selected output to backend (same as Master/Subgroup does)
       await audioEngine.setAuxBusSelectedOutput(auxId, deviceId)
 
-      // Parse device ID (format: "deviceId" or "deviceId:leftCh:rightCh")
+      // Parse device ID (format: "deviceId" or "deviceId:channel" for mono aux)
       const parts = deviceId?.split(':') || []
       const actualDeviceId = parts[0]
-      const leftChannel = parts[1] ? parseInt(parts[1]) : 0
-      const rightChannel = parts[2] ? parseInt(parts[2]) : 1
+      // UI channels are 1-based (Ch 1, Ch 2, etc), backend is 0-based
+      // For mono aux, use same channel for both left and right
+      const uiChannel = parts[1] ? parseInt(parts[1]) : 1 // Default to Ch 1
+      const backendChannel = uiChannel - 1 // Convert to 0-based
+      const leftChannel = backendChannel
+      const rightChannel = backendChannel // Same channel for mono
 
       // If "no-output" is selected, disable direct output
       if (actualDeviceId === 'no-output' || actualDeviceId === null) {
