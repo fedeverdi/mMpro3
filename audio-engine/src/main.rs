@@ -444,6 +444,7 @@ enum Response {
     Levels {
         tracks: Vec<TrackLevels>,
         subgroups: Vec<SubgroupLevels>,
+        auxes: Vec<AuxLevels>,
         master_l: f32,
         master_r: f32,
         master_gain: f32,
@@ -581,6 +582,8 @@ struct TrackLevels {
     eq_low_mid: f32,
     eq_high_mid: f32,
     eq_high: f32,
+    // Aux sends
+    aux_sends: Vec<AuxSendData>,
 }
 
 #[derive(Debug, Serialize)]
@@ -592,6 +595,27 @@ struct SubgroupLevels {
     mute: bool,
     route_to_master: bool,
     selected_output: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct AuxSendData {
+    level: f32,
+    pre_fader: bool,
+    muted: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct AuxLevels {
+    aux: usize,
+    level_l: f32,
+    level_r: f32,
+    gain: f32,
+    mute: bool,
+    route_to_master: bool,
+    route_to_subgroups: Vec<usize>,
+    output_enabled: bool,
+    output_channel_selection_left: u16,
+    output_channel_selection_right: u16,
 }
 
 #[derive(Debug, Serialize)]
@@ -807,7 +831,20 @@ struct AudioEngine {
 impl AudioEngine {
     fn new() -> Self {
         let audio_io = AudioIO::new();
-        let router = Arc::new(Mutex::new(Router::new(24))); // Support up to 24 tracks
+        
+        // Load license to determine number of aux buses
+        let num_aux_buses = match load_license_from_file() {
+            Ok(license) => {
+                if license.license_type == "full" {
+                    6 // Full license gets 6 aux buses
+                } else {
+                    1 // Demo and other licenses get 1 aux bus
+                }
+            }
+            Err(_) => 1 // Default to 1 aux bus if license can't be loaded
+        };
+        
+        let router = Arc::new(Mutex::new(Router::new(24, num_aux_buses))); // Support up to 24 tracks + dynamic aux count
         let updates_suspended = Arc::new(AtomicBool::new(false));
         let input_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
         let input_channels = Arc::new(AtomicUsize::new(2)); // Default stereo
@@ -1320,6 +1357,14 @@ impl AudioEngine {
                                 eq_low_mid: t.equalizer.get_low_mid(),
                                 eq_high_mid: t.equalizer.get_high_mid(),
                                 eq_high: t.equalizer.get_high_shelf(),
+                                // Aux sends
+                                aux_sends: t.aux_sends.iter()
+                                    .map(|send| AuxSendData {
+                                        level: send.level,
+                                        pre_fader: send.pre_fader,
+                                        muted: send.muted,
+                                    })
+                                    .collect(),
                                 }
                             })
                             .collect();
@@ -1355,6 +1400,24 @@ impl AudioEngine {
                                 mute: sg.mute,
                                 route_to_master: sg.route_to_master,
                                 selected_output: sg.selected_output.clone(),
+                            })
+                            .collect();
+                        
+                        // Collect aux bus levels
+                        let aux_levels: Vec<AuxLevels> = router
+                            .aux_buses
+                            .iter()
+                            .map(|aux| AuxLevels {
+                                aux: aux.id,
+                                level_l: aux.level_l,
+                                level_r: aux.level_r,
+                                gain: aux.gain,
+                                mute: aux.mute,
+                                route_to_master: aux.route_to_master,
+                                route_to_subgroups: aux.route_to_subgroups.clone(),
+                                output_enabled: aux.output_enabled,
+                                output_channel_selection_left: aux.output_channel_selection.left,
+                                output_channel_selection_right: aux.output_channel_selection.right,
                             })
                             .collect();
                         
@@ -1410,7 +1473,8 @@ impl AudioEngine {
                         // Return data to serialize outside the lock
                         Some((
                             track_levels, 
-                            subgroup_levels, 
+                            subgroup_levels,
+                            aux_levels,
                             master_l, 
                             master_r,
                             master_gain,
@@ -1443,7 +1507,8 @@ impl AudioEngine {
                     // Send meter updates outside the lock
                     if let Some((
                         track_levels, 
-                        subgroup_levels, 
+                        subgroup_levels,
+                        aux_levels,
                         master_l, 
                         master_r,
                         master_gain,
@@ -1464,6 +1529,7 @@ impl AudioEngine {
                         let response = Response::Levels {
                             tracks: track_levels,
                             subgroups: subgroup_levels,
+                            auxes: aux_levels,
                             master_l,
                             master_r,
                             master_gain,

@@ -722,11 +722,11 @@ function handleAuxSendsUpdate(sends: Record<string, { level: number, preFader: b
   // Send to Rust engine for each aux
   if (audioEngine?.state.value.isRunning) {
     Object.entries(sends).forEach(([auxId, send]) => {
-      // Extract numeric index from aux ID (handles "aux1", "aux-1", etc.)
-      const auxIndex = parseInt(auxId.replace(/\D/g, '')) - 1
+      // Extract numeric index from aux ID (aux-0, aux-1, etc. - already 0-based)
+      const auxIndex = parseInt(auxId.replace(/\D/g, ''))
       // Convert dB to linear gain
       const linearGain = Math.pow(10, send.level / 20)
-      audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+      audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader ?? false, send.muted)
     })
   }
 }
@@ -749,6 +749,7 @@ function updateAuxSend(auxId: string | number, level: number) {
   newAuxSends[auxKey] = {
     ...newAuxSends[auxKey],
     level: level,
+    preFader: newAuxSends[auxKey].preFader ?? false,
     // Auto-unmute if level > -60
     muted: level > -60 ? false : newAuxSends[auxKey].muted
   }
@@ -759,10 +760,10 @@ function updateAuxSend(auxId: string | number, level: number) {
   // Send to Rust engine
   if (audioEngine?.state.value.isRunning) {
     const send = newAuxSends[auxKey]
-    // Convert aux ID to numeric index (0-based)
-    const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
+    // Extract numeric index from aux ID (aux-0, aux-1, etc. - already 0-based)
+    const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
     const linearGain = Math.pow(10, send.level / 20)
-    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader ?? false, send.muted)
   }
 }
 
@@ -792,9 +793,9 @@ function toggleAuxPrePost(auxId: string | number) {
   // Send to Rust engine
   if (audioEngine?.state.value.isRunning) {
     const send = newAuxSends[auxKey]
-    const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
+    const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
     const linearGain = Math.pow(10, send.level / 20)
-    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader ?? false, send.muted)
   }
 }
 
@@ -824,9 +825,9 @@ function toggleAuxMute(auxId: string | number) {
   // Send to Rust engine
   if (audioEngine?.state.value.isRunning) {
     const send = newAuxSends[auxKey]
-    const auxIndex = typeof auxId === 'number' ? auxId - 1 : parseInt(auxId.replace(/\D/g, '')) - 1
+    const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
     const linearGain = Math.pow(10, send.level / 20)
-    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader, send.muted)
+    audioEngine.setTrackAuxSend(props.trackNumber - 1, auxIndex, linearGain, send.preFader ?? false, send.muted)
   }
 }
 

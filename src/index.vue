@@ -1169,23 +1169,26 @@ async function removeAux(index: number) {
 async function updateAux(index: number, updatedAux: AuxBus) {
   if (index >= 0 && index < auxBuses.value.length) {
     const aux = auxBuses.value[index]
+    
+    // Extract aux ID from string (e.g., "aux-0" -> 0)
+    const auxId = parseInt(aux.id.replace('aux-', ''))
 
     // Send updates to Rust engine
     if (audioEngine.state.value.isRunning) {
       // Update volume (gain)
       if (updatedAux.volume !== aux.volume) {
         const linearGain = Math.pow(10, updatedAux.volume / 20)
-        audioEngine.setAuxBusGain(index, linearGain)
+        audioEngine.setAuxBusGain(auxId, linearGain)
       }
 
       // Update mute
       if (updatedAux.muted !== aux.muted) {
-        audioEngine.setAuxBusMute(index, updatedAux.muted)
+        audioEngine.setAuxBusMute(auxId, updatedAux.muted)
       }
 
       // Update routing to master
       if (updatedAux.routeToMaster !== aux.routeToMaster) {
-        audioEngine.setAuxBusRouteToMaster(index, updatedAux.routeToMaster)
+        audioEngine.setAuxBusRouteToMaster(auxId, updatedAux.routeToMaster)
       }
 
       // Update reverb enabled state
@@ -1199,7 +1202,7 @@ async function updateAux(index: number, updatedAux: AuxBus) {
         const width = reverbParams?.width ?? 1.0
 
         audioEngine.setAuxBusReverb(
-          index,
+          auxId,
           enabled,
           roomSize,
           damping,
@@ -1217,7 +1220,7 @@ async function updateAux(index: number, updatedAux: AuxBus) {
         const wet = delayParams?.wet ?? 0.5
 
         audioEngine.setAuxBusDelay(
-          index,
+          auxId,
           enabled,
           time * 1000,  // Convert seconds to milliseconds
           feedback,
@@ -1237,13 +1240,13 @@ async function updateAux(index: number, updatedAux: AuxBus) {
 
       // If "no-output" is selected, disable direct output
       if (actualDeviceId === 'no-output' || actualDeviceId === null) {
-        audioEngine.setAuxBusOutputEnabled(index, false)
+        audioEngine.setAuxBusOutputEnabled(auxId, false)
       } else {
         // Enable direct output when a device is selected
-        audioEngine.setAuxBusOutputEnabled(index, true)
+        audioEngine.setAuxBusOutputEnabled(auxId, true)
 
         // Aux are mono: use same channel for both L and R
-        audioEngine.setAuxBusOutputChannels(index, channel, channel)
+        audioEngine.setAuxBusOutputChannels(auxId, channel, channel)
       }
     }
 
@@ -1460,6 +1463,87 @@ onMounted(async () => {
     // Sort by ID to maintain order
     subgroups.value.sort((a, b) => a.id - b.id)
   })
+
+  // Sync aux buses from backend (both Electron and remote browser)
+  // Watch the auxLevels Map directly to detect changes
+  watch(() => audioEngineState.value.auxLevels, (newAuxLevels) => {
+    // Get all aux IDs from the backend
+    const backendAuxIds = new Set(Array.from(newAuxLevels.keys()))
+    
+    // If backend has no aux buses, don't clear the frontend yet
+    // (wait for data to arrive)
+    if (backendAuxIds.size === 0) {
+      return
+    }
+    
+    // Remove aux buses that no longer exist in backend
+    auxBuses.value = auxBuses.value.filter(aux => {
+      const auxId = parseInt(aux.id.replace('aux-', ''))
+      return backendAuxIds.has(auxId)
+    })
+    
+    // Add or update aux buses from backend
+    for (const [auxId, auxData] of newAuxLevels.entries()) {
+      const auxIdStr = `aux-${auxId}`
+      const existingAuxIndex = auxBuses.value.findIndex(aux => aux.id === auxIdStr)
+      
+      if (existingAuxIndex === -1) {
+        // Create new aux bus in frontend
+        const name = `AUX ${auxId + 1}`
+        auxBuses.value.push({
+          id: auxIdStr,
+          name,
+          volume: auxData.gain !== undefined ? 20 * Math.log10(Math.max(0.00001, auxData.gain)) : 0,
+          muted: auxData.mute ?? false,
+          soloed: false,
+          routeToMaster: auxData.routeToMaster ?? true,
+          selectedOutputDevice: null,
+          node: null,
+          outputNode: null,
+          outputStreamDest: null,
+          reverbEnabled: false,
+          delayEnabled: false
+        })
+      } else {
+        // Update existing aux bus from backend data
+        const existingAux = auxBuses.value[existingAuxIndex]
+        auxBuses.value[existingAuxIndex] = {
+          ...existingAux,
+          volume: auxData.gain !== undefined ? 20 * Math.log10(Math.max(0.00001, auxData.gain)) : existingAux.volume,
+          muted: auxData.mute ?? existingAux.muted,
+          routeToMaster: auxData.routeToMaster ?? existingAux.routeToMaster,
+          // Keep frontend-only state (name, nodes, FX params)
+        }
+      }
+    }
+    
+    // Sort by ID to maintain order
+    auxBuses.value.sort((a, b) => {
+      const aId = parseInt(a.id.replace('aux-', ''))
+      const bId = parseInt(b.id.replace('aux-', ''))
+      return aId - bId
+    })
+  }, { deep: true })
+
+  // Sync track aux sends from backend
+  // Watch trackParameters to sync aux sends for all tracks
+  watch(() => audioEngineState.value.trackParameters, (newTrackParams) => {
+    for (const [trackId, params] of newTrackParams.entries()) {
+      if (params.auxSends && params.auxSends.length > 0) {
+        // Convert array of aux sends to keyed object
+        const auxSendsObj: AuxSendConfig = {}
+        params.auxSends.forEach((send: { level: number, preFader: boolean, muted: boolean }, index: number) => {
+          const auxId = `aux-${index}`
+          auxSendsObj[auxId] = {
+            level: send.level,
+            preFader: send.preFader,
+            muted: send.muted
+          }
+        })
+        trackAuxSends.value.set(trackId, auxSendsObj)
+      }
+    }
+  }, { deep: true })
 
   // Add event listener for subgroup creation
   window.addEventListener('subgroup-created', handleSubgroupCreated as EventListener)

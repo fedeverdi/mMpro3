@@ -868,11 +868,11 @@ pub struct Router {
 }
 
 impl Router {
-    pub fn new(num_tracks: usize) -> Self {
+    pub fn new(num_tracks: usize, num_aux_buses: usize) -> Self {
         let tracks = (0..num_tracks).map(Track::new).collect();
         
-        // Initialize 6 aux buses by default
-        let aux_buses = (0..MAX_AUX_BUSES).map(|i| AuxBus::new(i, 48000.0)).collect();
+        // Initialize aux buses based on license
+        let aux_buses = (0..num_aux_buses).map(|i| AuxBus::new(i, 48000.0)).collect();
         
         // Initialize 2 subgroups by default
         let subgroups = vec![
@@ -895,7 +895,7 @@ impl Router {
             last_aux_outputs: Vec::new(),
             // Pre-allocate buffers with initial capacity (will grow as needed)
             track_outputs_buffer: Vec::with_capacity(num_tracks),
-            aux_outputs_buffer: Vec::with_capacity(MAX_AUX_BUSES),
+            aux_outputs_buffer: Vec::with_capacity(num_aux_buses),
             subgroup_outputs_buffer: Vec::with_capacity(8), // Start with capacity for 8 subgroups
         }
     }

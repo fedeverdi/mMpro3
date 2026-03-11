@@ -64,6 +64,8 @@ export interface AudioEngineState {
     fileTitle?: string
     isStereo: boolean
     isPlaying: boolean
+    // Aux sends
+    auxSends: Array<{ level: number, preFader: boolean, muted: boolean }>
   }>
   subgroupLevels: Map<number, { 
     left: number; 
@@ -72,6 +74,17 @@ export interface AudioEngineState {
     mute: boolean;
     routeToMaster: boolean;
     selectedOutput?: string | null;
+  }>
+  auxLevels: Map<number, {
+    left: number;
+    right: number;
+    gain: number;
+    mute: boolean;
+    routeToMaster: boolean;
+    routeToSubgroups: number[];
+    outputEnabled: boolean;
+    outputChannelSelectionLeft: number;
+    outputChannelSelectionRight: number;
   }>
   masterLevels: { 
     left: number; 
@@ -151,6 +164,7 @@ const state = ref<AudioEngineState>({
   trackEQFilters: new Map(),
   trackParameters: new Map(),
   subgroupLevels: new Map(),
+  auxLevels: new Map(),
   masterLevels: { left: -60, right: -60, gain: 1.0, gainLeft: 1.0, gainRight: 1.0, mute: false, linked: true, selectedMasterOutput: null },
   masterEQFilters: [],
   fftData: null,
@@ -274,7 +288,9 @@ export const useAudioEngine = () => {
                   fileArtist: trackLevel.file_artist,
                   fileTitle: trackLevel.file_title,
                   isStereo: trackLevel.is_stereo ?? false,
-                  isPlaying: trackLevel.is_playing ?? false
+                  isPlaying: trackLevel.is_playing ?? false,
+                  // Aux sends
+                  auxSends: trackLevel.aux_sends || []
                 })
                 
                 // Trigger ref only if routeToSubgroups changed to update component watchers
@@ -302,6 +318,30 @@ export const useAudioEngine = () => {
                 mute: subgroupLevel.mute ?? false,
                 routeToMaster: subgroupLevel.route_to_master ?? false,
                 selectedOutput: subgroupLevel.selected_output
+              })
+            })
+          }
+
+          if (response.auxes) {
+            response.auxes.forEach((auxLevel: any) => {
+              const leftDb = auxLevel.level_l > 0.0
+                ? 20 * Math.log10(auxLevel.level_l)
+                : -90
+
+              const rightDb = auxLevel.level_r > 0.0
+                ? 20 * Math.log10(auxLevel.level_r)
+                : -90
+
+              state.value.auxLevels.set(auxLevel.aux, {
+                left: leftDb,
+                right: rightDb,
+                gain: auxLevel.gain ?? 1.0,
+                mute: auxLevel.mute ?? false,
+                routeToMaster: auxLevel.route_to_master ?? false,
+                routeToSubgroups: auxLevel.route_to_subgroups ?? [],
+                outputEnabled: auxLevel.output_enabled ?? false,
+                outputChannelSelectionLeft: auxLevel.output_channel_selection_left ?? 0,
+                outputChannelSelectionRight: auxLevel.output_channel_selection_right ?? 1,
               })
             })
           }
