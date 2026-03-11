@@ -85,6 +85,7 @@ export interface AudioEngineState {
     outputEnabled: boolean;
     outputChannelSelectionLeft: number;
     outputChannelSelectionRight: number;
+    selectedOutput?: string | null;
     reverb: {
       enabled: boolean;
       roomSize: number;
@@ -356,6 +357,7 @@ export const useAudioEngine = () => {
                 outputEnabled: auxLevel.output_enabled ?? false,
                 outputChannelSelectionLeft: auxLevel.output_channel_selection_left ?? 0,
                 outputChannelSelectionRight: auxLevel.output_channel_selection_right ?? 1,
+                selectedOutput: auxLevel.selected_output ?? null,
                 reverb: {
                   enabled: auxLevel.reverb?.enabled ?? false,
                   roomSize: auxLevel.reverb?.room_size ?? 0.3,
@@ -941,6 +943,11 @@ export const useAudioEngine = () => {
     window.audioEngine.setAuxBusRouteToSubgroup(aux, subgroup, route)
   }
 
+  const setAuxBusSelectedOutput = (aux: number, deviceId: string | null) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setAuxBusSelectedOutput(aux, deviceId)
+  }
+
   const setTrackSourceAuxReturn = (track: number, aux: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
     window.audioEngine.setTrackSourceAuxReturn(track, aux)
@@ -1083,6 +1090,7 @@ export const useAudioEngine = () => {
     setAuxBusOutputEnabled,
     setAuxBusOutputChannels,
     setAuxBusRouteToSubgroup,
+    setAuxBusSelectedOutput,
     setTrackSourceAuxReturn,
     getInputDevices,
     getOutputDevices,

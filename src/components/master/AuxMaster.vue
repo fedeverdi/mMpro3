@@ -103,7 +103,7 @@
 
                 <!-- Output Device Selector with Routing (unified modal) -->
                 <div class="flex gap-1 bg-gray-900 rounded mt-0.5">
-                    <AuxOutputSelector class="w-2/3" title="Aux Output & Routing" :devices="audioOutputDevices"
+                    <AuxOutputSelector class="w-2/3" title="Aux Output & Routing" :devices="availableDevices"
                         :selected-device-id="aux.selectedOutputDevice || 'no-output'"
                         :route-to-master="auxRouting[index]?.toMaster || false"
                         :routed-subgroups="auxRouting[index]?.toSubgroups || new Set()" :subgroups="subgroups"
@@ -224,7 +224,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, inject, toRaw, onMounted } from 'vue'
+import { ref, computed, watch, inject, toRaw, onMounted } from 'vue'
 import Knob from '../core/Knob.vue'
 import AuxOutputSelector from './AuxOutputSelector.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
@@ -236,6 +236,7 @@ interface AuxBus {
     muted: boolean
     soloed: boolean
     routeToMaster: boolean
+    routeToSubgroups?: number[]
     selectedOutputDevice?: string | null
     node?: any  // Input node
     outputNode?: any  // Output node (final node of FX chain)
@@ -264,6 +265,16 @@ const emit = defineEmits<{
 
 const { audioOutputDevices } = useAudioDevices()
 const audioEngine = inject('audioEngine') as any
+
+// Computed: use devices from Electron IPC or from backend websocket (for remote)
+const availableDevices = computed(() => {
+    // If we have devices from Electron IPC, use those
+    if (audioOutputDevices.value && audioOutputDevices.value.length > 0) {
+        return audioOutputDevices.value
+    }
+    // Otherwise use devices from backend state (websocket for remote)
+    return audioEngine?.state.value.availableOutputDevices || []
+})
 
 const selectedReverbAux = ref<number | null>(null)
 const selectedDelayAux = ref<number | null>(null)
@@ -313,12 +324,25 @@ watch(() => props.auxBuses, (newVal) => {
                 // Initialize if doesn't exist
                 auxRouting.value[index] = {
                     toMaster: aux.routeToMaster ?? false,  // Initialize from aux state
-                    toSubgroups: new Set()
+                    toSubgroups: new Set(aux.routeToSubgroups ?? [])  // Initialize from backend
                 }
-            } else if (auxRouting.value[index].toMaster !== (aux.routeToMaster ?? false)) {
-                // Sync toMaster if it changed (keep toSubgroups unchanged)
-                // This ensures UI stays in sync with aux state during scene loads
-                auxRouting.value[index].toMaster = aux.routeToMaster ?? false
+            } else {
+                // Sync toMaster if it changed
+                if (auxRouting.value[index].toMaster !== (aux.routeToMaster ?? false)) {
+                    auxRouting.value[index].toMaster = aux.routeToMaster ?? false
+                }
+                
+                // Sync toSubgroups if it changed (compare arrays)
+                const backendSubgroups = new Set(aux.routeToSubgroups ?? [])
+                const currentSubgroups = auxRouting.value[index].toSubgroups
+                
+                // Check if sets are different
+                const areDifferent = backendSubgroups.size !== currentSubgroups.size ||
+                    [...backendSubgroups].some(sg => !currentSubgroups.has(sg))
+                
+                if (areDifferent) {
+                    auxRouting.value[index].toSubgroups = backendSubgroups
+                }
             }
         })
     }

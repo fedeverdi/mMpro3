@@ -1021,6 +1021,10 @@ ipcMain.handle('audio-engine:set-aux-bus-route-to-subgroup', async (_, aux: numb
   await sendCommandToEngine({ type: 'set_aux_bus_route_to_subgroup', aux, subgroup, route })
 })
 
+ipcMain.handle('audio-engine:set-aux-bus-selected-output', async (_, aux: number, deviceId: string | null) => {
+  await sendCommandToEngine({ type: 'set_aux_bus_selected_output', aux, device_id: deviceId })
+})
+
 ipcMain.handle('audio-engine:set-track-source-aux-return', async (_, track: number, aux: number) => {
   await sendCommandToEngine({ type: 'set_track_source_aux_return', track, aux })
 })

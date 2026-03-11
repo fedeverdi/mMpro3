@@ -118,6 +118,8 @@ contextBridge.exposeInMainWorld('audioEngine', {
     ipcRenderer.invoke('audio-engine:set-aux-bus-output-channels', aux, leftChannel, rightChannel),
   setAuxBusRouteToSubgroup: (aux: number, subgroup: number, route: boolean) =>
     ipcRenderer.invoke('audio-engine:set-aux-bus-route-to-subgroup', aux, subgroup, route),
+  setAuxBusSelectedOutput: (aux: number, deviceId: string | null) =>
+    ipcRenderer.invoke('audio-engine:set-aux-bus-selected-output', aux, deviceId),
   setTrackSourceAuxReturn: (track: number, aux: number) =>
     ipcRenderer.invoke('audio-engine:set-track-source-aux-return', track, aux),
   

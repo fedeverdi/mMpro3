@@ -771,6 +771,7 @@ pub struct AuxBus {
     pub route_to_subgroups: Vec<usize>, // Which subgroups to route this aux to
     pub output_enabled: bool, // Controls direct output (independent from route_to_master)
     pub output_channel_selection: ChannelSelection,
+    pub selected_output: Option<String>, // Device ID for selected output
     
     // FX Chain
     pub reverb: Reverb,
@@ -791,6 +792,7 @@ impl AuxBus {
             route_to_subgroups: Vec::new(), // No subgroup routing by default
             output_enabled: false, // No direct output by default
             output_channel_selection: ChannelSelection::stereo(),
+            selected_output: None,
             reverb: Reverb::new(sample_rate),
             delay: Delay::new(sample_rate),
             level_l: 0.0,

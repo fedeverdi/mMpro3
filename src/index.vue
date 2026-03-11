@@ -237,6 +237,7 @@ interface AuxBus {
   muted: boolean
   soloed: boolean
   routeToMaster: boolean
+  routeToSubgroups?: number[]
   selectedOutputDevice?: string | null
   node?: any  // Input node (Channel)
   outputNode?: any  // Output node (final node of FX chain)
@@ -1233,10 +1234,14 @@ async function updateAux(index: number, updatedAux: AuxBus) {
     if (updatedAux.selectedOutputDevice !== aux.selectedOutputDevice) {
       const deviceId = updatedAux.selectedOutputDevice
 
-      // Parse device ID (format: "deviceId" or "deviceId:ch" for mono)
+      // Save selected output to backend (same as Master/Subgroup does)
+      await audioEngine.setAuxBusSelectedOutput(auxId, deviceId)
+
+      // Parse device ID (format: "deviceId" or "deviceId:leftCh:rightCh")
       const parts = deviceId?.split(':') || []
       const actualDeviceId = parts[0]
-      const channel = parts[1] ? parseInt(parts[1]) : 0
+      const leftChannel = parts[1] ? parseInt(parts[1]) : 0
+      const rightChannel = parts[2] ? parseInt(parts[2]) : 1
 
       // If "no-output" is selected, disable direct output
       if (actualDeviceId === 'no-output' || actualDeviceId === null) {
@@ -1245,8 +1250,8 @@ async function updateAux(index: number, updatedAux: AuxBus) {
         // Enable direct output when a device is selected
         audioEngine.setAuxBusOutputEnabled(auxId, true)
 
-        // Aux are mono: use same channel for both L and R
-        audioEngine.setAuxBusOutputChannels(auxId, channel, channel)
+        // Set channel selection (aux buses can be stereo)
+        audioEngine.setAuxBusOutputChannels(auxId, leftChannel, rightChannel)
       }
     }
 
@@ -1497,7 +1502,8 @@ onMounted(async () => {
           muted: auxData.mute ?? false,
           soloed: false,
           routeToMaster: auxData.routeToMaster ?? true,
-          selectedOutputDevice: null,
+          routeToSubgroups: auxData.routeToSubgroups ?? [],
+          selectedOutputDevice: auxData.selectedOutput ?? null,
           node: null,
           outputNode: null,
           outputStreamDest: null,
@@ -1523,6 +1529,8 @@ onMounted(async () => {
           volume: auxData.gain !== undefined ? 20 * Math.log10(Math.max(0.00001, auxData.gain)) : existingAux.volume,
           muted: auxData.mute ?? existingAux.muted,
           routeToMaster: auxData.routeToMaster ?? existingAux.routeToMaster,
+          routeToSubgroups: auxData.routeToSubgroups ?? existingAux.routeToSubgroups ?? [],
+          selectedOutputDevice: auxData.selectedOutput ?? existingAux.selectedOutputDevice,
           reverbEnabled: auxData.reverb?.enabled ?? existingAux.reverbEnabled,
           reverbParams: auxData.reverb ? {
             roomSize: auxData.reverb.roomSize ?? existingAux.reverbParams?.roomSize ?? 0.3,

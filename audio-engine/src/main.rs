@@ -354,6 +354,11 @@ enum Command {
         subgroup: usize,
         route: bool,
     },
+    #[serde(rename = "set_aux_bus_selected_output")]
+    SetAuxBusSelectedOutput {
+        aux: usize,
+        device_id: Option<String>,
+    },
     #[serde(rename = "set_track_source_aux_return")]
     SetTrackSourceAuxReturn {
         track: usize,
@@ -634,6 +639,7 @@ struct AuxLevels {
     output_enabled: bool,
     output_channel_selection_left: u16,
     output_channel_selection_right: u16,
+    selected_output: Option<String>,
     reverb: AuxReverbParams,
     delay: AuxDelayParams,
 }
@@ -1438,6 +1444,7 @@ impl AudioEngine {
                                 output_enabled: aux.output_enabled,
                                 output_channel_selection_left: aux.output_channel_selection.left,
                                 output_channel_selection_right: aux.output_channel_selection.right,
+                                selected_output: aux.selected_output.clone(),
                                 reverb: AuxReverbParams {
                                     enabled: aux.reverb.is_enabled(),
                                     room_size: aux.reverb.get_room_size(),
@@ -2926,6 +2933,14 @@ impl AudioEngine {
             }
             Command::SetAuxBusRouteToSubgroup { aux, subgroup, route } => {
                 self.set_aux_bus_route_to_subgroup(aux, subgroup, route);
+                None
+            }
+            Command::SetAuxBusSelectedOutput { aux, device_id } => {
+                if let Ok(mut router) = self.router.try_lock() {
+                    if let Some(aux_bus) = router.aux_buses.iter_mut().find(|a| a.id == aux) {
+                        aux_bus.selected_output = device_id;
+                    }
+                }
                 None
             }
             Command::SetTrackSourceAuxReturn { track, aux } => {
