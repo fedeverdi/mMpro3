@@ -117,8 +117,24 @@ const handleDragEnd = () => {
   isDraggingVolume.value = false
 }
 
-// Audio outputs from engine (same source as Master)
-const audioOutputDevices: ComputedRef<AudioDevice[]> = computed(() => audioEngine?.state.value.availableOutputDevices || [])
+// Audio outputs from engine - filtered to show only the same physical device as Master
+const audioOutputDevices: ComputedRef<AudioDevice[]> = computed(() => {
+  const allDevices = audioEngine?.state.value.availableOutputDevices || []
+  
+  // Get the physical device ID selected on master (before the ":")
+  const masterSelectedOutput = audioEngine?.state.value.masterLevels.selectedMasterOutput
+  
+  if (!masterSelectedOutput || masterSelectedOutput === 'no-output') {
+    // If master has no output selected, show all devices
+    return allDevices
+  }
+  
+  // Extract physical device ID from master selection (format: "deviceId" or "deviceId:ch1:ch2")
+  const masterDeviceId = masterSelectedOutput.split(':')[0]
+  
+  // Filter to show only the same physical device
+  return allDevices.filter(device => device.id === masterDeviceId)
+})
 
 // Container and dynamic height
 const metersContainer = ref<HTMLElement | null>(null)
