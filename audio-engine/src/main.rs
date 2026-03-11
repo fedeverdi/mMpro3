@@ -605,6 +605,24 @@ struct AuxSendData {
 }
 
 #[derive(Debug, Serialize)]
+struct AuxReverbParams {
+    enabled: bool,
+    room_size: f32,
+    damping: f32,
+    wet: f32,
+    width: f32,
+}
+
+#[derive(Debug, Serialize)]
+struct AuxDelayParams {
+    enabled: bool,
+    delay_time_l_ms: f32,
+    delay_time_r_ms: f32,
+    feedback: f32,
+    mix: f32,
+}
+
+#[derive(Debug, Serialize)]
 struct AuxLevels {
     aux: usize,
     level_l: f32,
@@ -616,6 +634,8 @@ struct AuxLevels {
     output_enabled: bool,
     output_channel_selection_left: u16,
     output_channel_selection_right: u16,
+    reverb: AuxReverbParams,
+    delay: AuxDelayParams,
 }
 
 #[derive(Debug, Serialize)]
@@ -1418,6 +1438,20 @@ impl AudioEngine {
                                 output_enabled: aux.output_enabled,
                                 output_channel_selection_left: aux.output_channel_selection.left,
                                 output_channel_selection_right: aux.output_channel_selection.right,
+                                reverb: AuxReverbParams {
+                                    enabled: aux.reverb.is_enabled(),
+                                    room_size: aux.reverb.get_room_size(),
+                                    damping: aux.reverb.get_damping(),
+                                    wet: aux.reverb.get_wet(),
+                                    width: aux.reverb.get_width(),
+                                },
+                                delay: AuxDelayParams {
+                                    enabled: aux.delay.is_enabled(),
+                                    delay_time_l_ms: aux.delay.get_delay_time_l_ms(),
+                                    delay_time_r_ms: aux.delay.get_delay_time_r_ms(),
+                                    feedback: aux.delay.get_feedback(),
+                                    mix: aux.delay.get_mix(),
+                                },
                             })
                             .collect();
                         

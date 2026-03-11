@@ -84,6 +84,27 @@ impl Delay {
         }
     }
     
+    // Getter methods for serialization
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+    
+    pub fn get_delay_time_l_ms(&self) -> f32 {
+        self.delay_time_l_ms
+    }
+    
+    pub fn get_delay_time_r_ms(&self) -> f32 {
+        self.delay_time_r_ms
+    }
+    
+    pub fn get_feedback(&self) -> f32 {
+        self.feedback
+    }
+    
+    pub fn get_mix(&self) -> f32 {
+        self.mix
+    }
+    
     /// Update sample rate and reallocate buffers if needed
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;

@@ -192,6 +192,27 @@ impl Reverb {
         self.width = width.clamp(0.0, 1.0);
     }
     
+    // Getter methods for serialization
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+    
+    pub fn get_room_size(&self) -> f32 {
+        self.room_size
+    }
+    
+    pub fn get_damping(&self) -> f32 {
+        self.damping
+    }
+    
+    pub fn get_wet(&self) -> f32 {
+        self.wet
+    }
+    
+    pub fn get_width(&self) -> f32 {
+        self.width
+    }
+    
     fn update_comb_filters(&mut self) {
         let feedback = OFFSET_ROOM + (self.room_size * SCALE_ROOM);
         let damping = self.damping * SCALE_DAMPING;

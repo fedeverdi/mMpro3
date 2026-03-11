@@ -85,6 +85,20 @@ export interface AudioEngineState {
     outputEnabled: boolean;
     outputChannelSelectionLeft: number;
     outputChannelSelectionRight: number;
+    reverb: {
+      enabled: boolean;
+      roomSize: number;
+      damping: number;
+      wet: number;
+      width: number;
+    };
+    delay: {
+      enabled: boolean;
+      delayTimeLMs: number;
+      delayTimeRMs: number;
+      feedback: number;
+      mix: number;
+    };
   }>
   masterLevels: { 
     left: number; 
@@ -342,6 +356,20 @@ export const useAudioEngine = () => {
                 outputEnabled: auxLevel.output_enabled ?? false,
                 outputChannelSelectionLeft: auxLevel.output_channel_selection_left ?? 0,
                 outputChannelSelectionRight: auxLevel.output_channel_selection_right ?? 1,
+                reverb: {
+                  enabled: auxLevel.reverb?.enabled ?? false,
+                  roomSize: auxLevel.reverb?.room_size ?? 0.3,
+                  damping: auxLevel.reverb?.damping ?? 0.5,
+                  wet: auxLevel.reverb?.wet ?? 0.3,
+                  width: auxLevel.reverb?.width ?? 1.0,
+                },
+                delay: {
+                  enabled: auxLevel.delay?.enabled ?? false,
+                  delayTimeLMs: auxLevel.delay?.delay_time_l_ms ?? 250.0,
+                  delayTimeRMs: auxLevel.delay?.delay_time_r_ms ?? 375.0,
+                  feedback: auxLevel.delay?.feedback ?? 0.3,
+                  mix: auxLevel.delay?.mix ?? 0.3,
+                },
               })
             })
           }

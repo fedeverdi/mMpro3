@@ -1501,8 +1501,19 @@ onMounted(async () => {
           node: null,
           outputNode: null,
           outputStreamDest: null,
-          reverbEnabled: false,
-          delayEnabled: false
+          reverbEnabled: auxData.reverb?.enabled ?? false,
+          reverbParams: auxData.reverb ? {
+            roomSize: auxData.reverb.roomSize ?? 0.3,
+            damping: auxData.reverb.damping ?? 0.5,
+            wet: auxData.reverb.wet ?? 0.3,
+            width: auxData.reverb.width ?? 1.0,
+          } : { roomSize: 0.3, damping: 0.5, wet: 0.3, width: 1.0 },
+          delayEnabled: auxData.delay?.enabled ?? false,
+          delayParams: auxData.delay ? {
+            delayTime: auxData.delay.delayTimeLMs ?? 250.0,
+            feedback: auxData.delay.feedback ?? 0.3,
+            wet: auxData.delay.mix ?? 0.3,
+          } : { delayTime: 250.0, feedback: 0.3, wet: 0.3 }
         })
       } else {
         // Update existing aux bus from backend data
@@ -1512,7 +1523,20 @@ onMounted(async () => {
           volume: auxData.gain !== undefined ? 20 * Math.log10(Math.max(0.00001, auxData.gain)) : existingAux.volume,
           muted: auxData.mute ?? existingAux.muted,
           routeToMaster: auxData.routeToMaster ?? existingAux.routeToMaster,
-          // Keep frontend-only state (name, nodes, FX params)
+          reverbEnabled: auxData.reverb?.enabled ?? existingAux.reverbEnabled,
+          reverbParams: auxData.reverb ? {
+            roomSize: auxData.reverb.roomSize ?? existingAux.reverbParams?.roomSize ?? 0.3,
+            damping: auxData.reverb.damping ?? existingAux.reverbParams?.damping ?? 0.5,
+            wet: auxData.reverb.wet ?? existingAux.reverbParams?.wet ?? 0.3,
+            width: auxData.reverb.width ?? existingAux.reverbParams?.width ?? 1.0,
+          } : existingAux.reverbParams,
+          delayEnabled: auxData.delay?.enabled ?? existingAux.delayEnabled,
+          delayParams: auxData.delay ? {
+            delayTime: auxData.delay.delayTimeLMs ?? existingAux.delayParams?.delayTime ?? 250.0,
+            feedback: auxData.delay.feedback ?? existingAux.delayParams?.feedback ?? 0.3,
+            wet: auxData.delay.mix ?? existingAux.delayParams?.wet ?? 0.3,
+          } : existingAux.delayParams,
+          // Keep frontend-only state (name, nodes)
         }
       }
     }
