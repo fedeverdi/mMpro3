@@ -877,7 +877,6 @@ impl Router {
         // Initialize 2 subgroups by default
         let subgroups = vec![
             SubgroupBus::new(0),
-            SubgroupBus::new(1),
         ];
         
         Self {
