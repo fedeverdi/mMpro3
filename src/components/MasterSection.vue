@@ -354,9 +354,12 @@ onMounted(async () => {
   // No need to refresh them here
 
   // Initialize selectedMasterOutput from backend
-  if (audioEngine?.state.value.masterLevels.selectedMasterOutput) {
-    selectedMasterOutput.value = audioEngine.state.value.masterLevels.selectedMasterOutput
-    lastBackendMasterOutput.value = audioEngine.state.value.masterLevels.selectedMasterOutput
+  // The Rust backend auto-selects the default device on startup
+  const backendSelected = audioEngine?.state.value.masterLevels.selectedMasterOutput
+  
+  if (backendSelected) {
+    selectedMasterOutput.value = backendSelected
+    lastBackendMasterOutput.value = backendSelected
   }
 
   // Calculate initial height

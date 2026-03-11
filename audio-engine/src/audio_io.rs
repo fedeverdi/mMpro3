@@ -11,6 +11,7 @@ pub struct DeviceInfo {
     pub input_channels: u16,
     pub output_channels: u16,
     pub default_sample_rate: u32,
+    pub is_default: bool, // True if this is the system default device
 }
 
 pub struct AudioIO {
@@ -27,10 +28,15 @@ impl AudioIO {
     pub fn list_devices(&self) -> Result<Vec<DeviceInfo>> {
         let mut devices = Vec::new();
 
+        // Get default device names
+        let default_output_name = self.host
+            .default_output_device()
+            .and_then(|d| d.name().ok());
+
         // Input devices
         if let Ok(input_devices) = self.host.input_devices() {
             for device in input_devices {
-                if let Ok(info) = self.get_device_info(&device, true) {
+                if let Ok(info) = self.get_device_info(&device, true, default_output_name.as_deref()) {
                     devices.push(info);
                 }
             }
@@ -39,7 +45,7 @@ impl AudioIO {
         // Output devices
         if let Ok(output_devices) = self.host.output_devices() {
             for device in output_devices {
-                if let Ok(info) = self.get_device_info(&device, false) {
+                if let Ok(info) = self.get_device_info(&device, false, default_output_name.as_deref()) {
                     // Check if device already in list (some devices are both input/output)
                     if !devices.iter().any(|d| d.name == info.name) {
                         devices.push(info);
@@ -47,6 +53,10 @@ impl AudioIO {
                         // Update existing device with output channels
                         if let Some(existing) = devices.iter_mut().find(|d| d.name == info.name) {
                             existing.output_channels = info.output_channels;
+                            // Update is_default if this is an output device
+                            if info.is_default {
+                                existing.is_default = true;
+                            }
                         }
                     }
                 }
@@ -57,7 +67,7 @@ impl AudioIO {
     }
 
     /// Get device info
-    fn get_device_info(&self, device: &Device, is_input: bool) -> Result<DeviceInfo> {
+    fn get_device_info(&self, device: &Device, is_input: bool, default_output_name: Option<&str>) -> Result<DeviceInfo> {
         let name = device.name()?;
         
         // Try to get supported configs
@@ -93,12 +103,16 @@ impl AudioIO {
                 .unwrap_or(44100)
         };
 
+        // Check if this device is the default output device
+        let is_default = !is_input && default_output_name.map_or(false, |def| def == name);
+
         Ok(DeviceInfo {
             id: name.clone(),
             name,
             input_channels: if is_input { channels } else { 0 },
             output_channels: if !is_input { channels } else { 0 },
             default_sample_rate: sample_rate,
+            is_default,
         })
     }
 

@@ -46,28 +46,6 @@
               </div>
             </button>
             
-            <!-- Default/Off Option -->
-            <button
-              @click="selectDevice('')"
-              class="w-full p-4 rounded-lg border-2 transition-all text-left"
-              :class="getDeviceSelectionClass('')"
-            >
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <div class="text-2xl">{{ defaultIcon }}</div>
-                  <div>
-                    <div class="font-semibold">{{ defaultLabel }}</div>
-                    <div class="text-xs opacity-70">{{ defaultDescription }}</div>
-                  </div>
-                </div>
-                <div v-if="isSelected('')" class="text-blue-300">
-                  <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-                  </svg>
-                </div>
-              </div>
-            </button>
-
             <!-- Audio Output Devices with Channel Selection -->
             <div v-for="device in devices" :key="device.id" class="space-y-1">
               <!-- Device Button -->

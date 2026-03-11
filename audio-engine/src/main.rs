@@ -2873,6 +2873,7 @@ impl AudioEngine {
                                             input_channels: device.input_channels,
                                             output_channels: device.output_channels,
                                             default_sample_rate: device.default_sample_rate,
+                                            is_default: false, // Individual channels are not marked as default
                                         }
                                     }).collect::<Vec<_>>()
                                 } else {
@@ -3118,6 +3119,26 @@ fn main() -> Result<()> {
     eprintln!("[Engine] mMpro3 Audio Engine starting...");
 
     let mut engine = AudioEngine::new();
+    
+    // Auto-select default output device on startup
+    match engine.list_devices() {
+        Ok(devices) => {
+            // Find default output device
+            if let Some(default_device) = devices.iter().find(|d| d.is_default && d.output_channels > 0) {
+                let default_selection = format!("{}:0:1", default_device.id);
+                engine.selected_master_output = Some(default_selection.clone());
+                eprintln!("[Engine] Auto-selected default output: {} ({})", default_device.name, default_selection);
+            }
+            // Store available output devices for serialization
+            engine.available_output_devices = devices.into_iter()
+                .filter(|d| d.output_channels > 0)
+                .collect();
+        }
+        Err(e) => {
+            eprintln!("[Engine] Warning: Could not enumerate devices for auto-selection: {}", e);
+        }
+    }
+    
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
 

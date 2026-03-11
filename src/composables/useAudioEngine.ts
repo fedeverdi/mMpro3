@@ -7,6 +7,7 @@ export interface AudioDevice {
   input_channels: number
   output_channels: number
   default_sample_rate: number
+  is_default: boolean
 }
 
 export interface AudioEngineState {
