@@ -1505,10 +1505,10 @@ onMounted(async () => {
           } : { roomSize: 0.3, damping: 0.5, wet: 0.3, width: 1.0 },
           delayEnabled: auxData.delay?.enabled ?? false,
           delayParams: auxData.delay ? {
-            delayTime: auxData.delay.delayTimeLMs ?? 250.0,
+            delayTime: (auxData.delay.delayTimeLMs ?? 250.0) / 1000, // Convert ms to seconds
             feedback: auxData.delay.feedback ?? 0.3,
             wet: auxData.delay.mix ?? 0.3,
-          } : { delayTime: 250.0, feedback: 0.3, wet: 0.3 }
+          } : { delayTime: 0.25, feedback: 0.3, wet: 0.3 }
         })
       } else {
         // Update existing aux bus from backend data
@@ -1529,7 +1529,7 @@ onMounted(async () => {
           } : existingAux.reverbParams,
           delayEnabled: auxData.delay?.enabled ?? existingAux.delayEnabled,
           delayParams: auxData.delay ? {
-            delayTime: auxData.delay.delayTimeLMs ?? existingAux.delayParams?.delayTime ?? 250.0,
+            delayTime: (auxData.delay.delayTimeLMs ? auxData.delay.delayTimeLMs / 1000 : existingAux.delayParams?.delayTime ?? 0.25), // Convert ms to seconds
             feedback: auxData.delay.feedback ?? existingAux.delayParams?.feedback ?? 0.3,
             wet: auxData.delay.mix ?? existingAux.delayParams?.wet ?? 0.3,
           } : existingAux.delayParams,

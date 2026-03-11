@@ -151,15 +151,24 @@
                     <div class="flex flex-wrap gap-4 justify-center">
                         <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.roomSize || 0.5"
                             @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'roomSize', val)"
+                            @dragStart="isDraggingReverbParams[selectedReverbAux!] = true"
+                            @dragEnd="isDraggingReverbParams[selectedReverbAux!] = false"
                             :min="0" :max="1" :step="0.01" label="Room Size" unit="" color="#10b981" />
                         <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.damping || 0.5"
                             @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'damping', val)"
+                            @dragStart="isDraggingReverbParams[selectedReverbAux!] = true"
+                            @dragEnd="isDraggingReverbParams[selectedReverbAux!] = false"
                             :min="0" :max="1" :step="0.01" label="Damping" unit="" color="#f59e0b" />
                         <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.wet ?? 1.0"
-                            @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'wet', val)" :min="0"
+                            @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'wet', val)"
+                            @dragStart="isDraggingReverbParams[selectedReverbAux!] = true"
+                            @dragEnd="isDraggingReverbParams[selectedReverbAux!] = false"
+                            :min="0"
                             :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
                         <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.width || 1.0"
                             @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'width', val)"
+                            @dragStart="isDraggingReverbParams[selectedReverbAux!] = true"
+                            @dragEnd="isDraggingReverbParams[selectedReverbAux!] = false"
                             :min="0" :max="1" :step="0.01" label="Width" unit="" color="#8b5cf6" />
                     </div>
                     <div class="mt-4 text-xs text-gray-400 text-center">
@@ -188,12 +197,19 @@
                     <div class="flex flex-wrap gap-4 justify-center">
                         <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.delayTime || 0.25"
                             @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'delayTime', val)"
+                            @dragStart="isDraggingDelayParams[selectedDelayAux!] = true"
+                            @dragEnd="isDraggingDelayParams[selectedDelayAux!] = false"
                             :min="0.01" :max="2" :step="0.01" label="Time" unit="s" color="#3b82f6" />
                         <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.feedback || 0.3"
                             @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'feedback', val)"
+                            @dragStart="isDraggingDelayParams[selectedDelayAux!] = true"
+                            @dragEnd="isDraggingDelayParams[selectedDelayAux!] = false"
                             :min="0" :max="0.95" :step="0.01" label="Feedback" unit="%" color="#8b5cf6" />
                         <Knob :modelValue="auxBuses[selectedDelayAux]?.delayParams?.wet ?? 1.0"
-                            @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'wet', val)" :min="0"
+                            @update:modelValue="(val) => updateAuxDelayParam(selectedDelayAux!, 'wet', val)"
+                            @dragStart="isDraggingDelayParams[selectedDelayAux!] = true"
+                            @dragEnd="isDraggingDelayParams[selectedDelayAux!] = false"
+                            :min="0"
                             :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
                     </div>
 
@@ -284,6 +300,10 @@ const auxBuses = ref<AuxBus[]>(props.auxBuses || [])
 const openReverbPopover = ref<number | null>(null)
 const openDelayPopover = ref<number | null>(null)
 
+// Drag state tracking for FX params (prevent backend overwrite during drag)
+const isDraggingReverbParams = ref<Record<number, boolean>>({})
+const isDraggingDelayParams = ref<Record<number, boolean>>({})
+
 // Routing state for each aux
 interface AuxRoutingState {
     toMaster: boolean
@@ -301,10 +321,25 @@ onMounted(() => {
     // Initialization complete
 })
 
-// Watch for prop changes
+// Watch for prop changes (sync from backend, but preserve local state during drag)
 watch(() => props.auxBuses, (newVal) => {
     if (newVal) {
-        auxBuses.value = newVal
+        auxBuses.value = newVal.map((aux, index) => {
+            const existingAux = auxBuses.value[index]
+            // Only sync reverb params if not dragging
+            const reverbParams = (isDraggingReverbParams.value[index] && existingAux?.reverbParams)
+                ? existingAux.reverbParams
+                : aux.reverbParams
+            // Only sync delay params if not dragging
+            const delayParams = (isDraggingDelayParams.value[index] && existingAux?.delayParams)
+                ? existingAux.delayParams
+                : aux.delayParams
+            return {
+                ...aux,
+                reverbParams,
+                delayParams
+            }
+        })
     }
 }, { deep: true })
 
@@ -469,53 +504,61 @@ function showDelayModal(index: number) {
 
 // Update single reverb parameter
 function updateAuxReverbParam(index: number, param: 'roomSize' | 'damping' | 'wet' | 'width', value: number) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = props.auxBuses[index]
+    if (!auxBuses.value || !auxBuses.value[index]) return
+    const aux = auxBuses.value[index]
     
     // Extract aux ID from string (e.g., "aux-0" -> 0)
     const auxId = parseInt(aux.id.replace('aux-', ''))
 
-    // Update internal params object
-    if (!aux.reverbParams) {
-        aux.reverbParams = { roomSize: 0.5, damping: 0.5, wet: 1.0, width: 1.0 }
+    // Update local params object (trigger reactivity by creating new object)
+    const currentParams = aux.reverbParams || { roomSize: 0.5, damping: 0.5, wet: 1.0, width: 1.0 }
+    auxBuses.value[index] = {
+        ...aux,
+        reverbParams: {
+            ...currentParams,
+            [param]: value
+        }
     }
-    aux.reverbParams[param] = value
 
     // Send all parameters to Rust backend
     if (audioEngine && audioEngine.state.value.isRunning && aux.reverbEnabled) {
         audioEngine.setAuxBusReverb(
             auxId, 
             true, 
-            aux.reverbParams.roomSize, 
-            aux.reverbParams.damping, 
-            aux.reverbParams.wet, 
-            aux.reverbParams.width
+            auxBuses.value[index].reverbParams!.roomSize, 
+            auxBuses.value[index].reverbParams!.damping, 
+            auxBuses.value[index].reverbParams!.wet, 
+            auxBuses.value[index].reverbParams!.width
         )
     }
 }
 
 // Update single delay parameter
 function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback' | 'wet', value: number) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = props.auxBuses[index]
+    if (!auxBuses.value || !auxBuses.value[index]) return
+    const aux = auxBuses.value[index]
     
     // Extract aux ID from string (e.g., "aux-0" -> 0)
     const auxId = parseInt(aux.id.replace('aux-', ''))
 
-    // Update internal params object
-    if (!aux.delayParams) {
-        aux.delayParams = { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
+    // Update local params object (trigger reactivity by creating new object)
+    const currentParams = aux.delayParams || { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
+    auxBuses.value[index] = {
+        ...aux,
+        delayParams: {
+            ...currentParams,
+            [param]: value
+        }
     }
-    aux.delayParams[param] = value
 
     // Send all parameters to Rust backend (convert time from seconds to milliseconds)
     if (audioEngine && audioEngine.state.value.isRunning && aux.delayEnabled) {
         audioEngine.setAuxBusDelay(
             auxId,
             true,
-            aux.delayParams.delayTime * 1000,  // Convert seconds to milliseconds
-            aux.delayParams.feedback,
-            aux.delayParams.wet
+            auxBuses.value[index].delayParams!.delayTime * 1000,  // Convert seconds to milliseconds
+            auxBuses.value[index].delayParams!.feedback,
+            auxBuses.value[index].delayParams!.wet
         )
     }
 }
