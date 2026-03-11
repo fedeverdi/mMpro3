@@ -800,7 +800,7 @@ struct AudioEngine {
     recording_format: Arc<Mutex<String>>, // Recording format ("wav", "mp3", "opus")
     output_sender: mpsc::SyncSender<String>, // Non-blocking channel for sending updates to frontend
     ndi_stream: Arc<NdiStream>, // NDI audio streaming
-    selected_master_output: Option<String>, // Selected master output device ID
+    selected_master_output: Arc<Mutex<Option<String>>>, // Selected master output device ID
     available_output_devices: Vec<DeviceInfo>, // List of available output devices
 }
 
@@ -860,7 +860,7 @@ impl AudioEngine {
             recording_format,
             output_sender,
             ndi_stream,
-            selected_master_output: None,
+            selected_master_output: Arc::new(Mutex::new(None)),
             available_output_devices: Vec::new(),
         }
     }
@@ -1088,8 +1088,8 @@ impl AudioEngine {
         let recording_bit_depth = Arc::clone(&self.recording_bit_depth);
         let ndi_stream = Arc::clone(&self.ndi_stream);
         
-        // Clone selected output for thread-safe access in closure
-        let selected_master_output = self.selected_master_output.clone();
+        // Clone Arc for selected output (thread-safe shared access)
+        let selected_master_output = Arc::clone(&self.selected_master_output);
         
         // Clone available output devices for thread-safe access in closure
         let available_output_devices = self.available_output_devices.clone();
@@ -1458,6 +1458,9 @@ impl AudioEngine {
                         phase_correlation_data,
                         stereo_width_data
                     )) = levels_to_send {
+                        // Read current selected_master_output value
+                        let selected_out = selected_master_output.lock().unwrap().clone();
+                        
                         let response = Response::Levels {
                             tracks: track_levels,
                             subgroups: subgroup_levels,
@@ -1469,7 +1472,7 @@ impl AudioEngine {
                             master_mute,
                             master_linked,
                             master_eq_filters,
-                            selected_master_output: selected_master_output.clone(),
+                            selected_master_output: selected_out,
                             available_output_devices: available_output_devices.clone(),
                             headroom_peak_l: Some(headroom_data.peak_l),
                             headroom_peak_r: Some(headroom_data.peak_r),
@@ -2677,7 +2680,7 @@ impl AudioEngine {
                 None
             }
             Command::SetSelectedMasterOutput { device_id } => {
-                self.selected_master_output = device_id;
+                *self.selected_master_output.lock().unwrap() = device_id;
                 None
             }
             Command::SetMasterCompressor {
@@ -3126,7 +3129,7 @@ fn main() -> Result<()> {
             // Find default output device
             if let Some(default_device) = devices.iter().find(|d| d.is_default && d.output_channels > 0) {
                 let default_selection = format!("{}:0:1", default_device.id);
-                engine.selected_master_output = Some(default_selection.clone());
+                *engine.selected_master_output.lock().unwrap() = Some(default_selection.clone());
                 eprintln!("[Engine] Auto-selected default output: {} ({})", default_device.name, default_selection);
             }
             // Store available output devices for serialization

@@ -134,9 +134,6 @@ const audioOutputDevices: ComputedRef<AudioDevice[]> = computed(() => audioEngin
 const selectedHeadphonesOutput = ref<string | null>(null)
 const selectedMasterOutput = ref<string | null>(null)
 
-// Track last known backend value for selectedMasterOutput
-const lastBackendMasterOutput = ref<string | null>(null)
-
 // Container and dynamic height
 const metersContainer = ref<HTMLElement | null>(null)
 const vuMetersHeight = ref(0)
@@ -164,12 +161,7 @@ const resizeTrigger = inject<Ref<number>>('resizeTrigger', ref(0))
 
 // Handle master output selection
 async function onMasterOutputSelect(deviceId: string | null) {
-  console.log('[Master] Output selected:', deviceId)
-  
   if (!audioEngine) return
-
-  // Update local value immediately for UI responsiveness
-  selectedMasterOutput.value = deviceId
 
   // Parse device ID (format: "deviceId" or "deviceId:leftCh:rightCh")
   const parts = deviceId?.split(':') || []
@@ -177,19 +169,21 @@ async function onMasterOutputSelect(deviceId: string | null) {
   const leftChannel = parts[1] ? parseInt(parts[1]) : 0
   const rightChannel = parts[2] ? parseInt(parts[2]) : 1
 
-  // Check if we're just changing channels on the same device (BEFORE updating backend state)
-  const currentDeviceId = lastBackendMasterOutput.value?.split(':')[0]
+  // Save current device BEFORE any updates
+  const previousDeviceId = selectedMasterOutput.value?.split(':')[0]
   
-  // Save selected output to backend
-  await audioEngine.setSelectedMasterOutput(deviceId && deviceId !== '' ? deviceId : null)
-  
-  if (actualDeviceId === currentDeviceId && currentDeviceId && actualDeviceId !== 'no-output' && actualDeviceId !== '') {
+  // Check if we're just changing channels on the same device
+  if (actualDeviceId === previousDeviceId && previousDeviceId && actualDeviceId !== 'no-output' && actualDeviceId !== '') {
     // Same device, different channels - just update channels without restart
-    console.log('[Master] Same device, updating channels only:', leftChannel, rightChannel)
     audioEngine.setMasterOutputChannels(leftChannel, rightChannel)
+    
+    // Update selected_master_output to include new channels
+    await audioEngine.setSelectedMasterOutput(deviceId && deviceId !== '' ? deviceId : null)
   } else {
     // Different device - need to restart audio engine
-    console.log('[Master] Different device, restarting engine')
+    
+    // Save selected output to backend first
+    await audioEngine.setSelectedMasterOutput(deviceId && deviceId !== '' ? deviceId : null)
     
     if (!deviceId || deviceId === '' || actualDeviceId === 'no-output') {
       // Default device
@@ -219,7 +213,6 @@ async function onMasterOutputSelect(deviceId: string | null) {
 // Handle headphones output selection
 function onHeadphonesOutputSelect(deviceId: string | null) {
   selectedHeadphonesOutput.value = deviceId
-  console.log('[Headphones Output] Selected:', deviceId)
   // TODO: Send to Rust engine to set headphones output device
   // audioEngine.setHeadphonesOutput(deviceId)
 }
@@ -268,7 +261,6 @@ watch(headphonesVolume, (volume) => {
   if (audioEngine?.state.value.isRunning) {
     // TODO: Send headphones volume to Rust engine
     // audioEngine.setHeadphonesVolume(volume)
-    console.log('[Headphones] Volume changed:', volume)
   }
 })
 
@@ -303,11 +295,9 @@ watch(
       leftLevel.value = levels.left
       rightLevel.value = levels.right
       
-      // Sync selectedMasterOutput from backend (if changed)
-      if (levels.selectedMasterOutput !== lastBackendMasterOutput.value) {
-        console.log('[Master] Syncing selectedMasterOutput from backend:', levels.selectedMasterOutput)
+      // Sync selectedMasterOutput from backend
+      if (levels.selectedMasterOutput !== selectedMasterOutput.value) {
         selectedMasterOutput.value = levels.selectedMasterOutput ?? null
-        lastBackendMasterOutput.value = levels.selectedMasterOutput
       }
       
       // Sync master parameters from Rust engine
@@ -359,7 +349,6 @@ onMounted(async () => {
   
   if (backendSelected) {
     selectedMasterOutput.value = backendSelected
-    lastBackendMasterOutput.value = backendSelected
   }
 
   // Calculate initial height
@@ -369,11 +358,6 @@ onMounted(async () => {
   // Watch for centralized resize trigger instead of using ResizeObserver
   watch(resizeTrigger, () => {
     updateMetersHeight()
-  })
-
-  // Debug: Watch selectedMasterOutput changes
-  watch(selectedMasterOutput, (newVal, oldVal) => {
-    console.log('[Master] selectedMasterOutput changed from', oldVal, 'to', newVal)
   })
 
   // TODO: Start receiving meter levels from Rust engine
