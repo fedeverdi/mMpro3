@@ -289,7 +289,7 @@ watch(isLinked, (linked) => {
 // Watch for meter level updates from audio engine
 watch(
   () => audioEngine?.state.value.masterLevels,
-  (levels) => {
+  async (levels) => {
     if (levels) {
       // Values are already in dB from useAudioEngine
       leftLevel.value = levels.left
@@ -301,31 +301,30 @@ watch(
       }
       
       // Sync master parameters from Rust engine
-      if (!isDraggingLeft.value && !isDraggingRight.value) {
-        isUpdatingFromEngine.value = true
-        
-        if (levels.linked) {
-          // When linked, sync both from unified gain
-          const gainDb = levels.gain > 0 ? 20 * Math.log10(levels.gain) : -90
-          leftVolume.value = gainDb
-          rightVolume.value = gainDb
-        } else {
-          // When unlinked, sync from separate gains
-          const leftGainDb = levels.gainLeft > 0 ? 20 * Math.log10(levels.gainLeft) : -90
-          const rightGainDb = levels.gainRight > 0 ? 20 * Math.log10(levels.gainRight) : -90
-          leftVolume.value = leftGainDb
-          rightVolume.value = rightGainDb
-        }
-        
-        masterMuted.value = levels.mute
-        
-        // Don't update isLinked if user is actively toggling it
-        if (!isTogglingLink.value) {
-          isLinked.value = levels.linked ?? true
-        }
-        
-        isUpdatingFromEngine.value = false
+      isUpdatingFromEngine.value = true
+      
+      if (levels.linked) {
+        // When linked, sync both from unified gain
+        const gainDb = levels.gain > 0 ? 20 * Math.log10(levels.gain) : -90
+        leftVolume.value = gainDb
+        rightVolume.value = gainDb
+      } else {
+        // When unlinked, sync from separate gains
+        const leftGainDb = levels.gainLeft > 0 ? 20 * Math.log10(levels.gainLeft) : -90
+        const rightGainDb = levels.gainRight > 0 ? 20 * Math.log10(levels.gainRight) : -90
+        leftVolume.value = leftGainDb
+        rightVolume.value = rightGainDb
       }
+      
+      masterMuted.value = levels.mute
+      
+      // Don't update isLinked if user is actively toggling it
+      if (!isTogglingLink.value) {
+        isLinked.value = levels.linked ?? true
+      }
+      
+      await nextTick()
+      isUpdatingFromEngine.value = false
     }
   },
   { deep: true, flush: 'sync' }

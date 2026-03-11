@@ -445,6 +445,8 @@ enum Response {
     Stopped,
     #[serde(rename = "subgroup_created")]
     SubgroupCreated { id: usize },
+    
+    // LEGACY: Full state (kept for backwards compatibility, will be deprecated)
     #[serde(rename = "levels")]
     Levels {
         tracks: Vec<TrackLevels>,
@@ -457,7 +459,7 @@ enum Response {
         master_gain_right: f32,
         master_mute: bool,
         master_linked: bool,
-        master_eq_filters: Vec<ParametricFilter>,  // NEW: Master EQ filters
+        master_eq_filters: Vec<ParametricFilter>,
         selected_master_output: Option<String>,
         available_output_devices: Vec<DeviceInfo>,
         headroom_peak_l: Option<f32>,
@@ -470,6 +472,32 @@ enum Response {
         phase_correlation_data: Option<PhaseCorrelationDataStruct>,
         stereo_width_data: Option<StereoWidthDataStruct>,
     },
+    
+    // NEW: Optimized meters stream (60fps) - Only real-time data that changes continuously
+    #[serde(rename = "meters")]
+    Meters {
+        tracks: Vec<TrackMeters>,
+        subgroups: Vec<SubgroupMeters>,
+        auxes: Vec<AuxMeters>,
+        master_l: f32,
+        master_r: f32,
+        available_output_devices: Vec<DeviceInfo>,
+        headroom: Option<HeadroomDataStruct>,
+        loudness: Option<LoudnessDataStruct>,
+        dynamic_range: Option<DynamicRangeDataStruct>,
+        phase_correlation: Option<PhaseCorrelationDataStruct>,
+        stereo_width: Option<StereoWidthDataStruct>,
+    },
+    
+    // NEW: Parameters changed (event-driven) - Only when user modifies something
+    #[serde(rename = "parameters")]
+    ParametersChanged {
+        tracks: Option<Vec<TrackParameters>>,
+        subgroups: Option<Vec<SubgroupParameters>>,
+        auxes: Option<Vec<AuxParameters>>,
+        master: Option<MasterParameters>,
+    },
+    
     #[serde(rename = "fft")]
     FFTData {
         bins_left: Vec<f32>,
@@ -494,11 +522,11 @@ enum Response {
     },
     #[serde(rename = "loudness")]
     LoudnessData {
-        momentary_lufs: f32,      // 400ms window
-        short_term_lufs: f32,     // 3s window
-        integrated_lufs: f32,     // Gated integrated
-        loudness_range_lu: f32,   // LRA (10th-95th percentile)
-        true_peak_dbtp: f32,      // True peak level
+        momentary_lufs: f32,
+        short_term_lufs: f32,
+        integrated_lufs: f32,
+        loudness_range_lu: f32,
+        true_peak_dbtp: f32,
     },
     #[serde(rename = "dynamic_range")]
     DynamicRangeData {
@@ -539,25 +567,145 @@ enum Response {
     },
 }
 
+// === METERS STRUCTS (Real-time data only) ===
+
 #[derive(Debug, Serialize)]
-struct TrackLevels {
+struct TrackMeters {
     track: usize,
     level_l: f32,
     level_r: f32,
-    waveform: Vec<f32>, // Waveform samples (downsampled to ~128 samples)
-    phase_correlation: f32, // Phase correlation between L and R channels (-1 to +1)
+    waveform: Vec<f32>,
+    phase_correlation: f32,
     compressor_input_db: f32,
     compressor_reduction_db: f32,
     gate_input_db: f32,
     gate_attenuation_db: f32,
-    file_ended: bool, // NEW: True when file finishes playing
-    eq_filters: Vec<ParametricFilter>, // NEW: Track EQ filters
-    // File player state
-    file_name: String, // Current loaded file name
-    file_artist: Option<String>, // File metadata: artist
-    file_title: Option<String>, // File metadata: title
-    is_stereo: bool, // True if file has 2+ channels
-    is_playing: bool, // True if file is currently playing
+    file_ended: bool,
+    is_playing: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct SubgroupMeters {
+    subgroup: usize,
+    level_l: f32,
+    level_r: f32,
+}
+
+#[derive(Debug, Serialize)]
+struct AuxMeters {
+    aux: usize,
+    level_l: f32,
+    level_r: f32,
+}
+
+#[derive(Debug, Serialize)]
+struct HeadroomDataStruct {
+    peak_l: f32,
+    peak_r: f32,
+    headroom_l: f32,
+    headroom_r: f32,
+    headroom_stereo: f32,
+}
+
+// === PARAMETERS STRUCTS (State data, event-driven) ===
+
+#[derive(Debug, Serialize, Clone)]
+struct TrackParameters {
+    track: usize,
+    gain: Option<f32>,
+    volume: Option<f32>,
+    mute: Option<bool>,
+    pan: Option<f32>,
+    route_to_master: Option<bool>,
+    route_to_subgroups: Option<Vec<usize>>,
+    pad_enabled: Option<bool>,
+    hpf_enabled: Option<bool>,
+    phase_inverted: Option<bool>,
+    // Compressor
+    compressor_enabled: Option<bool>,
+    compressor_threshold_db: Option<f32>,
+    compressor_ratio: Option<f32>,
+    compressor_attack_ms: Option<f32>,
+    compressor_release_ms: Option<f32>,
+    // Gate
+    gate_enabled: Option<bool>,
+    gate_threshold_db: Option<f32>,
+    gate_range_db: Option<f32>,
+    gate_attack_ms: Option<f32>,
+    gate_release_ms: Option<f32>,
+    // EQ
+    eq_enabled: Option<bool>,
+    eq_low: Option<f32>,
+    eq_low_mid: Option<f32>,
+    eq_high_mid: Option<f32>,
+    eq_high: Option<f32>,
+    parametric_eq_enabled: Option<bool>,
+    eq_filters: Option<Vec<ParametricFilter>>,
+    // Aux sends
+    aux_sends: Option<Vec<AuxSendData>>,
+    // File player
+    file_name: Option<String>,
+    file_artist: Option<String>,
+    file_title: Option<String>,
+    is_stereo: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct SubgroupParameters {
+    subgroup: usize,
+    gain: Option<f32>,
+    mute: Option<bool>,
+    route_to_master: Option<bool>,
+    selected_output: Option<Option<String>>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct AuxParameters {
+    aux: usize,
+    gain: Option<f32>,
+    mute: Option<bool>,
+    route_to_master: Option<bool>,
+    route_to_subgroups: Option<Vec<usize>>,
+    output_enabled: Option<bool>,
+    output_channel_selection_left: Option<u16>,
+    output_channel_selection_right: Option<u16>,
+    selected_output: Option<Option<String>>,
+    reverb: Option<AuxReverbParams>,
+    delay: Option<AuxDelayParams>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct MasterParameters {
+    gain: Option<f32>,
+    gain_left: Option<f32>,
+    gain_right: Option<f32>,
+    mute: Option<bool>,
+    linked: Option<bool>,
+    eq_filters: Option<Vec<ParametricFilter>>,
+    selected_output: Option<Option<String>>,
+    available_output_devices: Option<Vec<DeviceInfo>>,
+}
+
+// === LEGACY STRUCTS (for backwards compatibility) ===
+
+#[derive(Debug, Serialize, Clone)]
+struct TrackLevels {
+    track: usize,
+    level_l: f32,
+    level_r: f32,
+    waveform: Vec<f32>,
+    phase_correlation: f32,
+    compressor_input_db: f32,
+    compressor_reduction_db: f32,
+    gate_input_db: f32,
+    gate_attenuation_db: f32,
+    file_ended: bool,
+    eq_filters: Vec<ParametricFilter>,
+    file_name: String,
+    file_artist: Option<String>,
+    file_title: Option<String>,
+    is_stereo: bool,
+    is_playing: bool,
     // Track parameters (for full state sync)
     gain: f32,
     volume: f32,
@@ -591,7 +739,7 @@ struct TrackLevels {
     aux_sends: Vec<AuxSendData>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct SubgroupLevels {
     subgroup: usize,
     level_l: f32,
@@ -602,14 +750,14 @@ struct SubgroupLevels {
     selected_output: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct AuxSendData {
     level: f32,
     pre_fader: bool,
     muted: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct AuxReverbParams {
     enabled: bool,
     room_size: f32,
@@ -618,7 +766,7 @@ struct AuxReverbParams {
     width: f32,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct AuxDelayParams {
     enabled: bool,
     delay_time_l_ms: f32,
@@ -627,7 +775,7 @@ struct AuxDelayParams {
     mix: f32,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct AuxLevels {
     aux: usize,
     level_l: f32,
@@ -644,7 +792,7 @@ struct AuxLevels {
     delay: AuxDelayParams,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct LoudnessDataStruct {
     momentary_lufs: f32,
     short_term_lufs: f32,
@@ -653,7 +801,7 @@ struct LoudnessDataStruct {
     true_peak_dbtp: f32,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct DynamicRangeDataStruct {
     peak_db_l: f32,
     peak_db_r: f32,
@@ -664,13 +812,13 @@ struct DynamicRangeDataStruct {
     dynamic_range_stereo: f32,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct PhaseCorrelationDataStruct {
     correlation: f32,
     mono_compatible: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct StereoWidthDataStruct {
     width_percent: f32,
     mid_rms: f32,
@@ -1574,35 +1722,56 @@ impl AudioEngine {
                         phase_correlation_data,
                         stereo_width_data
                     )) = levels_to_send {
-                        // Read current selected_master_output value
-                        let selected_out = selected_master_output.lock().unwrap().clone();
+                        // Send optimized meters-only format (real-time data at 60fps)
+                        let track_meters: Vec<TrackMeters> = track_levels.iter().map(|t| TrackMeters {
+                            track: t.track,
+                            level_l: t.level_l,
+                            level_r: t.level_r,
+                            waveform: t.waveform.clone(),
+                            phase_correlation: t.phase_correlation,
+                            compressor_input_db: t.compressor_input_db,
+                            compressor_reduction_db: t.compressor_reduction_db,
+                            gate_input_db: t.gate_input_db,
+                            gate_attenuation_db: t.gate_attenuation_db,
+                            file_ended: t.file_ended,
+                            is_playing: t.is_playing,
+                        }).collect();
                         
-                        let response = Response::Levels {
-                            tracks: track_levels,
-                            subgroups: subgroup_levels,
-                            auxes: aux_levels,
-                            master_l,
-                            master_r,
-                            master_gain,
-                            master_gain_left,
-                            master_gain_right,
-                            master_mute,
-                            master_linked,
-                            master_eq_filters,
-                            selected_master_output: selected_out,
-                            available_output_devices: available_output_devices.clone(),
-                            headroom_peak_l: Some(headroom_data.peak_l),
-                            headroom_peak_r: Some(headroom_data.peak_r),
-                            headroom_l: Some(headroom_data.headroom_l),
-                            headroom_r: Some(headroom_data.headroom_r),
-                            headroom_stereo: Some(headroom_data.headroom_stereo),
-                            loudness_data: Some(loudness_data),
-                            dynamic_range_data: Some(dynamic_range_data),
-                            phase_correlation_data: Some(phase_correlation_data),
-                            stereo_width_data: Some(stereo_width_data),
+                        let subgroup_meters: Vec<SubgroupMeters> = subgroup_levels.iter().map(|sg| SubgroupMeters {
+                            subgroup: sg.subgroup,
+                            level_l: sg.level_l,
+                            level_r: sg.level_r,
+                        }).collect();
+                        
+                        let aux_meters: Vec<AuxMeters> = aux_levels.iter().map(|aux| AuxMeters {
+                            aux: aux.aux,
+                            level_l: aux.level_l,
+                            level_r: aux.level_r,
+                        }).collect();
+                        
+                        let headroom_struct = HeadroomDataStruct {
+                            peak_l: headroom_data.peak_l,
+                            peak_r: headroom_data.peak_r,
+                            headroom_l: headroom_data.headroom_l,
+                            headroom_r: headroom_data.headroom_r,
+                            headroom_stereo: headroom_data.headroom_stereo,
                         };
                         
-                        if let Ok(json) = serde_json::to_string(&response) {
+                        let response_optimized = Response::Meters {
+                            tracks: track_meters,
+                            subgroups: subgroup_meters,
+                            auxes: aux_meters,
+                            master_l,
+                            master_r,
+                            available_output_devices: available_output_devices.clone(),
+                            headroom: Some(headroom_struct),
+                            loudness: Some(loudness_data),
+                            dynamic_range: Some(dynamic_range_data),
+                            phase_correlation: Some(phase_correlation_data),
+                            stereo_width: Some(stereo_width_data),
+                        };
+                        
+                        if let Ok(json) = serde_json::to_string(&response_optimized) {
                             // Use try_send to avoid blocking audio thread if channel is full
                             let _ = output_sender.try_send(json);
                         }
@@ -2619,18 +2788,92 @@ impl AudioEngine {
                 right_channel,
                 device_name,
             } => {
-                // Fire-and-forget command, no response needed
-                let _ = self.set_track_source_input(track, left_channel, right_channel, device_name);
-                None
+                let _ = self.set_track_source_input(track, left_channel, right_channel, device_name.clone());
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: Some(format!("Audio Input ({})", device_name.unwrap_or_else(|| "Default".to_string()))),
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetTrackSourceSignal {
                 track,
                 waveform,
                 frequency,
             } => {
-                // Fire-and-forget command, no response needed
                 let _ = self.set_track_source_signal(track, &waveform, frequency);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: Some(format!("Signal Generator ({} @ {} Hz)", waveform, frequency)),
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetSignalFrequency { track, frequency } => {
                 // Fire-and-forget command, no response needed
@@ -2643,27 +2886,155 @@ impl AudioEngine {
                 None
             }
             Command::ClearTrackSource { track } => {
-                // Fire-and-forget command, no response needed
                 let _ = self.clear_track_source(track);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: Some("".to_string()),
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetTrackSourceFile { track, file_path, artist, title } => {
                 match self.set_track_source_file(track, &file_path, artist.as_deref(), title.as_deref()) {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        Some(Response::ParametersChanged {
+                            tracks: Some(vec![TrackParameters {
+                                track,
+                                gain: None,
+                                volume: None,
+                                mute: None,
+                                pan: None,
+                                route_to_master: None,
+                                route_to_subgroups: None,
+                                pad_enabled: None,
+                                hpf_enabled: None,
+                                phase_inverted: None,
+                                compressor_enabled: None,
+                                compressor_threshold_db: None,
+                                compressor_ratio: None,
+                                compressor_attack_ms: None,
+                                compressor_release_ms: None,
+                                gate_enabled: None,
+                                gate_threshold_db: None,
+                                gate_range_db: None,
+                                gate_attack_ms: None,
+                                gate_release_ms: None,
+                                eq_enabled: None,
+                                eq_low: None,
+                                eq_low_mid: None,
+                                eq_high_mid: None,
+                                eq_high: None,
+                                parametric_eq_enabled: None,
+                                eq_filters: None,
+                                aux_sends: None,
+                                file_name: Some(file_path.clone()),
+                                file_artist: artist.clone(),
+                                file_title: title.clone(),
+                                is_stereo: None,
+                            }]),
+                            subgroups: None,
+                            auxes: None,
+                            master: None,
+                        })
+                    }
                     Err(e) => {
                         eprintln!("[Engine] SetTrackSourceFile FAILED for track {}: {}", track, e);
+                        None
                     }
                 }
-                None
             }
             Command::PlayFile { track, file_path, artist, title } => {
                 match self.play_file(track, file_path.as_deref(), artist.as_deref(), title.as_deref()) {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        // Extract filename from path if provided
+                        let file_name = if let Some(ref path) = file_path {
+                            std::path::Path::new(path)
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .map(|s| s.to_string())
+                                .unwrap_or_else(|| path.clone())
+                        } else {
+                            String::new()
+                        };
+                        
+                        Some(Response::ParametersChanged {
+                            tracks: Some(vec![TrackParameters {
+                                track,
+                                gain: None,
+                                volume: None,
+                                mute: None,
+                                pan: None,
+                                route_to_master: None,
+                                route_to_subgroups: None,
+                                pad_enabled: None,
+                                hpf_enabled: None,
+                                phase_inverted: None,
+                                compressor_enabled: None,
+                                compressor_threshold_db: None,
+                                compressor_ratio: None,
+                                compressor_attack_ms: None,
+                                compressor_release_ms: None,
+                                gate_enabled: None,
+                                gate_threshold_db: None,
+                                gate_range_db: None,
+                                gate_attack_ms: None,
+                                gate_release_ms: None,
+                                eq_enabled: None,
+                                eq_low: None,
+                                eq_low_mid: None,
+                                eq_high_mid: None,
+                                eq_high: None,
+                                parametric_eq_enabled: None,
+                                eq_filters: None,
+                                aux_sends: None,
+                                file_name: Some(file_name),
+                                file_artist: artist,
+                                file_title: title,
+                                is_stereo: None,
+                            }]),
+                            subgroups: None,
+                            auxes: None,
+                            master: None,
+                        })
+                    }
                     Err(e) => {
                         eprintln!("[Engine] PlayFile FAILED for track {}: {}", track, e);
+                        None
                     }
                 }
-                None
             }
             Command::PauseFile { track } => {
                 let _ = self.pause_file(track);
@@ -2679,35 +3050,339 @@ impl AudioEngine {
             }
             Command::SetGain { track, gain } => {
                 self.set_gain(track, gain);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: Some(gain),
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetVolume { track, volume } => {
                 self.set_volume(track, volume);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: Some(volume),
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetMute { track, mute } => {
                 self.set_mute(track, mute);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: Some(mute),
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetRouteToMaster { track, route } => {
                 self.set_route_to_master(track, route);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: Some(route),
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetPan { track, pan } => {
                 self.set_pan(track, pan);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: Some(pan),
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetTrackPad { track, enabled } => {
                 self.set_pad(track, enabled);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: Some(enabled),
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetTrackHPF { track, enabled } => {
                 self.set_hpf(track, enabled);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: Some(enabled),
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetTrackPhaseInvert { track, enabled } => {
                 self.set_phase_invert(track, enabled);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: Some(enabled),
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetCompressor {
                 track,
@@ -2718,7 +3393,45 @@ impl AudioEngine {
                 release,
             } => {
                 self.set_compressor(track, enabled, threshold, ratio, attack, release);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: Some(enabled),
+                        compressor_threshold_db: Some(threshold),
+                        compressor_ratio: Some(ratio),
+                        compressor_attack_ms: Some(attack),
+                        compressor_release_ms: Some(release),
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetGate {
                 track,
@@ -2729,7 +3442,45 @@ impl AudioEngine {
                 release,
             } => {
                 self.set_gate(track, enabled, threshold, range, attack, release);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: Some(enabled),
+                        gate_threshold_db: Some(threshold),
+                        gate_range_db: Some(range),
+                        gate_attack_ms: Some(attack),
+                        gate_release_ms: Some(release),
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetEQ {
                 track,
@@ -2739,47 +3490,321 @@ impl AudioEngine {
                 high,
             } => {
                 self.set_eq(track, low, low_mid, high_mid, high);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: Some(low),
+                        eq_low_mid: Some(low_mid),
+                        eq_high_mid: Some(high_mid),
+                        eq_high: Some(high),
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetEQEnabled { track, enabled } => {
                 self.set_eq_enabled(track, enabled);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: Some(enabled),
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetParametricEQFilters { track, filters } => {
                 self.set_parametric_eq_filters(track, &filters);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: Some(filters),
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetParametricEQEnabled { track, enabled } => {
                 self.set_parametric_eq_enabled(track, enabled);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: Some(enabled),
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::ClearParametricEQ { track } => {
                 self.clear_parametric_eq(track);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: Some(vec![]),
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetMasterGain { gain } => {
                 self.set_master_gain(gain);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: Some(gain),
+                        gain_left: None,
+                        gain_right: None,
+                        mute: None,
+                        linked: None,
+                        selected_output: None,
+                        eq_filters: None,
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::SetMasterGainLeft { gain } => {
                 self.set_master_gain_left(gain);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: Some(gain),
+                        gain_right: None,
+                        mute: None,
+                        linked: None,
+                        selected_output: None,
+                        eq_filters: None,
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::SetMasterGainRight { gain } => {
                 self.set_master_gain_right(gain);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: Some(gain),
+                        mute: None,
+                        linked: None,
+                        selected_output: None,
+                        eq_filters: None,
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::SetMasterMute { mute } => {
                 self.set_master_mute(mute);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: None,
+                        mute: Some(mute),
+                        linked: None,
+                        selected_output: None,
+                        eq_filters: None,
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::SetMasterLinked { linked } => {
                 self.set_master_linked(linked);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: None,
+                        mute: None,
+                        linked: Some(linked),
+                        selected_output: None,
+                        eq_filters: None,
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::SetMasterParametricEQFilters { filters } => {
                 self.set_master_parametric_eq_filters(&filters);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: None,
+                        mute: None,
+                        linked: None,
+                        selected_output: None,
+                        eq_filters: Some(filters),
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::SetMasterParametricEQEnabled { enabled } => {
                 self.set_master_parametric_eq_enabled(enabled);
@@ -2787,7 +3812,21 @@ impl AudioEngine {
             }
             Command::ClearMasterParametricEQ => {
                 self.clear_master_parametric_eq();
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: None,
+                        mute: None,
+                        linked: None,
+                        selected_output: None,
+                        eq_filters: Some(vec![]),
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::SetMasterOutputChannels {
                 left_channel,
@@ -2797,8 +3836,22 @@ impl AudioEngine {
                 None
             }
             Command::SetSelectedMasterOutput { device_id } => {
-                *self.selected_master_output.lock().unwrap() = device_id;
-                None
+                *self.selected_master_output.lock().unwrap() = device_id.clone();
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: None,
+                        mute: None,
+                        linked: None,
+                        eq_filters: None,
+                        selected_output: Some(device_id),
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::SetMasterCompressor {
                 enabled,
@@ -2848,11 +3901,33 @@ impl AudioEngine {
             }
             Command::SetSubgroupGain { subgroup, gain } => {
                 self.set_subgroup_gain(subgroup, gain);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: Some(vec![SubgroupParameters {
+                        subgroup,
+                        gain: Some(gain),
+                        mute: None,
+                        route_to_master: None,
+                        selected_output: None,
+                    }]),
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetSubgroupMute { subgroup, mute } => {
                 self.set_subgroup_mute(subgroup, mute);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: Some(vec![SubgroupParameters {
+                        subgroup,
+                        gain: None,
+                        mute: Some(mute),
+                        route_to_master: None,
+                        selected_output: None,
+                    }]),
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetSubgroupOutputEnabled { subgroup, enabled } => {
                 self.set_subgroup_output_enabled(subgroup, enabled);
@@ -2860,7 +3935,18 @@ impl AudioEngine {
             }
             Command::SetSubgroupRouteToMaster { subgroup, route } => {
                 self.set_subgroup_route_to_master(subgroup, route);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: Some(vec![SubgroupParameters {
+                        subgroup,
+                        gain: None,
+                        mute: None,
+                        route_to_master: Some(route),
+                        selected_output: None,
+                    }]),
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetSubgroupOutputChannels {
                 subgroup,
@@ -2873,10 +3959,21 @@ impl AudioEngine {
             Command::SetSelectedSubgroupOutput { subgroup, device_id } => {
                 if let Ok(mut router) = self.router.try_lock() {
                     if let Some(sg) = router.subgroups.iter_mut().find(|s| s.id == subgroup) {
-                        sg.selected_output = device_id;
+                        sg.selected_output = device_id.clone();
                     }
                 }
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: Some(vec![SubgroupParameters {
+                        subgroup,
+                        gain: None,
+                        mute: None,
+                        route_to_master: None,
+                        selected_output: Some(device_id),
+                    }]),
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetTrackRouteToSubgroup {
                 track,
@@ -2884,7 +3981,57 @@ impl AudioEngine {
                 route,
             } => {
                 self.set_track_route_to_subgroup(track, subgroup, route);
-                None
+                
+                // Get updated routing list
+                let route_to_subgroups = if let Ok(router) = self.router.try_lock() {
+                    if track < router.tracks.len() {
+                        router.tracks[track].route_to_subgroups.clone()
+                    } else {
+                        vec![]
+                    }
+                } else {
+                    vec![]
+                };
+                
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: Some(route_to_subgroups),
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: None,
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetTrackAuxSend {
                 track,
@@ -2894,15 +4041,103 @@ impl AudioEngine {
                 muted,
             } => {
                 self.set_track_aux_send(track, aux, level, pre_fader, muted);
-                None
+                
+                // Get updated aux sends for this track and convert to AuxSendData
+                let aux_sends = if let Ok(router) = self.router.try_lock() {
+                    if track < router.tracks.len() {
+                        router.tracks[track].aux_sends.iter().map(|send| AuxSendData {
+                            level: send.level,
+                            pre_fader: send.pre_fader,
+                            muted: send.muted,
+                        }).collect()
+                    } else {
+                        vec![]
+                    }
+                } else {
+                    vec![]
+                };
+                
+                Some(Response::ParametersChanged {
+                    tracks: Some(vec![TrackParameters {
+                        track,
+                        gain: None,
+                        volume: None,
+                        mute: None,
+                        pan: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        pad_enabled: None,
+                        hpf_enabled: None,
+                        phase_inverted: None,
+                        compressor_enabled: None,
+                        compressor_threshold_db: None,
+                        compressor_ratio: None,
+                        compressor_attack_ms: None,
+                        compressor_release_ms: None,
+                        gate_enabled: None,
+                        gate_threshold_db: None,
+                        gate_range_db: None,
+                        gate_attack_ms: None,
+                        gate_release_ms: None,
+                        eq_enabled: None,
+                        eq_low: None,
+                        eq_low_mid: None,
+                        eq_high_mid: None,
+                        eq_high: None,
+                        parametric_eq_enabled: None,
+                        eq_filters: None,
+                        aux_sends: Some(aux_sends),
+                        file_name: None,
+                        file_artist: None,
+                        file_title: None,
+                        is_stereo: None,
+                    }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
             }
             Command::SetAuxBusGain { aux, gain } => {
                 self.set_aux_bus_gain(aux, gain);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: Some(vec![AuxParameters {
+                        aux,
+                        gain: Some(gain),
+                        mute: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        output_enabled: None,
+                        output_channel_selection_left: None,
+                        output_channel_selection_right: None,
+                        selected_output: None,
+                        reverb: None,
+                        delay: None,
+                    }]),
+                    master: None,
+                })
             }
             Command::SetAuxBusMute { aux, mute } => {
                 self.set_aux_bus_mute(aux, mute);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: Some(vec![AuxParameters {
+                        aux,
+                        gain: None,
+                        mute: Some(mute),
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        output_enabled: None,
+                        output_channel_selection_left: None,
+                        output_channel_selection_right: None,
+                        selected_output: None,
+                        reverb: None,
+                        delay: None,
+                    }]),
+                    master: None,
+                })
             }
             Command::SetAuxBusReverb {
                 aux,
@@ -2913,7 +4148,30 @@ impl AudioEngine {
                 width,
             } => {
                 self.set_aux_bus_reverb(aux, enabled, room_size, damping, wet, width);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: Some(vec![AuxParameters {
+                        aux,
+                        gain: None,
+                        mute: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        output_enabled: None,
+                        output_channel_selection_left: None,
+                        output_channel_selection_right: None,
+                        selected_output: None,
+                        reverb: Some(AuxReverbParams {
+                            enabled,
+                            room_size,
+                            damping,
+                            wet,
+                            width,
+                        }),
+                        delay: None,
+                    }]),
+                    master: None,
+                })
             }
             Command::SetAuxBusDelay {
                 aux,
@@ -2923,11 +4181,51 @@ impl AudioEngine {
                 mix,
             } => {
                 self.set_aux_bus_delay(aux, enabled, time, feedback, mix);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: Some(vec![AuxParameters {
+                        aux,
+                        gain: None,
+                        mute: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        output_enabled: None,
+                        output_channel_selection_left: None,
+                        output_channel_selection_right: None,
+                        selected_output: None,
+                        reverb: None,
+                        delay: Some(AuxDelayParams {
+                            enabled,
+                            delay_time_l_ms: time,
+                            delay_time_r_ms: time,
+                            feedback,
+                            mix,
+                        }),
+                    }]),
+                    master: None,
+                })
             }
             Command::SetAuxBusRouteToMaster { aux, route } => {
                 self.set_aux_bus_route_to_master(aux, route);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: Some(vec![AuxParameters {
+                        aux,
+                        gain: None,
+                        mute: None,
+                        route_to_master: Some(route),
+                        route_to_subgroups: None,
+                        output_enabled: None,
+                        output_channel_selection_left: None,
+                        output_channel_selection_right: None,
+                        selected_output: None,
+                        reverb: None,
+                        delay: None,
+                    }]),
+                    master: None,
+                })
             }
             Command::SetAuxBusOutputEnabled { aux, enabled } => {
                 self.set_aux_bus_output_enabled(aux, enabled);
@@ -2943,15 +4241,61 @@ impl AudioEngine {
             }
             Command::SetAuxBusRouteToSubgroup { aux, subgroup, route } => {
                 self.set_aux_bus_route_to_subgroup(aux, subgroup, route);
-                None
+                
+                // Get updated routing list
+                let route_to_subgroups = if let Ok(router) = self.router.try_lock() {
+                    if let Some(aux_bus) = router.aux_buses.iter().find(|a| a.id == aux) {
+                        aux_bus.route_to_subgroups.clone()
+                    } else {
+                        vec![]
+                    }
+                } else {
+                    vec![]
+                };
+                
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: Some(vec![AuxParameters {
+                        aux,
+                        gain: None,
+                        mute: None,
+                        route_to_master: None,
+                        route_to_subgroups: Some(route_to_subgroups),
+                        output_enabled: None,
+                        output_channel_selection_left: None,
+                        output_channel_selection_right: None,
+                        selected_output: None,
+                        reverb: None,
+                        delay: None,
+                    }]),
+                    master: None,
+                })
             }
             Command::SetAuxBusSelectedOutput { aux, device_id } => {
                 if let Ok(mut router) = self.router.try_lock() {
                     if let Some(aux_bus) = router.aux_buses.iter_mut().find(|a| a.id == aux) {
-                        aux_bus.selected_output = device_id;
+                        aux_bus.selected_output = device_id.clone();
                     }
                 }
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: Some(vec![AuxParameters {
+                        aux,
+                        gain: None,
+                        mute: None,
+                        route_to_master: None,
+                        route_to_subgroups: None,
+                        output_enabled: None,
+                        output_channel_selection_left: None,
+                        output_channel_selection_right: None,
+                        selected_output: Some(device_id),
+                        reverb: None,
+                        delay: None,
+                    }]),
+                    master: None,
+                })
             }
             Command::SetTrackSourceAuxReturn { track, aux } => {
                 match self.set_track_source_aux_return(track, aux) {

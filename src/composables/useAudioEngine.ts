@@ -239,6 +239,362 @@ export const useAudioEngine = () => {
           console.error('[useAudioEngine] Engine error:', response.message)
           break
 
+        // NEW: Optimized meters stream (60fps) - Only real-time metering data
+        case 'meters':
+          if (response.tracks) {
+            response.tracks.forEach((trackMeter: any) => {
+              state.value.trackLevels.set(trackMeter.track, {
+                left: trackMeter.level_l,
+                right: trackMeter.level_r,
+                phaseCorrelation: trackMeter.phase_correlation || 0,
+                compressorInputDb: trackMeter.compressor_input_db || -90,
+                compressorReductionDb: trackMeter.compressor_reduction_db || 0,
+                gateInputDb: trackMeter.gate_input_db || -90,
+                gateAttenuationDb: trackMeter.gate_attenuation_db || 0,
+                fileEnded: trackMeter.file_ended || false
+              })
+
+              if (trackMeter.waveform) {
+                state.value.trackWaveforms.set(trackMeter.track, trackMeter.waveform)
+              }
+
+              // Ensure track parameters exist with defaults if not already present
+              let existingParams = state.value.trackParameters.get(trackMeter.track)
+              if (!existingParams) {
+                existingParams = {
+                  gain: 1.0,
+                  volume: 1.0,
+                  mute: false,
+                  pan: 0.0,
+                  routeToMaster: true,
+                  routeToSubgroups: [],
+                  padEnabled: false,
+                  hpfEnabled: false,
+                  phaseInverted: false,
+                  compressor: {
+                    enabled: false,
+                    thresholdDb: -20,
+                    ratio: 4,
+                    attackMs: 5,
+                    releaseMs: 50
+                  },
+                  gate: {
+                    enabled: false,
+                    thresholdDb: -40,
+                    rangeDb: -80,
+                    attackMs: 1,
+                    releaseMs: 100
+                  },
+                  eqEnabled: true,
+                  parametricEqEnabled: true,
+                  eqLow: 0,
+                  eqLowMid: 0,
+                  eqHighMid: 0,
+                  eqHigh: 0,
+                  fileName: '',
+                  fileArtist: null,
+                  fileTitle: null,
+                  isStereo: false,
+                  isPlaying: trackMeter.is_playing ?? false,
+                  auxSends: []
+                }
+                state.value.trackParameters.set(trackMeter.track, existingParams)
+              } else {
+                // Update is_playing in existing track parameters
+                existingParams.isPlaying = trackMeter.is_playing ?? false
+              }
+            })
+          }
+
+          if (response.subgroups) {
+            response.subgroups.forEach((subgroupMeter: any) => {
+              const leftDb = subgroupMeter.level_l > 0.0
+                ? 20 * Math.log10(subgroupMeter.level_l)
+                : -90
+
+              const rightDb = subgroupMeter.level_r > 0.0
+                ? 20 * Math.log10(subgroupMeter.level_r)
+                : -90
+
+              const existing = state.value.subgroupLevels.get(subgroupMeter.subgroup)
+              if (existing) {
+                existing.left = leftDb
+                existing.right = rightDb
+              } else {
+                state.value.subgroupLevels.set(subgroupMeter.subgroup, {
+                  left: leftDb,
+                  right: rightDb,
+                  gain: 1.0,
+                  mute: false,
+                  routeToMaster: false,
+                  selectedOutput: null
+                })
+              }
+            })
+          }
+
+          if (response.auxes) {
+            response.auxes.forEach((auxMeter: any) => {
+              const leftDb = auxMeter.level_l > 0.0
+                ? 20 * Math.log10(auxMeter.level_l)
+                : -90
+
+              const rightDb = auxMeter.level_r > 0.0
+                ? 20 * Math.log10(auxMeter.level_r)
+                : -90
+
+              const existing = state.value.auxLevels.get(auxMeter.aux)
+              if (existing) {
+                existing.left = leftDb
+                existing.right = rightDb
+              } else {
+                state.value.auxLevels.set(auxMeter.aux, {
+                  left: leftDb,
+                  right: rightDb,
+                  gain: 1.0,
+                  mute: false,
+                  routeToMaster: false,
+                  routeToSubgroups: [],
+                  outputEnabled: false,
+                  outputChannelSelectionLeft: 0,
+                  outputChannelSelectionRight: 1,
+                  selectedOutput: null,
+                  reverb: {
+                    enabled: false,
+                    roomSize: 0.3,
+                    damping: 0.5,
+                    wet: 0.3,
+                    width: 1.0,
+                  },
+                  delay: {
+                    enabled: false,
+                    delayTimeLMs: 250.0,
+                    delayTimeRMs: 375.0,
+                    feedback: 0.3,
+                    mix: 0.3,
+                  },
+                })
+              }
+            })
+          }
+
+          if (response.master_l !== undefined && response.master_r !== undefined) {
+            state.value.masterLevels.left = response.master_l > 0 ? 20 * Math.log10(response.master_l) : -60
+            state.value.masterLevels.right = response.master_r > 0 ? 20 * Math.log10(response.master_r) : -60
+          }
+
+          if (response.loudness) {
+            state.value.loudnessData = {
+              momentaryLufs: response.loudness.momentary_lufs,
+              shortTermLufs: response.loudness.short_term_lufs,
+              integratedLufs: response.loudness.integrated_lufs,
+              loudnessRangeLu: response.loudness.loudness_range_lu,
+              truePeakDbtp: response.loudness.true_peak_dbtp
+            }
+          }
+
+          if (response.dynamic_range) {
+            state.value.dynamicRangeData = {
+              peakDbL: response.dynamic_range.peak_db_l,
+              peakDbR: response.dynamic_range.peak_db_r,
+              rmsDbL: response.dynamic_range.rms_db_l,
+              rmsDbR: response.dynamic_range.rms_db_r,
+              dynamicRangeL: response.dynamic_range.dynamic_range_l,
+              dynamicRangeR: response.dynamic_range.dynamic_range_r,
+              dynamicRangeStereo: response.dynamic_range.dynamic_range_stereo
+            }
+          }
+
+          if (response.phase_correlation) {
+            state.value.phaseCorrelationData = {
+              correlation: response.phase_correlation.correlation,
+              monoCompatible: response.phase_correlation.mono_compatible
+            }
+          }
+
+          if (response.stereo_width) {
+            state.value.stereoWidthData = {
+              widthPercent: response.stereo_width.width_percent,
+              midRms: response.stereo_width.mid_rms,
+              sideRms: response.stereo_width.side_rms,
+              balance: response.stereo_width.balance
+            }
+          }
+
+          if (response.headroom) {
+            state.value.headroomPeakL = response.headroom.peak_l
+            state.value.headroomPeakR = response.headroom.peak_r
+            state.value.headroomL = response.headroom.headroom_l
+            state.value.headroomR = response.headroom.headroom_r
+            state.value.headroomStereo = response.headroom.headroom_stereo
+          }
+
+          if (response.available_output_devices) {
+            state.value.availableOutputDevices = response.available_output_devices
+          }
+          break
+
+        // NEW: Parameters changed (event-driven) - Only when user modifies something
+        case 'parameters':
+          if (response.tracks) {
+            response.tracks.forEach((trackParams: any) => {
+              const existing = state.value.trackParameters.get(trackParams.track)
+              const newParams = existing || {
+                gain: 1.0,
+                volume: 1.0,
+                mute: false,
+                pan: 0.0,
+                routeToMaster: true,
+                routeToSubgroups: [],
+                padEnabled: false,
+                hpfEnabled: false,
+                phaseInverted: false,
+                compressor: {
+                  enabled: false,
+                  thresholdDb: -20,
+                  ratio: 4,
+                  attackMs: 5,
+                  releaseMs: 50
+                },
+                gate: {
+                  enabled: false,
+                  thresholdDb: -40,
+                  rangeDb: -80,
+                  attackMs: 1,
+                  releaseMs: 100
+                },
+                eqEnabled: true,
+                parametricEqEnabled: true,
+                eqLow: 0,
+                eqLowMid: 0,
+                eqHighMid: 0,
+                eqHigh: 0,
+                fileName: '',
+                fileArtist: null,
+                fileTitle: null,
+                isStereo: false,
+                isPlaying: false,
+                auxSends: []
+              }
+
+              // Check if routeToSubgroups changed (for reactive triggers)
+              const oldRoutes = newParams.routeToSubgroups || []
+              const routesChanged = trackParams.route_to_subgroups !== undefined && 
+                JSON.stringify(oldRoutes) !== JSON.stringify(trackParams.route_to_subgroups)
+
+              // Update only provided fields (skip null values from Optional::None)
+              if (trackParams.gain !== undefined && trackParams.gain !== null) newParams.gain = trackParams.gain
+              if (trackParams.volume !== undefined && trackParams.volume !== null) newParams.volume = trackParams.volume
+              if (trackParams.mute !== undefined && trackParams.mute !== null) newParams.mute = trackParams.mute
+              if (trackParams.pan !== undefined && trackParams.pan !== null) newParams.pan = trackParams.pan
+              if (trackParams.route_to_master !== undefined && trackParams.route_to_master !== null) newParams.routeToMaster = trackParams.route_to_master
+              if (trackParams.route_to_subgroups !== undefined && trackParams.route_to_subgroups !== null) newParams.routeToSubgroups = trackParams.route_to_subgroups
+              if (trackParams.pad_enabled !== undefined && trackParams.pad_enabled !== null) newParams.padEnabled = trackParams.pad_enabled
+              if (trackParams.hpf_enabled !== undefined && trackParams.hpf_enabled !== null) newParams.hpfEnabled = trackParams.hpf_enabled
+              if (trackParams.phase_inverted !== undefined && trackParams.phase_inverted !== null) newParams.phaseInverted = trackParams.phase_inverted
+              
+              // Compressor
+              if (trackParams.compressor_enabled !== undefined && trackParams.compressor_enabled !== null) newParams.compressor.enabled = trackParams.compressor_enabled
+              if (trackParams.compressor_threshold_db !== undefined && trackParams.compressor_threshold_db !== null) newParams.compressor.thresholdDb = trackParams.compressor_threshold_db
+              if (trackParams.compressor_ratio !== undefined && trackParams.compressor_ratio !== null) newParams.compressor.ratio = trackParams.compressor_ratio
+              if (trackParams.compressor_attack_ms !== undefined && trackParams.compressor_attack_ms !== null) newParams.compressor.attackMs = trackParams.compressor_attack_ms
+              if (trackParams.compressor_release_ms !== undefined && trackParams.compressor_release_ms !== null) newParams.compressor.releaseMs = trackParams.compressor_release_ms
+              
+              // Gate
+              if (trackParams.gate_enabled !== undefined && trackParams.gate_enabled !== null) newParams.gate.enabled = trackParams.gate_enabled
+              if (trackParams.gate_threshold_db !== undefined && trackParams.gate_threshold_db !== null) newParams.gate.thresholdDb = trackParams.gate_threshold_db
+              if (trackParams.gate_range_db !== undefined && trackParams.gate_range_db !== null) newParams.gate.rangeDb = trackParams.gate_range_db
+              if (trackParams.gate_attack_ms !== undefined && trackParams.gate_attack_ms !== null) newParams.gate.attackMs = trackParams.gate_attack_ms
+              if (trackParams.gate_release_ms !== undefined && trackParams.gate_release_ms !== null) newParams.gate.releaseMs = trackParams.gate_release_ms
+              
+              // EQ
+              if (trackParams.eq_enabled !== undefined && trackParams.eq_enabled !== null) newParams.eqEnabled = trackParams.eq_enabled
+              if (trackParams.parametric_eq_enabled !== undefined && trackParams.parametric_eq_enabled !== null) newParams.parametricEqEnabled = trackParams.parametric_eq_enabled
+              if (trackParams.eq_low !== undefined && trackParams.eq_low !== null) newParams.eqLow = trackParams.eq_low
+              if (trackParams.eq_low_mid !== undefined && trackParams.eq_low_mid !== null) newParams.eqLowMid = trackParams.eq_low_mid
+              if (trackParams.eq_high_mid !== undefined && trackParams.eq_high_mid !== null) newParams.eqHighMid = trackParams.eq_high_mid
+              if (trackParams.eq_high !== undefined && trackParams.eq_high !== null) newParams.eqHigh = trackParams.eq_high
+              
+              // File player
+              if (trackParams.file_name !== undefined && trackParams.file_name !== null) newParams.fileName = trackParams.file_name
+              if (trackParams.file_artist !== undefined) newParams.fileArtist = trackParams.file_artist // can be null
+              if (trackParams.file_title !== undefined) newParams.fileTitle = trackParams.file_title // can be null
+              if (trackParams.is_stereo !== undefined && trackParams.is_stereo !== null) newParams.isStereo = trackParams.is_stereo
+              
+              // Aux sends
+              if (trackParams.aux_sends !== undefined && trackParams.aux_sends !== null) newParams.auxSends = trackParams.aux_sends
+              
+              // EQ filters
+              if (trackParams.eq_filters !== undefined) {
+                state.value.trackEQFilters.set(trackParams.track, trackParams.eq_filters)
+              }
+
+              state.value.trackParameters.set(trackParams.track, newParams)
+              
+              // Trigger ref if routing changed
+              if (routesChanged) {
+                triggerRef(state)
+              }
+            })
+          }
+
+          if (response.subgroups) {
+            response.subgroups.forEach((subgroupParams: any) => {
+              const existing = state.value.subgroupLevels.get(subgroupParams.subgroup)
+              if (existing) {
+                if (subgroupParams.gain !== undefined && subgroupParams.gain !== null) existing.gain = subgroupParams.gain
+                if (subgroupParams.mute !== undefined && subgroupParams.mute !== null) existing.mute = subgroupParams.mute
+                if (subgroupParams.route_to_master !== undefined && subgroupParams.route_to_master !== null) existing.routeToMaster = subgroupParams.route_to_master
+                if (subgroupParams.selected_output !== undefined) existing.selectedOutput = subgroupParams.selected_output // can be null
+              }
+            })
+          }
+
+          if (response.auxes) {
+            response.auxes.forEach((auxParams: any) => {
+              const existing = state.value.auxLevels.get(auxParams.aux)
+              if (existing) {
+                if (auxParams.gain !== undefined && auxParams.gain !== null) existing.gain = auxParams.gain
+                if (auxParams.mute !== undefined && auxParams.mute !== null) existing.mute = auxParams.mute
+                if (auxParams.route_to_master !== undefined && auxParams.route_to_master !== null) existing.routeToMaster = auxParams.route_to_master
+                if (auxParams.route_to_subgroups !== undefined && auxParams.route_to_subgroups !== null) existing.routeToSubgroups = auxParams.route_to_subgroups
+                if (auxParams.output_enabled !== undefined && auxParams.output_enabled !== null) existing.outputEnabled = auxParams.output_enabled
+                if (auxParams.output_channel_selection_left !== undefined && auxParams.output_channel_selection_left !== null) existing.outputChannelSelectionLeft = auxParams.output_channel_selection_left
+                if (auxParams.output_channel_selection_right !== undefined && auxParams.output_channel_selection_right !== null) existing.outputChannelSelectionRight = auxParams.output_channel_selection_right
+                if (auxParams.selected_output !== undefined) existing.selectedOutput = auxParams.selected_output // can be null
+                
+                if (auxParams.reverb !== undefined && auxParams.reverb !== null) {
+                  if (auxParams.reverb.enabled !== undefined && auxParams.reverb.enabled !== null) existing.reverb.enabled = auxParams.reverb.enabled
+                  if (auxParams.reverb.room_size !== undefined && auxParams.reverb.room_size !== null) existing.reverb.roomSize = auxParams.reverb.room_size
+                  if (auxParams.reverb.damping !== undefined && auxParams.reverb.damping !== null) existing.reverb.damping = auxParams.reverb.damping
+                  if (auxParams.reverb.wet !== undefined && auxParams.reverb.wet !== null) existing.reverb.wet = auxParams.reverb.wet
+                  if (auxParams.reverb.width !== undefined && auxParams.reverb.width !== null) existing.reverb.width = auxParams.reverb.width
+                }
+                
+                if (auxParams.delay !== undefined && auxParams.delay !== null) {
+                  if (auxParams.delay.enabled !== undefined && auxParams.delay.enabled !== null) existing.delay.enabled = auxParams.delay.enabled
+                  if (auxParams.delay.delay_time_l_ms !== undefined && auxParams.delay.delay_time_l_ms !== null) existing.delay.delayTimeLMs = auxParams.delay.delay_time_l_ms
+                  if (auxParams.delay.delay_time_r_ms !== undefined && auxParams.delay.delay_time_r_ms !== null) existing.delay.delayTimeRMs = auxParams.delay.delay_time_r_ms
+                  if (auxParams.delay.feedback !== undefined && auxParams.delay.feedback !== null) existing.delay.feedback = auxParams.delay.feedback
+                  if (auxParams.delay.mix !== undefined && auxParams.delay.mix !== null) existing.delay.mix = auxParams.delay.mix
+                }
+              }
+            })
+          }
+
+          if (response.master) {
+            if (response.master.gain !== undefined && response.master.gain !== null) state.value.masterLevels.gain = response.master.gain
+            if (response.master.gain_left !== undefined && response.master.gain_left !== null) state.value.masterLevels.gainLeft = response.master.gain_left
+            if (response.master.gain_right !== undefined && response.master.gain_right !== null) state.value.masterLevels.gainRight = response.master.gain_right
+            if (response.master.mute !== undefined && response.master.mute !== null) state.value.masterLevels.mute = response.master.mute
+            if (response.master.linked !== undefined && response.master.linked !== null) state.value.masterLevels.linked = response.master.linked
+            if (response.master.selected_output !== undefined) state.value.masterLevels.selectedMasterOutput = response.master.selected_output // can be null
+            if (response.master.eq_filters !== undefined && response.master.eq_filters !== null) state.value.masterEQFilters = response.master.eq_filters
+            if (response.master.available_output_devices !== undefined && response.master.available_output_devices !== null) state.value.availableOutputDevices = response.master.available_output_devices
+          }
+          break
+
+        // LEGACY: Full state (kept for backwards compatibility during migration)
         case 'levels':
           if (response.tracks) {
             response.tracks.forEach((trackLevel: any) => {

@@ -232,7 +232,7 @@ watch(routeToMaster, (route) => {
 // Only update UI values when backend values actually change
 watch(
   () => audioEngine?.state.value.subgroupLevels,
-  (levelsMap) => {
+  async (levelsMap) => {
     if (!levelsMap) return
     const levels = levelsMap.get(props.subgroupId ?? 0)
     
@@ -250,6 +250,9 @@ watch(
           const gainDb = levels.gain > 0 ? 20 * Math.log10(levels.gain) : -90
           volume.value = gainDb
           lastBackendValues.value.gain = levels.gain
+          
+          // Wait for next tick to ensure all watch callbacks have completed
+          await nextTick()
           isUpdatingFromEngine.value = false
         }
       }
@@ -259,6 +262,7 @@ watch(
         isUpdatingFromEngine.value = true
         routeToMaster.value = levels.routeToMaster
         lastBackendValues.value.routeToMaster = levels.routeToMaster
+        await nextTick()
         isUpdatingFromEngine.value = false
       }
 
@@ -269,6 +273,7 @@ watch(
         selectedOutput.value = levels.selectedOutput || 'no-output'
         emit('update:selectedOutput', selectedOutput.value)
         lastBackendValues.value.selectedOutput = levels.selectedOutput
+        await nextTick()
         isUpdatingFromEngine.value = false
       }
     }
