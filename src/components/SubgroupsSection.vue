@@ -51,8 +51,8 @@
 import VuMeter from './core/VuMeter.vue'
 import OutputSelector from './master/OutputSelector.vue'
 import SubgroupFader from './subgroups/SubgroupFader.vue'
-import { ref, computed, watch, onMounted, onUnmounted, nextTick, inject, type Ref } from 'vue'
-import { useAudioDevices } from '../composables/useAudioDevices'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, inject, type Ref, type ComputedRef } from 'vue'
+import type { AudioDevice } from '../composables/useAudioEngine'
 
 // Props
 interface Props {
@@ -98,7 +98,8 @@ const isDraggingVolume = ref(false)
 // Track last known backend values to detect actual changes
 const lastBackendValues = ref({
   gain: 1.0,
-  routeToMaster: false
+  routeToMaster: false,
+  selectedOutput: null as string | null
 })
 
 // Handle drag events
@@ -116,8 +117,8 @@ const handleDragEnd = () => {
   isDraggingVolume.value = false
 }
 
-// Audio outputs
-const { audioOutputDevices } = useAudioDevices()
+// Audio outputs from engine (same source as Master)
+const audioOutputDevices: ComputedRef<AudioDevice[]> = computed(() => audioEngine?.state.value.availableOutputDevices || [])
 
 // Container and dynamic height
 const metersContainer = ref<HTMLElement | null>(null)
@@ -145,10 +146,15 @@ function updateMetersHeight() {
 const resizeTrigger = inject<Ref<number>>('resizeTrigger', ref(0))
 
 // Handle output device selection
-function handleOutputSelect(deviceId: string | null) {
+async function handleOutputSelect(deviceId: string | null) {
+  console.log(`[Subgroup ${props.subgroupId}] Output selected:`, deviceId)
   selectedOutput.value = deviceId
 
   if (!audioEngine || props.subgroupId === undefined) return
+
+  // Save selected output to backend (same as Master does)
+  console.log(`[Subgroup ${props.subgroupId}] Saving to backend:`, props.subgroupId, deviceId)
+  await audioEngine.setSelectedSubgroupOutput(props.subgroupId, deviceId)
 
   // Parse device ID (format: "deviceId" or "deviceId:leftCh:rightCh")
   const parts = deviceId?.split(':') || []
@@ -158,9 +164,11 @@ function handleOutputSelect(deviceId: string | null) {
 
   // If "no-output" is selected, disable direct output
   if (actualDeviceId === 'no-output' || actualDeviceId === null) {
+    console.log(`[Subgroup ${props.subgroupId}] Disabling direct output`)
     audioEngine.setSubgroupOutputEnabled(props.subgroupId, false)
   } else {
     // Enable direct output and set channel selection
+    console.log(`[Subgroup ${props.subgroupId}] Enabling direct output with channels:`, leftChannel, rightChannel)
     audioEngine.setSubgroupOutputEnabled(props.subgroupId, true)
     audioEngine.setSubgroupOutputChannels(props.subgroupId, leftChannel, rightChannel)
   }
@@ -204,15 +212,6 @@ watch(routeToMaster, (route) => {
   }
 })
 
-watch(selectedOutput, (output) => {
-  // Emit to parent for v-model sync
-  emit('update:selectedOutput', output)
-  
-  if (audioEngine && props.subgroupId !== undefined) {
-    audioEngine.setSubgroupOutput(props.subgroupId, output || 'no-output')
-  }
-})
-
 // Watch for meter level updates from audio engine
 // Only update UI values when backend values actually change
 watch(
@@ -244,6 +243,16 @@ watch(
         isUpdatingFromEngine.value = true
         routeToMaster.value = levels.routeToMaster
         lastBackendValues.value.routeToMaster = levels.routeToMaster
+        isUpdatingFromEngine.value = false
+      }
+
+      // Sync selectedOutput from backend (same as Master does)
+      if (levels.selectedOutput !== lastBackendValues.value.selectedOutput) {
+        console.log(`[Subgroup ${props.subgroupId}] Syncing selectedOutput from backend:`, levels.selectedOutput)
+        isUpdatingFromEngine.value = true
+        selectedOutput.value = levels.selectedOutput || 'no-output'
+        emit('update:selectedOutput', selectedOutput.value)
+        lastBackendValues.value.selectedOutput = levels.selectedOutput
         isUpdatingFromEngine.value = false
       }
     }
