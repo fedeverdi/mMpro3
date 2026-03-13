@@ -215,6 +215,9 @@ const emit = defineEmits<{
   (e: 'update', filters: any): void
 }>()
 
+// Inject audio engine for FFT data
+const audioEngine = inject<any>('audioEngine')
+
 const titleText = computed(() => props.title || `Parametric EQ - Track ${props.trackNumber}`)
 
 interface EQFilter {
@@ -228,6 +231,19 @@ interface EQFilter {
 }
 
 const eqCanvas = ref<HTMLCanvasElement | null>(null)
+
+// FFT data for background visualization
+let smoothedFFTLeft: Float32Array | null = null
+let smoothedFFTRight: Float32Array | null = null
+const SMOOTHING_FACTOR = 0.92
+const ATTACK_FACTOR = 0.6
+
+// Get current sample rate from audio engine
+const getCurrentSampleRate = () => {
+  return audioEngine?.state?.value?.performanceStats?.sampleRate || 
+         audioEngine?.state?.value?.fftData?.sampleRate || 
+         44100
+}
 
 // Array of colors for filters
 const filterColors = [
@@ -305,6 +321,43 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   // No cleanup needed - Rust backend handles all audio
 })
+
+// Watch for FFT data updates from audio engine
+watch(
+  () => audioEngine?.state?.value?.fftData,
+  (fftData) => {
+    if (fftData) {
+      const newLeft = fftData.binsLeft instanceof Float32Array 
+        ? fftData.binsLeft 
+        : new Float32Array(fftData.binsLeft)
+      const newRight = fftData.binsRight instanceof Float32Array 
+        ? fftData.binsRight 
+        : new Float32Array(fftData.binsRight)
+      
+      if (!smoothedFFTLeft || smoothedFFTLeft.length !== newLeft.length) {
+        smoothedFFTLeft = new Float32Array(newLeft)
+        smoothedFFTRight = new Float32Array(newRight)
+      } else {
+        for (let i = 0; i < newLeft.length; i++) {
+          if (newLeft[i] > smoothedFFTLeft![i]) {
+            smoothedFFTLeft![i] = smoothedFFTLeft![i] * ATTACK_FACTOR + newLeft[i] * (1 - ATTACK_FACTOR)
+          } else {
+            smoothedFFTLeft![i] = Math.max(newLeft[i], smoothedFFTLeft![i] * SMOOTHING_FACTOR)
+          }
+          
+          if (newRight[i] > smoothedFFTRight![i]) {
+            smoothedFFTRight![i] = smoothedFFTRight![i] * ATTACK_FACTOR + newRight[i] * (1 - ATTACK_FACTOR)
+          } else {
+            smoothedFFTRight![i] = Math.max(newRight[i], smoothedFFTRight![i] * SMOOTHING_FACTOR)
+          }
+        }
+      }
+      
+      drawEQCurve() // Redraw with new FFT data
+    }
+  },
+  { immediate: true }
+)
 
 // Watch for external changes to eqFilters (e.g., when loading a scene)
 // Watch for external changes to eqFilters (user filters only)
@@ -916,6 +969,119 @@ function drawEQCurve() {
   
   // Clear canvas
   ctx.clearRect(0, 0, width, height)
+  
+  // Draw FFT curve in background (if data available)
+  if (smoothedFFTLeft && smoothedFFTRight) {
+    const CALIBRATION_OFFSET_DB = -18.0
+    const convertToDb = (magnitude: number): number => {
+      if (magnitude <= 0) return -140
+      return 20 * Math.log10(magnitude) + CALIBRATION_OFFSET_DB
+    }
+
+    const fftDbLeft = Array.from(smoothedFFTLeft).map(convertToDb)
+    const fftDbRight = Array.from(smoothedFFTRight).map(convertToDb)
+
+    // Helper to convert frequency to X position (logarithmic)
+    const freqToX = (freq: number): number => {
+      const minFreq = Math.log10(20)
+      const maxFreq = Math.log10(20000)
+      const clamped = Math.max(20, Math.min(20000, freq))
+      const logFreq = Math.log10(clamped)
+      return ((logFreq - minFreq) / (maxFreq - minFreq)) * width
+    }
+
+    // Helper to get dB at specific frequency from FFT data
+    const getDbAtFreq = (freq: number, fftDb: number[]): number => {
+      const nyquist = getCurrentSampleRate() / 2
+      const bin = Math.floor((freq / nyquist) * fftDb.length)
+      const clampedBin = Math.max(0, Math.min(bin, fftDb.length - 1))
+      return fftDb[clampedBin]
+    }
+
+    // Draw curve with many points for smoothness
+    const numPoints = 500
+    const minFreq = 20
+    const maxFreq = 20000
+    const logMin = Math.log10(minFreq)
+    const logMax = Math.log10(maxFreq)
+
+    // Draw average of both channels as filled area (white opaque)
+    ctx.globalAlpha = 0.12
+    ctx.fillStyle = 'rgba(255, 255, 255, 1)'
+    ctx.beginPath()
+    
+    // Start from bottom left
+    ctx.moveTo(0, height)
+    
+    // Draw the curve (average of left and right)
+    for (let i = 0; i <= numPoints; i++) {
+      const logFreq = logMin + (i / numPoints) * (logMax - logMin)
+      const freq = Math.pow(10, logFreq)
+      const dbLeft = getDbAtFreq(freq, fftDbLeft)
+      const dbRight = getDbAtFreq(freq, fftDbRight)
+      const dbAvg = (dbLeft + dbRight) / 2
+      
+      // Map dB to Y position (from -100dB to +6dB range)
+      const normalized = Math.max(0, Math.min(1, (dbAvg + 100) / 106))
+      const x = freqToX(freq)
+      const y = height - (normalized * height)
+      
+      ctx.lineTo(x, y)
+    }
+    
+    // Close to bottom right
+    ctx.lineTo(width, height)
+    ctx.closePath()
+    ctx.fill()
+
+    // Draw left channel curve outline (purple)
+    ctx.globalAlpha = 0.5
+    ctx.strokeStyle = '#a855f7'
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    
+    for (let i = 0; i <= numPoints; i++) {
+      const logFreq = logMin + (i / numPoints) * (logMax - logMin)
+      const freq = Math.pow(10, logFreq)
+      const db = getDbAtFreq(freq, fftDbLeft)
+      
+      // Map dB to Y position (from -100dB to +6dB range)
+      const normalized = Math.max(0, Math.min(1, (db + 100) / 106))
+      const x = freqToX(freq)
+      const y = height - (normalized * height)
+      
+      if (i === 0) {
+        ctx.moveTo(x, y)
+      } else {
+        ctx.lineTo(x, y)
+      }
+    }
+    ctx.stroke()
+
+    // Draw right channel curve outline (blue)
+    ctx.strokeStyle = '#3b82f6'
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    
+    for (let i = 0; i <= numPoints; i++) {
+      const logFreq = logMin + (i / numPoints) * (logMax - logMin)
+      const freq = Math.pow(10, logFreq)
+      const db = getDbAtFreq(freq, fftDbRight)
+      
+      const normalized = Math.max(0, Math.min(1, (db + 100) / 106))
+      const x = freqToX(freq)
+      const y = height - (normalized * height)
+      
+      if (i === 0) {
+        ctx.moveTo(x, y)
+      } else {
+        ctx.lineTo(x, y)
+      }
+    }
+    ctx.stroke()
+    
+    ctx.globalAlpha = 1.0
+  }
   
   // Draw grid
   ctx.strokeStyle = '#374151'
