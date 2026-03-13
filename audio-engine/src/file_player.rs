@@ -142,6 +142,11 @@ impl AudioFilePlayer {
 
     /// Play the loaded audio
     pub fn play(&mut self) {
+        // If the file had ended, restart from the beginning
+        if self.file_ended {
+            self.position = 0;
+            self.resample_position = 0.0;
+        }
         self.file_ended = false; // Reset when starting playback
         self.playing = true;
     }
