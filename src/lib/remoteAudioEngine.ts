@@ -506,6 +506,14 @@ export class RemoteAudioEngine {
     return this.send({ type: 'set_master_reverb', enabled, room_size: roomSize, damping, wet, width })
   }
 
+  async addMasterFxEffect(effectType: string): Promise<void> {
+    return this.send({ type: 'add_master_fx_effect', effect_type: effectType })
+  }
+
+  async removeMasterFxEffect(effectType: string): Promise<void> {
+    return this.send({ type: 'remove_master_fx_effect', effect_type: effectType })
+  }
+
   async addSubgroup(): Promise<number | null> {
     try {
       const response = await this.sendAndWaitForResponse({ type: 'add_subgroup' }, 'subgroup_created', 5000)

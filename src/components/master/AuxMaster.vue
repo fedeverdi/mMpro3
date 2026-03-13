@@ -398,10 +398,11 @@ function toggleRouteToMaster(auxIndex: number) {
         audioEngine.setAuxBusRouteToMaster(auxIndex, newState)
     }
     
-    // Update aux.routeToMaster in parent to keep in sync
-    if (props.auxBuses && props.auxBuses[auxIndex]) {
-        const aux = { ...props.auxBuses[auxIndex], routeToMaster: newState }
-        emit('update-aux', auxIndex, aux)
+    // Update local state immediately
+    if (auxBuses.value && auxBuses.value[auxIndex]) {
+        auxBuses.value[auxIndex] = { ...auxBuses.value[auxIndex], routeToMaster: newState }
+        // Emit for parent/detached window sync
+        emit('update-aux', auxIndex, auxBuses.value[auxIndex])
     }
 }
 
@@ -436,59 +437,67 @@ function removeAux(index: number) {
 
 // Update aux volume
 function updateAuxVolume(index: number, volume: number) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = { ...props.auxBuses[index], volume }
-    emit('update-aux', index, aux)
+    if (!auxBuses.value || !auxBuses.value[index]) return
+    // Update local state immediately for responsive UI
+    auxBuses.value[index] = { ...auxBuses.value[index], volume }
+    // Emit for parent/backend sync
+    emit('update-aux', index, auxBuses.value[index])
 }
 
 // Toggle mute
 function toggleAuxMute(index: number) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = { ...props.auxBuses[index], muted: !props.auxBuses[index].muted }
-    emit('update-aux', index, aux)
+    if (!auxBuses.value || !auxBuses.value[index]) return
+    const newMuted = !auxBuses.value[index].muted
+    auxBuses.value[index] = { ...auxBuses.value[index], muted: newMuted }
+    emit('update-aux', index, auxBuses.value[index])
 }
 
 // Toggle solo
 function toggleAuxSolo(index: number) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = { ...props.auxBuses[index], soloed: !props.auxBuses[index].soloed }
-    emit('update-aux', index, aux)
+    if (!auxBuses.value || !auxBuses.value[index]) return
+    const newSoloed = !auxBuses.value[index].soloed
+    auxBuses.value[index] = { ...auxBuses.value[index], soloed: newSoloed }
+    emit('update-aux', index, auxBuses.value[index])
 }
 
 // Update aux name
 function updateAuxName(index: number, name: string) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = { ...props.auxBuses[index], name }
-    emit('update-aux', index, aux)
+    if (!auxBuses.value || !auxBuses.value[index]) return
+    auxBuses.value[index] = { ...auxBuses.value[index], name }
+    emit('update-aux', index, auxBuses.value[index])
 }
 
 // Select output device (Rust backend - zero latency like subgroups)
 function selectOutputDevice(index: number, deviceId: string | null) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = { ...props.auxBuses[index], selectedOutputDevice: deviceId }
-    emit('update-aux', index, aux)
+    if (!auxBuses.value || !auxBuses.value[index]) return
+    // Update local state immediately
+    auxBuses.value[index] = { ...auxBuses.value[index], selectedOutputDevice: deviceId }
+    // Emit for parent/detached window sync
+    emit('update-aux', index, auxBuses.value[index])
 }
 
 // Toggle Reverb FX
 function toggleAuxReverb(index: number) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = props.auxBuses[index]
+    if (!auxBuses.value || !auxBuses.value[index]) return
+    const aux = auxBuses.value[index]
     const newEnabled = !aux.reverbEnabled
 
-    // Update state and send to backend
-    const updatedAux = { ...aux, reverbEnabled: newEnabled }
-    emit('update-aux', index, updatedAux)
+    // Update local state immediately
+    auxBuses.value[index] = { ...aux, reverbEnabled: newEnabled }
+    // Emit for parent/detached window sync
+    emit('update-aux', index, auxBuses.value[index])
 }
 
 // Toggle Delay FX
 function toggleAuxDelay(index: number) {
-    if (!props.auxBuses || !props.auxBuses[index]) return
-    const aux = props.auxBuses[index]
+    if (!auxBuses.value || !auxBuses.value[index]) return
+    const aux = auxBuses.value[index]
     const newEnabled = !aux.delayEnabled
 
-    // Update state and send to backend
-    const updatedAux = { ...aux, delayEnabled: newEnabled }
-    emit('update-aux', index, updatedAux)
+    // Update local state immediately
+    auxBuses.value[index] = { ...aux, delayEnabled: newEnabled }
+    // Emit for parent/detached window sync
+    emit('update-aux', index, auxBuses.value[index])
 }
 
 // Show reverb modal
@@ -531,6 +540,9 @@ function updateAuxReverbParam(index: number, param: 'roomSize' | 'damping' | 'we
             auxBuses.value[index].reverbParams!.width
         )
     }
+    
+    // Emit for parent/detached window sync
+    emit('update-aux', index, auxBuses.value[index])
 }
 
 // Update single delay parameter
@@ -561,6 +573,9 @@ function updateAuxDelayParam(index: number, param: 'delayTime' | 'feedback' | 'w
             auxBuses.value[index].delayParams!.wet
         )
     }
+    
+    // Emit for parent/detached window sync
+    emit('update-aux', index, auxBuses.value[index])
 }
 
 // Tap tempo function

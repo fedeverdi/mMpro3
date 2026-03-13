@@ -338,7 +338,7 @@ watch(() => props.eqFilters, (newFilters) => {
   nextTick(() => {
     drawEQCurve()
   })
-})
+}, { immediate: true })
 
 // Watch for system filters changes (only affects visualization)
 watch(() => props.systemFilters, () => {

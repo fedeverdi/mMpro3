@@ -85,6 +85,11 @@ import { ref, watch, onMounted, onUnmounted, inject, type Ref } from 'vue'
 
 interface Props {
   masterFxOutputNode?: any
+  fftData?: {
+    binsLeft: Float32Array | number[]
+    binsRight: Float32Array | number[]
+    sampleRate: number
+  } | null
 }
 
 const props = defineProps<Props>()
@@ -108,13 +113,20 @@ let smoothedFFTRight: Float32Array | null = null
 const SMOOTHING_FACTOR = 0.92 // Decay rate for peak following (higher = smoother but slower decay)
 const ATTACK_FACTOR = 0.6 // How fast to respond to new peaks (higher = smoother attack)
 
-// Watch for FFT data updates from audio engine
+// Watch for FFT data updates from audio engine (main window) OR props (detached window)
 watch(
-  () => audioEngine?.state?.value?.fftData,
-  (fftData) => {
+  [() => audioEngine?.state?.value?.fftData, () => props.fftData],
+  ([engineFFT, propsFFT]) => {
+    const fftData = propsFFT || engineFFT // Prioritize props for detached windows
+    
     if (fftData) {
-      const newLeft = fftData.binsLeft
-      const newRight = fftData.binsRight
+      // Convert arrays to Float32Array if needed (WebSocket sends regular arrays)
+      const newLeft = fftData.binsLeft instanceof Float32Array 
+        ? fftData.binsLeft 
+        : new Float32Array(fftData.binsLeft)
+      const newRight = fftData.binsRight instanceof Float32Array 
+        ? fftData.binsRight 
+        : new Float32Array(fftData.binsRight)
       
       // Initialize smoothed buffers on first data
       if (!smoothedFFTLeft || smoothedFFTLeft.length !== newLeft.length) {

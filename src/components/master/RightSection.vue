@@ -80,10 +80,21 @@
               </div>
               <span class="text-[10px] font-semibold text-gray-300">{{ component.name }}</span>
             </div>
-            <!-- Chevron -->
-            <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
+            <div class="flex items-center gap-1">
+              <!-- Pop-out Button -->
+              <button
+                @click.stop="openDetachedWindow('master-eq')"
+                class="p-0.5 hover:bg-gray-700 rounded transition-colors"
+                title="Open in separate window">
+                <svg class="w-3 h-3 text-gray-400 hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+              <!-- Chevron -->
+              <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </div>
           
           <!-- Content -->
@@ -122,10 +133,21 @@
               </div>
               <span class="text-[10px] font-semibold text-gray-300">{{ component.name }}</span>
             </div>
-            <!-- Chevron -->
-            <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
+            <div class="flex items-center gap-1">
+              <!-- Pop-out Button -->
+              <button
+                @click.stop="openDetachedWindow('spectrum')"
+                class="p-0.5 hover:bg-gray-700 rounded transition-colors"
+                title="Open in separate window">
+                <svg class="w-3 h-3 text-gray-400 hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+              <!-- Chevron -->
+              <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </div>
           
           <!-- Content -->
@@ -163,10 +185,21 @@
               </div>
               <span class="text-[10px] font-semibold text-gray-300">{{ component.name }}</span>
             </div>
-            <!-- Chevron -->
-            <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
+            <div class="flex items-center gap-1">
+              <!-- Pop-out Button -->
+              <button
+                @click.stop="openDetachedWindow('aux-master')"
+                class="p-0.5 hover:bg-gray-700 rounded transition-colors"
+                title="Open in separate window">
+                <svg class="w-3 h-3 text-gray-400 hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+              <!-- Chevron -->
+              <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </div>
           
           <!-- Content -->
@@ -212,15 +245,26 @@
               </div>
               <span class="text-[10px] font-semibold text-gray-300">{{ component.name }}</span>
             </div>
-            <!-- Chevron -->
-            <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
+            <div class="flex items-center gap-1">
+              <!-- Pop-out Button -->
+              <button
+                @click.stop="openDetachedWindow('master-fx')"
+                class="p-0.5 hover:bg-gray-700 rounded transition-colors"
+                title="Open in separate window">
+                <svg class="w-3 h-3 text-gray-400 hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+              <!-- Chevron -->
+              <svg class="w-3 h-3 text-gray-400 transition-transform" :class="{ 'rotate-180': component.isExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </div>
           
           <!-- Content -->
           <div v-show="component.isExpanded">
-            <MasterFX :master-section="masterSectionRef"
+            <MasterFX :master-section="masterSectionRef" :fx-effects="props.masterFxEffects"
               @output-node="(node: any) => emit('master-fx-output-node', node)" 
               @component="(component: any) => emit('master-fx-component', component)" />
           </div>
@@ -265,6 +309,7 @@ interface Props {
   auxBuses?: AuxBus[]
   subgroups?: Array<{ id: number, name: string }>
   masterEqFilters?: any[]
+  masterFxEffects?: any[]
 }
 
 const props = defineProps<Props>()
@@ -320,6 +365,20 @@ let pendingWidth: number | null = null
 // Handle master EQ filters update from MasterEQDisplay
 function handleMasterEQFiltersUpdate(filters: any[]) {
   emit('update:master-eq-filters', filters)
+}
+
+// Open detached window for component
+async function openDetachedWindow(componentType: string) {
+  if (window.electronAPI?.openDetachedWindow) {
+    const success = await window.electronAPI.openDetachedWindow(componentType)
+    if (success) {
+      console.log(`[RightSection] Opened detached window: ${componentType}`)
+    } else {
+      console.error(`[RightSection] Failed to open detached window: ${componentType}`)
+    }
+  } else {
+    console.warn('[RightSection] electronAPI.openDetachedWindow not available (web mode?)')
+  }
 }
 
 function handleDragStart(componentId: string, event: DragEvent) {

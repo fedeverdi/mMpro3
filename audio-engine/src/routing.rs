@@ -585,6 +585,12 @@ pub struct MasterBus {
     pub limiter: Limiter,
     pub delay: Delay,
     pub reverb: Reverb,
+    
+    // Track which effects are "present" in the FX list (separate from enabled state)
+    pub compressor_present: bool,
+    pub limiter_present: bool,
+    pub delay_present: bool,
+    pub reverb_present: bool,
 }
 
 impl MasterBus {
@@ -603,6 +609,10 @@ impl MasterBus {
             limiter: Limiter::new(48000.0),
             delay: Delay::new(48000.0),
             reverb: Reverb::new(48000.0),
+            compressor_present: false,
+            limiter_present: false,
+            delay_present: false,
+            reverb_present: false,
         }
     }
     

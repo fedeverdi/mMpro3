@@ -112,6 +112,7 @@ export interface AudioEngineState {
     selectedMasterOutput?: string | null;
   }
   masterEQFilters: any[]
+  masterFxEffects: any[]
   fftData: { binsLeft: Float32Array; binsRight: Float32Array; sampleRate: number } | null
   performanceStats: {
     bufferSize: number
@@ -182,6 +183,7 @@ const state = ref<AudioEngineState>({
   auxLevels: new Map(),
   masterLevels: { left: -60, right: -60, gain: 1.0, gainLeft: 1.0, gainRight: 1.0, mute: false, linked: true, selectedMasterOutput: null },
   masterEQFilters: [],
+  masterFxEffects: [],
   fftData: null,
   performanceStats: null,
   recordingStats: null,
@@ -352,6 +354,10 @@ const applyPendingParameterUpdates = () => {
     if (master.linked !== undefined && master.linked !== null) state.value.masterLevels.linked = master.linked
     if (master.selected_output !== undefined) state.value.masterLevels.selectedMasterOutput = master.selected_output
     if (master.eq_filters !== undefined && master.eq_filters !== null) state.value.masterEQFilters = master.eq_filters
+    if (master.fx_effects !== undefined && master.fx_effects !== null) {
+      console.log('[useAudioEngine] Updating masterFxEffects:', master.fx_effects)
+      state.value.masterFxEffects = master.fx_effects
+    }
     if (master.available_output_devices !== undefined && master.available_output_devices !== null) state.value.availableOutputDevices = master.available_output_devices
   }
   
@@ -396,11 +402,11 @@ export const useAudioEngine = () => {
       })
     }
 
-    // Start parameter update timer (apply buffered updates once per second)
+    // Start parameter update timer (apply buffered updates every 200ms)
     if (!parameterUpdateTimer) {
       parameterUpdateTimer = window.setInterval(() => {
         applyPendingParameterUpdates()
-      }, 1000) // 1 Hz
+      }, 200) // 5 Hz
     }
 
     window.audioEngine.onResponse((response: any) => {
@@ -1250,6 +1256,30 @@ export const useAudioEngine = () => {
     window.audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width)
   }
 
+  const addMasterFxEffect = async (effectType: string): Promise<void> => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    try {
+      await window.audioEngine.addMasterFxEffect(effectType)
+      console.log(`[useAudioEngine] Added Master FX effect: ${effectType}`)
+    } catch (error) {
+      console.error(`[useAudioEngine] Failed to add Master FX effect ${effectType}:`, error)
+      throw error
+    }
+  }
+
+  const removeMasterFxEffect = async (effectType: string): Promise<void> => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    
+    try {
+      await window.audioEngine.removeMasterFxEffect(effectType)
+      console.log(`[useAudioEngine] Removed Master FX effect: ${effectType}`)
+    } catch (error) {
+      console.error(`[useAudioEngine] Failed to remove Master FX effect ${effectType}:`, error)
+      throw error
+    }
+  }
+
   const addSubgroup = async (): Promise<number | null> => {
     if (!window.audioEngine) return null
 
@@ -1498,6 +1528,8 @@ export const useAudioEngine = () => {
     setMasterLimiter,
     setMasterDelay,
     setMasterReverb,
+    addMasterFxEffect,
+    removeMasterFxEffect,
     addSubgroup,
     removeSubgroup,
     setSubgroupGain,

@@ -243,6 +243,14 @@ enum Command {
         wet: f32,
         width: f32,
     },
+    #[serde(rename = "add_master_fx_effect")]
+    AddMasterFxEffect {
+        effect_type: String, // "compressor", "limiter", "delay", "reverb"
+    },
+    #[serde(rename = "remove_master_fx_effect")]
+    RemoveMasterFxEffect {
+        effect_type: String, // "compressor", "limiter", "delay", "reverb"
+    },
 
     // Subgroup controls
     #[serde(rename = "add_subgroup")]
@@ -654,7 +662,43 @@ struct AuxParameters {
     delay: Option<AuxDelayParams>,
 }
 
+/// Master FX effect data for frontend synchronization
 #[derive(Debug, Serialize, Clone)]
+#[serde(tag = "type")]
+enum MasterFxEffect {
+    #[serde(rename = "compressor")]
+    Compressor {
+        enabled: bool,
+        threshold: f32,
+        ratio: f32,
+        attack: f32,
+        release: f32,
+    },
+    #[serde(rename = "limiter")]
+    Limiter {
+        enabled: bool,
+        threshold: f32,
+        release: f32,
+    },
+    #[serde(rename = "delay")]
+    Delay {
+        enabled: bool,
+        time_l: f32,
+        time_r: f32,
+        feedback: f32,
+        mix: f32,
+    },
+    #[serde(rename = "reverb")]
+    Reverb {
+        enabled: bool,
+        room_size: f32,
+        damping: f32,
+        wet: f32,
+        width: f32,
+    },
+}
+
+#[derive(Debug, Serialize)]
 struct MasterParameters {
     gain: Option<f32>,
     gain_left: Option<f32>,
@@ -662,6 +706,7 @@ struct MasterParameters {
     mute: Option<bool>,
     linked: Option<bool>,
     eq_filters: Option<Vec<ParametricFilter>>,
+    fx_effects: Option<Vec<MasterFxEffect>>,
     selected_output: Option<Option<String>>,
     available_output_devices: Option<Vec<DeviceInfo>>,
 }
@@ -2334,6 +2379,116 @@ impl AudioEngine {
         router.master.reverb.set_width(width);
     }
 
+    /// Get current state of all Master FX effects for synchronization
+    fn get_master_fx_effects(&self) -> Vec<MasterFxEffect> {
+        let router = self.router.lock().unwrap();
+        let master = &router.master;
+        
+        let mut effects = Vec::new();
+        
+        // Only include effects that are "present" in the FX list
+        if master.compressor_present {
+            effects.push(MasterFxEffect::Compressor {
+                enabled: master.compressor.is_enabled(),
+                threshold: master.compressor.get_threshold(),
+                ratio: master.compressor.get_ratio(),
+                attack: master.compressor.get_attack(),
+                release: master.compressor.get_release(),
+            });
+        }
+        
+        if master.limiter_present {
+            effects.push(MasterFxEffect::Limiter {
+                enabled: master.limiter.is_enabled(),
+                threshold: master.limiter.get_ceiling(),
+                release: master.limiter.get_release(),
+            });
+        }
+        
+        if master.delay_present {
+            effects.push(MasterFxEffect::Delay {
+                enabled: master.delay.is_enabled(),
+                time_l: master.delay.get_delay_time_l_ms(),
+                time_r: master.delay.get_delay_time_r_ms(),
+                feedback: master.delay.get_feedback(),
+                mix: master.delay.get_mix(),
+            });
+        }
+        
+        if master.reverb_present {
+            effects.push(MasterFxEffect::Reverb {
+                enabled: master.reverb.is_enabled(),
+                room_size: master.reverb.get_room_size(),
+                damping: master.reverb.get_damping(),
+                wet: master.reverb.get_wet(),
+                width: master.reverb.get_width(),
+            });
+        }
+        
+        println!("[Engine] get_master_fx_effects returning {} effects", effects.len());
+        effects
+    }
+
+    /// Add a Master FX effect to the FX list
+    fn add_master_fx_effect(&self, effect_type: &str) {
+        let mut router = self.router.lock().unwrap();
+        let master = &mut router.master;
+        
+        match effect_type {
+            "compressor" => {
+                master.compressor_present = true;
+                println!("[Engine] Added Master Compressor to FX list");
+            }
+            "limiter" => {
+                master.limiter_present = true;
+                println!("[Engine] Added Master Limiter to FX list");
+            }
+            "delay" => {
+                master.delay_present = true;
+                println!("[Engine] Added Master Delay to FX list");
+            }
+            "reverb" => {
+                master.reverb_present = true;
+                println!("[Engine] Added Master Reverb to FX list");
+            }
+            _ => {
+                eprintln!("[Engine] Unknown effect type: {}", effect_type);
+            }
+        }
+    }
+
+    /// Remove a Master FX effect from the FX list
+    fn remove_master_fx_effect(&self, effect_type: &str) {
+        let mut router = self.router.lock().unwrap();
+        let master = &mut router.master;
+        
+        match effect_type {
+            "compressor" => {
+                master.compressor_present = false;
+                master.compressor.set_enabled(false); // Also disable it
+                println!("[Engine] Removed Master Compressor from FX list");
+            }
+            "limiter" => {
+                master.limiter_present = false;
+                master.limiter.set_enabled(false); // Also disable it
+                println!("[Engine] Removed Master Limiter from FX list");
+            }
+            "delay" => {
+                master.delay_present = false;
+                master.delay.set_enabled(false); // Also disable it
+                println!("[Engine] Removed Master Delay from FX list");
+            }
+            "reverb" => {
+                master.reverb_present = false;
+                master.reverb.set_enabled(false); // Also disable it
+                println!("[Engine] Removed Master Reverb from FX list");
+            }
+            _ => {
+                eprintln!("[Engine] Unknown effect type: {}", effect_type);
+            }
+        }
+    }
+
     // Subgroup methods
     fn add_subgroup(&self) -> usize {
         let mut router = self.router.lock().unwrap();
@@ -3505,6 +3660,7 @@ impl AudioEngine {
                         linked: None,
                         selected_output: None,
                         eq_filters: None,
+                        fx_effects: None,
                         available_output_devices: None,
                     }),
                 })
@@ -3523,6 +3679,7 @@ impl AudioEngine {
                         linked: None,
                         selected_output: None,
                         eq_filters: None,
+                        fx_effects: None,
                         available_output_devices: None,
                     }),
                 })
@@ -3541,6 +3698,7 @@ impl AudioEngine {
                         linked: None,
                         selected_output: None,
                         eq_filters: None,
+                        fx_effects: None,
                         available_output_devices: None,
                     }),
                 })
@@ -3559,6 +3717,7 @@ impl AudioEngine {
                         linked: None,
                         selected_output: None,
                         eq_filters: None,
+                        fx_effects: None,
                         available_output_devices: None,
                     }),
                 })
@@ -3577,6 +3736,7 @@ impl AudioEngine {
                         linked: Some(linked),
                         selected_output: None,
                         eq_filters: None,
+                        fx_effects: None,
                         available_output_devices: None,
                     }),
                 })
@@ -3595,6 +3755,7 @@ impl AudioEngine {
                         linked: None,
                         selected_output: None,
                         eq_filters: Some(filters),
+                        fx_effects: None,
                         available_output_devices: None,
                     }),
                 })
@@ -3617,6 +3778,7 @@ impl AudioEngine {
                         linked: None,
                         selected_output: None,
                         eq_filters: Some(vec![]),
+                        fx_effects: None,
                         available_output_devices: None,
                     }),
                 })
@@ -3641,6 +3803,7 @@ impl AudioEngine {
                         mute: None,
                         linked: None,
                         eq_filters: None,
+                        fx_effects: None,
                         selected_output: Some(device_id),
                         available_output_devices: None,
                     }),
@@ -3653,8 +3816,26 @@ impl AudioEngine {
                 attack,
                 release,
             } => {
+                println!("[Engine] SetMasterCompressor: enabled={}", enabled);
                 self.set_master_compressor(enabled, threshold, ratio, attack, release);
-                None
+                let fx_effects = self.get_master_fx_effects();
+                println!("[Engine] Returning fx_effects: {:?}", fx_effects);
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: None,
+                        mute: None,
+                        linked: None,
+                        eq_filters: None,
+                        fx_effects: Some(fx_effects),
+                        selected_output: None,
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::SetMasterLimiter {
                 enabled,
@@ -3662,7 +3843,22 @@ impl AudioEngine {
                 release,
             } => {
                 self.set_master_limiter(enabled, ceiling, release);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: None,
+                        mute: None,
+                        linked: None,
+                        eq_filters: None,
+                        fx_effects: Some(self.get_master_fx_effects()),
+                        selected_output: None,
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::SetMasterDelay {
                 enabled,
@@ -3672,7 +3868,22 @@ impl AudioEngine {
                 mix,
             } => {
                 self.set_master_delay(enabled, time_l, time_r, feedback, mix);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: None,
+                        mute: None,
+                        linked: None,
+                        eq_filters: None,
+                        fx_effects: Some(self.get_master_fx_effects()),
+                        selected_output: None,
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::SetMasterReverb {
                 enabled,
@@ -3682,7 +3893,60 @@ impl AudioEngine {
                 width,
             } => {
                 self.set_master_reverb(enabled, room_size, damping, wet, width);
-                None
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: None,
+                        mute: None,
+                        linked: None,
+                        eq_filters: None,
+                        fx_effects: Some(self.get_master_fx_effects()),
+                        selected_output: None,
+                        available_output_devices: None,
+                    }),
+                })
+            }
+            Command::AddMasterFxEffect { effect_type } => {
+                self.add_master_fx_effect(&effect_type);
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: None,
+                        mute: None,
+                        linked: None,
+                        eq_filters: None,
+                        fx_effects: Some(self.get_master_fx_effects()),
+                        selected_output: None,
+                        available_output_devices: None,
+                    }),
+                })
+            }
+            Command::RemoveMasterFxEffect { effect_type } => {
+                self.remove_master_fx_effect(&effect_type);
+                Some(Response::ParametersChanged {
+                    tracks: None,
+                    subgroups: None,
+                    auxes: None,
+                    master: Some(MasterParameters {
+                        gain: None,
+                        gain_left: None,
+                        gain_right: None,
+                        mute: None,
+                        linked: None,
+                        eq_filters: None,
+                        fx_effects: Some(self.get_master_fx_effects()),
+                        selected_output: None,
+                        available_output_devices: None,
+                    }),
+                })
             }
             Command::AddSubgroup => {
                 let id = self.add_subgroup();

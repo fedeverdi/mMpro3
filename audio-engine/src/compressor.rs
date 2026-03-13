@@ -99,6 +99,31 @@ impl Compressor {
         }
     }
     
+    /// Get enabled state
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+    
+    /// Get threshold in dB
+    pub fn get_threshold(&self) -> f32 {
+        self.threshold_db
+    }
+    
+    /// Get compression ratio
+    pub fn get_ratio(&self) -> f32 {
+        self.ratio
+    }
+    
+    /// Get attack time in milliseconds
+    pub fn get_attack(&self) -> f32 {
+        self.attack_ms
+    }
+    
+    /// Get release time in milliseconds
+    pub fn get_release(&self) -> f32 {
+        self.release_ms
+    }
+    
     /// Update sample rate and recalculate coefficients
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
@@ -169,27 +194,6 @@ impl Compressor {
     pub fn reset(&mut self) {
         self.envelope = 0.0;
         self.gain_reduction_db = 0.0;
-    }
-
-    // Getter methods for state export
-    pub fn is_enabled(&self) -> bool {
-        self.enabled
-    }
-
-    pub fn get_threshold_db(&self) -> f32 {
-        self.threshold_db
-    }
-
-    pub fn get_ratio(&self) -> f32 {
-        self.ratio
-    }
-
-    pub fn get_attack_ms(&self) -> f32 {
-        self.attack_ms
-    }
-
-    pub fn get_release_ms(&self) -> f32 {
-        self.release_ms
     }
 }
 

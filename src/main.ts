@@ -62,6 +62,22 @@ let remoteClientsCount = 0 // Track number of connected remote clients (excludin
 let activeRemoteClientsCount = 0 // Track number of clients actively controlling (after clicking "Start")
 const activeRemoteClients = new Set<WebSocket>() // Track which clients are actively controlling
 
+// Detached window clients (pop-out windows from main Electron app)
+// These DO NOT block the mixer - they only receive updates
+const detachedWindowClients = new Set<WebSocket>()
+
+// Track last known state for new detached windows
+let lastKnownState: {
+  masterEqFilters?: any[]
+  masterParameters?: any
+  auxParameters?: any[]
+  subgroupParameters?: any[]
+  auxBuses?: any[] // Frontend aux buses state (separate from backend auxParameters)
+} = {}
+
+// Track open detached windows
+const detachedWindows = new Map<string, BrowserWindow>()
+
 // HTTP Server for serving web interface in production
 let httpServer: http.Server | null = null
 const HTTP_PORT = 5173
@@ -74,7 +90,6 @@ const broadcastRemoteControlState = () => {
   BrowserWindow.getAllWindows().forEach(win => {
     win.webContents.send('remote-control-state', { active: isRemoteActive, clientsCount: activeRemoteClientsCount })
   })
-  console.log(`[WebSocket] Remote control state: ${isRemoteActive ? 'ACTIVE' : 'INACTIVE'} (${activeRemoteClientsCount} active clients)`)
 }
 
 /**
@@ -89,7 +104,6 @@ const startWebSocketServer = () => {
     wss.on('connection', (ws: WebSocket) => {
       // Increment remote clients count (browser-based remotes only)
       remoteClientsCount++
-      console.log(`[WebSocket] New remote client connected (total: ${remoteClientsCount})`)
       
       // Setup event handlers first (needed for all clients, even if asking for confirmation)
       // Handle client disconnect
@@ -100,7 +114,6 @@ const startWebSocketServer = () => {
           activeRemoteClientsCount = Math.max(0, activeRemoteClientsCount - 1)
         }
         remoteClientsCount = Math.max(0, remoteClientsCount - 1)
-        console.log(`[WebSocket] Remote client disconnected (remaining: ${remoteClientsCount}, active: ${activeRemoteClientsCount})`)
         broadcastRemoteControlState()
       })
       
@@ -108,6 +121,59 @@ const startWebSocketServer = () => {
       ws.on('message', async (data: Buffer) => {
         try {
           const message = JSON.parse(data.toString())
+          
+          // Handle detached window registration (pop-out components from main Electron app)
+          // These clients DO NOT block the mixer - they only receive updates
+          if (message.type === 'detached-window-register') {
+            detachedWindowClients.add(ws)
+            
+            // Remove from detached set on close
+            const originalOnClose = ws.listeners('close')[0] as Function
+            ws.removeAllListeners('close')
+            ws.on('close', () => {
+              detachedWindowClients.delete(ws)
+              // Call original close handler
+              if (originalOnClose) originalOnClose()
+            })
+            
+            // Send confirmation
+            ws.send(JSON.stringify({ 
+              type: 'detached-window-registered', 
+              componentType: message.componentType 
+            }))
+            
+            // Send current audio engine state
+            if (isAudioEngineStarted) {
+              ws.send(JSON.stringify({ type: 'started' }))
+            } else {
+              ws.send(JSON.stringify({ type: 'stopped' }))
+            }
+            
+            // Send cached state to newly connected detached window
+            if (Object.keys(lastKnownState).length > 0) {    
+              // Send as parameters_changed message so components can handle it
+              ws.send(JSON.stringify({
+                type: 'parameters_changed',
+                master: lastKnownState.masterParameters,
+                auxes: lastKnownState.auxParameters,
+                subgroups: lastKnownState.subgroupParameters
+              }))
+              
+              // Send frontend aux buses state (separate from backend auxParameters)
+              if (lastKnownState.auxBuses) {
+                ws.send(JSON.stringify({
+                  type: 'aux_buses_state',
+                  auxBuses: lastKnownState.auxBuses
+                }))
+              }
+              
+              console.log(`[WebSocket] Sent cached state to detached window: ${message.componentType}`)
+            } else {
+              console.log('[WebSocket] No cached state available for detached window')
+            }
+            
+            return
+          }
           
           // Handle remote control lifecycle messages
           if (message.type === 'force-take-control') {
@@ -484,11 +550,26 @@ const startWebSocketServer = () => {
 
 /**
  * Broadcast audio engine response to all WebSocket clients
+ * (remote front clients + detached window clients)
  */
 const broadcastToWebSocketClients = (response: any) => {
   if (!wss) return
   
+  // Update cached state for new detached windows
+  if (response.type === 'parameters' || response.type === 'levels') {
+    if (response.master) {
+      lastKnownState.masterParameters = response.master
+    }
+    if (response.auxes) {
+      lastKnownState.auxParameters = response.auxes
+    }
+    if (response.subgroups) {
+      lastKnownState.subgroupParameters = response.subgroups
+    }
+  }
+  
   const message = JSON.stringify(response)
+  // Send to ALL clients (both remote front and detached windows)
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message)
@@ -1004,6 +1085,25 @@ ipcMain.handle('audio-engine:set-selected-master-output', async (_, deviceId: st
   await sendCommandToEngine({ type: 'set_selected_master_output', device_id: deviceId })
 })
 
+// Aux Buses State Management (frontend state, not backend)
+ipcMain.handle('update-aux-buses-state', async (_, auxBuses: any[]) => {
+  // Cache the aux buses state
+  lastKnownState.auxBuses = auxBuses
+  
+  // Broadcast to detached windows only
+  if (wss) {
+    const message = JSON.stringify({
+      type: 'aux_buses_state',
+      auxBuses: auxBuses
+    })
+    detachedWindowClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message)
+      }
+    })
+  }
+})
+
 // Master FX handlers
 ipcMain.handle('audio-engine:set-master-compressor', async (_, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => {
   await sendCommandToEngine({ type: 'set_master_compressor', enabled, threshold, ratio, attack, release })
@@ -1134,6 +1234,15 @@ ipcMain.handle('audio-engine:set-master-delay', async (_, enabled: boolean, time
 
 ipcMain.handle('audio-engine:set-master-reverb', async (_, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
   await sendCommandToEngine({ type: 'set_master_reverb', enabled, room_size: roomSize, damping, wet, width })
+})
+
+// Master FX management handlers
+ipcMain.handle('audio-engine:add-master-fx-effect', async (_, effectType: string) => {
+  await sendCommandToEngine({ type: 'add_master_fx_effect', effect_type: effectType })
+})
+
+ipcMain.handle('audio-engine:remove-master-fx-effect', async (_, effectType: string) => {
+  await sendCommandToEngine({ type: 'remove_master_fx_effect', effect_type: effectType })
 })
 
 // Subgroup handlers
@@ -1449,6 +1558,99 @@ ipcMain.on('window-unmaximize', (event) => {
 ipcMain.on('window-close', (event) => {
   const window = BrowserWindow.fromWebContents(event.sender)
   window?.close()
+})
+
+/**
+ * Create a detached window for a specific component
+ */
+const createDetachedWindow = (componentType: 'master-eq' | 'spectrum' | 'aux-master' | 'master-fx', title: string, width: number, height: number): BrowserWindow => {
+  // Close existing window for this component if any
+  const existingWindow = detachedWindows.get(componentType)
+  if (existingWindow && !existingWindow.isDestroyed()) {
+    existingWindow.close()
+  }
+  
+  const detachedWindow = new BrowserWindow({
+    width,
+    height,
+    title,
+    backgroundColor: '#0f172a',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+    },
+    autoHideMenuBar: true
+  })
+  
+  // Store window reference
+  detachedWindows.set(componentType, detachedWindow)
+  
+  // Remove from map when closed
+  detachedWindow.on('closed', () => {
+    detachedWindows.delete(componentType)
+    console.log(`[Main] Detached window closed: ${componentType}`)
+  })
+  
+  // Load the detached component page
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    // Development mode: use Vite dev server
+    detachedWindow.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}/detached-${componentType}.html`)
+  } else {
+    // Production mode: load from built files
+    detachedWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/detached-${componentType}.html`))
+  }
+  
+  // Open DevTools in development
+  // if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+  //   detachedWindow.webContents.openDevTools()
+  // }
+  
+  console.log(`[Main] Created detached window: ${componentType}`)
+  
+  return detachedWindow
+}
+
+// IPC handlers for detached windows
+ipcMain.handle('open-detached-window', async (_event, componentType: string) => {
+  console.log(`[Main] Opening detached window: ${componentType}`)
+  
+  switch (componentType) {
+    case 'master-eq':
+      createDetachedWindow('master-eq', 'Master EQ', 600, 500)
+      break
+    case 'spectrum':
+      createDetachedWindow('spectrum', 'Spectrum Analyzer', 600, 500)
+      break
+    case 'aux-master':
+      createDetachedWindow('aux-master', 'Aux Buses', 900, 260)
+      break
+    case 'master-fx':
+      createDetachedWindow('master-fx', 'Master FX Chain', 900, 220)
+      break
+    default:
+      console.error(`[Main] Unknown component type: ${componentType}`)
+      return false
+  }
+  
+  return true
+})
+
+ipcMain.handle('close-detached-window', async (_event, componentType: string) => {
+  console.log(`[Main] Closing detached window: ${componentType}`)
+  
+  const window = detachedWindows.get(componentType)
+  if (window && !window.isDestroyed()) {
+    window.close()
+    return true
+  }
+  
+  return false
+})
+
+ipcMain.handle('is-detached-window-open', async (_event, componentType: string) => {
+  const window = detachedWindows.get(componentType)
+  return window && !window.isDestroyed()
 })
 
 // Disconnect all remote clients and take control

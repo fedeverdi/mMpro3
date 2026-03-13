@@ -136,7 +136,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, inject, toRaw } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, inject, toRaw } from 'vue'
 import CompressorEffect from '../fx/CompressorEffect.vue'
 import ReverbEffect from '../fx/ReverbEffect.vue'
 import DelayEffect from '../fx/DelayEffect.vue'
@@ -145,12 +145,14 @@ import { useAudioEngine } from '../../composables/useAudioEngine'
 
 interface Props {
   masterSection?: any       // For meter visualization in CompressorEffect and LimiterEffect
+  fxEffects?: any[]        // Effects from backend (for synchronization)
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'component', value: { getSnapshot: () => any, restoreSnapshot: (snapshot: any) => void, resetToDefaults: () => void }): void
+  (e: 'effects-changed', value: { type: EffectType, enabled: boolean, params: any }[]): void
 }>()
 
 // Import audio engine from context
@@ -168,11 +170,60 @@ interface Effect {
 }
 
 // State
-const effects = ref<Effect[]>([])
 const showAddEffectMenu = ref(false)
 const addEffectButton = ref<HTMLElement | null>(null)
 const menuPosition = ref({ top: 0, left: 0 })
-let nextEffectId = 1
+
+// Convert backend effects to frontend format (computed from props)
+const effects = computed(() => {
+  if (!props.fxEffects) return []
+  
+  return props.fxEffects.map((backendEffect: any, index: number) => {
+    let params: any = {}
+    
+    switch (backendEffect.type) {
+      case 'compressor':
+        params = {
+          threshold: backendEffect.threshold,
+          ratio: backendEffect.ratio,
+          attack: backendEffect.attack / 1000, // ms to seconds
+          release: backendEffect.release / 1000
+        }
+        break
+        
+      case 'reverb':
+        params = {
+          roomSize: backendEffect.room_size,
+          damping: backendEffect.damping,
+          wet: backendEffect.wet,
+          width: backendEffect.width
+        }
+        break
+        
+      case 'delay':
+        params = {
+          delayTime: backendEffect.time_l / 1000, // ms to seconds
+          feedback: backendEffect.feedback,
+          wet: backendEffect.mix
+        }
+        break
+        
+      case 'limiter':
+        params = {
+          threshold: backendEffect.threshold
+        }
+        break
+    }
+    
+    return {
+      id: index + 1,
+      type: backendEffect.type,
+      enabled: backendEffect.enabled,
+      params,
+      node: null
+    }
+  })
+})
 
 // FX parameters (for scene snapshots)
 const compressorParams = ref({
@@ -195,6 +246,47 @@ const delayParams = ref({
 const limiterParams = ref({
   threshold: -1
 })
+
+// Watch for backend effects changes to update parameter refs (for scene snapshots)
+watch(() => props.fxEffects, (newEffects) => {
+  if (!newEffects) return
+  
+  newEffects.forEach((backendEffect: any) => {
+    switch (backendEffect.type) {
+      case 'compressor':
+        compressorParams.value = {
+          threshold: backendEffect.threshold,
+          ratio: backendEffect.ratio,
+          attack: backendEffect.attack / 1000,
+          release: backendEffect.release / 1000
+        }
+        break
+        
+      case 'reverb':
+        reverbParams.value = {
+          roomSize: backendEffect.room_size,
+          damping: backendEffect.damping,
+          wet: backendEffect.wet,
+          width: backendEffect.width
+        }
+        break
+        
+      case 'delay':
+        delayParams.value = {
+          delayTime: backendEffect.time_l / 1000,
+          feedback: backendEffect.feedback,
+          wet: backendEffect.mix
+        }
+        break
+        
+      case 'limiter':
+        limiterParams.value = {
+          threshold: backendEffect.threshold
+        }
+        break
+    }
+  })
+}, { deep: true })
 
 // Toggle add effect menu with position calculation
 const toggleAddEffectMenu = (event: MouseEvent) => {
@@ -293,32 +385,34 @@ async function handleEffectToggle(index: number, enabled: boolean) {
     console.error(`[MasterFX] Error toggling ${effect.type}:`, error)
     effect.enabled = false
   }
-}
-
-// Add effect to chain
-function addEffect(type: EffectType) {
-  const newEffect: Effect = {
-    id: nextEffectId++,
-    type,
-    enabled: false,
-    params: { ...defaultParams[type] },
-    node: null
-  }
   
-  effects.value.push(newEffect)
-  showAddEffectMenu.value = false
+  // Backend handles synchronization via parameters_changed
 }
 
-// Remove effect from chain
+// Add effect to chain (calls backend to add effect to list)
+async function addEffect(type: EffectType) {
+  showAddEffectMenu.value = false
+  
+  try {
+    // Call new IPC command to add effect to backend list
+    await audioEngine.addMasterFxEffect(type)
+    console.log(`[MasterFX] Added ${type} to backend`)
+  } catch (error) {
+    console.error(`[MasterFX] Error adding ${type}:`, error)
+  }
+}
+
+// Remove effect from chain (calls backend to remove effect from list)
 async function removeEffect(index: number) {
   const effect = effects.value[index]
   
-  // Disable effect first
-  if (effect.enabled) {
-    await handleEffectToggle(index, false)
+  try {
+    // Call new IPC command to remove effect from backend list
+    await audioEngine.removeMasterFxEffect(effect.type)
+    console.log(`[MasterFX] Removed ${effect.type} from backend`)
+  } catch (error) {
+    console.error(`[MasterFX] Error removing ${effect.type}:`, error)
   }
-  
-  effects.value.splice(index, 1)
 }
 
 // Handle effect parameter update

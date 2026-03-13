@@ -83,6 +83,12 @@ contextBridge.exposeInMainWorld('audioEngine', {
   setMasterReverb: (enabled: boolean, roomSize: number, damping: number, wet: number, width: number) =>
     ipcRenderer.invoke('audio-engine:set-master-reverb', enabled, roomSize, damping, wet, width),
   
+  // Master FX management
+  addMasterFxEffect: (effectType: string) =>
+    ipcRenderer.invoke('audio-engine:add-master-fx-effect', effectType),
+  removeMasterFxEffect: (effectType: string) =>
+    ipcRenderer.invoke('audio-engine:remove-master-fx-effect', effectType),
+  
   // Subgroup controls
   addSubgroup: () => ipcRenderer.invoke('audio-engine:add-subgroup'),
   removeSubgroup: (subgroup: number) => ipcRenderer.invoke('audio-engine:remove-subgroup', subgroup),
@@ -235,5 +241,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   
   // Disconnect remote clients and take control
-  disconnectRemoteClients: () => ipcRenderer.invoke('disconnect-remote-clients')
+  disconnectRemoteClients: () => ipcRenderer.invoke('disconnect-remote-clients'),
+  
+  // Detached windows (pop-out components)
+  openDetachedWindow: (componentType: string) => ipcRenderer.invoke('open-detached-window', componentType),
+  closeDetachedWindow: (componentType: string) => ipcRenderer.invoke('close-detached-window', componentType),
+  isDetachedWindowOpen: (componentType: string) => ipcRenderer.invoke('is-detached-window-open', componentType),
+  
+  // Update state for detached windows
+  updateAuxBusesState: (auxBuses: any[]) => ipcRenderer.invoke('update-aux-buses-state', auxBuses)
 })

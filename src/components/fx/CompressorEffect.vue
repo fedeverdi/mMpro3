@@ -27,7 +27,7 @@
 
     <!-- Settings Modal -->
     <Teleport to="body">
-      <div v-if="showModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      <div v-if="showModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]"
         @mousedown.self="showModal = false">
 
         <div class="bg-gray-900 relative rounded-lg border-2 border-blue-600 px-4 pt-4 pb-2 max-w-2xl w-full mx-4" @click.stop>

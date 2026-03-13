@@ -71,6 +71,21 @@ impl Limiter {
         }
     }
     
+    /// Get enabled state
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+    
+    /// Get ceiling in dB
+    pub fn get_ceiling(&self) -> f32 {
+        self.ceiling_db
+    }
+    
+    /// Get release time in milliseconds
+    pub fn get_release(&self) -> f32 {
+        self.release_ms
+    }
+    
     /// Update sample rate and recalculate coefficients
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;

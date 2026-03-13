@@ -59,8 +59,10 @@
         <!-- Master EQ Display, Spectrum & FX -->
         <RightSection ref="rightSectionRef" :master-channel="masterChannel" :master-section-ref="masterSectionRef"
           :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses" :subgroups="subgroups"
-          :master-eq-filters="masterEqFiltersData" @master-fx-output-node="handleMasterFxOutputNode"
-          @master-fx-component="handleMasterFxComponent" @update:master-eq-filters="handleMasterEQFiltersUpdate"
+          :master-eq-filters="masterEqFiltersData" :master-fx-effects="masterFxEffectsData"
+          @master-fx-output-node="handleMasterFxOutputNode"
+          @master-fx-component="handleMasterFxComponent"
+          @update:master-eq-filters="handleMasterEQFiltersUpdate"
           @add-aux="addAux" @remove-aux="removeAux" @update-aux="updateAux" />
 
         <!-- Meters & Tools Section -->
@@ -624,6 +626,8 @@ const masterFxComponent = ref<any>(null) // For getSnapshot only
 
 // Master EQ state (source of truth)
 const masterEqFiltersData = ref<any[]>([])
+// Master FX effects state (source of truth from backend)
+const masterFxEffectsData = ref<any[]>([])
 // Flag to prevent watch updates during drag operations
 const isDraggingMasterEQ = ref(false)
 
@@ -634,6 +638,7 @@ function handleMasterFxOutputNode(node: any) {
 
 function handleMasterFxComponent(component: any) {
   masterFxComponent.value = component
+  // Backend handles effects synchronization automatically
 }
 
 // Handle master EQ filters update from RightSection
@@ -1362,11 +1367,41 @@ const handleVisibilityChange = () => {
   }
 }
 
+// Watch aux buses and sync to detached windows (for caching only)
+watch(auxBuses, (newAuxBuses) => {
+  // Only broadcast if in Electron mode (not remote mode) and after component is mounted
+  if (isElectronMode && (window as any).electronAPI?.updateAuxBusesState && isAppReady.value) {
+    // Convert to raw to avoid proxy issues and extract only serializable data
+    const auxBusesData = toRaw(newAuxBuses).map(aux => ({
+      id: aux.id,
+      name: aux.name,
+      volume: aux.volume,
+      muted: aux.muted,
+      soloed: aux.soloed,
+      routeToMaster: aux.routeToMaster,
+      reverbEnabled: aux.reverbEnabled,
+      reverbParams: aux.reverbParams ? { ...aux.reverbParams } : undefined,
+      delayEnabled: aux.delayEnabled,
+      delayParams: aux.delayParams ? { ...aux.delayParams } : undefined,
+      selectedOutputDevice: aux.selectedOutputDevice
+    }));
+    
+    (window as any).electronAPI.updateAuxBusesState(auxBusesData).catch((error: any) => {
+      // Silently ignore errors during initialization
+      if (!error.message?.includes('No handler registered')) {
+        console.error('[index] Failed to update aux buses state:', error)
+      }
+    })
+  }
+}, { deep: true })
+
 // Initialize audio
 onMounted(async () => {
   document.title = 'Audio Mixer Pro - Multi-Track Mixer'
 
   masterChannel.value = null
+  
+  // Master FX effects synchronization is now handled via audioEngineState.masterFxEffects watch
 
   // Add initial aux buses FIRST (before async operations) for immediate rendering
   // Skip in remote mode - remote clients will sync state from the host
@@ -1428,6 +1463,14 @@ onMounted(async () => {
         gain: f.gain,
         Q: f.q  // Rust uses lowercase 'q', frontend uses uppercase 'Q'
       }))
+    }
+  }, { deep: true })
+
+  // Watch for master FX effects changes from Rust backend
+  watch(() => audioEngineState.value.masterFxEffects, (newEffects) => {
+    if (newEffects && Array.isArray(newEffects)) {
+      console.log('[index.vue] Received masterFxEffects:', newEffects)
+      masterFxEffectsData.value = newEffects
     }
   }, { deep: true })
 

@@ -198,6 +198,14 @@ interface ElectronAPI {
   
   // Disconnect remote clients
   disconnectRemoteClients: () => Promise<void>
+  
+  // Detached windows (pop-out components)
+  openDetachedWindow: (componentType: string) => Promise<boolean>
+  closeDetachedWindow: (componentType: string) => Promise<boolean>
+  isDetachedWindowOpen: (componentType: string) => Promise<boolean>
+  
+  // Update state for detached windows
+  updateAuxBusesState: (auxBuses: any[]) => Promise<void>
 }
 
 interface Window {
