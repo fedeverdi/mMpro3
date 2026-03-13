@@ -286,9 +286,9 @@ const popoverPosition = ref({ x: 0, y: 0 })
 let dragStartX = 0
 let dragStartQ = 0
 
-// Use requestAnimationFrame to throttle updates (like Knob component)
-let rafId: number | null = null
-let pendingUpdate = false
+// Throttle for emit updates during drag (200ms = max 5 updates/sec)
+let lastEmitTime = 0
+const EMIT_THROTTLE_MS = 400
 
 onMounted(async () => {
   await nextTick()
@@ -310,7 +310,7 @@ onUnmounted(() => {
 // Watch for external changes to eqFilters (user filters only)
 watch(() => props.eqFilters, (newFilters) => {
   // Don't update while user is actively dragging a filter on THIS client
-  if (isDragging.value) return
+  if (isDragging.value || isDraggingQ.value) return
   
   // Only sync if we have actual filter data
   if (!newFilters || newFilters.length === 0) return
@@ -609,39 +609,25 @@ function handleCanvasMouseMove(e: MouseEvent) {
     filter.gain = Math.max(-24, Math.min(24, Math.round(gain * 2) / 2))
   }
   
-  // Redraw immediately for smooth visual feedback
+  // Redraw immediately for smooth visual
   drawEQCurve()
   
-  // Use requestAnimationFrame to throttle backend updates (like Knob component)
-  // This ensures smooth audio without overwhelming the backend
-  pendingUpdate = true
-  
-  if (rafId === null) {
-    rafId = requestAnimationFrame(() => {
-      if (pendingUpdate) {
-        emit('update', {
-          input: null,
-          output: null,
-          filters: [],
-          filtersData: filters.value
-        })
-        pendingUpdate = false
-      }
-      rafId = null
+  // Throttle emit to reduce backend load
+  const now = Date.now()
+  if (now - lastEmitTime >= EMIT_THROTTLE_MS) {
+    lastEmitTime = now
+    emit('update', {
+      input: null,
+      output: null,
+      filters: [],
+      filtersData: filters.value
     })
   }
 }
 
 function handleCanvasMouseUp() {
-  // Cancel any pending animation frame
-  if (rafId !== null) {
-    cancelAnimationFrame(rafId)
-    rafId = null
-  }
-  
   // Emit final update when dragging ends
   if (draggedFilterIndex.value !== null) {
-    // Always emit final update for Rust backend
     emit('update', {
       input: null,
       output: null,
@@ -654,7 +640,7 @@ function handleCanvasMouseUp() {
   isDraggingQ.value = false
   draggedFilterIndex.value = null
   popoverPosition.value = { x: 0, y: 0 }
-  pendingUpdate = false
+  lastEmitTime = 0
 }
 
 // Touch handlers
@@ -762,21 +748,17 @@ function handleCanvasTouchMove(e: TouchEvent) {
     
     drawEQCurve()
     
-    // Use requestAnimationFrame to throttle updates
-    pendingUpdate = true
+    drawEQCurve()
     
-    if (rafId === null) {
-      rafId = requestAnimationFrame(() => {
-        if (pendingUpdate) {
-          emit('update', {
-            input: null,
-            output: null,
-            filters: [],
-            filtersData: filters.value
-          })
-          pendingUpdate = false
-        }
-        rafId = null
+    // Throttle emit
+    const now = Date.now()
+    if (now - lastEmitTime >= EMIT_THROTTLE_MS) {
+      lastEmitTime = now
+      emit('update', {
+        input: null,
+        output: null,
+        filters: [],
+        filtersData: filters.value
       })
     }
   } else if (isDragging.value && draggedFilterIndex.value !== null) {
@@ -812,33 +794,21 @@ function handleCanvasTouchMove(e: TouchEvent) {
     
     drawEQCurve()
     
-    // Use requestAnimationFrame to throttle updates
-    pendingUpdate = true
-    
-    if (rafId === null) {
-      rafId = requestAnimationFrame(() => {
-        if (pendingUpdate) {
-          emit('update', {
-            input: null,
-            output: null,
-            filters: [],
-            filtersData: filters.value
-          })
-          pendingUpdate = false
-        }
-        rafId = null
+    // Throttle emit
+    const now = Date.now()
+    if (now - lastEmitTime >= EMIT_THROTTLE_MS) {
+      lastEmitTime = now
+      emit('update', {
+        input: null,
+        output: null,
+        filters: [],
+        filtersData: filters.value
       })
     }
   }
 }
 
 function handleCanvasTouchEnd() {
-  // Cancel any pending animation frame
-  if (rafId !== null) {
-    cancelAnimationFrame(rafId)
-    rafId = null
-  }
-  
   // Emit final update when dragging ends
   if (draggedFilterIndex.value !== null) {
     // Always emit final update for Rust backend
@@ -854,7 +824,7 @@ function handleCanvasTouchEnd() {
   isDraggingQ.value = false
   draggedFilterIndex.value = null
   popoverPosition.value = { x: 0, y: 0 }
-  pendingUpdate = false
+  lastEmitTime = 0
 }
 
 // Check if mouse is over a Q control area
