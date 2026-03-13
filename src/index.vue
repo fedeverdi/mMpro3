@@ -1469,7 +1469,6 @@ onMounted(async () => {
   // Watch for master FX effects changes from Rust backend
   watch(() => audioEngineState.value.masterFxEffects, (newEffects) => {
     if (newEffects && Array.isArray(newEffects)) {
-      console.log('[index.vue] Received masterFxEffects:', newEffects)
       masterFxEffectsData.value = newEffects
     }
   }, { deep: true })

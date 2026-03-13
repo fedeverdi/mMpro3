@@ -521,6 +521,7 @@ function handlePlayFile() {
   
   // Otherwise, play the current file (file is already loaded in Rust)
   if (audioEngine?.state.value.isRunning && selectedFileName.value) {
+
     // Don't pass file_id - just play the already loaded file
     audioEngine.playFile(props.trackNumber - 1)
     // isPlaying will be updated via Rust engine broadcast
@@ -1148,22 +1149,19 @@ onMounted(async () => {
     if (params.eqHighMid !== undefined) eqHighMid.value = params.eqHighMid
     if (params.eqHigh !== undefined) eqHigh.value = params.eqHigh
     
-    // Update file player state (sync fileName from Rust)
-    // Build display name from Rust data
-    let displayName: string | null = null
-    if (params.fileArtist && params.fileTitle) {
-      displayName = `${params.fileArtist} - ${params.fileTitle}`
-    } else if (params.fileTitle) {
-      displayName = params.fileTitle
-    } else if (params.fileName && params.fileName.trim() !== '') {
-      displayName = params.fileName
-    }
-    
-    // Update selectedFileName when we have content from Rust
-    if (displayName) {
+    // Update file player state (sync fileName from backend)
+    // Backend now always sends file_artist and file_title when available
+    if (params.fileName && params.fileName.trim() !== '') {
+      let displayName: string | null = null
+      if (params.fileArtist && params.fileTitle) {
+        displayName = `${params.fileArtist} - ${params.fileTitle}`
+      } else if (params.fileTitle) {
+        displayName = params.fileTitle
+      } else {
+        displayName = params.fileName
+      }
+      
       selectedFileName.value = displayName
-      // If we have file data, ensure audioSourceType is set to 'file'
-      // This is critical for remote clients that need to sync state
       audioSourceType.value = 'file'
     }
     

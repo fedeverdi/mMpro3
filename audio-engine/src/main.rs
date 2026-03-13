@@ -2913,28 +2913,45 @@ impl AudioEngine {
             Command::PlayFile { track, file_path, artist, title } => {
                 match self.play_file(track, file_path.as_deref(), artist.as_deref(), title.as_deref()) {
                     Ok(_) => {
-                        // Extract filename from path if provided
-                        let file_name = if let Some(ref path) = file_path {
-                            std::path::Path::new(path)
-                                .file_name()
-                                .and_then(|n| n.to_str())
-                                .map(|s| s.to_string())
-                                .unwrap_or_else(|| path.clone())
-                        } else {
-                            String::new()
-                        };
-                        
                         // Read track parameters after file is loaded
                         let mut router = self.router.lock().unwrap();
-                        let (gain, is_stereo) = if let Some(t) = router.get_track_mut(track) {
+                        let (gain, is_stereo, file_name, file_artist, file_title) = if let Some(t) = router.get_track_mut(track) {
                             let stereo = if let Some(ref player) = t.file_player {
                                 player.channels >= 2
                             } else {
                                 false
                             };
-                            (Some(t.gain), Some(stereo))
+                            
+                            // If file_path is provided, use it and the provided metadata
+                            // Otherwise, read metadata from existing file_player
+                            let (fname, fartist, ftitle) = if file_path.is_some() {
+                                // Extract filename from provided path
+                                let fname = if let Some(ref path) = file_path {
+                                    std::path::Path::new(path)
+                                        .file_name()
+                                        .and_then(|n| n.to_str())
+                                        .map(|s| s.to_string())
+                                        .unwrap_or_else(|| path.clone())
+                                } else {
+                                    String::new()
+                                };
+                                (Some(fname), artist, title)
+                            } else {
+                                // Read from existing file_player
+                                if let Some(ref player) = t.file_player {
+                                    (
+                                        Some(player.file_name.clone()),
+                                        player.file_artist.clone(),
+                                        player.file_title.clone()
+                                    )
+                                } else {
+                                    (Some(String::new()), None, None)
+                                }
+                            };
+                            
+                            (Some(t.gain), Some(stereo), fname, fartist, ftitle)
                         } else {
-                            (None, None)
+                            (None, None, Some(String::new()), None, None)
                         };
                         drop(router);
                         
@@ -2968,9 +2985,9 @@ impl AudioEngine {
                                 parametric_eq_enabled: None,
                                 eq_filters: None,
                                 aux_sends: None,
-                                file_name: Some(file_name),
-                                file_artist: artist,
-                                file_title: title,
+                                file_name,
+                                file_artist,
+                                file_title,
                                 is_stereo,
                             }]),
                             subgroups: None,
