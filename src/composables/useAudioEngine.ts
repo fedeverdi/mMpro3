@@ -447,10 +447,10 @@ export const useAudioEngine = () => {
               let existingParams = state.value.trackParameters.get(trackMeter.track)
               if (!existingParams) {
                 existingParams = {
-                  gain: 1.0,
-                  volume: 1.0,
-                  mute: false,
-                  pan: 0.0,
+                  gain: trackMeter.gain ?? 1.0,
+                  volume: trackMeter.volume ?? 1.0,
+                  mute: trackMeter.mute ?? false,
+                  pan: trackMeter.pan ?? 0.0,
                   routeToMaster: true,
                   routeToSubgroups: [],
                   padEnabled: false,
@@ -476,17 +476,23 @@ export const useAudioEngine = () => {
                   eqLowMid: 0,
                   eqHighMid: 0,
                   eqHigh: 0,
-                  fileName: '',
+                  fileName: trackMeter.file_name ?? '',
                   fileArtist: undefined,
                   fileTitle: undefined,
-                  isStereo: false,
+                  isStereo: trackMeter.is_stereo ?? false,
                   isPlaying: trackMeter.is_playing ?? false,
                   auxSends: []
                 }
                 state.value.trackParameters.set(trackMeter.track, existingParams)
               } else {
-                // Update is_playing in existing track parameters
-                existingParams.isPlaying = trackMeter.is_playing ?? false
+                // Update essential parameters from meters (for remote sync)
+                if (trackMeter.gain !== undefined) existingParams.gain = trackMeter.gain
+                if (trackMeter.volume !== undefined) existingParams.volume = trackMeter.volume
+                if (trackMeter.mute !== undefined) existingParams.mute = trackMeter.mute
+                if (trackMeter.pan !== undefined) existingParams.pan = trackMeter.pan
+                if (trackMeter.is_stereo !== undefined) existingParams.isStereo = trackMeter.is_stereo
+                if (trackMeter.file_name !== undefined) existingParams.fileName = trackMeter.file_name
+                if (trackMeter.is_playing !== undefined) existingParams.isPlaying = trackMeter.is_playing
               }
             })
           }

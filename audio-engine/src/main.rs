@@ -555,6 +555,13 @@ struct TrackMeters {
     gate_attenuation_db: f32,
     file_ended: bool,
     is_playing: bool,
+    // Include essential parameters for remote sync
+    gain: f32,
+    volume: f32,
+    mute: bool,
+    pan: f32,
+    is_stereo: bool,
+    file_name: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -1388,6 +1395,13 @@ impl AudioEngine {
                                 gate_attenuation_db: t.gate.attenuation_db,
                                 file_ended: t.file_player.as_ref().map_or(false, |p| p.file_ended),
                                 is_playing: t.file_player.as_ref().map_or(false, |p| p.playing),
+                                // Include essential parameters for remote sync
+                                gain: t.gain,
+                                volume: t.volume,
+                                mute: t.mute,
+                                pan: t.pan,
+                                is_stereo: t.file_player.as_ref().map_or(false, |p| p.channels >= 2),
+                                file_name: t.file_player.as_ref().map_or(String::new(), |p| p.file_name.clone()),
                             })
                             .collect();
                         
@@ -2681,10 +2695,24 @@ impl AudioEngine {
             Command::SetTrackSourceFile { track, file_path, artist, title } => {
                 match self.set_track_source_file(track, &file_path, artist.as_deref(), title.as_deref()) {
                     Ok(_) => {
+                        // Read track parameters after file is loaded
+                        let mut router = self.router.lock().unwrap();
+                        let (gain, is_stereo) = if let Some(t) = router.get_track_mut(track) {
+                            let stereo = if let Some(ref player) = t.file_player {
+                                player.channels >= 2
+                            } else {
+                                false
+                            };
+                            (Some(t.gain), Some(stereo))
+                        } else {
+                            (None, None)
+                        };
+                        drop(router);
+                        
                         Some(Response::ParametersChanged {
                             tracks: Some(vec![TrackParameters {
                                 track,
-                                gain: None,
+                                gain,
                                 volume: None,
                                 mute: None,
                                 pan: None,
@@ -2714,7 +2742,7 @@ impl AudioEngine {
                                 file_name: Some(file_path.clone()),
                                 file_artist: artist.clone(),
                                 file_title: title.clone(),
-                                is_stereo: None,
+                                is_stereo,
                             }]),
                             subgroups: None,
                             auxes: None,
@@ -2741,10 +2769,24 @@ impl AudioEngine {
                             String::new()
                         };
                         
+                        // Read track parameters after file is loaded
+                        let mut router = self.router.lock().unwrap();
+                        let (gain, is_stereo) = if let Some(t) = router.get_track_mut(track) {
+                            let stereo = if let Some(ref player) = t.file_player {
+                                player.channels >= 2
+                            } else {
+                                false
+                            };
+                            (Some(t.gain), Some(stereo))
+                        } else {
+                            (None, None)
+                        };
+                        drop(router);
+                        
                         Some(Response::ParametersChanged {
                             tracks: Some(vec![TrackParameters {
                                 track,
-                                gain: None,
+                                gain,
                                 volume: None,
                                 mute: None,
                                 pan: None,
@@ -2774,7 +2816,7 @@ impl AudioEngine {
                                 file_name: Some(file_name),
                                 file_artist: artist,
                                 file_title: title,
-                                is_stereo: None,
+                                is_stereo,
                             }]),
                             subgroups: None,
                             auxes: None,

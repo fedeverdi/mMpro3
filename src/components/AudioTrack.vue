@@ -154,13 +154,13 @@
 
 
       <!-- Pan Knob -->
-      <div class="flex justify-center scale-[0.75]" :class="{ 'scale-[0.49] -mt-3' : !isLargeSize }">
+      <div class="flex justify-center scale-[0.75]" :class="{ 'scale-[0.5] -mt-5' : !isLargeSize }">
         <PanKnob v-model="pan" label="Pan" @drag-start="isDraggingPan = true" @drag-end="isDraggingPan = false" />
       </div>
-      <div class="text-[0.455rem] uppercase text-center mb-6" :class="{ 'mb-[0.8rem] -mt-5' : !isLargeSize }">Volume</div>
+      <div class="text-[0.455rem] uppercase text-center mb-6" :class="{ 'mb-[2.5rem] -mt-5' : !isLargeSize }">Volume</div>
 
       <!-- Volume Fader and VU Meter -->
-      <div class="flex flex-col flex-1 min-h-0 pb-6 ">
+      <div class="flex flex-col flex-1 min-h-0 pb-[2rem] ">
         <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
 
           <!-- Routing and Phase Control Buttons -->
