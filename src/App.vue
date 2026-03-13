@@ -4,7 +4,7 @@
 </template>
 
 <script setup lang="ts">
-import { provide, ref, onMounted } from 'vue'
+import { provide, ref, onMounted, onUnmounted } from 'vue'
 import IndexPage from './index.vue'
 import SplashScreen from './components/layout/SplashScreen.vue'
 import { useAudioEngine } from './composables/useAudioEngine'
@@ -70,6 +70,14 @@ const handleUserStart = async () => {
   try {
     // Start engine with user gesture (will check if already running internally)
     await audioEngine.start()
+    
+    // If in remote mode, notify server that this client is now actively controlling
+    const isRemoteMode = !(window as any).electronAPI
+    if (isRemoteMode && (window as any).audioEngine?.notifyRemoteControlStarted) {
+      (window as any).audioEngine.notifyRemoteControlStarted()
+      console.log('[App] Notified server: remote control started')
+    }
+    
     isAppReady.value = true
   } catch (error) {
     console.error('[App] Failed to start engine:', error)
@@ -90,12 +98,52 @@ const handleUserStart = async () => {
   }
 }
 
+// Exit remote control (go back to splash screen)
+const handleExitRemoteControl = (notifyServer = true) => {
+  const isRemoteMode = !(window as any).electronAPI
+  if (isRemoteMode && notifyServer && (window as any).audioEngine?.notifyRemoteControlStopped) {
+    (window as any).audioEngine.notifyRemoteControlStopped()
+    console.log('[App] Notified server: remote control stopped')
+  }
+  
+  // Reset to splash screen
+  isAppReady.value = false
+  engineReady.value = false
+  
+  // Re-initialize after a short delay
+  setTimeout(() => {
+    initializeEngine()
+  }, 100)
+}
+
+// Handle remote control disconnection (for remote mode)
+const handleRemoteDisconnection = (event: any) => {
+  console.log('[App] Remote control disconnected:', event.detail?.message)
+  // Return to splash screen without notifying server (already disconnected)
+  handleExitRemoteControl(false)
+}
+
 // Auto-initialize on mount (during splash screen)
 onMounted(() => {
   initializeEngine()
+  
+  // Listen for remote control disconnection (only in remote mode)
+  const isRemoteMode = !(window as any).electronAPI
+  if (isRemoteMode) {
+    window.addEventListener('remote-control-disconnected', handleRemoteDisconnection)
+  }
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  const isRemoteMode = !(window as any).electronAPI
+  if (isRemoteMode) {
+    window.removeEventListener('remote-control-disconnected', handleRemoteDisconnection)
+  }
 })
 
 // Provide audio engine and app ready state to all child components
 provide('audioEngine', audioEngine)
 provide('isAppReady', isAppReady)
+provide('exitRemoteControl', handleExitRemoteControl)
 </script>

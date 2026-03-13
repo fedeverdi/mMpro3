@@ -192,6 +192,12 @@ interface ElectronAPI {
   // Window state listeners
   onMaximized: (callback: () => void) => void
   onUnmaximized: (callback: () => void) => void
+  
+  // Remote control state listener
+  onRemoteControlState: (callback: (data: { active: boolean, clientsCount: number }) => void) => void
+  
+  // Disconnect remote clients
+  disconnectRemoteClients: () => Promise<void>
 }
 
 interface Window {

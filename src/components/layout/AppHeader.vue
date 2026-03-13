@@ -45,6 +45,16 @@
           {{ isLocked ? 'Locked' : 'Lock' }}
         </button>
 
+        <!-- Exit Remote Control Button (only in remote mode) -->
+        <button v-if="isRemoteMode" @click="handleExitRemoteControl"
+          class="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 rounded text-xs font-semibold text-red-400 hover:text-red-300 transition-all flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Exit
+        </button>
+
         <div class="w-px h-6 bg-gray-600"></div>
 
         <div class="relative -mt-[3px]">
@@ -166,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, inject } from 'vue'
 import QuickScenes from './QuickScenes.vue'
 
 interface Props {
@@ -192,6 +202,20 @@ const emit = defineEmits<{
   'remove-subgroup': []
   'load-scene': [sceneId: number]
 }>()
+
+// Check if in remote mode
+const isRemoteMode = ref(false)
+const exitRemoteControl = inject<((notifyServer?: boolean) => void) | null>('exitRemoteControl', null)
+
+onMounted(() => {
+  isRemoteMode.value = !(window as any).electronAPI
+})
+
+const handleExitRemoteControl = () => {
+  if (exitRemoteControl) {
+    exitRemoteControl(true) // Notify server when user manually clicks Exit
+  }
+}
 
 const showAddTrackMenu = ref(false)
 const addButtonRef = ref<HTMLElement | null>(null)

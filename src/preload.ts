@@ -227,5 +227,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onUnmaximized: (callback: () => void) => {
     ipcRenderer.on('window-unmaximized', callback)
-  }
+  },
+  
+  // Remote control state listener
+  onRemoteControlState: (callback: (data: { active: boolean, clientsCount: number }) => void) => {
+    ipcRenderer.on('remote-control-state', (_event, data) => callback(data))
+  },
+  
+  // Disconnect remote clients and take control
+  disconnectRemoteClients: () => ipcRenderer.invoke('disconnect-remote-clients')
 })

@@ -58,10 +58,24 @@ const activeTempFiles = new Set<string>()
 // WebSocket Server for remote control
 let wss: WebSocketServer | null = null
 const WS_PORT = 3001
+let remoteClientsCount = 0 // Track number of connected remote clients (excluding Electron app)
+let activeRemoteClientsCount = 0 // Track number of clients actively controlling (after clicking "Start")
+const activeRemoteClients = new Set<WebSocket>() // Track which clients are actively controlling
 
 // HTTP Server for serving web interface in production
 let httpServer: http.Server | null = null
 const HTTP_PORT = 5173
+
+/**
+ * Broadcast remote control state to all Electron windows
+ */
+const broadcastRemoteControlState = () => {
+  const isRemoteActive = activeRemoteClientsCount > 0
+  BrowserWindow.getAllWindows().forEach(win => {
+    win.webContents.send('remote-control-state', { active: isRemoteActive, clientsCount: activeRemoteClientsCount })
+  })
+  console.log(`[WebSocket] Remote control state: ${isRemoteActive ? 'ACTIVE' : 'INACTIVE'} (${activeRemoteClientsCount} active clients)`)
+}
 
 /**
  * Start WebSocket server for remote browser control
@@ -73,7 +87,12 @@ const startWebSocketServer = () => {
     console.log(`[WebSocket] Server started on port ${WS_PORT}`)
     
     wss.on('connection', (ws: WebSocket) => {
-      console.log('[WebSocket] New client connected')
+      // Increment remote clients count (browser-based remotes only)
+      remoteClientsCount++
+      console.log(`[WebSocket] New remote client connected (total: ${remoteClientsCount})`)
+      
+      // Broadcast remote control state to Electron app
+      broadcastRemoteControlState()
       
       // Send initial connection success message
       ws.send(JSON.stringify({ type: 'connected', message: 'Connected to mMpro3 Audio Engine' }))
@@ -87,10 +106,43 @@ const startWebSocketServer = () => {
         console.log('[WebSocket] Sent current engine state (stopped) to new client')
       }
       
+      // Handle client disconnect
+      ws.on('close', () => {
+        // If this client was actively controlling, decrement the count
+        if (activeRemoteClients.has(ws)) {
+          activeRemoteClients.delete(ws)
+          activeRemoteClientsCount = Math.max(0, activeRemoteClientsCount - 1)
+        }
+        remoteClientsCount = Math.max(0, remoteClientsCount - 1)
+        console.log(`[WebSocket] Remote client disconnected (remaining: ${remoteClientsCount}, active: ${activeRemoteClientsCount})`)
+        broadcastRemoteControlState()
+      })
+      
       // Handle messages from remote clients
       ws.on('message', async (data: Buffer) => {
         try {
           const message = JSON.parse(data.toString())
+          
+          // Handle remote control lifecycle messages
+          if (message.type === 'remote-control-started') {
+            if (!activeRemoteClients.has(ws)) {
+              activeRemoteClients.add(ws)
+              activeRemoteClientsCount++
+              console.log(`[WebSocket] Remote client started control (active: ${activeRemoteClientsCount})`)
+              broadcastRemoteControlState()
+            }
+            return
+          }
+          
+          if (message.type === 'remote-control-stopped') {
+            if (activeRemoteClients.has(ws)) {
+              activeRemoteClients.delete(ws)
+              activeRemoteClientsCount = Math.max(0, activeRemoteClientsCount - 1)
+              console.log(`[WebSocket] Remote client stopped control (active: ${activeRemoteClientsCount})`)
+              broadcastRemoteControlState()
+            }
+            return
+          }
           
           // Handle library operations via IPC-like pattern for WebSocket clients
           if (message.type === 'ipc:audio-engine:list-library-files') {
@@ -1256,6 +1308,42 @@ ipcMain.on('window-close', (event) => {
   window?.close()
 })
 
+// Disconnect all remote clients and take control
+ipcMain.handle('disconnect-remote-clients', async () => {
+  console.log('[Main] Disconnecting all remote clients...')
+  
+  // Close all active remote client connections
+  if (wss && wss.clients) {
+    const clientsToDisconnect = Array.from(activeRemoteClients)
+    
+    clientsToDisconnect.forEach((client) => {
+      if (client.readyState === 1) { // WebSocket.OPEN
+        // Send notification to client before closing
+        try {
+          client.send(JSON.stringify({ 
+            type: 'disconnected', 
+            message: 'Local user has taken control' 
+          }))
+        } catch (error) {
+          console.error('[Main] Error sending disconnect message:', error)
+        }
+        
+        // Close the connection
+        client.close(1000, 'Local user took control')
+      }
+    })
+    
+    // Clear the active clients set
+    activeRemoteClients.clear()
+    activeRemoteClientsCount = 0
+    
+    // Broadcast new state (no more active clients)
+    broadcastRemoteControlState()
+    
+    console.log(`[Main] Disconnected ${clientsToDisconnect.length} remote client(s)`)
+  }
+})
+
 // Master Tap (Recording) - Rust saves WAV file directly
 ipcMain.handle('audio-engine:enable-master-tap', async (_event, filePath: string, settings: {
   format: 'wav' | 'mp3' | 'opus'
@@ -1882,6 +1970,16 @@ const createWindow = () => {
   mainWindow.once('ready-to-show', () => {
     isWindowReady = true
     showMainWindow()
+    
+    // Send initial remote control state to the window
+    setTimeout(() => {
+      if (mainWindow) {
+        mainWindow.webContents.send('remote-control-state', { 
+          active: remoteClientsCount > 0, 
+          clientsCount: remoteClientsCount 
+        })
+      }
+    }, 100) // Small delay to ensure renderer is ready
   })
 
   // Save window state on resize and move

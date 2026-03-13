@@ -49,6 +49,22 @@ export class RemoteAudioEngine {
         try {
           const response = JSON.parse(event.data)
           
+          // Handle disconnection from server (local user took control)
+          if (response.type === 'disconnected') {
+            console.log('[RemoteAudioEngine] Disconnected by server:', response.message)
+            // Dispatch event to tell app to return to splash screen
+            const disconnectEvent = new CustomEvent('remote-control-disconnected', {
+              detail: { message: response.message }
+            })
+            window.dispatchEvent(disconnectEvent)
+            // Don't reconnect automatically when explicitly disconnected
+            if (this.reconnectTimer) {
+              clearTimeout(this.reconnectTimer)
+              this.reconnectTimer = null
+            }
+            return
+          }
+          
           // Handle license updates specifically
           if (response.type === 'license') {
             
@@ -746,6 +762,21 @@ export class RemoteAudioEngine {
     } catch (error) {
       console.error('[RemoteAudioEngine] Failed to save license:', error)
       return false
+    }
+  }
+  
+  // Remote control lifecycle methods
+  notifyRemoteControlStarted(): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'remote-control-started' }))
+      console.log('[RemoteAudioEngine] Notified server: remote control started')
+    }
+  }
+  
+  notifyRemoteControlStopped(): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'remote-control-stopped' }))
+      console.log('[RemoteAudioEngine] Notified server: remote control stopped')
     }
   }
 }

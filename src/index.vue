@@ -161,6 +161,9 @@
 
     <!-- Notification Toast -->
     <NotificationToast />
+    
+    <!-- Remote Control Overlay (shown when browser remote is active) -->
+    <RemoteControlOverlay v-if="!isRemoteMode" :is-active="isRemoteControlActive" />
   </div>
 </template>
 
@@ -180,6 +183,7 @@ import ScenesModal from './components/layout/ScenesModal.vue'
 import QuickScenes from './components/layout/QuickScenes.vue'
 import Footer from './components/layout/Footer.vue'
 import NotificationToast from './components/core/NotificationToast.vue'
+import RemoteControlOverlay from './components/core/RemoteControlOverlay.vue'
 import CustomTitleBar from './components/layout/CustomTitleBar.vue'
 import AppHeader from './components/layout/AppHeader.vue'
 import RemoteModeBanner from './components/layout/RemoteModeBanner.vue'
@@ -198,6 +202,7 @@ const { audioOutputDevices, audioInputDevices, refreshAudioOutputs, refreshAudio
 // Import audio engine from context
 const audioEngine = inject('audioEngine') as any
 const audioEngineState = audioEngine.state
+const isRemoteControlActive = audioEngine.isRemoteControlActive
 const notify = useNotifications()
 
 // Check if we're in remote mode (WebSocket browser)
@@ -633,7 +638,6 @@ function handleMasterFxComponent(component: any) {
 
 // Handle master EQ filters update from RightSection
 async function handleMasterEQFiltersUpdate(filters: any[]) {
-  console.log('[Index] handleMasterEQFiltersUpdate called with filters:', JSON.stringify(filters))
   
   // Set flag to prevent watch from updating during our own update
   isDraggingMasterEQ.value = true
@@ -641,7 +645,6 @@ async function handleMasterEQFiltersUpdate(filters: any[]) {
   if (!filters || filters.length === 0) {
     // Clear master EQ if no filters
     await window.audioEngine?.clearMasterParametricEQ()
-    console.log('[Master EQ] Cleared filters')
     // Allow watch to update after a short delay (wait for Rust response)
     setTimeout(() => { isDraggingMasterEQ.value = false }, 100)
     return
@@ -654,8 +657,6 @@ async function handleMasterEQFiltersUpdate(filters: any[]) {
     gain: f.gain,
     q: f.Q ?? 1.0  // Use Q if present, otherwise default to 1.0
   }))
-
-  console.log('[Index] Sending backend filters to Rust:', JSON.stringify(backendFilters))
 
   try {
     await window.audioEngine?.setMasterParametricEQFilters(backendFilters)
