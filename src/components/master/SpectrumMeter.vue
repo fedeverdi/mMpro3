@@ -308,7 +308,7 @@ const render = () => {
 
   // Convert magnitude bins to dB with calibration offset
   // Calibration offset compensates for FFT windowing and normalization
-  const CALIBRATION_OFFSET_DB = -18.0 // Adjusted to make 0 dBFS signal appear at 0 dB
+  const CALIBRATION_OFFSET_DB = -6.0 // Adjusted to make 0 dBFS signal appear at 0 dB
   const convertToDb = (magnitude: number): number => {
     if (magnitude <= 0) return -140
     return 20 * Math.log10(magnitude) + CALIBRATION_OFFSET_DB

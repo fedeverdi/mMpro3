@@ -225,6 +225,9 @@ pub struct Track {
     waveform_buffer_r: Vec<f32>,
     waveform_write_index: usize,
     
+    // FFT analyzer for track-specific spectrum visualization
+    pub fft_analyzer: FFTAnalyzer,
+    
     // Phase correlation calculation counter (calculate every N samples)
     phase_correlation_counter: usize,
 }
@@ -259,6 +262,7 @@ impl Track {
             waveform_buffer_l: vec![0.0; WAVEFORM_BUFFER_SIZE],
             waveform_buffer_r: vec![0.0; WAVEFORM_BUFFER_SIZE],
             waveform_write_index: 0,
+            fft_analyzer: FFTAnalyzer::new(),
             phase_correlation_counter: 0,
         }
     }
@@ -460,6 +464,12 @@ impl Track {
         // Store pre-fader signal for aux sends
         let pre_fader_l = left;
         let pre_fader_r = right;
+
+        // Push samples to FFT analyzer BEFORE fader (for parametric EQ visualization)
+        // This ensures FFT shows the actual audio content independent of fader position
+        if self.source != TrackSource::None {
+            self.fft_analyzer.push_samples(pre_fader_l, pre_fader_r);
+        }
 
         // 9. FADER: Final level control
         left *= self.volume;

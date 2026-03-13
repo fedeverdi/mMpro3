@@ -114,6 +114,7 @@ export interface AudioEngineState {
   masterEQFilters: any[]
   masterFxEffects: any[]
   fftData: { binsLeft: Float32Array; binsRight: Float32Array; sampleRate: number } | null
+  trackFFTData: Record<number, { binsLeft: Float32Array; binsRight: Float32Array; sampleRate: number }> | null
   performanceStats: {
     bufferSize: number
     sampleRate: number
@@ -185,6 +186,7 @@ const state = ref<AudioEngineState>({
   masterEQFilters: [],
   masterFxEffects: [],
   fftData: null,
+  trackFFTData: null,
   performanceStats: null,
   recordingStats: null,
   loudnessData: null,
@@ -881,6 +883,21 @@ export const useAudioEngine = () => {
           }
           break
 
+        case 'track_fft':
+          if (response.track !== undefined && response.bins_left && response.bins_right && response.sample_rate) {
+            // Create a new object to ensure reactivity
+            const currentTrackFFT = state.value.trackFFTData || {}
+            state.value.trackFFTData = {
+              ...currentTrackFFT,
+              [response.track]: {
+                binsLeft: new Float32Array(response.bins_left),
+                binsRight: new Float32Array(response.bins_right),
+                sampleRate: response.sample_rate
+              }
+            }
+          }
+          break
+
         case 'performance':
           state.value.performanceStats = {
             bufferSize: response.buffer_size,
@@ -971,6 +988,10 @@ export const useAudioEngine = () => {
           window.dispatchEvent(new CustomEvent('subgroup-created', { 
             detail: { id: response.id } 
           }))
+          break
+
+        case 'audio_inputs':
+          // Audio input devices list - handled by useAudioDevices composable
           break
 
         default:

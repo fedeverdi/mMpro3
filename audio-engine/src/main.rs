@@ -485,6 +485,13 @@ enum Response {
         bins_right: Vec<f32>,
         sample_rate: u32,
     },
+    #[serde(rename = "track_fft")]
+    TrackFFTData {
+        track: usize,
+        bins_left: Vec<f32>,
+        bins_right: Vec<f32>,
+        sample_rate: u32,
+    },
     #[serde(rename = "performance")]
     PerformanceStats {
         buffer_size: usize,
@@ -636,6 +643,15 @@ struct TrackParameters {
     file_artist: Option<String>,
     file_title: Option<String>,
     is_stereo: Option<bool>,
+    // FFT data for parametric EQ visualization
+    fft_data: Option<FFTDataSimple>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct FFTDataSimple {
+    bins_left: Vec<f32>,
+    bins_right: Vec<f32>,
+    sample_rate: u32,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -1282,7 +1298,7 @@ impl AudioEngine {
                 let input_buf = input_buffer.lock().unwrap();
 
                 // Acquire lock, process audio, release lock quickly
-                let (levels_to_send, fft_data) = {
+                let levels_to_send = {
                     let mut router = router_output.lock().unwrap();
                     
                     // Process all frames
@@ -1535,11 +1551,27 @@ impl AudioEngine {
                         None
                     };
 
-                    // Check for FFT data
-                    let fft_data = router.fft_analyzer.analyze();
-                    
-                    (levels_to_send, fft_data)
+                    levels_to_send
                 }; // Lock is released here
+                
+                // Check for FFT data outside the lock
+                let fft_data = {
+                    let mut router = router_output.lock().unwrap();
+                    router.fft_analyzer.analyze()
+                };
+                
+                // Check for track FFT data outside the lock
+                // Generate FFT for all tracks with audio loaded (ignore mute status)
+                // This allows EQ editing with FFT visualization even on muted tracks
+                let track_fft_data: Vec<(usize, Vec<f32>, Vec<f32>)> = {
+                    let mut router = router_output.lock().unwrap();
+                    router.tracks.iter_mut()
+                        .filter(|t| t.source != crate::routing::TrackSource::None)
+                        .filter_map(|t| {
+                            t.fft_analyzer.analyze().map(|(left, right)| (t.id, left, right))
+                        })
+                        .collect()
+                };
                 
                 // CRITICAL: Check if updates are suspended (during window resize)
                 // This prevents blocking I/O on stdout which would freeze audio
@@ -1597,6 +1629,20 @@ impl AudioEngine {
                         
                         if let Ok(json) = serde_json::to_string(&response) {
                             // Use try_send to avoid blocking audio thread if channel is full
+                            let _ = output_sender.try_send(json);
+                        }
+                    }
+
+                    // Send track FFT data for tracks in play
+                    for (track_id, bins_left, bins_right) in track_fft_data {
+                        let response = Response::TrackFFTData {
+                            track: track_id,
+                            bins_left,
+                            bins_right,
+                            sample_rate: sample_rate_for_perf,
+                        };
+                        
+                        if let Ok(json) = serde_json::to_string(&response) {
                             let _ = output_sender.try_send(json);
                         }
                     }
@@ -2743,6 +2789,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -2789,6 +2836,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -2841,6 +2889,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -2898,6 +2947,7 @@ impl AudioEngine {
                                 file_artist: artist.clone(),
                                 file_title: title.clone(),
                                 is_stereo,
+                                fft_data: None,
                             }]),
                             subgroups: None,
                             auxes: None,
@@ -2989,6 +3039,7 @@ impl AudioEngine {
                                 file_artist,
                                 file_title,
                                 is_stereo,
+                                fft_data: None,
                             }]),
                             subgroups: None,
                             auxes: None,
@@ -3049,6 +3100,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3091,6 +3143,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3133,6 +3186,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3175,6 +3229,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3217,6 +3272,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3259,6 +3315,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3301,6 +3358,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3343,6 +3401,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3392,6 +3451,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3441,6 +3501,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3489,6 +3550,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3531,6 +3593,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3573,6 +3636,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3615,6 +3679,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3657,6 +3722,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -4101,6 +4167,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -4165,6 +4232,7 @@ impl AudioEngine {
                         file_artist: None,
                         file_title: None,
                         is_stereo: None,
+                        fft_data: None,
                     }]),
                     subgroups: None,
                     auxes: None,

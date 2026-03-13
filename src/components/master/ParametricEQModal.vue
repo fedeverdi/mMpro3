@@ -322,41 +322,52 @@ onUnmounted(() => {
   // No cleanup needed - Rust backend handles all audio
 })
 
-// Watch for FFT data updates from audio engine
+// Watch for FFT data updates from audio engine (only when modal is open)
 watch(
-  () => audioEngine?.state?.value?.fftData,
-  (fftData) => {
-    if (fftData) {
-      const newLeft = fftData.binsLeft instanceof Float32Array 
-        ? fftData.binsLeft 
-        : new Float32Array(fftData.binsLeft)
-      const newRight = fftData.binsRight instanceof Float32Array 
-        ? fftData.binsRight 
-        : new Float32Array(fftData.binsRight)
-      
-      if (!smoothedFFTLeft || smoothedFFTLeft.length !== newLeft.length) {
-        smoothedFFTLeft = new Float32Array(newLeft)
-        smoothedFFTRight = new Float32Array(newRight)
-      } else {
-        for (let i = 0; i < newLeft.length; i++) {
-          if (newLeft[i] > smoothedFFTLeft![i]) {
-            smoothedFFTLeft![i] = smoothedFFTLeft![i] * ATTACK_FACTOR + newLeft[i] * (1 - ATTACK_FACTOR)
-          } else {
-            smoothedFFTLeft![i] = Math.max(newLeft[i], smoothedFFTLeft![i] * SMOOTHING_FACTOR)
-          }
-          
-          if (newRight[i] > smoothedFFTRight![i]) {
-            smoothedFFTRight![i] = smoothedFFTRight![i] * ATTACK_FACTOR + newRight[i] * (1 - ATTACK_FACTOR)
-          } else {
-            smoothedFFTRight![i] = Math.max(newRight[i], smoothedFFTRight![i] * SMOOTHING_FACTOR)
-          }
+  [
+    () => props.modelValue, // Watch modal open state
+    () => props.title && props.title.includes('Master') ? audioEngine?.state?.value?.fftData : audioEngine?.state?.value?.trackFFTData, // Watch entire object
+    () => props.trackNumber // Watch track number changes
+  ],
+  ([isOpen, fftDataOrTrackFFT, trackNum]) => {
+    // Only process FFT data when modal is open
+    if (!isOpen) return
+    
+    const isMasterEQ = props.title && props.title.includes('Master')
+    const fftData = isMasterEQ 
+      ? fftDataOrTrackFFT 
+      : (fftDataOrTrackFFT as any)?.[trackNum]
+    
+    if (!fftData) return
+    
+    const newLeft = fftData.binsLeft instanceof Float32Array 
+      ? fftData.binsLeft 
+      : new Float32Array(fftData.binsLeft)
+    const newRight = fftData.binsRight instanceof Float32Array 
+      ? fftData.binsRight 
+      : new Float32Array(fftData.binsRight)
+    
+    if (!smoothedFFTLeft || smoothedFFTLeft.length !== newLeft.length) {
+      smoothedFFTLeft = new Float32Array(newLeft)
+      smoothedFFTRight = new Float32Array(newRight)
+    } else {
+      for (let i = 0; i < newLeft.length; i++) {
+        if (newLeft[i] > smoothedFFTLeft![i]) {
+          smoothedFFTLeft![i] = smoothedFFTLeft![i] * ATTACK_FACTOR + newLeft[i] * (1 - ATTACK_FACTOR)
+        } else {
+          smoothedFFTLeft![i] = Math.max(newLeft[i], smoothedFFTLeft![i] * SMOOTHING_FACTOR)
+        }
+        
+        if (newRight[i] > smoothedFFTRight![i]) {
+          smoothedFFTRight![i] = smoothedFFTRight![i] * ATTACK_FACTOR + newRight[i] * (1 - ATTACK_FACTOR)
+        } else {
+          smoothedFFTRight![i] = Math.max(newRight[i], smoothedFFTRight![i] * SMOOTHING_FACTOR)
         }
       }
-      
-      drawEQCurve() // Redraw with new FFT data
     }
-  },
-  { immediate: true }
+    
+    drawEQCurve() // Redraw with new FFT data
+  }
 )
 
 // Watch for external changes to eqFilters (e.g., when loading a scene)
@@ -972,7 +983,7 @@ function drawEQCurve() {
   
   // Draw FFT curve in background (if data available)
   if (smoothedFFTLeft && smoothedFFTRight) {
-    const CALIBRATION_OFFSET_DB = -18.0
+    const CALIBRATION_OFFSET_DB = -25.0
     const convertToDb = (magnitude: number): number => {
       if (magnitude <= 0) return -140
       return 20 * Math.log10(magnitude) + CALIBRATION_OFFSET_DB
@@ -1013,16 +1024,17 @@ function drawEQCurve() {
     // Start from bottom left
     ctx.moveTo(0, height)
     
-    // Draw the curve (average of left and right)
+    // Draw the curve (use max of left and right for mono compatibility)
     for (let i = 0; i <= numPoints; i++) {
       const logFreq = logMin + (i / numPoints) * (logMax - logMin)
       const freq = Math.pow(10, logFreq)
       const dbLeft = getDbAtFreq(freq, fftDbLeft)
       const dbRight = getDbAtFreq(freq, fftDbRight)
-      const dbAvg = (dbLeft + dbRight) / 2
+      // Use max instead of average to ensure mono tracks show properly
+      const dbMax = Math.max(dbLeft, dbRight)
       
-      // Map dB to Y position (from -100dB to +6dB range)
-      const normalized = Math.max(0, Math.min(1, (dbAvg + 100) / 106))
+      // Map dB to Y position (from -100dB to +6dB range, same as spectrum analyzer)
+      const normalized = Math.max(0, Math.min(1, (dbMax + 100) / 106))
       const x = freqToX(freq)
       const y = height - (normalized * height)
       

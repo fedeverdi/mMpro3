@@ -222,9 +222,9 @@
   </div>
 
   <!-- Parametric EQ Modal -->
-  <ParametricEQModal v-model="showParametricEQ" :track-number="trackNumber"
+  <ParametricEQModal v-model="showParametricEQ" :track-number="trackNumber - 1"
     :eq-filters="parametricEQFilters"
-    :title="`Parametric EQ - Track ${trackNumber + 1}`" @update="handleParametricEQUpdate" />
+    :title="`Parametric EQ - Track ${trackNumber}`" @update="handleParametricEQUpdate" />
   
   <!-- Phase Correlation Modal -->
   <PhaseCorrelationModal 
@@ -416,7 +416,6 @@ const eq4BandFilters = computed(() => {
 // Watch when parametric EQ modal opens
 watch(showParametricEQ, (isOpen) => {
   if (isOpen) {
-    console.log(`[Track ${props.trackNumber}] Parametric EQ modal opened`)
   }
 })
 
