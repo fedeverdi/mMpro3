@@ -49,19 +49,77 @@ export class RemoteAudioEngine {
         try {
           const response = JSON.parse(event.data)
           
-          // Handle disconnection from server (local user took control)
-          if (response.type === 'disconnected') {
-            console.log('[RemoteAudioEngine] Disconnected by server:', response.message)
-            // Dispatch event to tell app to return to splash screen
-            const disconnectEvent = new CustomEvent('remote-control-disconnected', {
+          // Handle remote already active - emit event for UI to show modal
+          if (response.type === 'remote-already-active') {
+            console.log('[RemoteAudioEngine] Remote already active, emitting event for modal')
+            const remoteActiveEvent = new CustomEvent('remote-already-active', {
+              detail: { 
+                message: response.message,
+                activeClientsCount: response.activeClientsCount
+              }
+            })
+            window.dispatchEvent(remoteActiveEvent)
+            return
+          }
+          
+          // Handle control taken confirmation - user successfully took control from another remote
+          if (response.type === 'control-taken') {
+            console.log('[RemoteAudioEngine] Control successfully taken, notifying app')
+            // Dispatch event to hide splash screen and show main view
+            const controlTakenEvent = new CustomEvent('remote-control-taken', {
               detail: { message: response.message }
             })
-            window.dispatchEvent(disconnectEvent)
-            // Don't reconnect automatically when explicitly disconnected
+            window.dispatchEvent(controlTakenEvent)
+            return
+          }
+          
+          // Handle control accepted - no other remote was active, proceed normally
+          if (response.type === 'remote-control-accepted') {
+            console.log('[RemoteAudioEngine] Remote control accepted by server')
+            const acceptedEvent = new CustomEvent('remote-control-accepted', {
+              detail: { message: response.message }
+            })
+            window.dispatchEvent(acceptedEvent)
+            return
+          }
+          
+          // Handle disconnection from server (local user took control or taken over by another remote)
+          if (response.type === 'disconnected') {
+            const reason = response.reason || 'unknown'
+            let message = response.message || 'Disconnesso dal server'
+            
+            if (reason === 'taken-over') {
+              message = 'Un altro client remoto ha preso il controllo'
+            }
+            
+            console.log('[RemoteAudioEngine] Disconnected by server:', message)
+            
+            // Clear any pending reconnect timer
             if (this.reconnectTimer) {
               clearTimeout(this.reconnectTimer)
               this.reconnectTimer = null
             }
+            
+            // Close the WebSocket
+            if (this.ws) {
+              this.ws.close()
+              this.ws = null
+            }
+            
+            // Dispatch event to tell app to return to splash screen
+            const disconnectEvent = new CustomEvent('remote-control-disconnected', {
+              detail: { message }
+            })
+            window.dispatchEvent(disconnectEvent)
+            
+            // Reconnect after a delay (ready for next attempt)
+            setTimeout(() => {
+              console.log('[RemoteAudioEngine] Reconnecting after forced disconnect...')
+              this.connect().catch(err => {
+                console.error('[RemoteAudioEngine] Failed to reconnect after disconnect:', err)
+              })
+            }, 500)
+            
             return
           }
           
@@ -788,5 +846,42 @@ export class RemoteAudioEngine {
       this.ws.send(JSON.stringify({ type: 'remote-control-stopped' }))
       console.log('[RemoteAudioEngine] Notified server: remote control stopped')
     }
+  }
+
+  forceTakeControl(): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'force-take-control' }))
+      console.log('[RemoteAudioEngine] Sent force-take-control to server')
+    }
+  }
+
+  cancelConnection(): void {
+    console.log('[RemoteAudioEngine] User cancelled connection, closing WebSocket')
+    
+    // Clear any pending reconnect timer
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    
+    // Close current connection
+    if (this.ws) {
+      this.ws.close()
+      this.ws = null
+    }
+    
+    // Dispatch event to return to splash screen
+    const disconnectEvent = new CustomEvent('remote-control-disconnected', {
+      detail: { message: 'Connessione annullata' }
+    })
+    window.dispatchEvent(disconnectEvent)
+    
+    // Reconnect after a short delay (ready for next attempt)
+    setTimeout(() => {
+      console.log('[RemoteAudioEngine] Reconnecting after cancel...')
+      this.connect().catch(err => {
+        console.error('[RemoteAudioEngine] Failed to reconnect after cancel:', err)
+      })
+    }, 500)
   }
 }

@@ -1,18 +1,33 @@
 <template>
-  <SplashScreen v-if="!isAppReady" :engine-ready="engineReady" @start="handleUserStart" />
+  <SplashScreen 
+    ref="splashScreenRef"
+    v-if="!isAppReady" 
+    :engine-ready="engineReady" 
+    @start="handleUserStart" 
+  />
   <IndexPage :audio-engine="audioEngine" v-else />
+  <TakeControlModal 
+    :show="showTakeControlModal" 
+    :message="takeControlMessage"
+    @confirm="handleTakeControl"
+    @cancel="handleCancelTakeControl"
+  />
 </template>
 
 <script setup lang="ts">
 import { provide, ref, onMounted, onUnmounted } from 'vue'
 import IndexPage from './index.vue'
 import SplashScreen from './components/layout/SplashScreen.vue'
+import TakeControlModal from './components/core/TakeControlModal.vue'
 import { useAudioEngine } from './composables/useAudioEngine'
 import { useAudioDevices } from './composables/useAudioDevices'
 import { useNotifications } from './composables/useNotifications'
 
 const isAppReady = ref(false)
 const engineReady = ref(false)
+const showTakeControlModal = ref(false)
+const takeControlMessage = ref('C\'è già un client remoto attivo. Vuoi prendere il controllo?')
+const splashScreenRef = ref<InstanceType<typeof SplashScreen> | null>(null)
 
 // Initialize Rust audio engine
 const audioEngine = useAudioEngine()
@@ -76,11 +91,18 @@ const handleUserStart = async () => {
     if (isRemoteMode && (window as any).audioEngine?.notifyRemoteControlStarted) {
       (window as any).audioEngine.notifyRemoteControlStarted()
       console.log('[App] Notified server: remote control started')
+      // Don't set isAppReady = true here - wait for server response
+      // (either remote-already-active or remote-control-accepted)
+    } else {
+      // Electron mode - proceed immediately
+      splashScreenRef.value?.hide()
+      isAppReady.value = true
     }
-    
-    isAppReady.value = true
   } catch (error) {
     console.error('[App] Failed to start engine:', error)
+    
+    // Reset splash screen on error
+    splashScreenRef.value?.reset()
     
     // Check if it's a timeout error
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -119,18 +141,74 @@ const handleExitRemoteControl = (notifyServer = true) => {
 // Handle remote control disconnection (for remote mode)
 const handleRemoteDisconnection = (event: any) => {
   console.log('[App] Remote control disconnected:', event.detail?.message)
+  
+  // Reset splash screen to show button again
+  splashScreenRef.value?.reset()
+  
   // Return to splash screen without notifying server (already disconnected)
   handleExitRemoteControl(false)
+}
+
+const handleRemoteControlTaken = (event: any) => {
+  console.log('[App] Remote control taken successfully:', event.detail?.message)
+  // Close modal if open
+  showTakeControlModal.value = false
+  // Hide splash screen and show main view
+  splashScreenRef.value?.hide()
+  isAppReady.value = true
+}
+
+const handleRemoteControlAccepted = (event: any) => {
+  console.log('[App] Remote control accepted:', event.detail?.message)
+  // No other remote was active - proceed to show main view
+  splashScreenRef.value?.hide()
+  isAppReady.value = true
+}
+
+const handleRemoteAlreadyActive = (event: any) => {
+  console.log('[App] Remote already active, showing take control modal')
+  takeControlMessage.value = event.detail?.message || 'C\'è già un client remoto attivo. Vuoi prendere il controllo?'
+  showTakeControlModal.value = true
+}
+
+const handleTakeControl = () => {
+  console.log('[App] User confirmed take control')
+  showTakeControlModal.value = false
+  
+  // Send force-take-control message via audioEngine
+  const remoteEngine = (window as any).audioEngine
+  if (remoteEngine?.forceTakeControl) {
+    remoteEngine.forceTakeControl()
+  }
+}
+
+const handleCancelTakeControl = () => {
+  console.log('[App] User cancelled take control')
+  showTakeControlModal.value = false
+  
+  // Reset splash screen to show button again
+  splashScreenRef.value?.reset()
+  
+  // Cancel connection and return to splash screen
+  const remoteEngine = (window as any).audioEngine
+  if (remoteEngine?.cancelConnection) {
+    remoteEngine.cancelConnection()
+  }
+  
+  // Reset to splash screen (will be handled by remote-control-disconnected event)
 }
 
 // Auto-initialize on mount (during splash screen)
 onMounted(() => {
   initializeEngine()
   
-  // Listen for remote control disconnection (only in remote mode)
+  // Listen for remote control events (only in remote mode)
   const isRemoteMode = !(window as any).electronAPI
   if (isRemoteMode) {
     window.addEventListener('remote-control-disconnected', handleRemoteDisconnection)
+    window.addEventListener('remote-control-taken', handleRemoteControlTaken)
+    window.addEventListener('remote-control-accepted', handleRemoteControlAccepted)
+    window.addEventListener('remote-already-active', handleRemoteAlreadyActive)
   }
 })
 
@@ -139,6 +217,9 @@ onUnmounted(() => {
   const isRemoteMode = !(window as any).electronAPI
   if (isRemoteMode) {
     window.removeEventListener('remote-control-disconnected', handleRemoteDisconnection)
+    window.removeEventListener('remote-control-taken', handleRemoteControlTaken)
+    window.removeEventListener('remote-control-accepted', handleRemoteControlAccepted)
+    window.removeEventListener('remote-already-active', handleRemoteAlreadyActive)
   }
 })
 

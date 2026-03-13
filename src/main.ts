@@ -91,21 +91,7 @@ const startWebSocketServer = () => {
       remoteClientsCount++
       console.log(`[WebSocket] New remote client connected (total: ${remoteClientsCount})`)
       
-      // Broadcast remote control state to Electron app
-      broadcastRemoteControlState()
-      
-      // Send initial connection success message
-      ws.send(JSON.stringify({ type: 'connected', message: 'Connected to mMpro3 Audio Engine' }))
-      
-      // Send current audio engine state immediately to the new client
-      if (isAudioEngineStarted) {
-        ws.send(JSON.stringify({ type: 'started' }))
-        console.log('[WebSocket] Sent current engine state (started) to new client')
-      } else {
-        ws.send(JSON.stringify({ type: 'stopped' }))
-        console.log('[WebSocket] Sent current engine state (stopped) to new client')
-      }
-      
+      // Setup event handlers first (needed for all clients, even if asking for confirmation)
       // Handle client disconnect
       ws.on('close', () => {
         // If this client was actively controlling, decrement the count
@@ -124,12 +110,65 @@ const startWebSocketServer = () => {
           const message = JSON.parse(data.toString())
           
           // Handle remote control lifecycle messages
+          if (message.type === 'force-take-control') {
+            console.log(`[WebSocket] Force take control requested, disconnecting ${activeRemoteClients.size} active clients`)
+            
+            // Disconnect all currently active remote clients
+            const clientsToDisconnect = Array.from(activeRemoteClients)
+            activeRemoteClients.clear()
+            activeRemoteClientsCount = 0
+            
+            clientsToDisconnect.forEach(client => {
+              if (client !== ws && client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: 'disconnected', reason: 'taken-over' }))
+                client.close()
+              }
+            })
+            
+            // Now add this client as the new active client
+            activeRemoteClients.add(ws)
+            activeRemoteClientsCount = 1
+            console.log(`[WebSocket] New client took control and is now active`)
+            
+            // Send confirmation that control was taken
+            ws.send(JSON.stringify({ type: 'control-taken', message: 'You are now in control' }))
+            
+            // Send current audio engine state
+            if (isAudioEngineStarted) {
+              ws.send(JSON.stringify({ type: 'started' }))
+              console.log('[WebSocket] Sent current engine state (started) to new client')
+            } else {
+              ws.send(JSON.stringify({ type: 'stopped' }))
+              console.log('[WebSocket] Sent current engine state (stopped) to new client')
+            }
+            
+            broadcastRemoteControlState()
+            return
+          }
+          
           if (message.type === 'remote-control-started') {
+            // Check if there's already an active remote client
+            if (activeRemoteClientsCount > 0 && !activeRemoteClients.has(ws)) {
+              console.log(`[WebSocket] Remote already active, sending confirmation request`)
+              ws.send(JSON.stringify({ 
+                type: 'remote-already-active', 
+                message: 'C\'è già un client remoto attivo. Vuoi prendere il controllo?',
+                activeClientsCount: activeRemoteClientsCount
+              }))
+              return
+            }
+            
             if (!activeRemoteClients.has(ws)) {
               activeRemoteClients.add(ws)
               activeRemoteClientsCount++
               console.log(`[WebSocket] Remote client started control (active: ${activeRemoteClientsCount})`)
               broadcastRemoteControlState()
+              
+              // Send confirmation that control was accepted
+              ws.send(JSON.stringify({ 
+                type: 'remote-control-accepted', 
+                message: 'Control accepted' 
+              }))
             }
             return
           }
@@ -420,6 +459,19 @@ const startWebSocketServer = () => {
       ws.on('error', (error) => {
         console.error('[WebSocket] Client error:', error)
       })
+      
+      // Send initial connection success message
+      broadcastRemoteControlState()
+      ws.send(JSON.stringify({ type: 'connected', message: 'Connected to mMpro3 Audio Engine' }))
+      
+      // Send current audio engine state immediately to the new client
+      if (isAudioEngineStarted) {
+        ws.send(JSON.stringify({ type: 'started' }))
+        console.log('[WebSocket] Sent current engine state (started) to new client')
+      } else {
+        ws.send(JSON.stringify({ type: 'stopped' }))
+        console.log('[WebSocket] Sent current engine state (stopped) to new client')
+      }
     })
     
     wss.on('error', (error) => {

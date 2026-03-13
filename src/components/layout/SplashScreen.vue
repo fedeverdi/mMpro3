@@ -16,13 +16,13 @@
         <!-- Logo -->
         <img src="../../assets/logo.svg" alt="mMpro3" class="logo-img" />
         
-        <!-- Loading Animation or Start Button -->
-        <div v-if="!readyToStart" class="loading-container">
+        <!-- Loading Animation (initializing or starting) -->
+        <div v-if="!readyToStart || starting" class="loading-container">
           <div class="spinner"></div>
-          <p class="loading-text">Initializing...</p>
+          <p class="loading-text">{{ starting ? 'Starting...' : 'Initializing...' }}</p>
         </div>
         
-        <!-- Start Button (shown when ready) -->
+        <!-- Start Button (shown when ready and not starting) -->
         <div v-else class="start-container">
           <button @click="handleStart" class="start-button">
             <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
@@ -47,6 +47,7 @@ const props = defineProps<Props>()
 
 const visible = ref(true)
 const readyToStart = ref(false)
+const starting = ref(false)
 
 const emit = defineEmits<{
   start: []
@@ -56,10 +57,20 @@ const hide = () => {
   visible.value = false
 }
 
-const handleStart = () => {
-  emit('start')
-  hide()
+const reset = () => {
+  starting.value = false
 }
+
+const handleStart = () => {
+  starting.value = true
+  emit('start')
+}
+
+// Expose methods to parent
+defineExpose({
+  hide,
+  reset
+})
 
 // Show start button when engine is ready
 watch(() => props.engineReady, (isReady) => {
@@ -83,8 +94,6 @@ const getParticleStyle = (index: number) => {
     animationDelay: `${animationDelay}s`
   }
 }
-
-defineExpose({ hide })
 </script>
 
 <style scoped>
