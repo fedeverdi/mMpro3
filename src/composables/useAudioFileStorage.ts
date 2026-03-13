@@ -6,6 +6,7 @@ import { parseBlob } from 'music-metadata'
 export interface StoredAudioFile {
   id: string
   fileName: string
+  filePath?: string // Path to the file on the server (used in remote mode and Electron)
   arrayBuffer?: ArrayBuffer // Optional when listing files
   mimeType: string
   timestamp: number
@@ -16,7 +17,8 @@ export interface StoredAudioFile {
 }
 
 export function useAudioFileStorage() {
-  const api = (window as any).audioEngine
+  // Get API dynamically to ensure it's available (especially in remote mode)
+  const getApi = () => (window as any).audioEngine
 
   // Extract metadata from audio file using music-metadata
   async function extractMetadata(file: File): Promise<{ artist: string; title: string; artwork?: string }> {
@@ -62,7 +64,7 @@ export function useAudioFileStorage() {
     const arrayBuffer = await file.arrayBuffer()
     const metadata = await extractMetadata(file)
     
-    const fileId = await api.saveLibraryFile(arrayBuffer, file.name, {
+    const fileId = await getApi().saveLibraryFile(arrayBuffer, file.name, {
       mimeType: file.type,
       artist: metadata.artist,
       title: metadata.title,
@@ -75,7 +77,7 @@ export function useAudioFileStorage() {
   // Get audio file from filesystem
   async function getAudioFile(fileId: string): Promise<StoredAudioFile | null> {
     try {
-      const file = await api.getLibraryFile(fileId)
+      const file = await getApi().getLibraryFile(fileId)
       return file
     } catch (error) {
       console.error('[useAudioFileStorage] Error getting file:', error)
@@ -86,7 +88,7 @@ export function useAudioFileStorage() {
   // Delete audio file from filesystem
   async function deleteAudioFile(fileId: string): Promise<void> {
     try {
-      await api.deleteLibraryFile(fileId)
+      await getApi().deleteLibraryFile(fileId)
     } catch (error) {
       console.error('[useAudioFileStorage] Error deleting file:', error)
       throw error
@@ -96,7 +98,7 @@ export function useAudioFileStorage() {
   // Get all audio files from filesystem
   async function getAllAudioFiles(): Promise<StoredAudioFile[]> {
     try {
-      const files = await api.listLibraryFiles()
+      const files = await getApi().listLibraryFiles()
       return files
     } catch (error) {
       console.error('[useAudioFileStorage] Error listing files:', error)

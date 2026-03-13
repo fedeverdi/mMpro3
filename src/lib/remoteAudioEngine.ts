@@ -662,19 +662,29 @@ export class RemoteAudioEngine {
   }
 
   async savePlaylist(playlist: any): Promise<void> {
-    throw new Error('Playlist operations not supported in remote mode')
+    await this.sendIPC('ipc:audio-engine:save-playlist', { playlist })
   }
 
   async listPlaylists(): Promise<any[]> {
-    return []
+    try {
+      return await this.sendIPC('ipc:audio-engine:list-playlists')
+    } catch (error) {
+      console.error('[RemoteAudioEngine] Error listing playlists:', error)
+      return []
+    }
   }
 
   async getPlaylist(playlistId: string): Promise<any> {
-    throw new Error('Playlist operations not supported in remote mode')
+    try {
+      return await this.sendIPC('ipc:audio-engine:get-playlist', { playlistId })
+    } catch (error) {
+      console.error('[RemoteAudioEngine] Error getting playlist:', error)
+      return null
+    }
   }
 
   async deletePlaylist(playlistId: string): Promise<void> {
-    throw new Error('Playlist operations not supported in remote mode')
+    await this.sendIPC('ipc:audio-engine:delete-playlist', { playlistId })
   }
 
   async saveScene(scene: any): Promise<void> {

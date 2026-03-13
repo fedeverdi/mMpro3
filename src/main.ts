@@ -303,6 +303,97 @@ const startWebSocketServer = () => {
             return
           }
           
+          // Playlist operations via WebSocket
+          if (message.type === 'ipc:audio-engine:save-playlist') {
+            try {
+              const playlistsDir = path.join(app.getPath('userData'), 'Playlists')
+              
+              if (!fs.existsSync(playlistsDir)) {
+                fs.mkdirSync(playlistsDir, { recursive: true })
+              }
+              
+              const playlistPath = path.join(playlistsDir, `${message.playlist.id}.json`)
+              fs.writeFileSync(playlistPath, JSON.stringify(message.playlist, null, 2))
+              
+              ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: true }))
+            } catch (error) {
+              console.error('[WebSocket] Error saving playlist:', error)
+              ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: 'Failed to save playlist' }))
+            }
+            return
+          }
+          
+          if (message.type === 'ipc:audio-engine:list-playlists') {
+            try {
+              const playlistsDir = path.join(app.getPath('userData'), 'Playlists')
+              
+              if (!fs.existsSync(playlistsDir)) {
+                fs.mkdirSync(playlistsDir, { recursive: true })
+                ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: [] }))
+                return
+              }
+              
+              const files = fs.readdirSync(playlistsDir)
+                .filter(file => file.endsWith('.json'))
+                .map(file => {
+                  const filePath = path.join(playlistsDir, file)
+                  try {
+                    const content = fs.readFileSync(filePath, 'utf-8')
+                    return JSON.parse(content)
+                  } catch (error) {
+                    console.error('[WebSocket] Error parsing playlist:', file, error)
+                    return null
+                  }
+                })
+                .filter(playlist => playlist !== null)
+                .sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt))
+              
+              ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: files }))
+            } catch (error) {
+              console.error('[WebSocket] Error listing playlists:', error)
+              ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: 'Failed to list playlists' }))
+            }
+            return
+          }
+          
+          if (message.type === 'ipc:audio-engine:get-playlist') {
+            try {
+              const playlistsDir = path.join(app.getPath('userData'), 'Playlists')
+              const playlistPath = path.join(playlistsDir, `${message.playlistId}.json`)
+              
+              if (!fs.existsSync(playlistPath)) {
+                ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: null }))
+                return
+              }
+              
+              const content = fs.readFileSync(playlistPath, 'utf-8')
+              const playlist = JSON.parse(content)
+              
+              ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: playlist }))
+            } catch (error) {
+              console.error('[WebSocket] Error getting playlist:', error)
+              ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: 'Failed to get playlist' }))
+            }
+            return
+          }
+          
+          if (message.type === 'ipc:audio-engine:delete-playlist') {
+            try {
+              const playlistsDir = path.join(app.getPath('userData'), 'Playlists')
+              const playlistPath = path.join(playlistsDir, `${message.playlistId}.json`)
+              
+              if (fs.existsSync(playlistPath)) {
+                fs.unlinkSync(playlistPath)
+              }
+              
+              ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: true }))
+            } catch (error) {
+              console.error('[WebSocket] Error deleting playlist:', error)
+              ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: 'Failed to delete playlist' }))
+            }
+            return
+          }
+          
           // Forward audio engine commands to Rust
           if (audioEngineProcess && audioEngineProcess.stdin) {
             audioEngineProcess.stdin.write(JSON.stringify(message) + '\n')

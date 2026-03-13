@@ -154,7 +154,7 @@
 
 
       <!-- Pan Knob -->
-      <div class="flex justify-center scale-[0.75]" :class="{ 'scale-[0.5] -mt-5' : !isLargeSize }">
+      <div class="flex justify-center scale-[0.75]" :class="{ 'scale-[0.49] -mt-3' : !isLargeSize }">
         <PanKnob v-model="pan" label="Pan" @drag-start="isDraggingPan = true" @drag-end="isDraggingPan = false" />
       </div>
       <div class="text-[0.455rem] uppercase text-center mb-6" :class="{ 'mb-[0.8rem] -mt-5' : !isLargeSize }">Volume</div>
@@ -573,6 +573,11 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
         audioEngine.playFile(props.trackNumber - 1)
         // isPlaying will be updated via Rust engine broadcast
       }
+    } else {
+      console.warn(`[Track ${props.trackNumber}] Cannot load file - engine not running or filePath missing`, {
+        engineRunning: audioEngine?.state.value.isRunning,
+        hasFilePath: !!fileData.filePath
+      })
     }
   } catch (error) {
     console.error(`[Track ${props.trackNumber}] Error loading file from library:`, error)
@@ -586,9 +591,8 @@ async function loadPlaylistFromLibrary(playlist: any) {
     const { usePlaylist } = await import('~/composables/usePlaylist')
     const { getPlaylistFiles } = usePlaylist()
     const files = await getPlaylistFiles(playlist.id)
-    
+        
     if (files.length === 0) {
-      console.error('Playlist is empty')
       return
     }
 
@@ -605,7 +609,7 @@ async function loadPlaylistFromLibrary(playlist: any) {
     selectedFileName.value = `${playlist.name} (1/${files.length}) - ${trackDisplay}`
     audioSourceType.value = 'file'
     
-    // Load first file from playlist (fromPlaylist = true)
+    // Load first file from playlist (fromPlaylist = true, autoPlay = false - user must press play)
     await loadFileFromLibrary(firstFile, false, true)
   } catch (error) {
     console.error('Error loading playlist:', error)
