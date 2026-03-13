@@ -41,6 +41,18 @@ struct BiquadCoeffs {
     a2: f32,
 }
 
+impl BiquadCoeffs {
+    fn interpolate(&self, target: &BiquadCoeffs, alpha: f32) -> BiquadCoeffs {
+        BiquadCoeffs {
+            b0: self.b0 + (target.b0 - self.b0) * alpha,
+            b1: self.b1 + (target.b1 - self.b1) * alpha,
+            b2: self.b2 + (target.b2 - self.b2) * alpha,
+            a1: self.a1 + (target.a1 - self.a1) * alpha,
+            a2: self.a2 + (target.a2 - self.a2) * alpha,
+        }
+    }
+}
+
 /// Biquad filter state (per channel)
 #[derive(Debug, Clone, Copy)]
 struct BiquadState {
@@ -94,20 +106,21 @@ pub struct EQBand {
     current_q: f32,
     sample_rate: f32,
     coeffs: BiquadCoeffs,
+    target_coeffs: BiquadCoeffs,
     state_l: BiquadState,
     state_r: BiquadState,
     enabled: bool,
     // Smoothing coefficient (for parameter interpolation)
     smooth_coeff: f32,
-    // Counter to update coefficients every N samples (optimization)
+    // Counter to update target coefficients periodically
     update_counter: usize,
 }
 
 impl EQBand {
     pub fn new(filter_type: FilterType, frequency: f32, sample_rate: f32) -> Self {
-        // Calculate smoothing coefficient for ~5ms smoothing time
+        // Calculate smoothing coefficient for ~2ms smoothing time
         // smooth_coeff = exp(-1.0 / (smoothing_time * sample_rate))
-        let smoothing_time = 0.005; // 5ms
+        let smoothing_time = 0.002; // 2ms - fast response, coefficient interpolation prevents clicks
         let smooth_coeff = (-1.0 / (smoothing_time * sample_rate)).exp();
         
         let mut band = Self {
@@ -120,6 +133,13 @@ impl EQBand {
             current_q: 0.707,
             sample_rate,
             coeffs: BiquadCoeffs {
+                b0: 1.0,
+                b1: 0.0,
+                b2: 0.0,
+                a1: 0.0,
+                a2: 0.0,
+            },
+            target_coeffs: BiquadCoeffs {
                 b0: 1.0,
                 b1: 0.0,
                 b2: 0.0,
@@ -157,7 +177,7 @@ impl EQBand {
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
         // Recalculate smoothing coefficient
-        let smoothing_time = 0.005; // 5ms
+        let smoothing_time = 0.002; // 2ms
         self.smooth_coeff = (-1.0 / (smoothing_time * sample_rate)).exp();
         self.update_coefficients();
     }
@@ -182,11 +202,11 @@ impl EQBand {
                 let a1 = -2.0 * (a_minus_1 + a_plus_1 * cos_w0);
                 let a2 = a_plus_1 + a_minus_1 * cos_w0 - sqrt_a_alpha;
 
-                self.coeffs.b0 = b0 / a0;
-                self.coeffs.b1 = b1 / a0;
-                self.coeffs.b2 = b2 / a0;
-                self.coeffs.a1 = a1 / a0;
-                self.coeffs.a2 = a2 / a0;
+                self.target_coeffs.b0 = b0 / a0;
+                self.target_coeffs.b1 = b1 / a0;
+                self.target_coeffs.b2 = b2 / a0;
+                self.target_coeffs.a1 = a1 / a0;
+                self.target_coeffs.a2 = a2 / a0;
             }
             FilterType::Peaking => {
                 let b0 = 1.0 + alpha * a;
@@ -196,11 +216,11 @@ impl EQBand {
                 let a1 = -2.0 * cos_w0;
                 let a2 = 1.0 - alpha / a;
 
-                self.coeffs.b0 = b0 / a0;
-                self.coeffs.b1 = b1 / a0;
-                self.coeffs.b2 = b2 / a0;
-                self.coeffs.a1 = a1 / a0;
-                self.coeffs.a2 = a2 / a0;
+                self.target_coeffs.b0 = b0 / a0;
+                self.target_coeffs.b1 = b1 / a0;
+                self.target_coeffs.b2 = b2 / a0;
+                self.target_coeffs.a1 = a1 / a0;
+                self.target_coeffs.a2 = a2 / a0;
             }
             FilterType::HighShelf => {
                 let a_plus_1 = a + 1.0;
@@ -214,11 +234,11 @@ impl EQBand {
                 let a1 = 2.0 * (a_minus_1 - a_plus_1 * cos_w0);
                 let a2 = a_plus_1 - a_minus_1 * cos_w0 - sqrt_a_alpha;
 
-                self.coeffs.b0 = b0 / a0;
-                self.coeffs.b1 = b1 / a0;
-                self.coeffs.b2 = b2 / a0;
-                self.coeffs.a1 = a1 / a0;
-                self.coeffs.a2 = a2 / a0;
+                self.target_coeffs.b0 = b0 / a0;
+                self.target_coeffs.b1 = b1 / a0;
+                self.target_coeffs.b2 = b2 / a0;
+                self.target_coeffs.a1 = a1 / a0;
+                self.target_coeffs.a2 = a2 / a0;
             }
             FilterType::LowPass => {
                 let b0 = (1.0 - cos_w0) / 2.0;
@@ -228,11 +248,11 @@ impl EQBand {
                 let a1 = -2.0 * cos_w0;
                 let a2 = 1.0 - alpha;
 
-                self.coeffs.b0 = b0 / a0;
-                self.coeffs.b1 = b1 / a0;
-                self.coeffs.b2 = b2 / a0;
-                self.coeffs.a1 = a1 / a0;
-                self.coeffs.a2 = a2 / a0;
+                self.target_coeffs.b0 = b0 / a0;
+                self.target_coeffs.b1 = b1 / a0;
+                self.target_coeffs.b2 = b2 / a0;
+                self.target_coeffs.a1 = a1 / a0;
+                self.target_coeffs.a2 = a2 / a0;
             }
             FilterType::HighPass => {
                 let b0 = (1.0 + cos_w0) / 2.0;
@@ -242,11 +262,11 @@ impl EQBand {
                 let a1 = -2.0 * cos_w0;
                 let a2 = 1.0 - alpha;
 
-                self.coeffs.b0 = b0 / a0;
-                self.coeffs.b1 = b1 / a0;
-                self.coeffs.b2 = b2 / a0;
-                self.coeffs.a1 = a1 / a0;
-                self.coeffs.a2 = a2 / a0;
+                self.target_coeffs.b0 = b0 / a0;
+                self.target_coeffs.b1 = b1 / a0;
+                self.target_coeffs.b2 = b2 / a0;
+                self.target_coeffs.a1 = a1 / a0;
+                self.target_coeffs.a2 = a2 / a0;
             }
         }
     }
@@ -263,13 +283,16 @@ impl EQBand {
         self.current_gain_db = self.current_gain_db * self.smooth_coeff + self.target_gain_db * one_minus_smooth;
         self.current_q = self.current_q * self.smooth_coeff + self.target_q * one_minus_smooth;
 
-        // Update coefficients every 32 samples to avoid expensive recalculation at every sample
-        // This is a good balance between smoothness and performance
+        // Update target coefficients every 32 samples to avoid excessive computation
         self.update_counter += 1;
         if self.update_counter >= 32 {
             self.update_counter = 0;
             self.update_coefficients();
         }
+        
+        // Interpolate coefficients towards targets every sample for smooth transitions
+        // Use smaller alpha (0.01) for stability
+        self.coeffs = self.coeffs.interpolate(&self.target_coeffs, 0.01);
 
         let left_out = self.state_l.process(left, &self.coeffs);
         let right_out = self.state_r.process(right, &self.coeffs);

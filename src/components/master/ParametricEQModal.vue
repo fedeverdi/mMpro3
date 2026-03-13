@@ -286,6 +286,10 @@ const popoverPosition = ref({ x: 0, y: 0 })
 let dragStartX = 0
 let dragStartQ = 0
 
+// Use requestAnimationFrame to throttle updates (like Knob component)
+let rafId: number | null = null
+let pendingUpdate = false
+
 onMounted(async () => {
   await nextTick()
   
@@ -605,19 +609,36 @@ function handleCanvasMouseMove(e: MouseEvent) {
     filter.gain = Math.max(-24, Math.min(24, Math.round(gain * 2) / 2))
   }
   
-  // Always emit update during drag for real-time processing in Rust backend
-  emit('update', {
-    input: null,
-    output: null,
-    filters: [],
-    filtersData: filters.value  // Send all user filters to Rust backend
-  })
-  
-  // Always redraw the visual curve for smooth dragging
+  // Redraw immediately for smooth visual feedback
   drawEQCurve()
+  
+  // Use requestAnimationFrame to throttle backend updates (like Knob component)
+  // This ensures smooth audio without overwhelming the backend
+  pendingUpdate = true
+  
+  if (rafId === null) {
+    rafId = requestAnimationFrame(() => {
+      if (pendingUpdate) {
+        emit('update', {
+          input: null,
+          output: null,
+          filters: [],
+          filtersData: filters.value
+        })
+        pendingUpdate = false
+      }
+      rafId = null
+    })
+  }
 }
 
 function handleCanvasMouseUp() {
+  // Cancel any pending animation frame
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+  }
+  
   // Emit final update when dragging ends
   if (draggedFilterIndex.value !== null) {
     // Always emit final update for Rust backend
@@ -633,6 +654,7 @@ function handleCanvasMouseUp() {
   isDraggingQ.value = false
   draggedFilterIndex.value = null
   popoverPosition.value = { x: 0, y: 0 }
+  pendingUpdate = false
 }
 
 // Touch handlers
@@ -740,13 +762,23 @@ function handleCanvasTouchMove(e: TouchEvent) {
     
     drawEQCurve()
     
-    // Emit update for real-time preview
-    emit('update', {
-      input: null,
-      output: null,
-      filters: [],
-      filtersData: filters.value
-    })
+    // Use requestAnimationFrame to throttle updates
+    pendingUpdate = true
+    
+    if (rafId === null) {
+      rafId = requestAnimationFrame(() => {
+        if (pendingUpdate) {
+          emit('update', {
+            input: null,
+            output: null,
+            filters: [],
+            filtersData: filters.value
+          })
+          pendingUpdate = false
+        }
+        rafId = null
+      })
+    }
   } else if (isDragging.value && draggedFilterIndex.value !== null) {
     const filter = displayFilters.value[draggedFilterIndex.value]
     
@@ -780,17 +812,33 @@ function handleCanvasTouchMove(e: TouchEvent) {
     
     drawEQCurve()
     
-    // Emit update for real-time preview
-    emit('update', {
-      input: null,
-      output: null,
-      filters: [],
-      filtersData: filters.value
-    })
+    // Use requestAnimationFrame to throttle updates
+    pendingUpdate = true
+    
+    if (rafId === null) {
+      rafId = requestAnimationFrame(() => {
+        if (pendingUpdate) {
+          emit('update', {
+            input: null,
+            output: null,
+            filters: [],
+            filtersData: filters.value
+          })
+          pendingUpdate = false
+        }
+        rafId = null
+      })
+    }
   }
 }
 
 function handleCanvasTouchEnd() {
+  // Cancel any pending animation frame
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+  }
+  
   // Emit final update when dragging ends
   if (draggedFilterIndex.value !== null) {
     // Always emit final update for Rust backend
@@ -806,6 +854,7 @@ function handleCanvasTouchEnd() {
   isDraggingQ.value = false
   draggedFilterIndex.value = null
   popoverPosition.value = { x: 0, y: 0 }
+  pendingUpdate = false
 }
 
 // Check if mouse is over a Q control area
