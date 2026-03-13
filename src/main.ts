@@ -2398,7 +2398,7 @@ const createWindow = () => {
           "style-src 'self' 'unsafe-inline'", // Still needed for Vue in production
           "img-src 'self' data: blob:",
           "font-src 'self' data:",
-          "connect-src 'self'",
+          "connect-src 'self' ws://localhost:3001", // Allow WebSocket for detached windows
           "media-src 'self' blob:",
           "worker-src 'self' blob:"
         ].join('; ')
