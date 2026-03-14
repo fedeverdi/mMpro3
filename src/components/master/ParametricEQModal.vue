@@ -13,6 +13,38 @@
               <h2 class="text-xl font-bold text-white tracking-tight">{{ titleText }}</h2>
             </div>
             <div class="flex items-center gap-3">
+              <!-- FFT Display Mode Toggle -->
+              <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700">
+                <span class="text-xs text-gray-400">FFT:</span>
+                <button
+                  @click="fftDisplayMode = 'curve'"
+                  :class="[
+                    'px-2 py-1 rounded text-xs font-medium transition-all',
+                    fftDisplayMode === 'curve' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-transparent text-gray-400 hover:text-white'
+                  ]"
+                  title="Curve visualization"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12 Q 6 6, 9 12 T 15 12 Q 18 18, 21 12" />
+                  </svg>
+                </button>
+                <button
+                  @click="fftDisplayMode = 'bars'"
+                  :class="[
+                    'px-2 py-1 rounded text-xs font-medium transition-all',
+                    fftDisplayMode === 'bars' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-transparent text-gray-400 hover:text-white'
+                  ]"
+                  title="Bars visualization"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </button>
+              </div>
               <button
                 @click="reset"
                 class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white transition-all text-sm font-medium border border-gray-700 hover:border-gray-600"
@@ -371,6 +403,22 @@ let dragStartQ = 0
 let dragStartFrequency = 0
 let dragStartGain = 0
 
+// FFT visualization mode
+const fftDisplayMode = ref<'curve' | 'bars'>('curve') // 'curve' or 'bars'
+
+// Load FFT display preference from localStorage
+onMounted(() => {
+  const savedMode = localStorage.getItem('fftDisplayMode')
+  if (savedMode === 'bars' || savedMode === 'curve') {
+    fftDisplayMode.value = savedMode
+  }
+})
+
+// Save FFT display preference when changed
+watch(fftDisplayMode, (newMode) => {
+  localStorage.setItem('fftDisplayMode', newMode)
+})
+
 // Throttle for emit updates during drag (200ms = max 5 updates/sec)
 let lastEmitTime = 0
 const EMIT_THROTTLE_MS = 400
@@ -403,9 +451,7 @@ onUnmounted(() => {
 // Throttled draw function for FFT updates - uses RAF to avoid excessive redraws
 function scheduleFFTDraw() {
   // During drag, slightly reduce FFT update rate to prioritize drag smoothness
-  const minInterval = (isDragging.value || isDraggingQ.value) 
-    ? MIN_FFT_DRAW_INTERVAL * 1.5  // 50ms (~20fps) during drag - still smooth
-    : MIN_FFT_DRAW_INTERVAL          // 33ms (~30fps) normally
+  const minInterval = MIN_FFT_DRAW_INTERVAL;
   
   // Only schedule if not already pending
   if (!rafPending) {
@@ -1201,130 +1247,135 @@ function drawEQCurve() {
       return fftDb[clampedBin]
     }
 
-    // Adaptive number of points based on canvas width (reduce for performance)
-    // At high sample rates, use fewer points since we're already bandwidth-limited
-    const sampleRate = getCurrentSampleRate()
-    const basePoints = Math.min(300, Math.floor(width / 2)) // Scale with canvas width
-    const numPoints = sampleRate > 96000 ? Math.floor(basePoints * 0.6) : basePoints
-    const minFreq = 20
-    const maxFreq = 20000
-    const logMin = Math.log10(minFreq)
-    const logMax = Math.log10(maxFreq)
+    // Only draw FFT curves in curve mode (bars will be drawn later on top)
+    if (fftDisplayMode.value === 'curve') {
+      // ==== CURVE MODE: Draw smooth filled area and curves ====
+      
+      // Adaptive number of points based on canvas width (reduce for performance)
+      // At high sample rates, use fewer points since we're already bandwidth-limited
+      const sampleRate = getCurrentSampleRate()
+      const basePoints = Math.min(300, Math.floor(width / 2)) // Scale with canvas width
+      const numPoints = sampleRate > 96000 ? Math.floor(basePoints * 0.6) : basePoints
+      const minFreq = 20
+      const maxFreq = 20000
+      const logMin = Math.log10(minFreq)
+      const logMax = Math.log10(maxFreq)
+      
+      // Draw average of both channels as filled area (white opaque)
+      ctx.globalAlpha = 0.12
+      ctx.fillStyle = 'rgba(255, 255, 255, 1)'
+      ctx.beginPath()
+      
+      // Start from bottom left
+      ctx.moveTo(0, height)
+      
+      // Draw the curve with smooth bezier curves (use max of left and right for mono compatibility)
+      const points: Array<{x: number, y: number}> = []
+      for (let i = 0; i <= numPoints; i++) {
+        const logFreq = logMin + (i / numPoints) * (logMax - logMin)
+        const freq = Math.pow(10, logFreq)
+        const dbLeft = getDbAtFreq(freq, fftDbLeft)
+        const dbRight = getDbAtFreq(freq, fftDbRight)
+        // Use max instead of average to ensure mono tracks show properly
+        const dbMax = Math.max(dbLeft, dbRight)
+        
+        // Map dB to Y position (from -100dB to +6dB range, same as spectrum analyzer)
+        const normalized = Math.max(0, Math.min(1, (dbMax + 100) / 106))
+        const x = freqToX(freq)
+        const y = height - (normalized * height)
+        
+        points.push({x, y})
+      }
+      
+      // Draw smooth curve using quadratic bezier
+      if (points.length > 0) {
+        ctx.lineTo(points[0].x, points[0].y)
+        for (let i = 0; i < points.length - 1; i++) {
+          const xc = (points[i].x + points[i + 1].x) / 2
+          const yc = (points[i].y + points[i + 1].y) / 2
+          ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc)
+        }
+        // Draw last segment
+        if (points.length > 1) {
+          const last = points[points.length - 1]
+          ctx.quadraticCurveTo(points[points.length - 2].x, points[points.length - 2].y, last.x, last.y)
+        }
+      }
+      
+      // Close to bottom right
+      ctx.lineTo(width, height)
+      ctx.closePath()
+      ctx.fill()
 
-    // Draw average of both channels as filled area (white opaque)
-    ctx.globalAlpha = 0.12
-    ctx.fillStyle = 'rgba(255, 255, 255, 1)'
-    ctx.beginPath()
-    
-    // Start from bottom left
-    ctx.moveTo(0, height)
-    
-    // Draw the curve with smooth bezier curves (use max of left and right for mono compatibility)
-    const points: Array<{x: number, y: number}> = []
-    for (let i = 0; i <= numPoints; i++) {
-      const logFreq = logMin + (i / numPoints) * (logMax - logMin)
-      const freq = Math.pow(10, logFreq)
-      const dbLeft = getDbAtFreq(freq, fftDbLeft)
-      const dbRight = getDbAtFreq(freq, fftDbRight)
-      // Use max instead of average to ensure mono tracks show properly
-      const dbMax = Math.max(dbLeft, dbRight)
+      // Draw left channel curve outline (purple) with smooth bezier
+      ctx.globalAlpha = 0.5
+      ctx.strokeStyle = '#a855f7'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
       
-      // Map dB to Y position (from -100dB to +6dB range, same as spectrum analyzer)
-      const normalized = Math.max(0, Math.min(1, (dbMax + 100) / 106))
-      const x = freqToX(freq)
-      const y = height - (normalized * height)
+      const leftPoints: Array<{x: number, y: number}> = []
+      for (let i = 0; i <= numPoints; i++) {
+        const logFreq = logMin + (i / numPoints) * (logMax - logMin)
+        const freq = Math.pow(10, logFreq)
+        const db = getDbAtFreq(freq, fftDbLeft)
+        
+        // Map dB to Y position (from -100dB to +6dB range)
+        const normalized = Math.max(0, Math.min(1, (db + 100) / 106))
+        const x = freqToX(freq)
+        const y = height - (normalized * height)
+        
+        leftPoints.push({x, y})
+      }
       
-      points.push({x, y})
-    }
-    
-    // Draw smooth curve using quadratic bezier
-    if (points.length > 0) {
-      ctx.lineTo(points[0].x, points[0].y)
-      for (let i = 0; i < points.length - 1; i++) {
-        const xc = (points[i].x + points[i + 1].x) / 2
-        const yc = (points[i].y + points[i + 1].y) / 2
-        ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc)
+      if (leftPoints.length > 0) {
+        ctx.moveTo(leftPoints[0].x, leftPoints[0].y)
+        for (let i = 0; i < leftPoints.length - 1; i++) {
+          const xc = (leftPoints[i].x + leftPoints[i + 1].x) / 2
+          const yc = (leftPoints[i].y + leftPoints[i + 1].y) / 2
+          ctx.quadraticCurveTo(leftPoints[i].x, leftPoints[i].y, xc, yc)
+        }
+        if (leftPoints.length > 1) {
+          const last = leftPoints[leftPoints.length - 1]
+          ctx.quadraticCurveTo(leftPoints[leftPoints.length - 2].x, leftPoints[leftPoints.length - 2].y, last.x, last.y)
+        }
       }
-      // Draw last segment
-      if (points.length > 1) {
-        const last = points[points.length - 1]
-        ctx.quadraticCurveTo(points[points.length - 2].x, points[points.length - 2].y, last.x, last.y)
-      }
-    }
-    
-    // Close to bottom right
-    ctx.lineTo(width, height)
-    ctx.closePath()
-    ctx.fill()
+      ctx.stroke()
 
-    // Draw left channel curve outline (purple) with smooth bezier
-    ctx.globalAlpha = 0.5
-    ctx.strokeStyle = '#a855f7'
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
-    
-    const leftPoints: Array<{x: number, y: number}> = []
-    for (let i = 0; i <= numPoints; i++) {
-      const logFreq = logMin + (i / numPoints) * (logMax - logMin)
-      const freq = Math.pow(10, logFreq)
-      const db = getDbAtFreq(freq, fftDbLeft)
+      // Draw right channel curve outline (blue) with smooth bezier
+      ctx.strokeStyle = '#3b82f6'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
       
-      // Map dB to Y position (from -100dB to +6dB range)
-      const normalized = Math.max(0, Math.min(1, (db + 100) / 106))
-      const x = freqToX(freq)
-      const y = height - (normalized * height)
+      const rightPoints: Array<{x: number, y: number}> = []
+      for (let i = 0; i <= numPoints; i++) {
+        const logFreq = logMin + (i / numPoints) * (logMax - logMin)
+        const freq = Math.pow(10, logFreq)
+        const db = getDbAtFreq(freq, fftDbRight)
+        
+        const normalized = Math.max(0, Math.min(1, (db + 100) / 106))
+        const x = freqToX(freq)
+        const y = height - (normalized * height)
+        
+        rightPoints.push({x, y})
+      }
       
-      leftPoints.push({x, y})
-    }
-    
-    if (leftPoints.length > 0) {
-      ctx.moveTo(leftPoints[0].x, leftPoints[0].y)
-      for (let i = 0; i < leftPoints.length - 1; i++) {
-        const xc = (leftPoints[i].x + leftPoints[i + 1].x) / 2
-        const yc = (leftPoints[i].y + leftPoints[i + 1].y) / 2
-        ctx.quadraticCurveTo(leftPoints[i].x, leftPoints[i].y, xc, yc)
+      if (rightPoints.length > 0) {
+        ctx.moveTo(rightPoints[0].x, rightPoints[0].y)
+        for (let i = 0; i < rightPoints.length - 1; i++) {
+          const xc = (rightPoints[i].x + rightPoints[i + 1].x) / 2
+          const yc = (rightPoints[i].y + rightPoints[i + 1].y) / 2
+          ctx.quadraticCurveTo(rightPoints[i].x, rightPoints[i].y, xc, yc)
+        }
+        if (rightPoints.length > 1) {
+          const last = rightPoints[rightPoints.length - 1]
+          ctx.quadraticCurveTo(rightPoints[rightPoints.length - 2].x, rightPoints[rightPoints.length - 2].y, last.x, last.y)
+        }
       }
-      if (leftPoints.length > 1) {
-        const last = leftPoints[leftPoints.length - 1]
-        ctx.quadraticCurveTo(leftPoints[leftPoints.length - 2].x, leftPoints[leftPoints.length - 2].y, last.x, last.y)
-      }
-    }
-    ctx.stroke()
-
-    // Draw right channel curve outline (blue) with smooth bezier
-    ctx.strokeStyle = '#3b82f6'
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
-    
-    const rightPoints: Array<{x: number, y: number}> = []
-    for (let i = 0; i <= numPoints; i++) {
-      const logFreq = logMin + (i / numPoints) * (logMax - logMin)
-      const freq = Math.pow(10, logFreq)
-      const db = getDbAtFreq(freq, fftDbRight)
+      ctx.stroke()
       
-      const normalized = Math.max(0, Math.min(1, (db + 100) / 106))
-      const x = freqToX(freq)
-      const y = height - (normalized * height)
-      
-      rightPoints.push({x, y})
-    }
-    
-    if (rightPoints.length > 0) {
-      ctx.moveTo(rightPoints[0].x, rightPoints[0].y)
-      for (let i = 0; i < rightPoints.length - 1; i++) {
-        const xc = (rightPoints[i].x + rightPoints[i + 1].x) / 2
-        const yc = (rightPoints[i].y + rightPoints[i + 1].y) / 2
-        ctx.quadraticCurveTo(rightPoints[i].x, rightPoints[i].y, xc, yc)
-      }
-      if (rightPoints.length > 1) {
-        const last = rightPoints[rightPoints.length - 1]
-        ctx.quadraticCurveTo(rightPoints[rightPoints.length - 2].x, rightPoints[rightPoints.length - 2].y, last.x, last.y)
-      }
-    }
-    ctx.stroke()
-    
-    ctx.globalAlpha = 1.0
-  }
+      ctx.globalAlpha = 1.0
+    } // End of curve mode
+  } // End of FFT data available
   
   const points = 2000
   const minFreq = Math.log10(20)
@@ -1417,6 +1468,95 @@ function drawEQCurve() {
     }
   }
   ctx.stroke()
+  
+  // ==== BARS MODE: Draw FFT bars on top of EQ curves ====
+  // This is done after filter curves so bars are visible in foreground
+  if (fftDisplayMode.value === 'bars' && smoothedFFTLeft && smoothedFFTRight) {
+    const CALIBRATION_OFFSET_DB = -25.0
+    const convertToDb = (magnitude: number): number => {
+      if (magnitude <= 0) return -140
+      return 20 * Math.log10(magnitude) + CALIBRATION_OFFSET_DB
+    }
+
+    const fftDbLeft = Array.from(smoothedFFTLeft).map(convertToDb)
+    const fftDbRight = Array.from(smoothedFFTRight).map(convertToDb)
+
+    // Helper to convert frequency to X position (logarithmic)
+    const freqToX = (freq: number): number => {
+      const minFreq = Math.log10(20)
+      const maxFreq = Math.log10(20000)
+      const clamped = Math.max(20, Math.min(20000, freq))
+      const logFreq = Math.log10(clamped)
+      return ((logFreq - minFreq) / (maxFreq - minFreq)) * width
+    }
+
+    // Helper to get dB at specific frequency from FFT data
+    const getDbAtFreq = (freq: number, fftDb: number[]): number => {
+      const nyquist = getCurrentSampleRate() / 2
+      const bin = Math.floor((freq / nyquist) * fftDb.length)
+      const clampedBin = Math.max(0, Math.min(bin, fftDb.length - 1))
+      return fftDb[clampedBin]
+    }
+
+    const minFreq = 20
+    const maxFreq = 20000
+    const logMin = Math.log10(minFreq)
+    const logMax = Math.log10(maxFreq)
+    
+    const numBars = Math.min(150, Math.floor(width / 4)) // Adaptive number of bars
+    const barWidth = width / numBars
+    
+    for (let i = 0; i < numBars; i++) {
+      const logFreq = logMin + (i / numBars) * (logMax - logMin)
+      const freq = Math.pow(10, logFreq)
+      const dbLeft = getDbAtFreq(freq, fftDbLeft)
+      const dbRight = getDbAtFreq(freq, fftDbRight)
+      const dbMax = Math.max(dbLeft, dbRight)
+      
+      // Map dB to bar height - using full FFT range for visibility
+      const normalized = Math.max(0, Math.min(1, (dbMax + 100) / 106))
+      const barHeight = normalized * height
+      
+      const x = freqToX(freq)
+      
+      // Color thresholds using dbMax (which already has -25dB calibration offset applied)
+      // Green: below 0dB, Orange: 0dB to +6dB, Red: above +6dB
+      let barColor: string
+      let barColorLight: string
+      let barColorDark: string
+      
+      if (dbMax > -45) {
+        // RED: Above +6dB (near clipping)
+        barColor = 'rgba(239, 68, 68, 0.4)'
+        barColorLight = 'rgba(248, 113, 113, 0.5)'
+        barColorDark = 'rgba(220, 38, 38, 0.3)'
+      } else if (dbMax > -55) {
+        // ORANGE: 0dB to +6dB (strong signals)
+        barColor = 'rgba(251, 146, 60, 0.4)'
+        barColorLight = 'rgba(253, 186, 116, 0.5)'
+        barColorDark = 'rgba(234, 88, 12, 0.3)'
+      } else {
+        // GREEN: Below 0dB (normal/safe levels)
+        barColor = 'rgba(34, 197, 94, 0.4)'
+        barColorLight = 'rgba(74, 222, 128, 0.5)'
+        barColorDark = 'rgba(22, 163, 74, 0.3)'
+      }
+      
+      // Draw bar with gradient matching the color zone
+      const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight)
+      gradient.addColorStop(0, barColorDark)
+      gradient.addColorStop(0.5, barColor)
+      gradient.addColorStop(1, barColorLight)
+      
+      ctx.fillStyle = gradient
+      ctx.fillRect(x - barWidth / 2, height - barHeight, barWidth * 0.5, barHeight)
+      
+      // Add matching colored outline
+      ctx.strokeStyle = barColor
+      ctx.lineWidth = 1
+      ctx.strokeRect(x - barWidth / 2, height - barHeight, barWidth * 0.5, barHeight)
+    }
+  }
   
   // Draw filter points - first non-dragged, then dragged on top
   const drawFilterPoint = (filter: EQFilter, index: number) => {
