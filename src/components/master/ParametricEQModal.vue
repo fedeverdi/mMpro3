@@ -1269,18 +1269,18 @@ function drawEQCurve() {
       // Start from bottom left
       ctx.moveTo(0, height)
       
-      // Draw the curve with smooth bezier curves (use max of left and right for mono compatibility)
+      // Draw the curve with smooth bezier curves (average of both channels)
       const points: Array<{x: number, y: number}> = []
       for (let i = 0; i <= numPoints; i++) {
         const logFreq = logMin + (i / numPoints) * (logMax - logMin)
         const freq = Math.pow(10, logFreq)
         const dbLeft = getDbAtFreq(freq, fftDbLeft)
         const dbRight = getDbAtFreq(freq, fftDbRight)
-        // Use max instead of average to ensure mono tracks show properly
-        const dbMax = Math.max(dbLeft, dbRight)
+        // Use average of both channels
+        const dbAvg = (dbLeft + dbRight) / 2
         
         // Map dB to Y position (from -100dB to +6dB range, same as spectrum analyzer)
-        const normalized = Math.max(0, Math.min(1, (dbMax + 100) / 106))
+        const normalized = Math.max(0, Math.min(1, (dbAvg + 100) / 106))
         const x = freqToX(freq)
         const y = height - (normalized * height)
         
@@ -1306,72 +1306,6 @@ function drawEQCurve() {
       ctx.lineTo(width, height)
       ctx.closePath()
       ctx.fill()
-
-      // Draw left channel curve outline (purple) with smooth bezier
-      ctx.globalAlpha = 0.5
-      ctx.strokeStyle = '#a855f7'
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      
-      const leftPoints: Array<{x: number, y: number}> = []
-      for (let i = 0; i <= numPoints; i++) {
-        const logFreq = logMin + (i / numPoints) * (logMax - logMin)
-        const freq = Math.pow(10, logFreq)
-        const db = getDbAtFreq(freq, fftDbLeft)
-        
-        // Map dB to Y position (from -100dB to +6dB range)
-        const normalized = Math.max(0, Math.min(1, (db + 100) / 106))
-        const x = freqToX(freq)
-        const y = height - (normalized * height)
-        
-        leftPoints.push({x, y})
-      }
-      
-      if (leftPoints.length > 0) {
-        ctx.moveTo(leftPoints[0].x, leftPoints[0].y)
-        for (let i = 0; i < leftPoints.length - 1; i++) {
-          const xc = (leftPoints[i].x + leftPoints[i + 1].x) / 2
-          const yc = (leftPoints[i].y + leftPoints[i + 1].y) / 2
-          ctx.quadraticCurveTo(leftPoints[i].x, leftPoints[i].y, xc, yc)
-        }
-        if (leftPoints.length > 1) {
-          const last = leftPoints[leftPoints.length - 1]
-          ctx.quadraticCurveTo(leftPoints[leftPoints.length - 2].x, leftPoints[leftPoints.length - 2].y, last.x, last.y)
-        }
-      }
-      ctx.stroke()
-
-      // Draw right channel curve outline (blue) with smooth bezier
-      ctx.strokeStyle = '#3b82f6'
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      
-      const rightPoints: Array<{x: number, y: number}> = []
-      for (let i = 0; i <= numPoints; i++) {
-        const logFreq = logMin + (i / numPoints) * (logMax - logMin)
-        const freq = Math.pow(10, logFreq)
-        const db = getDbAtFreq(freq, fftDbRight)
-        
-        const normalized = Math.max(0, Math.min(1, (db + 100) / 106))
-        const x = freqToX(freq)
-        const y = height - (normalized * height)
-        
-        rightPoints.push({x, y})
-      }
-      
-      if (rightPoints.length > 0) {
-        ctx.moveTo(rightPoints[0].x, rightPoints[0].y)
-        for (let i = 0; i < rightPoints.length - 1; i++) {
-          const xc = (rightPoints[i].x + rightPoints[i + 1].x) / 2
-          const yc = (rightPoints[i].y + rightPoints[i + 1].y) / 2
-          ctx.quadraticCurveTo(rightPoints[i].x, rightPoints[i].y, xc, yc)
-        }
-        if (rightPoints.length > 1) {
-          const last = rightPoints[rightPoints.length - 1]
-          ctx.quadraticCurveTo(rightPoints[rightPoints.length - 2].x, rightPoints[rightPoints.length - 2].y, last.x, last.y)
-        }
-      }
-      ctx.stroke()
       
       ctx.globalAlpha = 1.0
     } // End of curve mode
@@ -1511,26 +1445,26 @@ function drawEQCurve() {
       const freq = Math.pow(10, logFreq)
       const dbLeft = getDbAtFreq(freq, fftDbLeft)
       const dbRight = getDbAtFreq(freq, fftDbRight)
-      const dbMax = Math.max(dbLeft, dbRight)
+      const dbAvg = (dbLeft + dbRight) / 2
       
       // Map dB to bar height - using full FFT range for visibility
-      const normalized = Math.max(0, Math.min(1, (dbMax + 100) / 106))
+      const normalized = Math.max(0, Math.min(1, (dbAvg + 100) / 106))
       const barHeight = normalized * height
       
       const x = freqToX(freq)
       
-      // Color thresholds using dbMax (which already has -25dB calibration offset applied)
+      // Color thresholds using dbAvg (which already has -25dB calibration offset applied)
       // Green: below 0dB, Orange: 0dB to +6dB, Red: above +6dB
       let barColor: string
       let barColorLight: string
       let barColorDark: string
       
-      if (dbMax > -45) {
+      if (dbAvg > -45) {
         // RED: Above +6dB (near clipping)
         barColor = 'rgba(239, 68, 68, 0.3)'
         barColorLight = 'rgba(248, 113, 113, 0.4)'
         barColorDark = 'rgba(220, 38, 38, 0.2)'
-      } else if (dbMax > -55) {
+      } else if (dbAvg > -55) {
         // ORANGE: 0dB to +6dB (strong signals)
         barColor = 'rgba(251, 146, 60, 0.3)'
         barColorLight = 'rgba(253, 186, 116, 0.4)'
