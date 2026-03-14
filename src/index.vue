@@ -356,6 +356,28 @@ const availableDiskSpace = computed(() => {
   return gb > 0 ? gb.toFixed(2) + ' GB' : 'Waiting...'
 })
 
+// Watch for configuration errors and offer to switch to Auto mode
+// This must be outside onMounted to catch errors during initial startup
+watch(() => audioEngineState.value.lastConfigError, async (error) => {
+  if (!error) return
+  
+  // Clear the error immediately to avoid re-triggering
+  audioEngineState.value.lastConfigError = null
+  
+  // Show confirmation modal
+  const shouldSwitchToAuto = await notify.confirm(
+    '❌ Audio configuration not supported by this device.\n\n' +
+    'Would you like to switch to Auto mode?\n' +
+    '(Auto mode will automatically adapt to your device\'s native settings)'
+  )
+  
+  if (shouldSwitchToAuto) {
+    // Apply Auto configuration (0 = Auto for both sample rate and buffer size)
+    await handleAudioConfigApply({ sampleRate: 0, bufferSize: 0 })
+    notify.success('✅ Switched to Auto mode')
+  }
+})
+
 // Lock system functions
 function handleLockToggle() {
   if (isLocked.value) {
@@ -1317,10 +1339,12 @@ async function handleAudioConfigApply(config: { sampleRate: number; bufferSize: 
 
   // Start with new configuration
   // If sampleRate is 0 (Auto), pass null to let device choose its native rate
-  // Otherwise, force the selected sample rate
+  // If bufferSize is 0 (Auto), pass null to let device choose its optimal buffer size
+  // Otherwise, force the selected values
   if (window.audioEngine) {
     const sampleRate = config.sampleRate === 0 ? null : config.sampleRate
-    await window.audioEngine.start(null, null, sampleRate, config.bufferSize)
+    const bufferSize = config.bufferSize === 0 ? null : config.bufferSize
+    await window.audioEngine.start(null, null, sampleRate, bufferSize)
   }
 
   console.log('[App] Audio config applied successfully')

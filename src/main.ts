@@ -871,8 +871,10 @@ ipcMain.handle('audio-engine:start', async (_, inputDevice?: string | null, outp
   const command: any = { type: 'start' }
   if (inputDevice) command.input_device = inputDevice
   if (outputDevice) command.output_device = outputDevice
-  if (sampleRate) command.sample_rate = sampleRate
-  if (bufferSize) command.buffer_size = bufferSize
+  // Only add sample_rate/buffer_size if explicitly provided (not null/undefined)
+  // This allows 0 (Auto) to be passed correctly
+  if (sampleRate !== null && sampleRate !== undefined) command.sample_rate = sampleRate
+  if (bufferSize !== null && bufferSize !== undefined) command.buffer_size = bufferSize
   await sendCommandToEngine(command)
 })
 

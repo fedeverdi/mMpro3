@@ -1067,7 +1067,7 @@ impl AudioEngine {
             // Both not specified - load from file
             let config = load_audio_config_from_file();
             let sr = if config.sample_rate == 0 { None } else { Some(config.sample_rate) };
-            let bs = Some(config.buffer_size);
+            let bs = if config.buffer_size == 0 { None } else { Some(config.buffer_size) };
             (sr, bs)
         } else {
             // At least one was specified - use what was provided
@@ -1792,6 +1792,28 @@ impl AudioEngine {
         
         // Resume audio processing now that new streams are active
         self.updates_suspended.store(false, Ordering::Relaxed);
+
+        // Send immediate performance stats with actual configuration
+        // This updates the UI footer immediately instead of waiting 2-3 seconds
+        let buffer_size_val = match actual_buffer_size {
+            cpal::BufferSize::Fixed(size) => size as usize,
+            cpal::BufferSize::Default => 256, // Fallback estimate
+        };
+        let latency_ms_val = (buffer_size_val as f32 / self.sample_rate as f32) * 1000.0;
+        
+        let initial_stats = Response::PerformanceStats {
+            buffer_size: buffer_size_val,
+            sample_rate: self.sample_rate,
+            latency_ms: latency_ms_val,
+            avg_process_ms: 0.0,  // Will be updated after first buffers
+            cpu_percent: 0.0,     // Will be updated after first buffers
+            min_process_ms: 0.0,
+            max_process_ms: 0.0,
+        };
+        
+        if let Ok(json) = serde_json::to_string(&initial_stats) {
+            let _ = self.output_sender.send(json);
+        }
 
         Ok(())
     }
@@ -4727,8 +4749,8 @@ struct AudioConfigData {
 impl Default for AudioConfigData {
     fn default() -> Self {
         Self {
-            sample_rate: 0,    // Auto mode by default
-            buffer_size: 256,  // 256 frames default
+            sample_rate: 44100,  // 44.1 kHz by default (most common for audio production)
+            buffer_size: 256,    // 256 frames default
         }
     }
 }

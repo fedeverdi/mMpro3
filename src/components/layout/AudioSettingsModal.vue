@@ -177,7 +177,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useNetworkUrl } from '~/composables/useNetworkUrl'
 
 const props = defineProps<{
@@ -249,8 +249,8 @@ const reset = () => {
   selectedBufferSize.value = 256
 }
 
-// Load from Rust engine on mount
-onMounted(async () => {
+// Function to load config from Rust
+const loadConfig = async () => {
   try {
     const config = await window.audioEngine.getAudioConfig()
     if (config) {
@@ -260,6 +260,16 @@ onMounted(async () => {
     }
   } catch (e) {
     console.error('[AudioSettingsModal] Failed to load audio config:', e)
+  }
+}
+
+// Load from Rust engine on mount
+onMounted(loadConfig)
+
+// Reload config every time the modal is opened (to reflect changes from "Switch to Auto")
+watch(() => props.isOpen, (isOpen) => {
+  if (isOpen) {
+    loadConfig()
   }
 })
 </script>

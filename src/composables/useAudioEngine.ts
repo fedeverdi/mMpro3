@@ -162,6 +162,7 @@ export interface AudioEngineState {
     headroomR: number
     headroomStereo: number
   } | null
+  lastConfigError: string | null
 }
 
 declare global {
@@ -193,7 +194,8 @@ const state = ref<AudioEngineState>({
   dynamicRangeData: null,
   phaseCorrelationData: null,
   stereoWidthData: null,
-  headroomData: null
+  headroomData: null,
+  lastConfigError: null
 })
 
 // NEW PARADIGM: Buffer for parameter updates (applied once per second)
@@ -430,6 +432,11 @@ export const useAudioEngine = () => {
 
         case 'error':
           console.error('[useAudioEngine] Engine error:', response.message)
+          
+          // Check if it's a configuration not supported error
+          if (response.message.includes('not supported by the device')) {
+            state.value.lastConfigError = response.message
+          }
           break
 
         // NEW: Optimized meters stream (60fps) - Only real-time metering data
@@ -908,6 +915,10 @@ export const useAudioEngine = () => {
             minProcessMs: response.min_process_ms,
             maxProcessMs: response.max_process_ms
           }
+          break
+
+        case 'audio_config':
+          // Audio config response - can be ignored on frontend as it's just confirmation
           break
 
         case 'recording_stats':

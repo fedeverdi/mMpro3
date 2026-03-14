@@ -227,10 +227,15 @@ impl AudioIO {
         let final_sample_rate = if is_supported {
             target_sample_rate
         } else {
-            if target_sample_rate != default_rate {
-                eprintln!("[AudioIO] Sample rate {} Hz not supported, using default {} Hz", 
-                    target_sample_rate, default_rate);
+            // If user explicitly requested a sample rate (not Auto) and it's not supported,
+            // return error to show modal and offer Auto mode
+            if sample_rate.is_some() {
+                return Err(anyhow!(
+                    "The requested stream configuration is not supported by the device. Sample rate {} Hz is not available.",
+                    target_sample_rate
+                ));
             }
+            // If Auto mode (None), use device default
             default_rate
         };
 
