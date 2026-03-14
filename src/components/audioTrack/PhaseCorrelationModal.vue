@@ -16,8 +16,8 @@
                     class="bg-gray-900 rounded-lg shadow-2xl w-[500px] max-w-[90vw] border border-gray-700"
                 >
                         <!-- Header -->
-                        <div class="flex items-center justify-between p-4 border-b border-gray-700">
-                            <h3 class="text-lg font-semibold text-white">📊 Phase Correlation - Track {{ trackNumber }}</h3>
+                        <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-700">
+                            <h3 class="text-sm font-semibold text-white">Phase Correlation · Track {{ trackNumber }}</h3>
                             <div class="flex items-center gap-2">
                                 <!-- View Toggle -->
                                 <button
@@ -47,85 +47,76 @@
                             </div>
                         </div>
 
-                        <!-- Large Gauge Display -->
-                        <div v-if="viewMode === 'gauge'" class="bg-gray-900/50 rounded-lg p-6 mb-4">
-                            <div class="relative w-full h-40 flex items-center justify-center">
-                                <svg viewBox="0 0 200 100" class="w-full h-full">
-                                    <!-- Background arc with color zones -->
-                                    <!-- Red zone: -1 to -0.2 -->
-                                    <path 
-                                        d="M 15 92 A 85 85 0 0 1 75 10" 
-                                        fill="none" 
-                                        stroke="#ef4444" 
-                                        stroke-width="12"
-                                        opacity="0.3"
-                                    />
-                                    
-                                    <!-- Yellow zone: -0.2 to +0.2 -->
-                                    <path 
-                                        d="M 75 10 A 85 85 0 0 1 125 10" 
-                                        fill="none" 
-                                        stroke="#eab308" 
-                                        stroke-width="12"
-                                        opacity="0.3"
-                                    />
-                                    
-                                    <!-- Green zone: +0.2 to +0.85 -->
-                                    <path 
-                                        d="M 125 10 A 85 85 0 0 1 182 73" 
-                                        fill="none" 
-                                        stroke="#22c55e" 
-                                        stroke-width="12"
-                                        opacity="0.3"
-                                    />
-                                    
-                                    <!-- Blue zone: +0.85 to +1 -->
-                                    <path 
-                                        d="M 182 73 A 85 85 0 0 1 185 92" 
-                                        fill="none" 
-                                        stroke="#3b82f6" 
-                                        stroke-width="12"
-                                        opacity="0.3"
-                                    />
-                                    
-                                    <!-- Tick marks -->
-                                    <line x1="100" y1="92" x2="100" y2="82" stroke="#666" stroke-width="1.5" />
-                                    <line x1="22" y1="92" x2="15" y2="92" stroke="#666" stroke-width="1.5" />
-                                    <line x1="178" y1="92" x2="185" y2="92" stroke="#666" stroke-width="1.5" />
-                                    <line x1="56" y1="36" x2="50" y2="30" stroke="#666" stroke-width="1.5" />
-                                    <line x1="144" y1="36" x2="150" y2="30" stroke="#666" stroke-width="1.5" />
-                                    
-                                    <!-- Center point -->
-                                    <circle cx="100" cy="92" r="4" :fill="needleColor" opacity="0.6" />
-                                    
-                                    <!-- Needle -->
-                                    <line 
-                                        :x1="100" 
-                                        :y1="92" 
-                                        :x2="needleX" 
-                                        :y2="needleY" 
-                                        :stroke="needleColor" 
-                                        stroke-width="3" 
-                                        stroke-linecap="round"
-                                    />
-                                    
-                                    <!-- Needle tip -->
-                                    <circle :cx="needleX" :cy="needleY" r="5" :fill="needleColor" />
-                                </svg>
+                        <!-- Horizontal Meter Display -->
+                        <div v-if="viewMode === 'gauge'" class="bg-gray-900/50 rounded-lg p-8 m-6 mb-4">
+                            <!-- Meter Container -->
+                            <div class="relative w-full h-16 mb-6">
+                                <!-- Background Meter Bar with Color Zones -->
+                                <div class="absolute inset-0 rounded-full overflow-hidden flex">
+                                    <!-- Red zone: -1 to -0.2 (40%) -->
+                                    <div class="h-full bg-red-600/30" style="width: 40%"></div>
+                                    <!-- Yellow zone: -0.2 to +0.2 (20%) -->
+                                    <div class="h-full bg-yellow-500/30" style="width: 20%"></div>
+                                    <!-- Green zone: +0.2 to +0.85 (32.5%) -->
+                                    <div class="h-full bg-green-500/30" style="width: 32.5%"></div>
+                                    <!-- Blue zone: +0.85 to +1 (7.5%) -->
+                                    <div class="h-full bg-blue-500/30" style="width: 7.5%"></div>
+                                </div>
                                 
-                                <!-- Labels -->
+                                <!-- Tick marks and labels -->
                                 <div class="absolute inset-0 pointer-events-none">
-                                    <div class="absolute left-[8%] bottom-3 text-[0.65rem] text-red-400 font-bold">-1</div>
-                                    <div class="absolute left-[20%] top-6 text-[0.65rem] text-yellow-400 font-bold">-0.2</div>
-                                    <div class="absolute left-1/2 -translate-x-1/2 top-0 text-[0.65rem] text-yellow-400 font-bold">0</div>
-                                    <div class="absolute right-[20%] top-6 text-[0.65rem] text-green-400 font-bold">+0.2</div>
-                                    <div class="absolute right-[13%] top-[38%] text-[0.65rem] text-blue-400 font-bold">+0.85</div>
-                                    <div class="absolute right-[8%] bottom-3 text-[0.65rem] text-blue-400 font-bold">+1</div>
+                                    <!-- -1 -->
+                                    <div class="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-600"></div>
+                                    <div class="absolute left-0 -bottom-6 text-xs text-red-400 font-bold">-1</div>
+                                    
+                                    <!-- -0.2 -->
+                                    <div class="absolute left-[40%] top-0 bottom-0 w-0.5 bg-gray-600"></div>
+                                    <div class="absolute left-[40%] -translate-x-1/2 -bottom-6 text-xs text-yellow-400 font-bold">-0.2</div>
+                                    
+                                    <!-- 0 -->
+                                    <div class="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-0.5 bg-gray-500"></div>
+                                    <div class="absolute left-1/2 -translate-x-1/2 -bottom-6 text-xs text-gray-300 font-bold">0</div>
+                                    
+                                    <!-- +0.2 -->
+                                    <div class="absolute left-[60%] top-0 bottom-0 w-0.5 bg-gray-600"></div>
+                                    <div class="absolute left-[60%] -translate-x-1/2 -bottom-6 text-xs text-green-400 font-bold">+0.2</div>
+                                    
+                                    <!-- +0.85 -->
+                                    <div class="absolute left-[92.5%] top-0 bottom-0 w-0.5 bg-gray-600"></div>
+                                    <div class="absolute left-[92.5%] -translate-x-1/2 -bottom-6 text-xs text-blue-400 font-bold">+0.85</div>
+                                    
+                                    <!-- +1 -->
+                                    <div class="absolute right-0 top-0 bottom-0 w-0.5 bg-gray-600"></div>
+                                    <div class="absolute right-0 -bottom-6 text-xs text-blue-400 font-bold">+1</div>
+                                </div>
+                                
+                                <!-- Moving Indicator -->
+                                <div 
+                                    class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 transition-all duration-100 ease-out"
+                                    :style="{ left: indicatorPosition }"
+                                >
+                                    <!-- Needle/pointer -->
+                                    <div class="relative">
+                                        <div 
+                                            class="w-1 h-20 rounded-full shadow-lg"
+                                            :style="{ backgroundColor: needleColor }"
+                                        ></div>
+                                        <!-- Top circle -->
+                                        <div 
+                                            class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full shadow-lg"
+                                            :style="{ backgroundColor: needleColor }"
+                                        ></div>
+                                        <!-- Bottom circle -->
+                                        <div 
+                                            class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full shadow-lg"
+                                            :style="{ backgroundColor: needleColor }"
+                                        ></div>
+                                    </div>
                                 </div>
                             </div>
                             
                             <!-- Value Display -->
-                            <div class="text-center mt-4">
+                            <div class="text-center mt-10">
                                 <div 
                                     class="inline-block text-3xl font-mono font-bold px-4 py-2 rounded-lg"
                                     :class="valueColorClass"
@@ -136,7 +127,7 @@
                         </div>
 
                         <!-- Goniometer Display -->
-                        <div v-else class="bg-gray-900/50 rounded-lg p-6 mb-4">
+                        <div v-else class="bg-gray-900/50 rounded-lg p-8 m-6 mb-4">
                             <div class="relative w-full h-64 flex items-center justify-center">
                                 <svg viewBox="0 0 200 200" class="w-full h-full">
                                     <!-- Background circle -->
@@ -211,9 +202,9 @@
                         </div>
 
                         <!-- Info Section -->
-                        <div class="space-y-3 text-sm">
+                        <div class="space-y-3 text-sm px-6 pb-6">
                             <!-- Current Status -->
-                            <div class="bg-gray-900/50 rounded-lg p-3">
+                            <div class="bg-gray-900/50 rounded-lg p-4">
                                 <div class="flex items-center justify-between">
                                     <span class="text-gray-400">Status:</span>
                                     <span :class="statusColorClass" class="font-bold">{{ statusText }}</span>
@@ -355,6 +346,13 @@ const needleColor = computed(() => {
     if (c < 0.2) return '#eab308'
     if (c < 0.85) return '#22c55e'
     return '#3b82f6'
+})
+
+// Horizontal meter indicator position (maps -1 to +1 → 0% to 100%)
+const indicatorPosition = computed(() => {
+    const c = clampedCorrelation.value
+    const normalized = (c + 1) / 2 // Map -1..+1 to 0..1
+    return `${normalized * 100}%`
 })
 
 // Value color class

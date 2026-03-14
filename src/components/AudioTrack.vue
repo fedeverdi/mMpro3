@@ -229,7 +229,7 @@
   <!-- Phase Correlation Modal -->
   <PhaseCorrelationModal 
     v-model="showPhaseCorrelationModal" 
-    :track-number="trackNumber + 1"
+    :track-number="trackNumber"
     :correlation="trackPhaseCorrelation"
     :audio-data-l="trackWaveformData.left"
     :audio-data-r="trackWaveformData.right"
