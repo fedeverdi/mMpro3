@@ -1661,7 +1661,7 @@ ipcMain.handle('open-detached-window', async (_event, componentType: string) => 
   
   switch (componentType) {
     case 'master-eq':
-      createDetachedWindow('master-eq', 'Master EQ', 600, 500)
+      createDetachedWindow('master-eq', 'Master EQ', 1400, 800)
       break
     case 'spectrum':
       createDetachedWindow('spectrum', 'Spectrum Analyzer', 600, 500)

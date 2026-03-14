@@ -7,51 +7,51 @@
         <div class="bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 rounded-xl shadow-2xl w-[98vw] max-w-[1800px] max-h-[92vh] border border-gray-700/50 overflow-hidden flex flex-col">
           
           <!-- Header -->
-          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700/50 bg-gray-900/50 backdrop-blur">
-            <div class="flex items-center gap-3">
-              <div class="w-1 h-8 bg-blue-500 rounded-full"></div>
-              <h2 class="text-xl font-bold text-white tracking-tight">{{ titleText }}</h2>
+          <div class="flex items-center justify-between px-4 py-2 border-b border-gray-700/50 bg-gray-900/50 backdrop-blur">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-6 bg-blue-500 rounded-full"></div>
+              <h2 class="text-base font-bold text-white tracking-tight">{{ titleText }}</h2>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
               <!-- FFT Display Mode Toggle -->
-              <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700">
+              <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gray-800 border border-gray-700">
                 <span class="text-xs text-gray-400">FFT:</span>
                 <button
                   @click="fftDisplayMode = 'curve'"
                   :class="[
-                    'px-2 py-1 rounded text-xs font-medium transition-all',
+                    'px-1.5 py-0.5 rounded text-xs font-medium transition-all',
                     fftDisplayMode === 'curve' 
                       ? 'bg-blue-600 text-white' 
                       : 'bg-transparent text-gray-400 hover:text-white'
                   ]"
                   title="Curve visualization"
                 >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12 Q 6 6, 9 12 T 15 12 Q 18 18, 21 12" />
                   </svg>
                 </button>
                 <button
                   @click="fftDisplayMode = 'bars'"
                   :class="[
-                    'px-2 py-1 rounded text-xs font-medium transition-all',
+                    'px-1.5 py-0.5 rounded text-xs font-medium transition-all',
                     fftDisplayMode === 'bars' 
                       ? 'bg-blue-600 text-white' 
                       : 'bg-transparent text-gray-400 hover:text-white'
                   ]"
                   title="Bars visualization"
                 >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </button>
               </div>
               <button
                 @click="reset"
-                class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white transition-all text-sm font-medium border border-gray-700 hover:border-gray-600"
+                class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white transition-all text-xs font-medium border border-gray-700 hover:border-gray-600"
                 title="Reset all filters"
               >
-                <span class="flex items-center gap-2">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span class="flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                   Reset
@@ -59,10 +59,10 @@
               </button>
               <button
                 @click="close"
-                class="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-800 rounded-lg"
+                class="text-gray-400 hover:text-white transition-colors p-1.5 hover:bg-gray-800 rounded-lg"
                 title="Close"
               >
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>

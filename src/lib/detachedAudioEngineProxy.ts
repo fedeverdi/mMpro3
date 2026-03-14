@@ -11,7 +11,9 @@ export class DetachedAudioEngineProxy {
   // Minimal state object for compatibility (read-only in detached windows)
   public state = ref({
     isRunning: true, // Assume engine is running in detached windows
-    availableOutputDevices: []
+    availableOutputDevices: [],
+    fftData: null as { binsLeft: Float32Array; binsRight: Float32Array; sampleRate: number } | null,
+    trackFFTData: null as Record<number, { binsLeft: Float32Array; binsRight: Float32Array; sampleRate: number }> | null
   })
 
   constructor(private wsClient: DetachedWindowClient) {}
