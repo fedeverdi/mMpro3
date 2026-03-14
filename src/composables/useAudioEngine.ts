@@ -425,6 +425,8 @@ export const useAudioEngine = () => {
 
         case 'stopped':
           state.value.isRunning = false
+          // Reset performance stats quando si stoppa per mostrare i nuovi valori al riavvio
+          state.value.performanceStats = null
           break
 
         case 'ok':

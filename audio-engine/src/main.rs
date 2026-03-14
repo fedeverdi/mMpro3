@@ -1249,6 +1249,7 @@ impl AudioEngine {
         let perf_stats = Arc::new(Mutex::new(PerformanceStats::new()));
         let perf_stats_clone = Arc::clone(&perf_stats);
         let sample_rate_for_perf = self.sample_rate; // Save sample rate for performance calculation
+        let buffer_size_for_perf = actual_buffer_size; // Save configured buffer size for stats
         
         // Stream ID for debugging (increment for each new stream)
         use std::sync::atomic::AtomicUsize;
@@ -1695,10 +1696,19 @@ impl AudioEngine {
                     let min_ms = stats.min_process_time_us as f32 / 1000.0;
                     let max_ms = stats.max_process_time_us as f32 / 1000.0;
                     
+                    // Use configured buffer size for stats display instead of variable callback frames
+                    let (stats_buffer_size, stats_latency_ms) = match buffer_size_for_perf {
+                        cpal::BufferSize::Fixed(size) => {
+                            let latency = (size as f32 / sample_rate_for_perf as f32) * 1000.0;
+                            (size as usize, latency)
+                        }
+                        cpal::BufferSize::Default => (frames, buffer_latency_ms),
+                    };
+                    
                     let response = Response::PerformanceStats {
-                        buffer_size: frames,
+                        buffer_size: stats_buffer_size,
                         sample_rate: sample_rate_for_perf,
-                        latency_ms: buffer_latency_ms,
+                        latency_ms: stats_latency_ms,
                         avg_process_ms: avg_ms,
                         cpu_percent: avg_cpu,
                         min_process_ms: min_ms,
