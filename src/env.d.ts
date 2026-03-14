@@ -168,6 +168,10 @@ interface AudioEngine {
   // License management
   saveLicense: (key: string, licenseType: string, expiresAt: string | null) => Promise<void>
   getLicense: () => Promise<{ key: string; license_type: string; expires_at: string | null; is_valid: boolean } | null>
+  
+  // Audio configuration management
+  saveAudioConfig: (sampleRate: number, bufferSize: number) => Promise<void>
+  getAudioConfig: () => Promise<{ sample_rate: number; buffer_size: number } | null>
 }
 
 // Electron API for window controls

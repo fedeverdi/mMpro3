@@ -1299,8 +1299,13 @@ function handleSoloChange(data: { trackNumber: number, isSolo: boolean }) {
 async function handleAudioConfigApply(config: { sampleRate: number; bufferSize: number }) {
   console.log('[App] Applying audio config:', config)
 
-  // Save to localStorage
-  localStorage.setItem('audioConfig', JSON.stringify(config))
+  // Save to Rust engine (file-based)
+  try {
+    await window.audioEngine.saveAudioConfig(config.sampleRate, config.bufferSize)
+    console.log('[App] Audio config saved to file')
+  } catch (e) {
+    console.error('[App] Failed to save audio config:', e)
+  }
 
   // Stop current audio
   if (window.audioEngine) {
@@ -1311,8 +1316,11 @@ async function handleAudioConfigApply(config: { sampleRate: number; bufferSize: 
   await new Promise(resolve => setTimeout(resolve, 100))
 
   // Start with new configuration
+  // If sampleRate is 0 (Auto), pass null to let device choose its native rate
+  // Otherwise, force the selected sample rate
   if (window.audioEngine) {
-    await window.audioEngine.start(null, null, config.sampleRate, config.bufferSize)
+    const sampleRate = config.sampleRate === 0 ? null : config.sampleRate
+    await window.audioEngine.start(null, null, sampleRate, config.bufferSize)
   }
 
   console.log('[App] Audio config applied successfully')

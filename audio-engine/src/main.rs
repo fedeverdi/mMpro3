@@ -304,6 +304,15 @@ enum Command {
     #[serde(rename = "get_license")]
     GetLicense,
 
+    // Audio configuration management
+    #[serde(rename = "save_audio_config")]
+    SaveAudioConfig {
+        sample_rate: u32, // 0 = Auto, otherwise specific rate
+        buffer_size: u32,
+    },
+    #[serde(rename = "get_audio_config")]
+    GetAudioConfig,
+
     // Aux bus controls
     #[serde(rename = "set_track_aux_send")]
     SetTrackAuxSend {
@@ -552,6 +561,11 @@ enum Response {
         license_type: String,
         expires_at: Option<String>,
         is_valid: bool,
+    },
+    #[serde(rename = "audio_config")]
+    AudioConfig {
+        sample_rate: u32,  // 0 = Auto
+        buffer_size: u32,
     },
 }
 
@@ -1048,6 +1062,18 @@ impl AudioEngine {
         buffer_size: Option<u32>,
     ) -> Result<()> {
         
+        // Load saved audio configuration if not explicitly specified
+        let (final_sample_rate, final_buffer_size) = if sample_rate.is_none() && buffer_size.is_none() {
+            // Both not specified - load from file
+            let config = load_audio_config_from_file();
+            let sr = if config.sample_rate == 0 { None } else { Some(config.sample_rate) };
+            let bs = Some(config.buffer_size);
+            (sr, bs)
+        } else {
+            // At least one was specified - use what was provided
+            (sample_rate, buffer_size)
+        };
+        
         // Force stop if streams are still active (restart scenario)
         if self.input_stream.is_some() || self.output_stream.is_some() {
             eprintln!("[Engine] Streams still active, forcing stop before restart...");
@@ -1127,8 +1153,8 @@ impl AudioEngine {
             || output_device_name_lower.contains("bt");
         
         // Skip input config for now (see TODO above about privacy)
-        // let input_config = self.audio_io.get_supported_config(&input_device, true, sample_rate, buffer_size)?;
-        let output_config = self.audio_io.get_supported_config(&output_device, false, sample_rate, buffer_size)?;
+        // let input_config = self.audio_io.get_supported_config(&input_device, true, final_sample_rate, final_buffer_size)?;
+        let output_config = self.audio_io.get_supported_config(&output_device, false, final_sample_rate, final_buffer_size)?;
 
         // Check if sample rate changed
         let old_sample_rate = self.sample_rate;
@@ -2747,6 +2773,23 @@ impl AudioEngine {
                         is_valid: true,
                     }),
                 }
+            }
+            Command::SaveAudioConfig { sample_rate, buffer_size } => {
+                match save_audio_config_to_file(sample_rate, buffer_size) {
+                    Ok(_) => Some(Response::Ok {
+                        message: "Audio config saved".to_string(),
+                    }),
+                    Err(e) => Some(Response::Error {
+                        message: format!("Failed to save audio config: {}", e),
+                    }),
+                }
+            }
+            Command::GetAudioConfig => {
+                let config = load_audio_config_from_file();
+                Some(Response::AudioConfig {
+                    sample_rate: config.sample_rate,
+                    buffer_size: config.buffer_size,
+                })
             }
             Command::SetTrackSourceInput {
                 track,
@@ -4672,6 +4715,91 @@ struct LicenseData {
     license_type: String,
     expires_at: Option<String>,
     is_valid: bool,
+}
+
+// Audio configuration structures and functions
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct AudioConfigData {
+    sample_rate: u32,  // 0 = Auto, otherwise specific rate (44100, 48000, 96000, 192000)
+    buffer_size: u32,  // Buffer size in frames (64, 128, 256, 512, 1024)
+}
+
+impl Default for AudioConfigData {
+    fn default() -> Self {
+        Self {
+            sample_rate: 0,    // Auto mode by default
+            buffer_size: 256,  // 256 frames default
+        }
+    }
+}
+
+fn get_audio_config_file_path() -> PathBuf {
+    // Use same base directory as license
+    let base_path = std::env::var("LICENSE_PATH")
+        .unwrap_or_else(|_| ".".to_string());
+    let path = PathBuf::from(base_path).join("audio_config.json");
+    path
+}
+
+fn save_audio_config_to_file(sample_rate: u32, buffer_size: u32) -> Result<()> {
+    let config = AudioConfigData {
+        sample_rate,
+        buffer_size,
+    };
+    
+    let path = get_audio_config_file_path();
+    let json = serde_json::to_string_pretty(&config)?;
+    
+    match std::fs::write(&path, &json) {
+        Ok(_) => {
+            let rate_str = if sample_rate == 0 {
+                "Auto".to_string()
+            } else {
+                format!("{}", sample_rate)
+            };
+            eprintln!("[Engine] ✓ Audio config saved: {} Hz ({}=Auto), {} frames", 
+                rate_str,
+                if sample_rate == 0 { "0" } else { "" },
+                buffer_size
+            );
+            Ok(())
+        },
+        Err(e) => {
+            eprintln!("[Engine] ✗ Failed to write audio config file: {}", e);
+            Err(e.into())
+        }
+    }
+}
+
+fn load_audio_config_from_file() -> AudioConfigData {
+    let path = get_audio_config_file_path();
+    
+    if !path.exists() {
+        eprintln!("[Engine] No audio config file found, using defaults (Auto, 256 frames)");
+        return AudioConfigData::default();
+    }
+    
+    match std::fs::read_to_string(&path) {
+        Ok(json) => {
+            match serde_json::from_str::<AudioConfigData>(&json) {
+                Ok(config) => {
+                    eprintln!("[Engine] ✓ Audio config loaded: {} Hz, {} frames", 
+                        if config.sample_rate == 0 { "Auto".to_string() } else { config.sample_rate.to_string() },
+                        config.buffer_size
+                    );
+                    config
+                },
+                Err(e) => {
+                    eprintln!("[Engine] ✗ Failed to parse audio config: {}, using defaults", e);
+                    AudioConfigData::default()
+                }
+            }
+        },
+        Err(e) => {
+            eprintln!("[Engine] ✗ Failed to read audio config file: {}, using defaults", e);
+            AudioConfigData::default()
+        }
+    }
 }
 
 fn get_license_file_path() -> PathBuf {

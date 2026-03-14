@@ -841,6 +841,42 @@ export class RemoteAudioEngine {
     }
   }
   
+  // Audio configuration management
+  async getAudioConfig(): Promise<any> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.error('[RemoteAudioEngine] WebSocket not connected!')
+      return { sample_rate: 0, buffer_size: 256 } // Default: Auto, 256 frames
+    }
+    
+    try {
+      const response = await this.sendAndWaitForResponse({ type: 'get_audio_config' }, 'audio_config', 5000)
+      return response
+    } catch (error) {
+      console.error('[RemoteAudioEngine] Failed to get audio config (timeout or error):', error)
+      return { sample_rate: 0, buffer_size: 256 } // Default: Auto, 256 frames
+    }
+  }
+
+  async saveAudioConfig(sampleRate: number, bufferSize: number): Promise<boolean> {
+    console.log('[RemoteAudioEngine] Saving audio config:', sampleRate, bufferSize)
+    try {
+      await this.sendAndWaitForResponse(
+        { 
+          type: 'save_audio_config', 
+          sample_rate: sampleRate, 
+          buffer_size: bufferSize 
+        }, 
+        'ok', 
+        3000
+      )
+      console.log('[RemoteAudioEngine] Audio config saved successfully')
+      return true
+    } catch (error) {
+      console.error('[RemoteAudioEngine] Failed to save audio config:', error)
+      return false
+    }
+  }
+  
   // Remote control lifecycle methods
   notifyRemoteControlStarted(): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {

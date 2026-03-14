@@ -1036,6 +1036,12 @@ export const useAudioEngine = () => {
       return
     }
 
+    // Configuration is now loaded automatically by Rust engine:
+    // - If no sample_rate/buffer_size passed, Rust loads from audio_config.json
+    // - If file doesn't exist, uses defaults (Auto=0/null, 256 frames)
+    // - If "Auto" (0), uses device native rate
+    // - Otherwise forces specified rate
+
     startListening()
     await window.audioEngine.start(inputDevice, outputDevice)
   }

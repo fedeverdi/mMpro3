@@ -1535,6 +1535,48 @@ ipcMain.handle('audio-engine:get-license', async () => {
   }
 })
 
+// Audio configuration management - forward to Rust engine
+ipcMain.handle('audio-engine:save-audio-config', async (_, sampleRate: number, bufferSize: number) => {
+  if (!audioEngineProcess || !audioEngineProcess.stdin) {
+    throw new Error('Audio engine not running')
+  }
+  
+  try {
+    const command = {
+      type: 'save_audio_config',
+      sample_rate: sampleRate,
+      buffer_size: bufferSize
+    }
+        
+    const response = await sendCommandAndWaitForResponse(command, 'ok', 3000)
+        
+    if (response.message?.includes('Audio config saved')) {
+      return true
+    } else {
+      return true // Assume success
+    }
+  } catch (error) {
+    console.error('[Main.ts] ✗ Failed to save audio config:', error)
+    return true
+  }
+})
+
+ipcMain.handle('audio-engine:get-audio-config', async () => {
+  if (!audioEngineProcess || !audioEngineProcess.stdin) {
+    return { sample_rate: 0, buffer_size: 256 } // Default: Auto, 256 frames
+  }
+  
+  try {
+    const command = { type: 'get_audio_config' }    
+    const response = await sendCommandAndWaitForResponse(command, 'audio_config', 2000)
+    
+    return response
+  } catch (error) {
+    console.warn('[Main.ts] Timeout or error getting audio config from Rust:', error)
+    return { sample_rate: 0, buffer_size: 256 } // Default: Auto, 256 frames
+  }
+})
+
 ipcMain.handle('window-is-maximized', (event) => {
   const window = BrowserWindow.fromWebContents(event.sender)
   return window?.isMaximized() || false

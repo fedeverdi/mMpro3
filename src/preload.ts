@@ -179,6 +179,11 @@ contextBridge.exposeInMainWorld('audioEngine', {
     ipcRenderer.invoke('audio-engine:save-license', key, licenseType, expiresAt),
   getLicense: () => ipcRenderer.invoke('audio-engine:get-license'),
   
+  // Audio configuration management
+  saveAudioConfig: (sampleRate: number, bufferSize: number) =>
+    ipcRenderer.invoke('audio-engine:save-audio-config', sampleRate, bufferSize),
+  getAudioConfig: () => ipcRenderer.invoke('audio-engine:get-audio-config'),
+  
   // Library files
   saveLibraryFile: (arrayBuffer: ArrayBuffer, fileName: string, metadata?: any) => 
     ipcRenderer.invoke('audio-engine:save-library-file', arrayBuffer, fileName, metadata),

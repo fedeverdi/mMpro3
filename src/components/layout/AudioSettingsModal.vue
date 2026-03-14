@@ -18,7 +18,7 @@
           <label class="block text-sm font-medium text-gray-300 mb-3">
             Master Sample Rate
           </label>
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-5 gap-2">
             <button
               v-for="rate in sampleRates"
               :key="rate.value"
@@ -33,6 +33,9 @@
               <div class="text-lg font-bold">{{ rate.label }}</div>
               <div class="text-xs opacity-75">{{ rate.description }}</div>
             </button>
+          </div>
+          <div class="mt-2 text-xs text-gray-400">
+            💡 <span class="font-semibold">Auto</span>: adapts to device (48kHz for MacBook, 192kHz for Rubix). Manual: forces selected rate on all devices.
           </div>
         </div>
 
@@ -137,7 +140,8 @@
           <div class="text-sm text-blue-200">
             <div class="font-semibold mb-2">ℹ️ Professional Audio Configuration</div>
             <ul class="space-y-1 text-xs">
-              <li>• All inputs/outputs resampled to master rate</li>
+              <li>• <strong>Auto mode</strong>: adapts to each device's native rate</li>
+              <li>• <strong>Manual mode</strong>: forces rate with resampling if needed</li>
               <li>• Lower buffer = better for live performance</li>
               <li>• Higher rate = better quality (more CPU)</li>
             </ul>
@@ -187,9 +191,11 @@ const emit = defineEmits<{
 }>()
 
 const sampleRates = [
+  { value: 0, label: 'Auto', description: 'Device Native' },
   { value: 44100, label: '44.1 kHz', description: 'CD Quality' },
   { value: 48000, label: '48 kHz', description: 'Standard' },
   { value: 96000, label: '96 kHz', description: 'Hi-Res' },
+  { value: 192000, label: '192 kHz', description: 'Ultra Hi-Res' },
 ]
 
 const bufferSizes = [
@@ -200,7 +206,7 @@ const bufferSizes = [
   { value: 1024, latency: '21.3', label: 'High', level: 'high' },
 ]
 
-const selectedSampleRate = ref(48000)
+const selectedSampleRate = ref(0) // Default to Auto
 const selectedBufferSize = ref(256)
 
 // Network URL composable
@@ -239,21 +245,21 @@ const apply = () => {
 }
 
 const reset = () => {
-  selectedSampleRate.value = 48000
+  selectedSampleRate.value = 0 // Auto
   selectedBufferSize.value = 256
 }
 
-// Load from localStorage on mount
-onMounted(() => {
-  const saved = localStorage.getItem('audioConfig')
-  if (saved) {
-    try {
-      const config = JSON.parse(saved)
-      selectedSampleRate.value = config.sampleRate || 48000
-      selectedBufferSize.value = config.bufferSize || 256
-    } catch (e) {
-      console.error('Failed to load audio config:', e)
+// Load from Rust engine on mount
+onMounted(async () => {
+  try {
+    const config = await window.audioEngine.getAudioConfig()
+    if (config) {
+      selectedSampleRate.value = config.sample_rate ?? 0 // Use ?? to allow 0 (Auto)
+      selectedBufferSize.value = config.buffer_size || 256
+      console.log('[AudioSettingsModal] Loaded config from Rust:', config)
     }
+  } catch (e) {
+    console.error('[AudioSettingsModal] Failed to load audio config:', e)
   }
 })
 </script>
