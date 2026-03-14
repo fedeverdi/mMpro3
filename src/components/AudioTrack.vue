@@ -108,7 +108,7 @@
         </div>
 
         <!-- EQ Thumbnail (Frequency Response Curve) -->
-        <EQThumbnail v-if="isLargeSize" :system-filters="eq4BandFilters" :filters="parametricEQFilters" />
+        <EQThumbnail v-if="isLargeSize" :system-filters="eq4BandFilters" :filters="parametricEQFilters" :track-number="trackNumber" />
 
         <!-- 4-Band Parametric EQ - Absolute positioned -->
         <div class="absolute top-full left-0 right-0 z-[1000] mt-1">
