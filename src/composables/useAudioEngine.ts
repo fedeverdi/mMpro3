@@ -32,6 +32,7 @@ export interface AudioEngineState {
     gain: number
     volume: number
     mute: boolean
+    solo: boolean
     pan: number
     routeToMaster: boolean
     routeToSubgroups: number[]
@@ -226,6 +227,7 @@ const applyPendingParameterUpdates = () => {
       gain: 1.0,
       volume: 1.0,
       mute: false,
+      solo: false,
       pan: 0.0,
       routeToMaster: true,
       routeToSubgroups: [],
@@ -267,6 +269,7 @@ const applyPendingParameterUpdates = () => {
     if (trackParams.gain !== undefined && trackParams.gain !== null) newParams.gain = trackParams.gain
     if (trackParams.volume !== undefined && trackParams.volume !== null) newParams.volume = trackParams.volume
     if (trackParams.mute !== undefined && trackParams.mute !== null) newParams.mute = trackParams.mute
+    if (trackParams.solo !== undefined && trackParams.solo !== null) newParams.solo = trackParams.solo
     if (trackParams.pan !== undefined && trackParams.pan !== null) newParams.pan = trackParams.pan
     if (trackParams.route_to_master !== undefined && trackParams.route_to_master !== null) newParams.routeToMaster = trackParams.route_to_master
     if (trackParams.route_to_subgroups !== undefined && trackParams.route_to_subgroups !== null) newParams.routeToSubgroups = trackParams.route_to_subgroups
@@ -479,6 +482,7 @@ export const useAudioEngine = () => {
                   gain: trackMeter.gain ?? 1.0,
                   volume: trackMeter.volume ?? 1.0,
                   mute: trackMeter.mute ?? false,
+                  solo: trackMeter.solo ?? false,
                   pan: trackMeter.pan ?? 0.0,
                   routeToMaster: true,
                   routeToSubgroups: [],
@@ -521,6 +525,7 @@ export const useAudioEngine = () => {
                 if (trackMeter.gain !== undefined) existingParams.gain = trackMeter.gain
                 if (trackMeter.volume !== undefined) existingParams.volume = trackMeter.volume
                 if (trackMeter.mute !== undefined) existingParams.mute = trackMeter.mute
+                if (trackMeter.solo !== undefined) existingParams.solo = trackMeter.solo
                 if (trackMeter.pan !== undefined) existingParams.pan = trackMeter.pan
                 if (trackMeter.is_stereo !== undefined) existingParams.isStereo = trackMeter.is_stereo
                 if (trackMeter.file_name !== undefined) existingParams.fileName = trackMeter.file_name

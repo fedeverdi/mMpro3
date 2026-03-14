@@ -1092,6 +1092,7 @@ onMounted(async () => {
     
     // Update other parameters
     if (params.mute !== undefined) isMuted.value = params.mute
+    if (params.solo !== undefined) isSolo.value = params.solo
     if (params.pan !== undefined && !isDraggingPan.value) pan.value = params.pan
     if (params.routeToMaster !== undefined) routeToMaster.value = params.routeToMaster
     if (params.routeToSubgroups !== undefined) {

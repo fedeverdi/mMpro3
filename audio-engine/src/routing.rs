@@ -246,6 +246,7 @@ impl Track {
             gain: 0.251189,      // -12 dB (safe default to prevent clipping)
             volume: 1.0,    // Unity volume (0dB)
             mute: false,
+            solo: false,
             pan: 0.0,
             route_to_master: true, // Route to master by default
             route_to_subgroups: Vec::new(), // No subgroups by default
@@ -1049,7 +1050,12 @@ impl Router {
         master_output
     }
 
-    /// Get track by id
+    /// Get track by id (immutable)
+    pub fn get_track(&self, id: usize) -> Option<&Track> {
+        self.tracks.get(id)
+    }
+
+    /// Get track by id (mutable)
     pub fn get_track_mut(&mut self, id: usize) -> Option<&mut Track> {
         self.tracks.get_mut(id)
     }

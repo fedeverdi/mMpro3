@@ -171,23 +171,29 @@ pub fn set_mute(router: &mut Router, track: usize, mute: bool) {
     }
 }
 
-/// Set track solo state (mutes all other tracks)
+/// Set track solo state (mutes all other tracks and unsolo others)
 pub fn set_solo(router: &mut Router, track: usize, solo: bool) {
     if solo {
-        // Solo this track: mute all other tracks
+        // Solo this track: unsolo all others, mute all others, unmute this one
         for i in 0..router.tracks.len() {
-            if i != track {
-                if let Some(t) = router.get_track_mut(i) {
+            if let Some(t) = router.get_track_mut(i) {
+                t.solo = false;
+                if i != track {
                     t.mute = true;
-                }
-            } else {
-                if let Some(t) = router.get_track_mut(i) {
+                } else {
                     t.mute = false;
                 }
             }
         }
+        // Set solo flag on the target track
+        if let Some(t) = router.get_track_mut(track) {
+            t.solo = true;
+        }
     } else {
-        // Un-solo: unmute all tracks
+        // Un-solo this track: unmute all tracks
+        if let Some(t) = router.get_track_mut(track) {
+            t.solo = false;
+        }
         for i in 0..router.tracks.len() {
             if let Some(t) = router.get_track_mut(i) {
                 t.mute = false;
