@@ -718,15 +718,15 @@ function handleCompressorParamsChanged(params: { threshold: number; ratio: numbe
 }
 
 function handleGateParamsUpdate(params: { threshold: number; attack: number; release: number; range: number }) {
-  // Send to Rust engine
+  // Send to Rust engine - convert attack/release from seconds to milliseconds
   if (audioEngine?.state.value.isRunning && gateEnabled.value) {
     audioEngine.setTrackGate(
       props.trackNumber - 1,
       true,
       params.threshold,
       params.range,
-      params.attack,
-      params.release
+      params.attack * 1000,   // Convert seconds to milliseconds
+      params.release * 1000   // Convert seconds to milliseconds
     )
   }
 }
@@ -973,8 +973,8 @@ watch(gateEnabled, (enabled) => {
         enabled,
         params.threshold,
         params.range,
-        params.attack,
-        params.release
+        params.attack * 1000,   // Convert seconds to milliseconds
+        params.release * 1000   // Convert seconds to milliseconds
       )
     }
   }

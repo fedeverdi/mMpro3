@@ -110,7 +110,7 @@ const showModal = ref(false)
 const threshold = ref(-45) // Professional default for voice
 const attack = ref(0.005) // 5ms - fast opening
 const release = ref(0.3) // 300ms - natural release
-const range = ref(-30) // Attenuation when closed (dB)
+const range = ref(-100) // Complete silence when closed
 
 // Visual feedback
 const currentLevel = ref(-80)
@@ -197,7 +197,7 @@ defineExpose({
     threshold.value = -45
     attack.value = 0.005
     release.value = 0.3
-    range.value = -30
+    range.value = -100
     // Update node if gate is enabled
     if (props.enabled && props.gateNode) {
       updateGateNode()

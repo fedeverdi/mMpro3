@@ -17,6 +17,7 @@ pub struct NoiseGate {
     // Internal state
     sample_rate: f32,
     envelope: f32,        // Smoothed signal level (linear)
+    current_gain_linear: f32,  // Current gain being applied (smoothed to avoid clicks)
     attack_coeff: f32,    // Exponential smoothing coefficient for attack
     release_coeff: f32,   // Exponential smoothing coefficient for release
     
@@ -30,11 +31,12 @@ impl NoiseGate {
         let mut gate = Self {
             enabled: false,
             threshold_db: -40.0,
-            range_db: -80.0,
+            range_db: -100.0,    // Complete silence when gate is closed
             attack_ms: 10.0,     // Slower attack = less distortion on transients
             release_ms: 150.0,   // Longer release = smoother closing
             sample_rate,
             envelope: 0.0,
+            current_gain_linear: 1.0,  // Start with no attenuation
             attack_coeff: 0.0,
             release_coeff: 0.0,
             attenuation_db: 0.0,
@@ -115,38 +117,45 @@ impl NoiseGate {
         self.input_level_db = envelope_db;
         
         // Calculate attenuation
-        let mut attenuation_db = 0.0;
+        let attenuation_db;
         
         if envelope_db < self.threshold_db {
-            // Signal is below threshold, apply attenuation
-            // Smooth transition from 0dB at threshold to range_db below threshold
-            let below_threshold = self.threshold_db - envelope_db;
-            
-            // Simple linear fade (could be made more sophisticated)
-            // If we're far below threshold, apply full range
-            // If we're just below, fade in the attenuation
-            attenuation_db = self.range_db.max(-below_threshold).max(self.range_db);
+            // Signal is below threshold: apply full range attenuation (hard gate)
+            attenuation_db = self.range_db;
+        } else {
+            // Signal is above threshold: no attenuation
+            attenuation_db = 0.0;
         }
         
         // Store for metering
         self.attenuation_db = attenuation_db;
         
-        // Convert attenuation from dB to linear gain
-        let gain_linear = if attenuation_db <= -90.0 {
-            0.0
+        // Calculate target gain from attenuation
+        let target_gain_linear = if attenuation_db <= -90.0 {
+            0.0  // Complete silence for very low range settings
         } else {
             10.0_f32.powf(attenuation_db / 20.0)
         };
         
-        // Apply gain to both channels
-        let left_out = left * gain_linear;
-        let right_out = right * gain_linear;
+        // Smooth the gain to avoid clicks (use release coeff when closing, attack when opening)
+        let gain_coeff = if target_gain_linear > self.current_gain_linear {
+            self.attack_coeff  // Opening gate
+        } else {
+            self.release_coeff // Closing gate
+        };
+        
+        self.current_gain_linear = target_gain_linear + gain_coeff * (self.current_gain_linear - target_gain_linear);
+        
+        // Apply smoothed gain to both channels
+        let left_out = left * self.current_gain_linear;
+        let right_out = right * self.current_gain_linear;
         
         (left_out, right_out)
     }
 
     pub fn reset(&mut self) {
         self.envelope = 0.0;
+        self.current_gain_linear = 1.0;
         self.attenuation_db = 0.0;
         self.input_level_db = -90.0;
     }
