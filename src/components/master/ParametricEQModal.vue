@@ -402,16 +402,18 @@ onUnmounted(() => {
 
 // Throttled draw function for FFT updates - uses RAF to avoid excessive redraws
 function scheduleFFTDraw() {
-  // Skip FFT drawing during active dragging to prioritize drag responsiveness
-  if (isDragging.value || isDraggingQ.value) return
+  // During drag, slightly reduce FFT update rate to prioritize drag smoothness
+  const minInterval = (isDragging.value || isDraggingQ.value) 
+    ? MIN_FFT_DRAW_INTERVAL * 1.5  // 50ms (~20fps) during drag - still smooth
+    : MIN_FFT_DRAW_INTERVAL          // 33ms (~30fps) normally
   
   // Only schedule if not already pending
   if (!rafPending) {
     rafPending = true
     requestAnimationFrame(() => {
       const now = performance.now()
-      // Additional time-based throttling for high sample rates
-      if (now - lastFFTDrawTime >= MIN_FFT_DRAW_INTERVAL) {
+      // Time-based throttling
+      if (now - lastFFTDrawTime >= minInterval) {
         drawEQCurve()
         lastFFTDrawTime = now
       }
