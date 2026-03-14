@@ -1453,28 +1453,10 @@ function drawEQCurve() {
       
       const x = freqToX(freq)
       
-      // Color thresholds using dbAvg (which already has -25dB calibration offset applied)
-      // Green: below 0dB, Orange: 0dB to +6dB, Red: above +6dB
-      let barColor: string
-      let barColorLight: string
-      let barColorDark: string
-      
-      if (dbAvg > -45) {
-        // RED: Above +6dB (near clipping)
-        barColor = 'rgba(239, 68, 68, 0.3)'
-        barColorLight = 'rgba(248, 113, 113, 0.4)'
-        barColorDark = 'rgba(220, 38, 38, 0.2)'
-      } else if (dbAvg > -55) {
-        // ORANGE: 0dB to +6dB (strong signals)
-        barColor = 'rgba(251, 146, 60, 0.3)'
-        barColorLight = 'rgba(253, 186, 116, 0.4)'
-        barColorDark = 'rgba(234, 88, 12, 0.2)'
-      } else {
-        // GREEN: Below 0dB (normal/safe levels)
-        barColor = 'rgba(34, 197, 94, 0.3)'
-        barColorLight = 'rgba(74, 222, 128, 0.4)'
-        barColorDark = 'rgba(22, 163, 74, 0.2)'
-      }
+      // White bars with subtle gradient (same as curve fill)
+      const barColor = 'rgba(255, 255, 255, 0.12)'
+      const barColorLight = 'rgba(255, 255, 255, 0.15)'
+      const barColorDark = 'rgba(255, 255, 255, 0.08)'
       
       // Draw bar with gradient and rounded top corners
       const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight)
@@ -1499,9 +1481,9 @@ function drawEQCurve() {
       ctx.closePath()
       ctx.fill()
       
-      // Add matching colored outline with rounded corners
-      ctx.strokeStyle = barColor
-      ctx.lineWidth = 1
+      // Subtle white outline with rounded corners
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
+      ctx.lineWidth = 0.5
       ctx.stroke()
     }
   }
