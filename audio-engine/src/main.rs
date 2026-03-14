@@ -3060,7 +3060,19 @@ impl AudioEngine {
                                 } else {
                                     String::new()
                                 };
-                                (Some(fname), artist, title)
+                                
+                                // If artist/title not provided but file_player exists, preserve existing metadata
+                                let (final_artist, final_title) = if artist.is_none() && title.is_none() {
+                                    if let Some(ref player) = t.file_player {
+                                        (player.file_artist.clone(), player.file_title.clone())
+                                    } else {
+                                        (None, None)
+                                    }
+                                } else {
+                                    (artist, title)
+                                };
+                                
+                                (Some(fname), final_artist, final_title)
                             } else {
                                 // Read from existing file_player
                                 if let Some(ref player) = t.file_player {

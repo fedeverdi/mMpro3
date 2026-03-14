@@ -986,8 +986,10 @@ ipcMain.handle('audio-engine:delete-temp-file', async (_, filePath: string) => {
 // File playback controls
 ipcMain.handle('audio-engine:play-file', async (_, track: number, fileId?: string) => {
   let filePath: string | undefined
+  let artist: string | undefined
+  let title: string | undefined
   
-  // If fileId is provided, resolve it to full path
+  // If fileId is provided, resolve it to full path and load metadata
   if (fileId) {
     const libraryDir = path.join(app.getPath('userData'), 'Library')
     filePath = path.join(libraryDir, fileId)
@@ -996,9 +998,26 @@ ipcMain.handle('audio-engine:play-file', async (_, track: number, fileId?: strin
     if (!fs.existsSync(filePath)) {
       throw new Error(`File not found in library: ${fileId}`)
     }
+    
+    // Load metadata if available
+    const metadataPath = path.join(libraryDir, `${fileId}.meta.json`)
+    if (fs.existsSync(metadataPath)) {
+      try {
+        const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'))
+        artist = metadata.artist
+        title = metadata.title
+      } catch (error) {
+        console.error('[Main] Error reading metadata for playFile:', error)
+      }
+    }
   }
   
-  await sendCommandToEngine({ type: 'play_file', track, file_path: filePath })
+  // Send command with metadata if available
+  const payload: any = { type: 'play_file', track, file_path: filePath }
+  if (artist) payload.artist = artist
+  if (title) payload.title = title
+  
+  await sendCommandToEngine(payload)
 })
 
 ipcMain.handle('audio-engine:pause-file', async (_, track: number) => {
