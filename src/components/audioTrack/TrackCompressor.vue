@@ -23,7 +23,15 @@
       <div class="bg-gray-900 rounded-lg border-2 border-green-600 p-6 max-w-2xl w-full mx-4" @click.stop>
         <div class="flex justify-between items-center mb-4">
           <h3 class="text-xl font-bold text-green-300">Track {{ trackNumber }} - Compressor</h3>
-          <button @click="showModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+          <div class="flex items-center gap-3">
+            <button @click="handleToggle" :class="[
+              'px-4 py-2 rounded-lg font-bold text-sm transition-all',
+              enabled ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            ]">
+              {{ enabled ? 'ON' : 'OFF' }}
+            </button>
+            <button @click="showModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+          </div>
         </div>
         <!-- Compression Curve Display -->
         <div class="mb-4 bg-black/50 rounded-lg p-4 border border-green-600/30">
