@@ -59,7 +59,7 @@ interface AudioEngine {
   setSignalFrequency: (trackIndex: number, frequency: number) => Promise<void>
   setSignalWaveform: (trackIndex: number, waveform: string) => Promise<void>
   clearTrackSource: (trackIndex: number) => Promise<void>
-  setTrackSourceFile: (trackIndex: number, filePath: string, artist?: string|null, title?: string|null) => Promise<void>
+  setTrackSourceFile: (trackIndex: number, filePath: string, artist?: string|null, title?: string|null, playlistId?: string|null, playlistName?: string|null, playlistIndex?: number|null) => Promise<void>
   saveTempAudioFile: (arrayBuffer: ArrayBuffer, fileName: string) => Promise<string>
   deleteTempFile: (filePath: string) => Promise<void>
   
@@ -91,6 +91,8 @@ interface AudioEngine {
   setMasterLimiter: (enabled: boolean, ceiling: number, release: number) => Promise<void>
   setMasterDelay: (enabled: boolean, timeL: number, timeR: number, feedback: number, mix: number) => Promise<void>
   setMasterReverb: (enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => Promise<void>
+  addMasterFxEffect: (effectType: string) => Promise<void>
+  removeMasterFxEffect: (effectType: string) => Promise<void>
   
   // Subgroup Controls
   addSubgroup: () => Promise<number>
