@@ -435,7 +435,7 @@ watch(
       }
     }
     
-    drawEQCurve() // Redraw with new FFT data
+    drawEQCurve() // Redraw immediately for fluid animation
   }
 )
 
@@ -1077,7 +1077,49 @@ function drawEQCurve() {
   // Clear canvas
   ctx.clearRect(0, 0, width, height)
   
-  // Draw FFT curve in background (if data available)
+  // Draw grid
+  ctx.strokeStyle = '#374151'
+  ctx.lineWidth = 1
+  
+  // Horizontal lines (dB) - skip top and bottom lines
+  for (let db = -18; db <= 18; db += 6) {
+    const y = height / 2 - (db / 48) * height
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(width, y)
+    ctx.stroke()
+    
+    // Label
+    ctx.fillStyle = '#6b7280'
+    ctx.font = '10px monospace'
+    ctx.fillText(`${db > 0 ? '+' : ''}${db}dB`, 5, y - 2)
+  }
+  
+  // Vertical lines (frequency)
+  const freqs = [30, 40, 50, 60, 80, 100, 200, 300, 400, 500, 600, 800, 1000, 2000, 4000, 6000, 8000, 10000, 20000]
+  freqs.forEach(freq => {
+    const minFreq = Math.log10(20)
+    const maxFreq = Math.log10(20000)
+    const x = ((Math.log10(freq) - minFreq) / (maxFreq - minFreq)) * width
+    ctx.beginPath()
+    ctx.moveTo(x, 0)
+    ctx.lineTo(x, height)
+    ctx.stroke()
+    
+    ctx.fillStyle = '#6b7280'
+    const label = freq >= 1000 ? `${freq/1000}k` : `${freq}`
+    ctx.fillText(`${label}Hz`, x + 2, height - 5)
+  })
+  
+  // Draw 0dB line
+  ctx.strokeStyle = '#4b5563'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(0, height / 2)
+  ctx.lineTo(width, height / 2)
+  ctx.stroke()
+  
+  // Draw FFT curve over grid (if data available)
   if (smoothedFFTLeft && smoothedFFTRight) {
     const CALIBRATION_OFFSET_DB = -25.0
     const convertToDb = (magnitude: number): number => {
@@ -1120,7 +1162,8 @@ function drawEQCurve() {
     // Start from bottom left
     ctx.moveTo(0, height)
     
-    // Draw the curve (use max of left and right for mono compatibility)
+    // Draw the curve with smooth bezier curves (use max of left and right for mono compatibility)
+    const points: Array<{x: number, y: number}> = []
     for (let i = 0; i <= numPoints; i++) {
       const logFreq = logMin + (i / numPoints) * (logMax - logMin)
       const freq = Math.pow(10, logFreq)
@@ -1134,7 +1177,22 @@ function drawEQCurve() {
       const x = freqToX(freq)
       const y = height - (normalized * height)
       
-      ctx.lineTo(x, y)
+      points.push({x, y})
+    }
+    
+    // Draw smooth curve using quadratic bezier
+    if (points.length > 0) {
+      ctx.lineTo(points[0].x, points[0].y)
+      for (let i = 0; i < points.length - 1; i++) {
+        const xc = (points[i].x + points[i + 1].x) / 2
+        const yc = (points[i].y + points[i + 1].y) / 2
+        ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc)
+      }
+      // Draw last segment
+      if (points.length > 1) {
+        const last = points[points.length - 1]
+        ctx.quadraticCurveTo(points[points.length - 2].x, points[points.length - 2].y, last.x, last.y)
+      }
     }
     
     // Close to bottom right
@@ -1142,12 +1200,13 @@ function drawEQCurve() {
     ctx.closePath()
     ctx.fill()
 
-    // Draw left channel curve outline (purple)
+    // Draw left channel curve outline (purple) with smooth bezier
     ctx.globalAlpha = 0.5
     ctx.strokeStyle = '#a855f7'
     ctx.lineWidth = 1.5
     ctx.beginPath()
     
+    const leftPoints: Array<{x: number, y: number}> = []
     for (let i = 0; i <= numPoints; i++) {
       const logFreq = logMin + (i / numPoints) * (logMax - logMin)
       const freq = Math.pow(10, logFreq)
@@ -1158,19 +1217,29 @@ function drawEQCurve() {
       const x = freqToX(freq)
       const y = height - (normalized * height)
       
-      if (i === 0) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
+      leftPoints.push({x, y})
+    }
+    
+    if (leftPoints.length > 0) {
+      ctx.moveTo(leftPoints[0].x, leftPoints[0].y)
+      for (let i = 0; i < leftPoints.length - 1; i++) {
+        const xc = (leftPoints[i].x + leftPoints[i + 1].x) / 2
+        const yc = (leftPoints[i].y + leftPoints[i + 1].y) / 2
+        ctx.quadraticCurveTo(leftPoints[i].x, leftPoints[i].y, xc, yc)
+      }
+      if (leftPoints.length > 1) {
+        const last = leftPoints[leftPoints.length - 1]
+        ctx.quadraticCurveTo(leftPoints[leftPoints.length - 2].x, leftPoints[leftPoints.length - 2].y, last.x, last.y)
       }
     }
     ctx.stroke()
 
-    // Draw right channel curve outline (blue)
+    // Draw right channel curve outline (blue) with smooth bezier
     ctx.strokeStyle = '#3b82f6'
     ctx.lineWidth = 1.5
     ctx.beginPath()
     
+    const rightPoints: Array<{x: number, y: number}> = []
     for (let i = 0; i <= numPoints; i++) {
       const logFreq = logMin + (i / numPoints) * (logMax - logMin)
       const freq = Math.pow(10, logFreq)
@@ -1180,58 +1249,25 @@ function drawEQCurve() {
       const x = freqToX(freq)
       const y = height - (normalized * height)
       
-      if (i === 0) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
+      rightPoints.push({x, y})
+    }
+    
+    if (rightPoints.length > 0) {
+      ctx.moveTo(rightPoints[0].x, rightPoints[0].y)
+      for (let i = 0; i < rightPoints.length - 1; i++) {
+        const xc = (rightPoints[i].x + rightPoints[i + 1].x) / 2
+        const yc = (rightPoints[i].y + rightPoints[i + 1].y) / 2
+        ctx.quadraticCurveTo(rightPoints[i].x, rightPoints[i].y, xc, yc)
+      }
+      if (rightPoints.length > 1) {
+        const last = rightPoints[rightPoints.length - 1]
+        ctx.quadraticCurveTo(rightPoints[rightPoints.length - 2].x, rightPoints[rightPoints.length - 2].y, last.x, last.y)
       }
     }
     ctx.stroke()
     
     ctx.globalAlpha = 1.0
   }
-  
-  // Draw grid
-  ctx.strokeStyle = '#374151'
-  ctx.lineWidth = 1
-  
-  // Horizontal lines (dB) - skip top and bottom lines
-  for (let db = -18; db <= 18; db += 6) {
-    const y = height / 2 - (db / 48) * height
-    ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.lineTo(width, y)
-    ctx.stroke()
-    
-    // Label
-    ctx.fillStyle = '#6b7280'
-    ctx.font = '10px monospace'
-    ctx.fillText(`${db > 0 ? '+' : ''}${db}dB`, 5, y - 2)
-  }
-  
-  // Vertical lines (frequency)
-  const freqs = [30, 40, 50, 60, 80, 100, 200, 300, 400, 500, 600, 800, 1000, 2000, 4000, 6000, 8000, 10000, 20000]
-  freqs.forEach(freq => {
-    const minFreq = Math.log10(20)
-    const maxFreq = Math.log10(20000)
-    const x = ((Math.log10(freq) - minFreq) / (maxFreq - minFreq)) * width
-    ctx.beginPath()
-    ctx.moveTo(x, 0)
-    ctx.lineTo(x, height)
-    ctx.stroke()
-    
-    ctx.fillStyle = '#6b7280'
-    const label = freq >= 1000 ? `${freq/1000}k` : `${freq}`
-    ctx.fillText(`${label}Hz`, x + 2, height - 5)
-  })
-  
-  // Draw 0dB line
-  ctx.strokeStyle = '#4b5563'
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(0, height / 2)
-  ctx.lineTo(width, height / 2)
-  ctx.stroke()
   
   const points = 2000
   const minFreq = Math.log10(20)
