@@ -494,8 +494,8 @@ export const useAudioEngine = () => {
                   eqHighMid: 0,
                   eqHigh: 0,
                   fileName: trackMeter.file_name ?? '',
-                  fileArtist: undefined,
-                  fileTitle: undefined,
+                  fileArtist: trackMeter.file_artist,
+                  fileTitle: trackMeter.file_title,
                   isStereo: trackMeter.is_stereo ?? false,
                   isPlaying: trackMeter.is_playing ?? false,
                   auxSends: []
@@ -509,6 +509,8 @@ export const useAudioEngine = () => {
                 if (trackMeter.pan !== undefined) existingParams.pan = trackMeter.pan
                 if (trackMeter.is_stereo !== undefined) existingParams.isStereo = trackMeter.is_stereo
                 if (trackMeter.file_name !== undefined) existingParams.fileName = trackMeter.file_name
+                if (trackMeter.file_artist !== undefined) existingParams.fileArtist = trackMeter.file_artist
+                if (trackMeter.file_title !== undefined) existingParams.fileTitle = trackMeter.file_title
                 if (trackMeter.is_playing !== undefined) existingParams.isPlaying = trackMeter.is_playing
               }
             })

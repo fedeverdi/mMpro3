@@ -591,6 +591,8 @@ struct TrackMeters {
     pan: f32,
     is_stereo: bool,
     file_name: String,
+    file_artist: Option<String>,
+    file_title: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1490,6 +1492,8 @@ impl AudioEngine {
                                 pan: t.pan,
                                 is_stereo: t.file_player.as_ref().map_or(false, |p| p.channels >= 2),
                                 file_name: t.file_player.as_ref().map_or(String::new(), |p| p.file_name.clone()),
+                                file_artist: t.file_player.as_ref().and_then(|p| p.file_artist.clone()),
+                                file_title: t.file_player.as_ref().and_then(|p| p.file_title.clone()),
                             })
                             .collect();
                         

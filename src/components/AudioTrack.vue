@@ -1149,19 +1149,21 @@ onMounted(async () => {
     if (params.eqHigh !== undefined) eqHigh.value = params.eqHigh
     
     // Update file player state (sync fileName from backend)
-    // Backend now always sends file_artist and file_title when available
-    if (params.fileName && params.fileName.trim() !== '') {
+    // Watch fileArtist and fileTitle - update label whenever they change
+    if (params.fileArtist !== undefined || params.fileTitle !== undefined || (params.fileName && params.fileName.trim() !== '')) {
       let displayName: string | null = null
       if (params.fileArtist && params.fileTitle) {
         displayName = `${params.fileArtist} - ${params.fileTitle}`
       } else if (params.fileTitle) {
         displayName = params.fileTitle
-      } else {
+      } else if (params.fileName && params.fileName.trim() !== '') {
         displayName = params.fileName
       }
       
-      selectedFileName.value = displayName
-      audioSourceType.value = 'file'
+      if (displayName) {
+        selectedFileName.value = displayName
+        audioSourceType.value = 'file'
+      }
     }
     
     // Sync play state from Rust engine
