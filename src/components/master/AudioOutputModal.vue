@@ -85,7 +85,7 @@
               <!-- Channel Selection (for multi-channel devices) -->
               <div v-if="expandedDevice === device.id && device.output_channels > 2" class="ml-4 space-y-1">
                 <!-- Stereo Mode: Channel Pairs -->
-                <div v-if="mode === 'stereo'">
+                <div v-if="mode === 'stereo'" class="space-y-1">
                   <button
                     v-for="pair in getChannelPairs(device.output_channels)"
                     :key="`${device.id}:${pair.left}:${pair.right}`"
