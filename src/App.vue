@@ -22,6 +22,7 @@ import TakeControlModal from './components/core/TakeControlModal.vue'
 import { useAudioEngine } from './composables/useAudioEngine'
 import { useAudioDevices } from './composables/useAudioDevices'
 import { useNotifications } from './composables/useNotifications'
+import { useLicense } from './composables/useLicense'
 
 const isAppReady = ref(false)
 const engineReady = ref(false)
@@ -31,6 +32,9 @@ const splashScreenRef = ref<InstanceType<typeof SplashScreen> | null>(null)
 
 // Initialize Rust audio engine
 const audioEngine = useAudioEngine()
+
+// Initialize license system
+const license = useLicense()
 
 // Initialize audio devices composable
 const { enumerateAudioInputs } = useAudioDevices()
@@ -42,6 +46,9 @@ const { error: showError } = useNotifications()
 const initializeEngine = async () => {
   
   try {
+    // Load license from Rust engine FIRST (must complete before UI renders)
+    await license.waitForLicenseLoad()
+    
     // Load available audio devices from Rust engine (outputs)
     const loadDevicesPromise = audioEngine.loadDevices()
     

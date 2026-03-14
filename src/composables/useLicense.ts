@@ -168,6 +168,13 @@ export function useLicense() {
 
   const licenseType = computed(() => currentLicense.value?.type || 'demo')
   const isLicensed = computed(() => currentLicense.value?.isValid && currentLicense.value.type !== 'demo')
+  
+  // Wait for license to be loaded
+  async function waitForLicenseLoad() {
+    if (initPromise) {
+      await initPromise
+    }
+  }
 
   async function verifyLicense(licenseKey: string): Promise<boolean> {
     isLoading.value = true
@@ -273,6 +280,7 @@ export function useLicense() {
     isLoading: computed(() => isLoading.value),
     error: computed(() => error.value),
     verifyLicense,
-    clearLicense
+    clearLicense,
+    waitForLicenseLoad
   }
 }
