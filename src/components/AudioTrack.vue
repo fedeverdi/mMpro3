@@ -716,8 +716,8 @@ function handleCompressorParamsChanged(params: { threshold: number; ratio: numbe
       true,
       params.threshold,
       params.ratio,
-      params.attack,
-      params.release
+      params.attack * 1000,   // Convert seconds to milliseconds
+      params.release * 1000   // Convert seconds to milliseconds
     )
   }
 }
