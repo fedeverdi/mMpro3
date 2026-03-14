@@ -375,6 +375,15 @@ let dragStartGain = 0
 let lastEmitTime = 0
 const EMIT_THROTTLE_MS = 400
 
+// Throttle for FFT visual updates using requestAnimationFrame
+let rafPending = false
+let lastFFTDrawTime = 0
+const MIN_FFT_DRAW_INTERVAL = 33 // ~30fps maximum for FFT visualization
+
+// Throttle for drag visual updates using requestAnimationFrame
+let dragRafPending = false
+let pendingDragUpdate: (() => void) | null = null
+
 onMounted(async () => {
   await nextTick()
   
@@ -390,6 +399,42 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   // No cleanup needed - Rust backend handles all audio
 })
+
+// Throttled draw function for FFT updates - uses RAF to avoid excessive redraws
+function scheduleFFTDraw() {
+  // Skip FFT drawing during active dragging to prioritize drag responsiveness
+  if (isDragging.value || isDraggingQ.value) return
+  
+  // Only schedule if not already pending
+  if (!rafPending) {
+    rafPending = true
+    requestAnimationFrame(() => {
+      const now = performance.now()
+      // Additional time-based throttling for high sample rates
+      if (now - lastFFTDrawTime >= MIN_FFT_DRAW_INTERVAL) {
+        drawEQCurve()
+        lastFFTDrawTime = now
+      }
+      rafPending = false
+    })
+  }
+}
+
+// Throttled draw function for drag updates - uses RAF for smooth 60fps dragging
+function scheduleDragDraw(updateFn: () => void) {
+  pendingDragUpdate = updateFn
+  
+  if (!dragRafPending) {
+    dragRafPending = true
+    requestAnimationFrame(() => {
+      if (pendingDragUpdate) {
+        pendingDragUpdate()
+        pendingDragUpdate = null
+      }
+      dragRafPending = false
+    })
+  }
+}
 
 // Watch for FFT data updates from audio engine (only when modal is open)
 watch(
@@ -435,7 +480,8 @@ watch(
       }
     }
     
-    drawEQCurve() // Redraw immediately for fluid animation
+    // Use throttled RAF-based draw instead of immediate draw
+    scheduleFFTDraw()
   }
 )
 
@@ -758,8 +804,10 @@ function handleCanvasMouseMove(e: MouseEvent) {
     filter.gain = Math.max(-24, Math.min(24, Math.round(newGain * 2) / 2))
   }
   
-  // Redraw immediately for smooth visual
-  drawEQCurve()
+  // Schedule redraw using RAF for smooth 60fps dragging
+  scheduleDragDraw(() => {
+    drawEQCurve()
+  })
   
   // Throttle emit to reduce backend load
   const now = Date.now()
@@ -901,9 +949,10 @@ function handleCanvasTouchMove(e: TouchEvent) {
     
     filters.value[draggedFilterIndex.value].Q = newQ
     
-    drawEQCurve()
-    
-    drawEQCurve()
+    // Schedule redraw using RAF
+    scheduleDragDraw(() => {
+      drawEQCurve()
+    })
     
     // Throttle emit
     const now = Date.now()
@@ -952,7 +1001,10 @@ function handleCanvasTouchMove(e: TouchEvent) {
       filters.value[draggedFilterIndex.value].gain = newGain
     }
     
-    drawEQCurve()
+    // Schedule redraw using RAF
+    scheduleDragDraw(() => {
+      drawEQCurve()
+    })
     
     // Throttle emit
     const now = Date.now()
@@ -1147,8 +1199,11 @@ function drawEQCurve() {
       return fftDb[clampedBin]
     }
 
-    // Draw curve with many points for smoothness
-    const numPoints = 500
+    // Adaptive number of points based on canvas width (reduce for performance)
+    // At high sample rates, use fewer points since we're already bandwidth-limited
+    const sampleRate = getCurrentSampleRate()
+    const basePoints = Math.min(300, Math.floor(width / 2)) // Scale with canvas width
+    const numPoints = sampleRate > 96000 ? Math.floor(basePoints * 0.6) : basePoints
     const minFreq = 20
     const maxFreq = 20000
     const logMin = Math.log10(minFreq)
