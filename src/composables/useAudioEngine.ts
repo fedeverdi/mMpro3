@@ -64,6 +64,10 @@ export interface AudioEngineState {
     fileTitle?: string
     isStereo: boolean
     isPlaying: boolean
+    // Playlist state
+    playlistId?: string
+    playlistName?: string
+    playlistCurrentIndex?: number
     // Aux sends
     auxSends: Array<{ level: number, preFader: boolean, muted: boolean }>
   }>
@@ -253,6 +257,9 @@ const applyPendingParameterUpdates = () => {
       fileTitle: undefined,
       isStereo: false,
       isPlaying: false,
+      playlistId: undefined,
+      playlistName: undefined,
+      playlistCurrentIndex: undefined,
       auxSends: []
     }
     
@@ -294,6 +301,11 @@ const applyPendingParameterUpdates = () => {
     if (trackParams.file_artist !== undefined) newParams.fileArtist = trackParams.file_artist
     if (trackParams.file_title !== undefined) newParams.fileTitle = trackParams.file_title
     if (trackParams.is_stereo !== undefined && trackParams.is_stereo !== null) newParams.isStereo = trackParams.is_stereo
+    
+    // Playlist
+    if (trackParams.playlist_id !== undefined) newParams.playlistId = trackParams.playlist_id
+    if (trackParams.playlist_name !== undefined) newParams.playlistName = trackParams.playlist_name
+    if (trackParams.playlist_current_index !== undefined) newParams.playlistCurrentIndex = trackParams.playlist_current_index
     
     // Aux sends
     if (trackParams.aux_sends !== undefined && trackParams.aux_sends !== null) newParams.auxSends = trackParams.aux_sends
@@ -498,6 +510,9 @@ export const useAudioEngine = () => {
                   fileTitle: trackMeter.file_title,
                   isStereo: trackMeter.is_stereo ?? false,
                   isPlaying: trackMeter.is_playing ?? false,
+                  playlistId: trackMeter.playlist_id,
+                  playlistName: trackMeter.playlist_name,
+                  playlistCurrentIndex: trackMeter.playlist_current_index,
                   auxSends: []
                 }
                 state.value.trackParameters.set(trackMeter.track, existingParams)
@@ -512,6 +527,9 @@ export const useAudioEngine = () => {
                 if (trackMeter.file_artist !== undefined) existingParams.fileArtist = trackMeter.file_artist
                 if (trackMeter.file_title !== undefined) existingParams.fileTitle = trackMeter.file_title
                 if (trackMeter.is_playing !== undefined) existingParams.isPlaying = trackMeter.is_playing
+                if (trackMeter.playlist_id !== undefined) existingParams.playlistId = trackMeter.playlist_id
+                if (trackMeter.playlist_name !== undefined) existingParams.playlistName = trackMeter.playlist_name
+                if (trackMeter.playlist_current_index !== undefined) existingParams.playlistCurrentIndex = trackMeter.playlist_current_index
               }
             })
           }
@@ -1148,9 +1166,9 @@ export const useAudioEngine = () => {
     window.audioEngine.clearTrackSource(track)
   }
 
-  const setTrackSourceFile = (track: number, filePath: string, artist?: string|null, title?: string|null) => {
+  const setTrackSourceFile = (track: number, filePath: string, artist?: string|null, title?: string|null, playlistId?: string|null, playlistName?: string|null, playlistIndex?: number|null) => {
     if (!window.audioEngine || !state.value.isRunning) return
-    window.audioEngine.setTrackSourceFile(track, filePath, artist, title)
+    window.audioEngine.setTrackSourceFile(track, filePath, artist, title, playlistId, playlistName, playlistIndex)
   }
 
   const playFile = (track: number, fileId?: string) => {

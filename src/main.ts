@@ -931,10 +931,13 @@ ipcMain.handle('audio-engine:clear-track-source', async (_, track: number) => {
   await sendCommandToEngine({ type: 'clear_track_source', track })
 })
 
-ipcMain.handle('audio-engine:set-track-source-file', async (_, track: number, filePath: string, artist?: string|null, title?: string|null) => {
+ipcMain.handle('audio-engine:set-track-source-file', async (_, track: number, filePath: string, artist?: string|null, title?: string|null, playlistId?: string|null, playlistName?: string|null, playlistIndex?: number|null) => {
   const payload: any = { type: 'set_track_source_file', track, file_path: filePath }
   if (artist !== undefined && artist !== null) payload.artist = artist
   if (title !== undefined && title !== null) payload.title = title
+  if (playlistId !== undefined && playlistId !== null) payload.playlist_id = playlistId
+  if (playlistName !== undefined && playlistName !== null) payload.playlist_name = playlistName
+  if (playlistIndex !== undefined && playlistIndex !== null) payload.playlist_index = playlistIndex
   await sendCommandToEngine(payload)
 })
 

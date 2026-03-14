@@ -256,7 +256,6 @@ const loadConfig = async () => {
     if (config) {
       selectedSampleRate.value = config.sample_rate ?? 0 // Use ?? to allow 0 (Auto)
       selectedBufferSize.value = config.buffer_size || 256
-      console.log('[AudioSettingsModal] Loaded config from Rust:', config)
     }
   } catch (e) {
     console.error('[AudioSettingsModal] Failed to load audio config:', e)

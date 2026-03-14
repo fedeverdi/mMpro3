@@ -97,6 +97,9 @@ enum Command {
         file_path: String,
         artist: Option<String>,
         title: Option<String>,
+        playlist_id: Option<String>,
+        playlist_name: Option<String>,
+        playlist_index: Option<usize>,
     },
     #[serde(rename = "play_file")]
     PlayFile { 
@@ -593,6 +596,10 @@ struct TrackMeters {
     file_name: String,
     file_artist: Option<String>,
     file_title: Option<String>,
+    // Playlist state (server-side)
+    playlist_id: Option<String>,
+    playlist_name: Option<String>,
+    playlist_current_index: Option<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1494,6 +1501,10 @@ impl AudioEngine {
                                 file_name: t.file_player.as_ref().map_or(String::new(), |p| p.file_name.clone()),
                                 file_artist: t.file_player.as_ref().and_then(|p| p.file_artist.clone()),
                                 file_title: t.file_player.as_ref().and_then(|p| p.file_title.clone()),
+                                // Playlist state
+                                playlist_id: t.playlist_id.clone(),
+                                playlist_name: t.playlist_name.clone(),
+                                playlist_current_index: t.playlist_current_index,
                             })
                             .collect();
                         
@@ -2188,7 +2199,7 @@ impl AudioEngine {
         track::clear_source(&mut router, track)
     }
 
-    fn set_track_source_file(&mut self, track: usize, file_path: &str, artist: Option<&str>, title: Option<&str>) -> Result<()> {
+    fn set_track_source_file(&mut self, track: usize, file_path: &str, artist: Option<&str>, title: Option<&str>, playlist_id: Option<&str>, playlist_name: Option<&str>, playlist_index: Option<usize>) -> Result<()> {
         // Close input stream when track switches away from audio input
         if let Err(e) = self.close_audio_input(track) {
             eprintln!("[Engine] Failed to close audio input for track {}: {}", track, e);
@@ -2213,6 +2224,15 @@ impl AudioEngine {
         if let Some(t) = router.get_track_mut(track) {
             t.set_file_player(player);
             t.source = routing::TrackSource::FilePlayer;
+            
+            // Set playlist state
+            t.playlist_id = playlist_id.map(|s| s.to_string());
+            t.playlist_name = playlist_name.map(|s| s.to_string());
+            t.playlist_current_index = playlist_index;
+            
+            println!("[Engine] Track {} loaded file from playlist: id={:?}, name={:?}, index={:?}", 
+                track, t.playlist_id, t.playlist_name, t.playlist_current_index);
+            
             Ok(())
         } else {
             Err(anyhow::anyhow!("Track {} not found", track))
@@ -2237,7 +2257,7 @@ impl AudioEngine {
     fn play_file(&mut self, track: usize, file_path: Option<&str>, artist: Option<&str>, title: Option<&str>) -> Result<()> {
         // If file_path is provided, set the source file first
         if let Some(path) = file_path {
-            self.set_track_source_file(track, path, artist, title)?;
+            self.set_track_source_file(track, path, artist, title, None, None, None)?;
         }
         
         let mut router = self.router.lock().unwrap();
@@ -2975,8 +2995,8 @@ impl AudioEngine {
                     master: None,
                 })
             }
-            Command::SetTrackSourceFile { track, file_path, artist, title } => {
-                match self.set_track_source_file(track, &file_path, artist.as_deref(), title.as_deref()) {
+            Command::SetTrackSourceFile { track, file_path, artist, title, playlist_id, playlist_name, playlist_index } => {
+                match self.set_track_source_file(track, &file_path, artist.as_deref(), title.as_deref(), playlist_id.as_deref(), playlist_name.as_deref(), playlist_index) {
                     Ok(_) => {
                         // Read track parameters after file is loaded
                         let mut router = self.router.lock().unwrap();

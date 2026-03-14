@@ -195,6 +195,11 @@ pub struct Track {
     // File player
     pub file_player: Option<AudioFilePlayer>,
     
+    // Playlist state (server-side)
+    pub playlist_id: Option<String>,
+    pub playlist_name: Option<String>,
+    pub playlist_current_index: Option<usize>,
+    
     // Compressor (before EQ)
     pub compressor: Compressor,
     
@@ -250,6 +255,9 @@ impl Track {
             input_channel_selection: ChannelSelection::stereo(),
             signal_generator: None,
             file_player: None,
+            playlist_id: None,
+            playlist_name: None,
+            playlist_current_index: None,
             compressor: Compressor::new(48000.0),
             gate: NoiseGate::new(48000.0),
             equalizer: Equalizer::new(48000.0),

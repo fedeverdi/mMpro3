@@ -566,7 +566,12 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
 
     // Use file path directly from library (no need for temp file)
     if (audioEngine?.state.value.isRunning && fileData.filePath) {
-      audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath, fileData.artist, fileData.title)
+      // Pass playlist info if loading from playlist
+      const playlistId = fromPlaylist ? currentPlaylist.value?.id : null
+      const playlistName = fromPlaylist ? currentPlaylist.value?.name : null
+      const playlistIndex = fromPlaylist ? currentPlaylistIndex.value : null
+      
+      audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath, fileData.artist, fileData.title, playlistId, playlistName, playlistIndex)
       
       // Auto-play the file only if requested
       if (autoPlay) {
@@ -1170,6 +1175,64 @@ onMounted(async () => {
     if (params.isPlaying !== undefined) {
       isPlaying.value = params.isPlaying
     }
+    
+    // Sync playlist state from Rust engine (server-side truth)
+    // IMPORTANTE: Il backend viene usato solo per RIPRISTINARE lo stato dopo un reload
+    // Lo stato locale ha SEMPRE la precedenza durante l'uso normale
+    if (params.playlistId && params.playlistName) {
+      // Se la playlist dal backend è diversa da quella locale, ripristina lo stato
+      if (!currentPlaylist.value || currentPlaylist.value.id !== params.playlistId) {
+        // Ricarica la playlist dal backend
+        (async () => {
+          try {
+            const { usePlaylist } = await import('~/composables/usePlaylist')
+            const { getPlaylistFiles } = usePlaylist()
+            const files = await getPlaylistFiles(params.playlistId!)
+            
+            console.log('[AudioTrack] Loaded playlist files for restore:', files?.length || 0)
+            
+            if (files && files.length > 0) {
+              currentPlaylist.value = { id: params.playlistId, name: params.playlistName }
+              playlistFiles.value = files
+              currentPlaylistIndex.value = params.playlistCurrentIndex ?? 0
+              
+              console.log('[AudioTrack] Playlist RESTORED:', {
+                playlistId: params.playlistId,
+                filesCount: files.length,
+                currentIndex: params.playlistCurrentIndex ?? 0
+              })
+              
+              // Update display name to show playlist info
+              const currentFile = files[params.playlistCurrentIndex ?? 0]
+              if (currentFile) {
+                const trackName = currentFile.title || currentFile.fileName
+                const trackDisplay = currentFile.artist ? `${currentFile.artist} - ${trackName}` : trackName
+                selectedFileName.value = `${params.playlistName} (${(params.playlistCurrentIndex ?? 0) + 1}/${files.length}) - ${trackDisplay}`
+              }
+            } else {
+              console.warn('[AudioTrack] No files found for playlist restore')
+            }
+          } catch (error) {
+            console.error('Error restoring playlist from backend:', error)
+          }
+        })()
+      } else if (params.playlistCurrentIndex !== undefined && params.playlistCurrentIndex !== currentPlaylistIndex.value) {
+        // La playlist è la stessa ma l'indice è cambiato (es: next track)
+        currentPlaylistIndex.value = params.playlistCurrentIndex
+        
+        // Update display name
+        if (playlistFiles.value.length > 0) {
+          const currentFile = playlistFiles.value[params.playlistCurrentIndex]
+          if (currentFile) {
+            const trackName = currentFile.title || currentFile.fileName
+            const trackDisplay = currentFile.artist ? `${currentFile.artist} - ${trackName}` : trackName
+            selectedFileName.value = `${params.playlistName} (${params.playlistCurrentIndex + 1}/${playlistFiles.value.length}) - ${trackDisplay}`
+          }
+        }
+      }
+    }
+    // NON cancelliamo mai lo stato locale della playlist basandoci sui params dal backend
+    // Lo stato locale ha sempre la precedenza, il backend serve solo per il ripristino
     
     // Sync aux sends from Rust engine (only when not dragging)
     if (params.auxSends && Array.isArray(params.auxSends)) {
