@@ -18,13 +18,7 @@
       </div>
 
       <!-- Audio Source Selector -->
-      <div class="w-full">
-        <select v-model="audioSourceType"
-          class="w-full text-xs bg-gray-700 text-gray-200 border border-gray-600 rounded px-1 py-1 focus:border-blue-500 focus:outline-none">
-          <option value="input">🎤 Audio Input</option>
-          <option value="file">📁 Audio File</option>
-        </select>
-      </div>
+      <AudioSourceSelector v-model="audioSourceType" />
 
       <!-- Audio Input Device Selector -->
       <div v-if="audioSourceType === 'input'" class="w-full">
@@ -240,6 +234,7 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref, watch, nextTick, type Ref } from 'vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
+import AudioSourceSelector from './audioTrack/AudioSourceSelector.vue'
 import HPFButton from './audioTrack/HPFButton.vue'
 import InputSelector from './audioTrack/InputSelector.vue'
 import LibraryButton from './audioTrack/LibraryButton.vue'
