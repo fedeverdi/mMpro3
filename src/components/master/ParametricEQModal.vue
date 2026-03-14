@@ -117,7 +117,7 @@
             </div>
             
             <!-- Filters Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">
+            <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2.5">
               <div
                 v-for="(filter, index) in displayFilters"
                 :key="filter.id"
