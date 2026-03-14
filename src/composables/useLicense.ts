@@ -27,8 +27,10 @@ const getAudioEngine = () => {
 
 // Load license from Rust engine on init
 async function loadStoredLicense() {
+  console.log('[useLicense] Starting license load...')
   try {
     const isRemoteClient = !(window as any).electronAPI
+    console.log('[useLicense] Is remote client:', isRemoteClient)
     
     if (isRemoteClient) {
       // Remote client: wait for window.audioEngine to be ready (set by useAudioEngine)
@@ -42,7 +44,11 @@ async function loadStoredLicense() {
       
       if (window.audioEngine && typeof window.audioEngine.getLicense === 'function') {
         try {
-          const license = await window.audioEngine.getLicense()
+          // Add timeout to getLicense call
+          const license = await Promise.race([
+            window.audioEngine.getLicense(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('License load timeout')), 3000))
+          ]) as any
           
           if (license && license.key !== 'DEMO') {
             currentLicense.value = {
@@ -66,7 +72,11 @@ async function loadStoredLicense() {
       const audioEngine = getAudioEngine()
       if (audioEngine) {
         try {
-          const license = await audioEngine.getLicense()
+          // Add timeout to getLicense call
+          const license = await Promise.race([
+            audioEngine.getLicense(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('License load timeout')), 3000))
+          ]) as any
           
           if (license && license.key !== 'DEMO') {
             currentLicense.value = {
@@ -96,13 +106,15 @@ async function loadStoredLicense() {
     }
     localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(currentLicense.value))
   } catch (e) {
-    console.error('Failed to load license:', e)
+    console.error('[useLicense] Failed to load license:', e)
     currentLicense.value = {
       key: 'DEMO',
       type: 'demo',
       isValid: true
     }
     localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(currentLicense.value))
+  } finally {
+    console.log('[useLicense] License load complete. Current license type:', currentLicense.value?.type)
   }
 }
 
@@ -169,10 +181,18 @@ export function useLicense() {
   const licenseType = computed(() => currentLicense.value?.type || 'demo')
   const isLicensed = computed(() => currentLicense.value?.isValid && currentLicense.value.type !== 'demo')
   
-  // Wait for license to be loaded
+  // Wait for license to be loaded (with timeout)
   async function waitForLicenseLoad() {
     if (initPromise) {
-      await initPromise
+      try {
+        // Wait max 5 seconds for license loading
+        await Promise.race([
+          initPromise,
+          new Promise((resolve) => setTimeout(resolve, 5000))
+        ])
+      } catch (err) {
+        console.error('[useLicense] License load failed, continuing with current state:', err)
+      }
     }
   }
 
