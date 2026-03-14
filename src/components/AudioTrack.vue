@@ -124,16 +124,12 @@
       </div>
 
         <!-- Mute & Solo Buttons -->
-      <div class="flex flex-row gap-1 w-full">
-        <button @click="toggleMute" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
-          :class="isMuted ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-          MUTE
-        </button>
-        <button @click="toggleSolo" class="flex-1 py-1 text-[0.5rem] font-bold rounded transition-all"
-          :class="isSolo ? 'bg-yellow-500 text-gray-900 animate-pulse' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-          SOLO
-        </button>
-      </div>
+      <MuteSoloButtons 
+        :is-muted="isMuted"
+        :is-solo="isSolo"
+        @toggle-mute="toggleMute"
+        @toggle-solo="toggleSolo"
+      />
 
 
       <!-- Pan Knob -->
@@ -227,6 +223,7 @@ import AudioSourceSelector from './audioTrack/AudioSourceSelector.vue'
 import HPFButton from './audioTrack/HPFButton.vue'
 import InputSelector from './audioTrack/InputSelector.vue'
 import LibraryButton from './audioTrack/LibraryButton.vue'
+import MuteSoloButtons from './audioTrack/MuteSoloButtons.vue'
 import PadButton from './audioTrack/PadButton.vue'
 import PlayStopControls from './audioTrack/PlayStopControls.vue'
 import PanKnob from './audioTrack/PanKnob.vue'
