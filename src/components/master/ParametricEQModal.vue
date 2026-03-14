@@ -2,27 +2,35 @@
   <div>
     <Teleport to="body">
       <Transition name="modal">
-      <div v-if="modelValue" class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70" @click.self="close">
+      <div v-if="modelValue" class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-sm" @click.self="close">
         <!-- Modal Content -->
-        <div class="bg-gray-900 rounded-lg shadow-2xl max-w-[95vw] w-full max-h-[90vh] border border-gray-700 overflow-y-auto">
+        <div class="bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 rounded-xl shadow-2xl w-[98vw] max-w-[1800px] max-h-[92vh] border border-gray-700/50 overflow-hidden flex flex-col">
           
           <!-- Header -->
-          <div class="flex items-center justify-between p-4 border-b border-gray-700">
-            <h2 class="text-lg font-semibold text-white">{{ titleText }}</h2>
-            <div class="flex items-center gap-2">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700/50 bg-gray-900/50 backdrop-blur">
+            <div class="flex items-center gap-3">
+              <div class="w-1 h-8 bg-blue-500 rounded-full"></div>
+              <h2 class="text-xl font-bold text-white tracking-tight">{{ titleText }}</h2>
+            </div>
+            <div class="flex items-center gap-3">
               <button
                 @click="reset"
-                class="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-colors text-sm font-medium"
-                title="Reset filters"
+                class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white transition-all text-sm font-medium border border-gray-700 hover:border-gray-600"
+                title="Reset all filters"
               >
-                Reset
+                <span class="flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Reset
+                </span>
               </button>
               <button
                 @click="close"
-                class="text-gray-400 hover:text-white transition-colors"
+                class="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-800 rounded-lg"
                 title="Close"
               >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -30,120 +38,171 @@
           </div>
           
           <!-- Content -->
-          <div class="p-6 space-y-4">
-            <!-- EQ Curve Display -->
-            <div class="bg-gray-900 rounded-lg border border-gray-700 p-4 relative">
-            <canvas
-              ref="eqCanvas"
-              class="w-full"
-              @mousedown="handleCanvasMouseDown"
-              @mousemove="handleCanvasMouseMove"
-              @mouseup="handleCanvasMouseUp"
-              @mouseleave="handleCanvasMouseUp"
-              @touchstart.prevent="handleCanvasTouchStart"
-              @touchmove.prevent="handleCanvasTouchMove"
-              @touchend.prevent="handleCanvasTouchEnd"
-              @touchcancel.prevent="handleCanvasTouchEnd"
-            ></canvas>
+          <div class="flex-1 overflow-y-auto">
+            <div class="p-4 space-y-4">
+              <!-- EQ Curve Display -->
+              <div class="bg-gradient-to-br from-gray-950 to-gray-900 rounded-xl border border-gray-700/50 shadow-inner relative overflow-hidden">
+              <canvas
+                ref="eqCanvas"
+                class="w-full rounded-xl"
+                @mousedown="handleCanvasMouseDown"
+                @mousemove="handleCanvasMouseMove"
+                @mouseup="handleCanvasMouseUp"
+                @mouseleave="handleCanvasMouseUp"
+                @touchstart.prevent="handleCanvasTouchStart"
+                @touchmove.prevent="handleCanvasTouchMove"
+                @touchend.prevent="handleCanvasTouchEnd"
+                @touchcancel.prevent="handleCanvasTouchEnd"
+              ></canvas>
+              
+              <!-- Drag Popover -->
+              <Transition name="fade">
+                <div
+                  v-if="draggedFilterIndex !== null && popoverPosition.x > 0"
+                  class="absolute pointer-events-none bg-gray-900/98 border border-gray-600 rounded-xl px-4 py-3 shadow-2xl z-50 backdrop-blur-sm"
+                  :style="{
+                    left: `${popoverPosition.x}px`,
+                    top: `${popoverPosition.y}px`,
+                    transform: `translate(70px, ${displayFilters[draggedFilterIndex].gain > 0 ? '-30%' : displayFilters[draggedFilterIndex].gain < 0 ? '-30%' : '-50%'})`
+                  }"
+                >
+                  <div class="text-xs font-mono text-gray-200 space-y-1">
+                    <div class="flex items-center gap-3">
+                      <span class="text-gray-400 w-12">Freq:</span>
+                      <span class="font-semibold text-white">{{ displayFilters[draggedFilterIndex].frequency }} Hz</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="text-gray-400 w-12">Gain:</span>
+                      <span class="font-semibold text-white">{{ displayFilters[draggedFilterIndex].gain > 0 ? '+' : '' }}{{ displayFilters[draggedFilterIndex].gain }} dB</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="text-gray-400 w-12">Q:</span>
+                      <span class="font-semibold text-white">{{ displayFilters[draggedFilterIndex].Q }}</span>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
+            </div>
             
-            <!-- Drag Popover -->
-            <Transition name="fade">
+            <!-- Filters Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">
               <div
-                v-if="draggedFilterIndex !== null && popoverPosition.x > 0"
-                class="absolute pointer-events-none bg-gray-800/95 border border-gray-600 rounded-lg px-3 py-2 shadow-xl z-50"
-                :style="{
-                  left: `${popoverPosition.x}px`,
-                  top: `${popoverPosition.y}px`,
-                  transform: `translate(70px, ${displayFilters[draggedFilterIndex].gain > 0 ? '-30%' : displayFilters[draggedFilterIndex].gain < 0 ? '-30%' : '-50%'})`
+                v-for="(filter, index) in displayFilters"
+                :key="filter.id"
+                class="rounded-xl p-3 border transition-all hover:shadow-xl relative group"
+                :class="draggedFilterIndex === index ? 'scale-[0.98] shadow-lg' : 'shadow-md hover:scale-[1.01]'"
+                :style="{ 
+                  borderColor: `${filter.color || filterColors[index % filterColors.length]}50`,
+                  background: `linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(31, 41, 55, 0.85) 50%, rgba(17, 24, 39, 0.95) 100%)`
                 }"
               >
-                <div class="text-[11px] font-mono text-gray-200 space-y-0.5">
-                  <div class="flex items-center gap-2">
-                    <span class="text-gray-400">Freq:</span>
-                    <span class="font-semibold">{{ displayFilters[draggedFilterIndex].frequency }} Hz</span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="text-gray-400">Gain:</span>
-                    <span class="font-semibold">{{ displayFilters[draggedFilterIndex].gain > 0 ? '+' : '' }}{{ displayFilters[draggedFilterIndex].gain }} dB</span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="text-gray-400">Q:</span>
-                    <span class="font-semibold">{{ displayFilters[draggedFilterIndex].Q }}</span>
-                  </div>
-                </div>
-              </div>
-            </Transition>
-          </div>
-          
-          <!-- Filters List -->
-          <div class="flex flex-wrap gap-2 mb-4 max-h-[220px] overflow-y-auto">
-            <div
-              v-for="(filter, index) in displayFilters"
-              :key="filter.id"
-              class="rounded-lg p-1.5 border-2 border-gray-700 w-[155px] flex-shrink-0 transition-colors"
-              :class="draggedFilterIndex === index ? 'bg-gray-800/90' : 'bg-gray-900/50'"
-              :style="{ borderColor: filter.color || filterColors[index % filterColors.length] }"
-            >
-              <div class="flex items-center justify-between mb-1">
-                <div class="flex items-center gap-1.5">
-                  <div 
-                    class="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    :style="{ backgroundColor: filter.color || filterColors[index % filterColors.length] }"
-                  ></div>
-                  <h3 class="text-[10px] font-bold text-gray-300">
-                    {{ filter.isSystem ? 'HPF' : `F${index + 1}` }}
-                  </h3>
-                  <span v-if="filter.isSystem" class="text-[8px] px-1 py-0.5 bg-blue-600/30 text-blue-400 rounded">
-                    System
-                  </span>
-                </div>
+                <!-- Close button -->
                 <button
                   v-if="!filter.isSystem"
                   @click="removeFilter(index)"
-                  class="text-red-400 hover:text-red-300 text-xs font-bold leading-none"
+                  class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-all opacity-0 group-hover:opacity-100 hover:scale-110"
                   title="Remove filter"
                 >
-                  ×
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
-              </div>
-              
-              <div class="flex flex-col gap-1">
-                <!-- Type -->
-                <div>
-                  <label class="text-[9px] text-gray-400 block">Type</label>
-                  <select
-                    v-model="filter.type"
-                    @change="createFilterChain()"
-                    :disabled="filter.isSystem"
-                    class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <option value="lowshelf">Low Shelf</option>
-                    <option value="peaking">Peaking</option>
-                    <option value="highshelf">High Shelf</option>
-                    <option value="lowpass">Low Pass</option>
-                    <option value="highpass">High Pass</option>
-                  </select>
+
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <div 
+                      class="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-lg ring-2 ring-gray-950"
+                      :style="{ 
+                        backgroundColor: filter.color || filterColors[index % filterColors.length],
+                        boxShadow: `0 0 12px ${filter.color || filterColors[index % filterColors.length]}60`
+                      }"
+                    ></div>
+                    <h3 class="text-xs font-bold text-white tracking-wide">
+                      {{ filter.isSystem ? 'HPF' : `Filter ${index + 1}` }}
+                    </h3>
+                    <span v-if="filter.isSystem" class="text-[8px] px-2 py-0.5 bg-blue-500/30 text-blue-300 rounded-full font-semibold border border-blue-500/30">
+                      SYSTEM
+                    </span>
+                  </div>
+                  
+                  <!-- Filter Type Icons -->
+                  <div v-if="!filter.isSystem" class="flex items-center gap-0.5 bg-gray-950/80 rounded-lg p-0.5 border border-gray-700/50">
+                    <!-- Low Shelf -->
+                    <button
+                      @click="filter.type = 'lowshelf'; createFilterChain()"
+                      :class="filter.type === 'lowshelf' ? 'bg-blue-500/30 text-blue-400' : 'text-gray-500 hover:text-gray-300'"
+                      class="w-6 h-6 flex items-center justify-center rounded transition-all"
+                      title="Low Shelf"
+                    >
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 18h8l4-8h6" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                    <!-- Peaking -->
+                    <button
+                      @click="filter.type = 'peaking'; createFilterChain()"
+                      :class="filter.type === 'peaking' ? 'bg-blue-500/30 text-blue-400' : 'text-gray-500 hover:text-gray-300'"
+                      class="w-6 h-6 flex items-center justify-center rounded transition-all"
+                      title="Peaking"
+                    >
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 18h4l4-8 4 8h6" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                    <!-- High Shelf -->
+                    <button
+                      @click="filter.type = 'highshelf'; createFilterChain()"
+                      :class="filter.type === 'highshelf' ? 'bg-blue-500/30 text-blue-400' : 'text-gray-500 hover:text-gray-300'"
+                      class="w-6 h-6 flex items-center justify-center rounded transition-all"
+                      title="High Shelf"
+                    >
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 10h6l4 8h8" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                    <!-- Low Pass -->
+                    <button
+                      @click="filter.type = 'lowpass'; createFilterChain()"
+                      :class="filter.type === 'lowpass' ? 'bg-blue-500/30 text-blue-400' : 'text-gray-500 hover:text-gray-300'"
+                      class="w-6 h-6 flex items-center justify-center rounded transition-all"
+                      title="Low Pass"
+                    >
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 12h8l6-6v12" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                    <!-- High Pass -->
+                    <button
+                      @click="filter.type = 'highpass'; createFilterChain()"
+                      :class="filter.type === 'highpass' ? 'bg-blue-500/30 text-blue-400' : 'text-gray-500 hover:text-gray-300'"
+                      class="w-6 h-6 flex items-center justify-center rounded transition-all"
+                      title="High Pass"
+                    >
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 18v-12l6 6h9" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 
-                <!-- Frequency -->
-                <div>
-                  <label class="text-[9px] text-gray-400 block">Freq (Hz)</label>
-                  <input
-                    v-model.number="filter.frequency"
-                    type="number"
-                    min="20"
-                    max="20000"
-                    :disabled="filter.isSystem"
-                    @input="updateFilterNode(index)"
-                    class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                </div>
-                
-                <!-- Gain and Q in same row -->
-                <div class="grid grid-cols-2 gap-1">
+                <div class="flex items-center gap-2">
+                  <!-- Frequency -->
+                  <div class="flex-1">
+                    <label class="text-[9px] text-gray-400 block mb-1 font-semibold tracking-wide">FREQ (Hz)</label>
+                    <input
+                      v-model.number="filter.frequency"
+                      type="number"
+                      min="20"
+                      max="20000"
+                      :disabled="filter.isSystem"
+                      @input="updateFilterNode(index)"
+                      class="w-full px-2 py-1.5 text-[10px] bg-gray-950/80 text-white rounded-lg border border-gray-700/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all backdrop-blur-sm"
+                    />
+                  </div>
+                  
                   <!-- Gain -->
-                  <div v-if="filter.type !== 'lowpass' && filter.type !== 'highpass'">
-                    <label class="text-[9px] text-gray-400 block">Gain</label>
+                  <div v-if="filter.type !== 'lowpass' && filter.type !== 'highpass'" class="w-16">
+                    <label class="text-[9px] text-gray-400 block mb-1 font-semibold tracking-wide">GAIN</label>
                     <input
                       v-model.number="filter.gain"
                       type="number"
@@ -152,13 +211,13 @@
                       step="0.5"
                       :disabled="filter.isSystem"
                       @input="updateFilterNode(index)"
-                      class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      class="w-full px-2 py-1.5 text-[10px] bg-gray-950/80 text-white rounded-lg border border-gray-700/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all backdrop-blur-sm"
                     />
                   </div>
                   
                   <!-- Q -->
-                  <div v-if="filter.type === 'peaking' || filter.type === 'lowpass' || filter.type === 'highpass'">
-                    <label class="text-[9px] text-gray-400 block">Q</label>
+                  <div v-if="filter.type === 'peaking' || filter.type === 'lowpass' || filter.type === 'highpass'" class="w-14">
+                    <label class="text-[9px] text-gray-400 block mb-1 font-semibold tracking-wide">Q</label>
                     <input
                       v-model.number="filter.Q"
                       type="number"
@@ -168,20 +227,25 @@
                       :disabled="filter.isSystem"
                       @input="updateFilterNode(index)"
                       @blur="filter.Q = parseFloat(filter.Q.toFixed(2))"
-                      class="w-full px-1.5 py-0.5 text-[10px] bg-gray-800 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      class="w-full px-2 py-1.5 text-[10px] bg-gray-950/80 text-white rounded-lg border border-gray-700/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all backdrop-blur-sm"
                     />
                   </div>
                 </div>
               </div>
+              
+              <!-- Add Filter Card -->
+              <button
+                @click="addFilter"
+                class="bg-gradient-to-br from-gray-900/40 to-gray-800/30 hover:from-blue-900/30 hover:to-blue-800/20 rounded-xl p-3 border-2 border-dashed border-gray-600 hover:border-blue-500 flex flex-col items-center justify-center transition-all group min-h-[88px] hover:shadow-xl hover:shadow-blue-500/20 hover:scale-[1.02]"
+              >
+                <div class="w-10 h-10 rounded-full bg-gray-800/50 group-hover:bg-blue-500/20 flex items-center justify-center transition-all mb-1 group-hover:scale-110 border border-gray-700 group-hover:border-blue-500/50">
+                  <svg class="w-5 h-5 text-gray-500 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <span class="text-[10px] font-semibold text-gray-500 group-hover:text-blue-400 transition-colors tracking-wide">ADD FILTER</span>
+              </button>
             </div>
-            
-            <!-- Add Filter Card -->
-            <button
-              @click="addFilter"
-              class="bg-gray-900/30 hover:bg-gray-900/50 rounded-lg p-1.5 border-2 border-dashed border-gray-600 hover:border-blue-500 w-[155px] flex-shrink-0 flex items-center justify-center transition-colors group"
-            >
-              <span class="text-4xl text-gray-600 group-hover:text-blue-500 transition-colors">+</span>
-            </button>
           </div>
         </div>
       </div>
@@ -273,8 +337,10 @@ const getInitialFilters = (): EQFilter[] => {
   }
   return [
     { id: 1, type: 'lowshelf', frequency: 100, gain: 0, Q: 1, color: filterColors[0] },
-    { id: 2, type: 'peaking', frequency: 1000, gain: 0, Q: 1, color: filterColors[1] },
-    { id: 3, type: 'highshelf', frequency: 10000, gain: 0, Q: 1, color: filterColors[2] }
+    { id: 2, type: 'peaking', frequency: 300, gain: 0, Q: 1, color: filterColors[1] },
+    { id: 3, type: 'peaking', frequency: 1000, gain: 0, Q: 1, color: filterColors[2] },
+    { id: 4, type: 'peaking', frequency: 2000, gain: 0, Q: 1, color: filterColors[3] },
+    { id: 5, type: 'highshelf', frequency: 10000, gain: 0, Q: 1, color: filterColors[5] }
   ]
 }
 
@@ -300,7 +366,10 @@ const isDragging = ref(false)
 const isDraggingQ = ref(false)
 const popoverPosition = ref({ x: 0, y: 0 })
 let dragStartX = 0
+let dragStartY = 0
 let dragStartQ = 0
+let dragStartFrequency = 0
+let dragStartGain = 0
 
 // Throttle for emit updates during drag (200ms = max 5 updates/sec)
 let lastEmitTime = 0
@@ -530,8 +599,10 @@ function removeFilter(displayIndex: number) {
 function reset() {
   filters.value = [
     { id: nextFilterId++, type: 'lowshelf', frequency: 100, gain: 0, Q: 1, color: filterColors[0] },
-    { id: nextFilterId++, type: 'peaking', frequency: 1000, gain: 0, Q: 1, color: filterColors[1] },
-    { id: nextFilterId++, type: 'highshelf', frequency: 10000, gain: 0, Q: 1, color: filterColors[2] }
+    { id: nextFilterId++, type: 'peaking', frequency: 300, gain: 0, Q: 1, color: filterColors[1] },
+    { id: nextFilterId++, type: 'peaking', frequency: 1000, gain: 0, Q: 1, color: filterColors[2] },
+    { id: nextFilterId++, type: 'peaking', frequency: 2000, gain: 0, Q: 1, color: filterColors[3] },
+    { id: nextFilterId++, type: 'highshelf', frequency: 10000, gain: 0, Q: 1, color: filterColors[5] }
   ]
   createFilterChain()
 }
@@ -594,8 +665,14 @@ function handleCanvasMouseDown(e: MouseEvent) {
     draggedFilterIndex.value = filterIndex
     isDragging.value = true
     
-    // Set initial popover position
+    // Save initial drag state
     const filter = displayFilters.value[filterIndex]
+    dragStartX = x
+    dragStartY = y
+    dragStartFrequency = filter.frequency
+    dragStartGain = filter.gain
+    
+    // Set initial popover position
     const filterX = ((Math.log10(filter.frequency) - minFreq) / (maxFreq - minFreq)) * width
     const actualGain = calculateFilterGain(filter, filter.frequency) * -1
     const filterY = (actualGain * (height / 48)) + (height / 2)
@@ -659,18 +736,26 @@ function handleCanvasMouseMove(e: MouseEvent) {
     const newQ = dragStartQ + (deltaX * sensitivity)
     filter.Q = parseFloat(Math.max(0.1, Math.min(20, newQ)).toFixed(2))
   } else {
-    // Dragging main point - change frequency and gain
-    // Convert x position to frequency (log scale)
+    // Dragging main point - use delta from start position
     const width = canvasRect.width
+    const height = 450
     const minFreq = Math.log10(20)
     const maxFreq = Math.log10(20000)
-    const freq = Math.pow(10, minFreq + (x / width) * (maxFreq - minFreq))
-    filter.frequency = Math.max(20, Math.min(20000, Math.round(freq)))
     
-    // Convert y position to gain
-    const height = 450
-    const gain = 24 - (y / height) * 48 // -24 to +24 dB
-    filter.gain = Math.max(-24, Math.min(24, Math.round(gain * 2) / 2))
+    // Calculate delta in pixels
+    const deltaX = x - dragStartX
+    const deltaY = y - dragStartY
+    
+    // Convert deltaX to frequency change (log scale)
+    // Each pixel represents a portion of the log frequency range
+    const freqRatio = Math.pow(10, (deltaX / width) * (maxFreq - minFreq))
+    const newFreq = dragStartFrequency * freqRatio
+    filter.frequency = Math.max(20, Math.min(20000, Math.round(newFreq)))
+    
+    // Convert deltaY to gain change
+    const gainChange = -(deltaY / height) * 48 // negative because Y increases downward
+    const newGain = dragStartGain + gainChange
+    filter.gain = Math.max(-24, Math.min(24, Math.round(newGain * 2) / 2))
   }
   
   // Redraw immediately for smooth visual
@@ -764,8 +849,14 @@ function handleCanvasTouchStart(e: TouchEvent) {
     draggedFilterIndex.value = filterIndex
     isDragging.value = true
     
-    // Set initial popover position
+    // Save initial drag state
     const filter = displayFilters.value[filterIndex]
+    dragStartX = x
+    dragStartY = y
+    dragStartFrequency = filter.frequency
+    dragStartGain = filter.gain
+    
+    // Set initial popover position
     const filterX = ((Math.log10(filter.frequency) - minFreq) / (maxFreq - minFreq)) * width
     const actualGain = calculateFilterGain(filter, filter.frequency) * -1
     const filterY = (actualGain * (height / 48)) + (height / 2)
@@ -833,11 +924,16 @@ function handleCanvasTouchMove(e: TouchEvent) {
     
     const width = canvasRect.width
     const height = 450
-    
     const minFreq = Math.log10(20)
     const maxFreq = Math.log10(20000)
-    const freqRatio = (x / width) * (maxFreq - minFreq) + minFreq
-    const newFreq = Math.pow(10, freqRatio)
+    
+    // Calculate delta in pixels
+    const deltaX = x - dragStartX
+    const deltaY = y - dragStartY
+    
+    // Convert deltaX to frequency change (log scale)
+    const freqRatio = Math.pow(10, (deltaX / width) * (maxFreq - minFreq))
+    const newFreq = dragStartFrequency * freqRatio
     
     // Clamp frequency to valid range
     const clampedFreq = Math.max(20, Math.min(20000, newFreq))
@@ -845,9 +941,9 @@ function handleCanvasTouchMove(e: TouchEvent) {
     // Clamp gain based on filter type
     let newGain = 0
     if (filter.type === 'peaking' || filter.type === 'lowshelf' || filter.type === 'highshelf') {
-      const gainRange = 24 // ±24 dB
-      newGain = 24 - (y / height) * 48 // -24 to +24 dB (same as mouse handler)
-      newGain = Math.max(-gainRange, Math.min(gainRange, newGain))
+      const gainChange = -(deltaY / height) * 48 // negative because Y increases downward
+      newGain = dragStartGain + gainChange
+      newGain = Math.max(-24, Math.min(24, newGain))
     }
     
     // Update filter parameters
@@ -1099,8 +1195,8 @@ function drawEQCurve() {
   ctx.strokeStyle = '#374151'
   ctx.lineWidth = 1
   
-  // Horizontal lines (dB)
-  for (let db = -24; db <= 24; db += 6) {
+  // Horizontal lines (dB) - skip top and bottom lines
+  for (let db = -18; db <= 18; db += 6) {
     const y = height / 2 - (db / 48) * height
     ctx.beginPath()
     ctx.moveTo(0, y)
