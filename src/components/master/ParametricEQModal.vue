@@ -1527,34 +1527,48 @@ function drawEQCurve() {
       
       if (dbMax > -45) {
         // RED: Above +6dB (near clipping)
-        barColor = 'rgba(239, 68, 68, 0.4)'
-        barColorLight = 'rgba(248, 113, 113, 0.5)'
-        barColorDark = 'rgba(220, 38, 38, 0.3)'
+        barColor = 'rgba(239, 68, 68, 0.3)'
+        barColorLight = 'rgba(248, 113, 113, 0.4)'
+        barColorDark = 'rgba(220, 38, 38, 0.2)'
       } else if (dbMax > -55) {
         // ORANGE: 0dB to +6dB (strong signals)
-        barColor = 'rgba(251, 146, 60, 0.4)'
-        barColorLight = 'rgba(253, 186, 116, 0.5)'
-        barColorDark = 'rgba(234, 88, 12, 0.3)'
+        barColor = 'rgba(251, 146, 60, 0.3)'
+        barColorLight = 'rgba(253, 186, 116, 0.4)'
+        barColorDark = 'rgba(234, 88, 12, 0.2)'
       } else {
         // GREEN: Below 0dB (normal/safe levels)
-        barColor = 'rgba(34, 197, 94, 0.4)'
-        barColorLight = 'rgba(74, 222, 128, 0.5)'
-        barColorDark = 'rgba(22, 163, 74, 0.3)'
+        barColor = 'rgba(34, 197, 94, 0.3)'
+        barColorLight = 'rgba(74, 222, 128, 0.4)'
+        barColorDark = 'rgba(22, 163, 74, 0.2)'
       }
       
-      // Draw bar with gradient matching the color zone
+      // Draw bar with gradient and rounded top corners
       const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight)
       gradient.addColorStop(0, barColorDark)
       gradient.addColorStop(0.5, barColor)
       gradient.addColorStop(1, barColorLight)
       
-      ctx.fillStyle = gradient
-      ctx.fillRect(x - barWidth / 2, height - barHeight, barWidth * 0.5, barHeight)
+      const barX = x - barWidth / 2
+      const barY = height - barHeight
+      const barW = barWidth * 0.5
+      const radius = Math.min(1.5, barW / 2) // Border radius for top corners
       
-      // Add matching colored outline
+      // Draw rounded rectangle (rounded only at top)
+      ctx.fillStyle = gradient
+      ctx.beginPath()
+      ctx.moveTo(barX, height) // Bottom left
+      ctx.lineTo(barX, barY + radius) // Left side
+      ctx.arcTo(barX, barY, barX + radius, barY, radius) // Top left corner
+      ctx.lineTo(barX + barW - radius, barY) // Top side
+      ctx.arcTo(barX + barW, barY, barX + barW, barY + radius, radius) // Top right corner
+      ctx.lineTo(barX + barW, height) // Right side
+      ctx.closePath()
+      ctx.fill()
+      
+      // Add matching colored outline with rounded corners
       ctx.strokeStyle = barColor
       ctx.lineWidth = 1
-      ctx.strokeRect(x - barWidth / 2, height - barHeight, barWidth * 0.5, barHeight)
+      ctx.stroke()
     }
   }
   
