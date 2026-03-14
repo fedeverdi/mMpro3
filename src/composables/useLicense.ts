@@ -27,10 +27,8 @@ const getAudioEngine = () => {
 
 // Load license from Rust engine on init
 async function loadStoredLicense() {
-  console.log('[useLicense] Starting license load...')
   try {
     const isRemoteClient = !(window as any).electronAPI
-    console.log('[useLicense] Is remote client:', isRemoteClient)
     
     if (isRemoteClient) {
       // Remote client: wait for window.audioEngine to be ready (set by useAudioEngine)
@@ -88,7 +86,6 @@ async function loadStoredLicense() {
             
             // Save to localStorage AFTER Rust confirms
             localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(currentLicense.value))
-            console.log('[useLicense] License loaded from Rust:', currentLicense.value?.type)
             return
           }
         } catch (err) {
@@ -98,7 +95,6 @@ async function loadStoredLicense() {
     }
     
     // Only set demo if Rust didn't return a valid license
-    console.log('[useLicense] No valid license from Rust, using demo')
     currentLicense.value = {
       key: 'DEMO',
       type: 'demo',
@@ -113,8 +109,6 @@ async function loadStoredLicense() {
       isValid: true
     }
     localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(currentLicense.value))
-  } finally {
-    console.log('[useLicense] License load complete. Current license type:', currentLicense.value?.type)
   }
 }
 

@@ -1188,19 +1188,11 @@ onMounted(async () => {
             const { usePlaylist } = await import('~/composables/usePlaylist')
             const { getPlaylistFiles } = usePlaylist()
             const files = await getPlaylistFiles(params.playlistId!)
-            
-            console.log('[AudioTrack] Loaded playlist files for restore:', files?.length || 0)
-            
+          
             if (files && files.length > 0) {
               currentPlaylist.value = { id: params.playlistId, name: params.playlistName }
               playlistFiles.value = files
               currentPlaylistIndex.value = params.playlistCurrentIndex ?? 0
-              
-              console.log('[AudioTrack] Playlist RESTORED:', {
-                playlistId: params.playlistId,
-                filesCount: files.length,
-                currentIndex: params.playlistCurrentIndex ?? 0
-              })
               
               // Update display name to show playlist info
               const currentFile = files[params.playlistCurrentIndex ?? 0]
