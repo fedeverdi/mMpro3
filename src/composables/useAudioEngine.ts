@@ -1107,6 +1107,11 @@ export const useAudioEngine = () => {
     window.audioEngine.setMute(track, mute)
   }
 
+  const setTrackSolo = (track: number, solo: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setSolo(track, solo)
+  }
+
   const setTrackRouteToMaster = (track: number, route: boolean) => {
     if (!window.audioEngine || !state.value.isRunning) return
     window.audioEngine.setRouteToMaster(track, route)
@@ -1555,6 +1560,7 @@ export const useAudioEngine = () => {
     setTrackGain,
     setTrackVolume,
     setTrackMute,
+    setTrackSolo,
     setTrackRouteToMaster,
     setTrackEQ,
     setTrackEQEnabled,

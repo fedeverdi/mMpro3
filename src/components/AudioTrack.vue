@@ -928,6 +928,13 @@ watch(isMuted, (muted) => {
   }
 })
 
+watch(isSolo, (solo) => {
+  if (isUpdatingFromEngine.value) return
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setTrackSolo(props.trackNumber - 1, solo)
+  }
+})
+
 watch(routeToMaster, (route) => {
   if (isUpdatingFromEngine.value) return
   if (audioEngine?.state.value.isRunning) {

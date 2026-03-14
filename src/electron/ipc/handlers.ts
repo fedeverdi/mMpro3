@@ -78,6 +78,10 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
     await sendCommandToEngine({ type: 'set_mute', track, mute })
   })
 
+  ipcMain.handle('audio-engine:set-solo', async (_, track: number, solo: boolean) => {
+    await sendCommandToEngine({ type: 'set_solo', track, solo })
+  })
+
   ipcMain.handle('audio-engine:set-route-to-master', async (_, track: number, route: boolean) => {
     await sendCommandToEngine({ type: 'set_route_to_master', track, route })
   })

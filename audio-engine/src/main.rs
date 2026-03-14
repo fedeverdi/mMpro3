@@ -122,6 +122,8 @@ enum Command {
     SetVolume { track: usize, volume: f32 },
     #[serde(rename = "set_mute")]
     SetMute { track: usize, mute: bool },
+    #[serde(rename = "set_solo")]
+    SetSolo { track: usize, solo: bool },
     #[serde(rename = "set_route_to_master")]
     SetRouteToMaster { track: usize, route: bool },
     #[serde(rename = "set_pan")]
@@ -2295,6 +2297,11 @@ impl AudioEngine {
         track::set_mute(&mut router, track, mute);
     }
 
+    fn set_solo(&self, track: usize, solo: bool) {
+        let mut router = self.router.lock().unwrap();
+        track::set_solo(&mut router, track, solo);
+    }
+
     fn set_route_to_master(&self, track: usize, route: bool) {
         let mut router = self.router.lock().unwrap();
         track::set_route_to_master(&mut router, track, route);
@@ -3299,6 +3306,61 @@ impl AudioEngine {
                         is_stereo: None,
                         fft_data: None,
                     }]),
+                    subgroups: None,
+                    auxes: None,
+                    master: None,
+                })
+            }
+            Command::SetSolo { track, solo } => {
+                self.set_solo(track, solo);
+                
+                // Get all track mute states after solo change
+                let router = self.router.lock().unwrap();
+                let mut track_params = Vec::new();
+                
+                for i in 0..router.tracks.len() {
+                    if let Some(t) = router.get_track(i) {
+                        track_params.push(TrackParameters {
+                            track: i,
+                            gain: None,
+                            volume: None,
+                            mute: Some(t.mute),
+                            pan: None,
+                            route_to_master: None,
+                            route_to_subgroups: None,
+                            pad_enabled: None,
+                            hpf_enabled: None,
+                            phase_inverted: None,
+                            compressor_enabled: None,
+                            compressor_threshold_db: None,
+                            compressor_ratio: None,
+                            compressor_attack_ms: None,
+                            compressor_release_ms: None,
+                            gate_enabled: None,
+                            gate_threshold_db: None,
+                            gate_range_db: None,
+                            gate_attack_ms: None,
+                            gate_release_ms: None,
+                            eq_enabled: None,
+                            eq_low: None,
+                            eq_low_mid: None,
+                            eq_high_mid: None,
+                            eq_high: None,
+                            parametric_eq_enabled: None,
+                            eq_filters: None,
+                            aux_sends: None,
+                            file_name: None,
+                            file_artist: None,
+                            file_title: None,
+                            is_stereo: None,
+                            fft_data: None,
+                        });
+                    }
+                }
+                drop(router);
+                
+                Some(Response::ParametersChanged {
+                    tracks: Some(track_params),
                     subgroups: None,
                     auxes: None,
                     master: None,

@@ -27,6 +27,7 @@ interface AudioEngine {
   setGain: (track: number, gain: number) => Promise<void>
   setVolume: (track: number, volume: number) => Promise<void>
   setMute: (track: number, mute: boolean) => Promise<void>
+  setSolo: (track: number, solo: boolean) => Promise<void>
   setRouteToMaster: (track: number, route: boolean) => Promise<void>
   setEQ: (track: number, low: number, low_mid: number, high_mid: number, high: number) => Promise<void>
   setEQEnabled: (track: number, enabled: boolean) => Promise<void>

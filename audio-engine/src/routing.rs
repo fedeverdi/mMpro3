@@ -178,6 +178,7 @@ pub struct Track {
     pub gain: f32,      // Input gain/trim (linear, typically 0.25 to 4.0 for -12dB to +12dB)
     pub volume: f32,    // Fader volume (linear, 0.0 to ~4.0 for -∞ to +12dB)
     pub mute: bool,
+    pub solo: bool,     // Solo state (mutes all other tracks)
     pub pan: f32, // -1.0 (left) to 1.0 (right)
     pub route_to_master: bool, // Whether to send output to master bus
     pub route_to_subgroups: Vec<usize>, // List of subgroup IDs to route to

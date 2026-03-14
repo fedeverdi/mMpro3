@@ -171,6 +171,31 @@ pub fn set_mute(router: &mut Router, track: usize, mute: bool) {
     }
 }
 
+/// Set track solo state (mutes all other tracks)
+pub fn set_solo(router: &mut Router, track: usize, solo: bool) {
+    if solo {
+        // Solo this track: mute all other tracks
+        for i in 0..router.tracks.len() {
+            if i != track {
+                if let Some(t) = router.get_track_mut(i) {
+                    t.mute = true;
+                }
+            } else {
+                if let Some(t) = router.get_track_mut(i) {
+                    t.mute = false;
+                }
+            }
+        }
+    } else {
+        // Un-solo: unmute all tracks
+        for i in 0..router.tracks.len() {
+            if let Some(t) = router.get_track_mut(i) {
+                t.mute = false;
+            }
+        }
+    }
+}
+
 /// Set track routing to master bus
 pub fn set_route_to_master(router: &mut Router, track: usize, route: bool) {
     if let Some(t) = router.get_track_mut(track) {
