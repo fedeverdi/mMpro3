@@ -141,14 +141,6 @@ app.whenReady().then(() => {
   powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension')
   console.log('[Main] Power save blocker started:', powerSaveBlocker.isStarted(powerSaveBlockerId))
   
-  // Setup IPC handlers
-  const ipcDeps: IpcHandlerDependencies = {
-    activeTempFiles,
-    lastKnownState,
-    wsServerDeps
-  }
-  setupIpcHandlers(ipcDeps)
-  
   // Initialize audio engine with callbacks
   const audioEngineCallbacks: AudioEngineCallbacks = {
     onResponse: (response: any) => {
@@ -173,13 +165,23 @@ app.whenReady().then(() => {
   // Start audio engine
   startAudioEngine()
   
-  // Start WebSocket server for remote control
+  // Initialize WebSocket server dependencies BEFORE IPC handlers
   wsServerDeps = {
     getAudioEngineProcess: getAudioEngineProcess,
     getIsAudioEngineStarted: getIsAudioEngineStarted,
     getLastKnownState: () => lastKnownState,
     broadcastRemoteControlState: broadcastRemoteControlState
   }
+  
+  // Setup IPC handlers (now wsServerDeps is initialized)
+  const ipcDeps: IpcHandlerDependencies = {
+    activeTempFiles,
+    lastKnownState,
+    wsServerDeps
+  }
+  setupIpcHandlers(ipcDeps)
+  
+  // Start WebSocket server for remote control
   startWebSocketServer(wsServerDeps)
   
   // Start HTTP server for web interface (production only)

@@ -3,6 +3,7 @@ import { BrowserWindow, app } from 'electron'
 import { ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { sendCommandAndWaitForResponse } from '../audio-engine/process'
 
 const WS_PORT = 3001
 
@@ -269,6 +270,18 @@ function handleRemoteControlStopped(ws: WebSocket, deps: WebSocketServerDependen
 async function handleIpcMessage(ws: WebSocket, message: any): Promise<void> {
   try {
     switch (message.type) {
+      case 'ipc:audio-engine:get-license':
+        await handleGetLicense(ws, message)
+        break
+      case 'ipc:audio-engine:save-license':
+        await handleSaveLicense(ws, message)
+        break
+      case 'ipc:audio-engine:get-audio-config':
+        await handleGetAudioConfig(ws, message)
+        break
+      case 'ipc:audio-engine:save-audio-config':
+        await handleSaveAudioConfig(ws, message)
+        break
       case 'ipc:audio-engine:list-library-files':
         await handleListLibraryFiles(ws, message)
         break
@@ -539,6 +552,89 @@ async function handleDeletePlaylist(ws: WebSocket, message: any): Promise<void> 
   } catch (error) {
     console.error('[WebSocket] Error deleting playlist:', error)
     ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: 'Failed to delete playlist' }))
+  }
+}
+
+// License handlers
+async function handleGetLicense(ws: WebSocket, message: any): Promise<void> {
+  try {
+    const response = await sendCommandAndWaitForResponse({ type: 'get_license' }, 'license', 5000)
+    ws.send(JSON.stringify({ 
+      type: 'ipc:response', 
+      id: message.id, 
+      data: {
+        key: response.key,
+        license_type: response.license_type,
+        expires_at: response.expires_at,
+        is_valid: response.is_valid
+      }
+    }))
+  } catch (error) {
+    console.error('[WebSocket] Error getting license:', error)
+    ws.send(JSON.stringify({ 
+      type: 'ipc:response', 
+      id: message.id, 
+      data: {
+        key: 'DEMO',
+        license_type: 'demo',
+        expires_at: null,
+        is_valid: true
+      }
+    }))
+  }
+}
+
+async function handleSaveLicense(ws: WebSocket, message: any): Promise<void> {
+  try {
+    const response = await sendCommandAndWaitForResponse({
+      type: 'save_license',
+      key: message.key,
+      license_type: message.license_type,
+      expires_at: message.expires_at
+    }, 'ok', 5000)
+    ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: true }))
+  } catch (error) {
+    console.error('[WebSocket] Error saving license:', error)
+    ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: 'Failed to save license' }))
+  }
+}
+
+// Audio config handlers
+async function handleGetAudioConfig(ws: WebSocket, message: any): Promise<void> {
+  try {
+    const response = await sendCommandAndWaitForResponse({ type: 'get_audio_config' }, 'audio_config', 5000)
+    ws.send(JSON.stringify({ 
+      type: 'ipc:response', 
+      id: message.id, 
+      data: {
+        sample_rate: response.sample_rate,
+        buffer_size: response.buffer_size
+      }
+    }))
+  } catch (error) {
+    console.error('[WebSocket] Error getting audio config:', error)
+    ws.send(JSON.stringify({ 
+      type: 'ipc:response', 
+      id: message.id, 
+      data: {
+        sample_rate: 0,
+        buffer_size: 256
+      }
+    }))
+  }
+}
+
+async function handleSaveAudioConfig(ws: WebSocket, message: any): Promise<void> {
+  try {
+    const response = await sendCommandAndWaitForResponse({
+      type: 'save_audio_config',
+      sample_rate: message.sample_rate,
+      buffer_size: message.buffer_size
+    }, 'ok', 5000)
+    ws.send(JSON.stringify({ type: 'ipc:response', id: message.id, data: true }))
+  } catch (error) {
+    console.error('[WebSocket] Error saving audio config:', error)
+    ws.send(JSON.stringify({ type: 'ipc:error', id: message.id, error: 'Failed to save audio config' }))
   }
 }
 

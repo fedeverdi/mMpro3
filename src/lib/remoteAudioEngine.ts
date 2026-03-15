@@ -11,7 +11,6 @@ export class RemoteAudioEngine {
   private reconnectTimer: number | null = null
   private responseListeners: Array<(response: any) => void> = []
   private isConnecting: boolean = false
-  private pendingLicenseRequest: boolean = false // Track if we're waiting for a license response
   
   // Throttling system for continuous controls
   private pendingUpdates: Map<string, any> = new Map()
@@ -123,23 +122,18 @@ export class RemoteAudioEngine {
             return
           }
           
-          // Handle license updates specifically
+          // Handle license updates from broadcasts
           if (response.type === 'license') {
-            
-            // Only dispatch license-updated event if this is a broadcast (not a response to our request)
-            // If we have a pending request, let the listener handle it instead
-            if (!this.pendingLicenseRequest) {
-              // Dispatch custom event for license updates
-              const licenseEvent = new CustomEvent('license-updated', {
-                detail: {
-                  key: response.key,
-                  license_type: response.license_type,
-                  expires_at: response.expires_at,
-                  is_valid: response.is_valid
-                }
-              })
-              window.dispatchEvent(licenseEvent)
-            }
+            // Dispatch custom event for license updates
+            const licenseEvent = new CustomEvent('license-updated', {
+              detail: {
+                key: response.key,
+                license_type: response.license_type,
+                expires_at: response.expires_at,
+                is_valid: response.is_valid
+              }
+            })
+            window.dispatchEvent(licenseEvent)
           }
           
           // Notify all response listeners
@@ -839,7 +833,6 @@ export class RemoteAudioEngine {
 
   // License management
   async getLicense(): Promise<any> {
-    
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.error('[RemoteAudioEngine] WebSocket not connected!')
       return {
@@ -851,21 +844,11 @@ export class RemoteAudioEngine {
     }
     
     try {
-      // Mark that we're waiting for a license response (don't broadcast this one)
-      this.pendingLicenseRequest = true
-      
-      const response = await this.sendAndWaitForResponse({ type: 'get_license' }, 'license', 5000)
-      
-      // Clear the pending flag after receiving response
-      this.pendingLicenseRequest = false
-      
+      // Use IPC pattern with message.id for reliable request-response
+      const response = await this.sendIPC('ipc:audio-engine:get-license', {})
       return response
     } catch (error) {
-      console.error('[RemoteAudioEngine] Failed to get license (timeout or error):', error)
-      
-      // Clear the pending flag on error
-      this.pendingLicenseRequest = false
-      
+      console.error('[RemoteAudioEngine] Failed to get license:', error)
       // Return demo license on error
       return {
         key: 'DEMO',
@@ -879,16 +862,12 @@ export class RemoteAudioEngine {
   async saveLicense(key: string, licenseType: string, expiresAt: string | null): Promise<boolean> {
     console.log('[RemoteAudioEngine] Saving license:', key, licenseType)
     try {
-      await this.sendAndWaitForResponse(
-        { 
-          type: 'save_license', 
-          key, 
-          license_type: licenseType, 
-          expires_at: expiresAt 
-        }, 
-        'ok', 
-        3000
-      )
+      // Use IPC pattern with message.id for reliable request-response
+      await this.sendIPC('ipc:audio-engine:save-license', {
+        key,
+        license_type: licenseType,
+        expires_at: expiresAt
+      })
       console.log('[RemoteAudioEngine] License saved successfully')
       return true
     } catch (error) {
@@ -905,10 +884,11 @@ export class RemoteAudioEngine {
     }
     
     try {
-      const response = await this.sendAndWaitForResponse({ type: 'get_audio_config' }, 'audio_config', 5000)
+      // Use IPC pattern with message.id for reliable request-response
+      const response = await this.sendIPC('ipc:audio-engine:get-audio-config', {})
       return response
     } catch (error) {
-      console.error('[RemoteAudioEngine] Failed to get audio config (timeout or error):', error)
+      console.error('[RemoteAudioEngine] Failed to get audio config:', error)
       return { sample_rate: 0, buffer_size: 256 } // Default: Auto, 256 frames
     }
   }
@@ -916,15 +896,11 @@ export class RemoteAudioEngine {
   async saveAudioConfig(sampleRate: number, bufferSize: number): Promise<boolean> {
     console.log('[RemoteAudioEngine] Saving audio config:', sampleRate, bufferSize)
     try {
-      await this.sendAndWaitForResponse(
-        { 
-          type: 'save_audio_config', 
-          sample_rate: sampleRate, 
-          buffer_size: bufferSize 
-        }, 
-        'ok', 
-        3000
-      )
+      // Use IPC pattern with message.id for reliable request-response
+      await this.sendIPC('ipc:audio-engine:save-audio-config', {
+        sample_rate: sampleRate,
+        buffer_size: bufferSize
+      })
       console.log('[RemoteAudioEngine] Audio config saved successfully')
       return true
     } catch (error) {

@@ -410,6 +410,10 @@ export const useAudioEngine = () => {
       ;(window as any).audioEngine = remoteEngine
       remoteEngineInitialized = true
 
+      // Notify other composables that audioEngine is ready
+      window.dispatchEvent(new CustomEvent('audio-engine-ready'))
+      console.log('[useAudioEngine] Remote audio engine ready')
+
     } catch (error) {
       console.error('[useAudioEngine] Failed to connect to remote audio engine:', error)
       throw new Error('Failed to connect to remote audio engine. Make sure the Electron app is running.')
@@ -677,6 +681,7 @@ export const useAudioEngine = () => {
 
         // NEW PARADIGM: Parameters changed - Buffer updates (applied once per second)
         case 'parameters':
+        case 'parameters_changed': // Alias used by detached windows
           if (response.tracks) {
             response.tracks.forEach((trackParams: any) => {
               // Merge with existing buffered updates for this track (if any)
@@ -1036,6 +1041,10 @@ export const useAudioEngine = () => {
 
         case 'audio_inputs':
           // Audio input devices list - handled by useAudioDevices composable
+          break
+
+        case 'aux_buses_state':
+          // Frontend aux buses state sent to detached windows - handled by specific components
           break
 
         default:

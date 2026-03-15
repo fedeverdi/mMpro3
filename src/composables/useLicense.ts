@@ -31,22 +31,34 @@ async function loadStoredLicense() {
     const isRemoteClient = !(window as any).electronAPI
     
     if (isRemoteClient) {
-      // Remote client: wait for window.audioEngine to be ready (set by useAudioEngine)
-      let retries = 0
-      const maxRetries = 10
-      
-      while (!window.audioEngine && retries < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 200))
-        retries++
+      // Remote client: wait for window.audioEngine to be ready
+      if (!window.audioEngine) {
+        // Wait for audio-engine-ready event or timeout after 10 seconds
+        await Promise.race([
+          new Promise<void>((resolve) => {
+            const handler = () => {
+              window.removeEventListener('audio-engine-ready', handler)
+              resolve()
+            }
+            window.addEventListener('audio-engine-ready', handler)
+            
+            // Also check if it's already available
+            if (window.audioEngine) {
+              window.removeEventListener('audio-engine-ready', handler)
+              resolve()
+            }
+          }),
+          new Promise<void>((resolve) => setTimeout(() => {
+            console.warn('[useLicense] Timeout waiting for audio engine, using demo mode')
+            resolve()
+          }, 10000))
+        ])
       }
       
       if (window.audioEngine && typeof window.audioEngine.getLicense === 'function') {
         try {
-          // Add timeout to getLicense call
-          const license = await Promise.race([
-            window.audioEngine.getLicense(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('License load timeout')), 3000))
-          ]) as any
+          // Get license from remote audio engine (has built-in 5s timeout)
+          const license = await window.audioEngine.getLicense()
           
           if (license && license.key !== 'DEMO') {
             currentLicense.value = {
@@ -57,24 +69,22 @@ async function loadStoredLicense() {
             }
             // Save to localStorage AFTER Rust confirms
             localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(currentLicense.value))
+            console.log('[useLicense] License loaded successfully:', license.license_type)
             return
           }
         } catch (err) {
           console.error('[useLicense] Failed to get license from Rust:', err)
         }
       } else {
-        console.warn('[useLicense] audioEngine not available after waiting')
+        console.warn('[useLicense] audioEngine not available, using demo mode')
       }
     } else {
       // Electron: request from Rust via IPC using useAudioEngine
       const audioEngine = getAudioEngine()
       if (audioEngine) {
         try {
-          // Add timeout to getLicense call
-          const license = await Promise.race([
-            audioEngine.getLicense(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('License load timeout')), 3000))
-          ]) as any
+          // Get license from audio engine (Electron IPC)
+          const license = await audioEngine.getLicense()
           
           if (license && license.key !== 'DEMO') {
             currentLicense.value = {
