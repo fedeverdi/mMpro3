@@ -101,6 +101,9 @@ import InsertGate from './InsertGate.vue'
 import InsertCompressor from './InsertCompressor.vue'
 import InsertReverb from './InsertReverb.vue'
 import InsertDelay from './InsertDelay.vue'
+import InsertExciter from './InsertExciter.vue'
+import InsertDeEsser from './InsertDeEsser.vue'
+import InsertChorus from './InsertChorus.vue'
 
 interface InsertEffect {
   id: number
@@ -133,6 +136,9 @@ const effectTypes = [
   { value: 'compressor', label: 'Compressor' },
   { value: 'reverb', label: 'Reverb' },
   { value: 'delay', label: 'Delay' },
+  { value: 'exciter', label: 'Exciter' },
+  { value: 'deesser', label: 'De-Esser' },
+  { value: 'chorus', label: 'Chorus' },
 ]
 
 // Close popovers when clicking outside
@@ -207,6 +213,9 @@ function getEffectComponent(type: string) {
     case 'compressor': return InsertCompressor
     case 'reverb': return InsertReverb
     case 'delay': return InsertDelay
+    case 'exciter': return InsertExciter
+    case 'deesser': return InsertDeEsser
+    case 'chorus': return InsertChorus
     default: return null
   }
 }

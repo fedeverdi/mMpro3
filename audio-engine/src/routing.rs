@@ -12,6 +12,9 @@ use crate::phase_correlation::PhaseCorrelationMeter;
 use crate::stereo_width::StereoWidthMeter;
 use crate::headroom::HeadroomMeter;
 use crate::reverb::Reverb;
+use crate::exciter::Exciter;
+use crate::deesser::DeEsser;
+use crate::chorus::Chorus;
 use crate::signal_gen::{SignalGenerator, WaveformType};
 use rustfft::{FftPlanner, num_complex::Complex};
 
@@ -55,7 +58,7 @@ impl Default for AuxSend {
 /// Insert effect slot with unique ID for frontend tracking
 pub struct InsertSlot {
     pub id: usize,              // Unique slot ID (for frontend reference)
-    pub effect_type: String,    // "gate", "compressor", "reverb", "delay"
+    pub effect_type: String,    // "gate", "compressor", "reverb", "delay", "exciter", "deesser", "chorus"
     pub enabled: bool,
     pub effect: InsertEffectData,
 }
@@ -66,6 +69,9 @@ pub enum InsertEffectData {
     Compressor(Compressor),
     Reverb(Reverb),
     Delay(Delay),
+    Exciter(Exciter),
+    DeEsser(DeEsser),
+    Chorus(Chorus),
 }
 
 impl InsertSlot {
@@ -109,6 +115,33 @@ impl InsertSlot {
         }
     }
     
+    pub fn new_exciter(id: usize, sample_rate: f32) -> Self {
+        Self {
+            id,
+            effect_type: "exciter".to_string(),
+            enabled: false,
+            effect: InsertEffectData::Exciter(Exciter::new(sample_rate)),
+        }
+    }
+    
+    pub fn new_deesser(id: usize, sample_rate: f32) -> Self {
+        Self {
+            id,
+            effect_type: "deesser".to_string(),
+            enabled: false,
+            effect: InsertEffectData::DeEsser(DeEsser::new(sample_rate)),
+        }
+    }
+    
+    pub fn new_chorus(id: usize, sample_rate: f32) -> Self {
+        Self {
+            id,
+            effect_type: "chorus".to_string(),
+            enabled: false,
+            effect: InsertEffectData::Chorus(Chorus::new(sample_rate)),
+        }
+    }
+    
     /// Process audio through this insert effect
     pub fn process(&mut self, left: f32, right: f32) -> (f32, f32) {
         if !self.enabled {
@@ -120,6 +153,9 @@ impl InsertSlot {
             InsertEffectData::Compressor(comp) => comp.process(left, right),
             InsertEffectData::Reverb(rev) => rev.process(left, right),
             InsertEffectData::Delay(delay) => delay.process(left, right),
+            InsertEffectData::Exciter(exciter) => exciter.process(left, right),
+            InsertEffectData::DeEsser(deesser) => deesser.process(left, right),
+            InsertEffectData::Chorus(chorus) => chorus.process(left, right),
         }
     }
 }
@@ -433,6 +469,18 @@ impl Track {
                 }
                 InsertEffectData::Delay(delay) => {
                     delay.set_sample_rate(sample_rate);
+                }
+                InsertEffectData::Exciter(exciter) => {
+                    exciter.set_sample_rate(sample_rate);
+                    exciter.reset();
+                }
+                InsertEffectData::DeEsser(deesser) => {
+                    deesser.set_sample_rate(sample_rate);
+                    deesser.reset();
+                }
+                InsertEffectData::Chorus(chorus) => {
+                    chorus.set_sample_rate(sample_rate);
+                    chorus.reset();
                 }
             }
         }

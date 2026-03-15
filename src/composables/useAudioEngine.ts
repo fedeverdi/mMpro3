@@ -1221,6 +1221,39 @@ export const useAudioEngine = () => {
     window.audioEngine.setTrackInsertDelay(track, insertId, timeL, timeR, feedback, mix)
   }
 
+  const setTrackInsertExciter = (
+    track: number,
+    insertId: number,
+    amount: number,
+    frequency: number,
+    mix: number
+  ) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setTrackInsertExciter(track, insertId, amount, frequency, mix)
+  }
+
+  const setTrackInsertDeEsser = (
+    track: number,
+    insertId: number,
+    threshold: number,
+    frequency: number,
+    range: number
+  ) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setTrackInsertDeEsser(track, insertId, threshold, frequency, range)
+  }
+
+  const setTrackInsertChorus = (
+    track: number,
+    insertId: number,
+    rate: number,
+    depth: number,
+    mix: number
+  ) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setTrackInsertChorus(track, insertId, rate, depth, mix)
+  }
+
   const setTrackSourceInput = (
     track: number,
     leftChannel: number,
@@ -1657,6 +1690,9 @@ export const useAudioEngine = () => {
     setTrackInsertGate,
     setTrackInsertReverb,
     setTrackInsertDelay,
+    setTrackInsertExciter,
+    setTrackInsertDeEsser,
+    setTrackInsertChorus,
     setTrackSourceInput,
     setTrackSourceSignal,
     setSignalFrequency,

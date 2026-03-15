@@ -46,6 +46,9 @@ interface AudioEngine {
   setTrackInsertGate: (track: number, insertId: number, threshold: number, range: number, attack: number, release: number) => Promise<void>
   setTrackInsertReverb: (track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number) => Promise<void>
   setTrackInsertDelay: (track: number, insertId: number, timeL: number, timeR: number, feedback: number, mix: number) => Promise<void>
+  setTrackInsertExciter: (track: number, insertId: number, amount: number, frequency: number, mix: number) => Promise<void>
+  setTrackInsertDeEsser: (track: number, insertId: number, threshold: number, frequency: number, range: number) => Promise<void>
+  setTrackInsertChorus: (track: number, insertId: number, rate: number, depth: number, mix: number) => Promise<void>
   
   listDevices: () => Promise<RustAudioDevice[]>
   listAudioInputs: () => Promise<RustAudioDevice[]>

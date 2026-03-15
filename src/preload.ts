@@ -52,6 +52,12 @@ contextBridge.exposeInMainWorld('audioEngine', {
     ipcRenderer.invoke('audio-engine:set-track-insert-reverb', track, insertId, roomSize, damping, wet, width),
   setTrackInsertDelay: (track: number, insertId: number, timeL: number, timeR: number, feedback: number, mix: number) =>
     ipcRenderer.invoke('audio-engine:set-track-insert-delay', track, insertId, timeL, timeR, feedback, mix),
+  setTrackInsertExciter: (track: number, insertId: number, amount: number, frequency: number, mix: number) =>
+    ipcRenderer.invoke('audio-engine:set-track-insert-exciter', track, insertId, amount, frequency, mix),
+  setTrackInsertDeEsser: (track: number, insertId: number, threshold: number, frequency: number, range: number) =>
+    ipcRenderer.invoke('audio-engine:set-track-insert-deesser', track, insertId, threshold, frequency, range),
+  setTrackInsertChorus: (track: number, insertId: number, rate: number, depth: number, mix: number) =>
+    ipcRenderer.invoke('audio-engine:set-track-insert-chorus', track, insertId, rate, depth, mix),
   
   // Track source selection
   setTrackSourceInput: (track: number, leftChannel: number, rightChannel: number, deviceName?: string | null) => 

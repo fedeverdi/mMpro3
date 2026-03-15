@@ -22,6 +22,9 @@ mod equalizer;
 mod file_player;
 mod gate;
 mod reverb;
+mod exciter;
+mod deesser;
+mod chorus;
 mod routing;
 mod signal_gen;
 mod track;
@@ -506,6 +509,30 @@ enum Command {
         time_l: f32,
         time_r: f32,
         feedback: f32,
+        mix: f32,
+    },
+    #[serde(rename = "set_track_insert_exciter")]
+    SetTrackInsertExciter {
+        track: usize,
+        insert_id: usize,
+        amount: f32,
+        frequency: f32,
+        mix: f32,
+    },
+    #[serde(rename = "set_track_insert_deesser")]
+    SetTrackInsertDeEsser {
+        track: usize,
+        insert_id: usize,
+        threshold: f32,
+        frequency: f32,
+        range: f32,
+    },
+    #[serde(rename = "set_track_insert_chorus")]
+    SetTrackInsertChorus {
+        track: usize,
+        insert_id: usize,
+        rate: f32,
+        depth: f32,
         mix: f32,
     },
 }
@@ -5006,6 +5033,9 @@ impl AudioEngine {
                         "compressor" => InsertSlot::new_compressor(insert_id, sample_rate),
                         "reverb" => InsertSlot::new_reverb(insert_id, sample_rate),
                         "delay" => InsertSlot::new_delay(insert_id, sample_rate),
+                        "exciter" => InsertSlot::new_exciter(insert_id, sample_rate),
+                        "deesser" => InsertSlot::new_deesser(insert_id, sample_rate),
+                        "chorus" => InsertSlot::new_chorus(insert_id, sample_rate),
                         _ => {
                             drop(router);
                             return Some(Response::Error {
@@ -5251,6 +5281,9 @@ impl AudioEngine {
                             InsertEffectData::Compressor(comp) => comp.set_enabled(enabled),
                             InsertEffectData::Reverb(rev) => rev.set_enabled(enabled),
                             InsertEffectData::Delay(delay) => delay.set_enabled(enabled),
+                            InsertEffectData::Exciter(exciter) => exciter.set_enabled(enabled),
+                            InsertEffectData::DeEsser(deesser) => deesser.set_enabled(enabled),
+                            InsertEffectData::Chorus(chorus) => chorus.set_enabled(enabled),
                         }
                         
                         let inserts: Vec<InsertEffectInfo> = t.inserts.iter().map(|slot| {
@@ -5435,6 +5468,102 @@ impl AudioEngine {
                             drop(router);
                             Some(Response::Error {
                                 message: format!("Insert {} is not a delay", insert_id),
+                            })
+                        }
+                    } else {
+                        drop(router);
+                        Some(Response::Error {
+                            message: format!("Insert {} not found on track {}", insert_id, track),
+                        })
+                    }
+                } else {
+                    Some(Response::Error {
+                        message: format!("Track {} not found", track),
+                    })
+                }
+            },
+            
+            Command::SetTrackInsertExciter { track, insert_id, amount, frequency, mix } => {
+                let mut router = self.router.lock().unwrap();
+                if let Some(t) = router.tracks.get_mut(track) {
+                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
+                        if let InsertEffectData::Exciter(exciter) = &mut slot.effect {
+                            exciter.set_amount(amount);
+                            exciter.set_frequency(frequency);
+                            exciter.set_mix(mix);
+                            
+                            drop(router);
+                            Some(Response::Ok {
+                                message: format!("Exciter {} updated on track {}", insert_id, track),
+                            })
+                        } else {
+                            drop(router);
+                            Some(Response::Error {
+                                message: format!("Insert {} is not an exciter", insert_id),
+                            })
+                        }
+                    } else {
+                        drop(router);
+                        Some(Response::Error {
+                            message: format!("Insert {} not found on track {}", insert_id, track),
+                        })
+                    }
+                } else {
+                    Some(Response::Error {
+                        message: format!("Track {} not found", track),
+                    })
+                }
+            },
+            
+            Command::SetTrackInsertDeEsser { track, insert_id, threshold, frequency, range } => {
+                let mut router = self.router.lock().unwrap();
+                if let Some(t) = router.tracks.get_mut(track) {
+                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
+                        if let InsertEffectData::DeEsser(deesser) = &mut slot.effect {
+                            deesser.set_threshold(threshold);
+                            deesser.set_frequency(frequency);
+                            deesser.set_range(range);
+                            
+                            drop(router);
+                            Some(Response::Ok {
+                                message: format!("DeEsser {} updated on track {}", insert_id, track),
+                            })
+                        } else {
+                            drop(router);
+                            Some(Response::Error {
+                                message: format!("Insert {} is not a de-esser", insert_id),
+                            })
+                        }
+                    } else {
+                        drop(router);
+                        Some(Response::Error {
+                            message: format!("Insert {} not found on track {}", insert_id, track),
+                        })
+                    }
+                } else {
+                    Some(Response::Error {
+                        message: format!("Track {} not found", track),
+                    })
+                }
+            },
+            
+            Command::SetTrackInsertChorus { track, insert_id, rate, depth, mix } => {
+                let mut router = self.router.lock().unwrap();
+                if let Some(t) = router.tracks.get_mut(track) {
+                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
+                        if let InsertEffectData::Chorus(chorus) = &mut slot.effect {
+                            chorus.set_rate(rate);
+                            chorus.set_depth(depth);
+                            chorus.set_mix(mix);
+                            
+                            drop(router);
+                            Some(Response::Ok {
+                                message: format!("Chorus {} updated on track {}", insert_id, track),
+                            })
+                        } else {
+                            drop(router);
+                            Some(Response::Error {
+                                message: format!("Insert {} is not a chorus", insert_id),
                             })
                         }
                     } else {

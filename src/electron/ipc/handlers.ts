@@ -127,6 +127,18 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
     await sendCommandToEngine({ type: 'set_track_insert_delay', track, insert_id: insertId, time_l: timeL, time_r: timeR, feedback, mix })
   })
 
+  ipcMain.handle('audio-engine:set-track-insert-exciter', async (_, track: number, insertId: number, amount: number, frequency: number, mix: number) => {
+    await sendCommandToEngine({ type: 'set_track_insert_exciter', track, insert_id: insertId, amount, frequency, mix })
+  })
+
+  ipcMain.handle('audio-engine:set-track-insert-deesser', async (_, track: number, insertId: number, threshold: number, frequency: number, range: number) => {
+    await sendCommandToEngine({ type: 'set_track_insert_deesser', track, insert_id: insertId, threshold, frequency, range })
+  })
+
+  ipcMain.handle('audio-engine:set-track-insert-chorus', async (_, track: number, insertId: number, rate: number, depth: number, mix: number) => {
+    await sendCommandToEngine({ type: 'set_track_insert_chorus', track, insert_id: insertId, rate, depth, mix })
+  })
+
   ipcMain.handle('audio-engine:set-pan', async (_, track: number, pan: number) => {
     await sendCommandToEngine({ type: 'set_pan', track, pan })
   })
