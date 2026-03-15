@@ -415,6 +415,51 @@ export class RemoteAudioEngine {
     return this.send({ type: 'set_gate', track, enabled, threshold, range, attack, release })
   }
 
+  // Track Insert Effects Chain methods
+  async addTrackInsert(track: number, effectType: string, position?: number): Promise<void> {
+    return this.send({ type: 'add_track_insert', track, effect_type: effectType, position })
+  }
+
+  async removeTrackInsert(track: number, insertId: number): Promise<void> {
+    return this.send({ type: 'remove_track_insert', track, insert_id: insertId })
+  }
+
+  async moveTrackInsert(track: number, insertId: number, newPosition: number): Promise<void> {
+    return this.send({ type: 'move_track_insert', track, insert_id: insertId, new_position: newPosition })
+  }
+
+  async setTrackInsertEnabled(track: number, insertId: number, enabled: boolean): Promise<void> {
+    return this.send({ type: 'set_track_insert_enabled', track, insert_id: insertId, enabled })
+  }
+
+  async setTrackInsertCompressor(track: number, insertId: number, threshold: number, ratio: number, attack: number, release: number): Promise<void> {
+    return this.send({ type: 'set_track_insert_compressor', track, insert_id: insertId, threshold, ratio, attack, release })
+  }
+
+  async setTrackInsertGate(track: number, insertId: number, threshold: number, range: number, attack: number, release: number): Promise<void> {
+    return this.send({ type: 'set_track_insert_gate', track, insert_id: insertId, threshold, range, attack, release })
+  }
+
+  async setTrackInsertReverb(track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number): Promise<void> {
+    return this.send({ type: 'set_track_insert_reverb', track, insert_id: insertId, room_size: roomSize, damping, wet, width })
+  }
+
+  async setTrackInsertDelay(track: number, insertId: number, timeL: number, timeR: number, feedback: number, mix: number): Promise<void> {
+    return this.send({ type: 'set_track_insert_delay', track, insert_id: insertId, time_l: timeL, time_r: timeR, feedback, mix })
+  }
+
+  async setTrackInsertExciter(track: number, insertId: number, amount: number, frequency: number, mix: number): Promise<void> {
+    return this.send({ type: 'set_track_insert_exciter', track, insert_id: insertId, amount, frequency, mix })
+  }
+
+  async setTrackInsertDeEsser(track: number, insertId: number, threshold: number, frequency: number, range: number): Promise<void> {
+    return this.send({ type: 'set_track_insert_deesser', track, insert_id: insertId, threshold, frequency, range })
+  }
+
+  async setTrackInsertChorus(track: number, insertId: number, rate: number, depth: number, mix: number): Promise<void> {
+    return this.send({ type: 'set_track_insert_chorus', track, insert_id: insertId, rate, depth, mix })
+  }
+
   async setSignalFrequency(track: number, frequency: number): Promise<void> {
     return this.send({ type: 'set_signal_frequency', track, frequency })
   }
@@ -435,6 +480,14 @@ export class RemoteAudioEngine {
     if (playlistName !== undefined && playlistName !== null) payload.playlist_name = playlistName
     if (playlistIndex !== undefined && playlistIndex !== null) payload.playlist_index = playlistIndex
     return this.send(payload)
+  }
+
+  async setTrackSourceInput(track: number, leftChannel: number, rightChannel: number, deviceName?: string | null): Promise<void> {
+    return this.send({ type: 'set_track_source_input', track, left_channel: leftChannel, right_channel: rightChannel, device_name: deviceName })
+  }
+
+  async setTrackSourceSignal(track: number, waveform: string, frequency: number): Promise<void> {
+    return this.send({ type: 'set_track_source_signal', track, waveform, frequency })
   }
 
   // File operations not supported in remote mode
