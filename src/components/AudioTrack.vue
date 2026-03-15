@@ -48,10 +48,10 @@
     </div>
 
     <!-- Main Content -->
-    <div class="w-full flex-1 flex flex-col gap-2 min-h-0">
+    <div class="w-full flex-1 flex flex-col gap-1 min-h-0">
 
       <!-- Gain Control -->
-      <div class="w-full flex items-center justify-center gap-2 h-[4rem]">
+      <div class="w-full flex items-center justify-center gap-2 h-[4rem] mb-1">
         <div class="flex flex-col gap-1 items-center justify-center pt-1">
           <PadButton v-model="padEnabled" />
           <HPFButton v-model="hpfEnabled" />
@@ -62,14 +62,18 @@
         </div>
       </div>
 
-      <!-- Effects Section -->
-      <div class="w-full bg-gray-900 rounded p-1 border border-gray-700 grid grid-cols-2 gap-1">
-        <TrackGate ref="trackGateRef" :track-number="trackNumber" :enabled="gateEnabled" :input-level-db="gateInputDb"
-          :attenuation-db="gateAttenuationDb" @toggle="toggleGate" @update-params="handleGateParamsUpdate" />
-        <TrackCompressor ref="trackCompressorRef" :track-number="trackNumber" :enabled="compressorEnabled"
-          :input-level-db="compressorInputDb" :gain-reduction-db="compressorReductionDb" @toggle="toggleCompressor"
-          @params-changed="handleCompressorParamsChanged" />
-      </div>
+      <!-- Insert Effects Chain -->
+      <InsertEffectsChain
+        :track-number="trackNumber"
+        :inserts="inserts"
+        :track-level-l="trackLevelL"
+        :track-level-r="trackLevelR"
+        :phase-correlation="trackPhaseCorrelation"
+        @add="handleAddInsert"
+        @remove="handleRemoveInsert"
+        @move="handleMoveInsert"
+        @toggle="handleToggleInsert"
+      />
 
       <!-- EQ Section -->
       <div class="w-full bg-gray-900 rounded p-1 border border-gray-700 relative">
@@ -235,6 +239,7 @@ import TrackGate from './audioTrack/TrackGate.vue'
 import TrackMeter from './audioTrack/TrackMeter.vue'
 import TrackAuxSends from './audioTrack/TrackAuxSends.vue'
 import AuxSendControl from './audioTrack/AuxSendControl.vue'
+import InsertEffectsChain from './audioTrack/InsertEffectsChain.vue'
 import Knob from './core/Knob.vue'
 import ParametricEQModal from './master/ParametricEQModal.vue'
 import PhaseCorrelationModal from './audioTrack/PhaseCorrelationModal.vue'
@@ -345,6 +350,9 @@ const eqEnabled = ref(true)
 
 // Parametric EQ filters from modal
 const parametricEQFilters = ref<any[]>([])
+
+// Insert effects chain
+const inserts = ref<Array<{ id: number; effect_type: string; enabled: boolean }>>([])
 
 // Computed: Convert 4-band EQ values + HPF to filter format for EQThumbnail (system filters)
 const eq4BandFilters = computed(() => {
@@ -866,6 +874,31 @@ function handleParametricEQUpdate(filters: any) {
   }, 100)
 }
 
+// Insert effects handlers
+function handleAddInsert(effectType: string) {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.addTrackInsert(props.trackNumber - 1, effectType)
+  }
+}
+
+function handleRemoveInsert(insertId: number) {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.removeTrackInsert(props.trackNumber - 1, insertId)
+  }
+}
+
+function handleMoveInsert({ insertId, position }: { insertId: number; position: number }) {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.moveTrackInsert(props.trackNumber - 1, insertId, position)
+  }
+}
+
+function handleToggleInsert({ insertId, enabled }: { insertId: number; enabled: boolean }) {
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setTrackInsertEnabled(props.trackNumber - 1, insertId, enabled)
+  }
+}
+
 // Flag to prevent watch loops when updating from engine
 const isUpdatingFromEngine = ref(false)
 const isUpdatingParametricFromUser = ref(false)
@@ -1239,6 +1272,15 @@ onMounted(async () => {
           }
         }
       })
+    }
+    
+    // Sync insert effects from Rust engine
+    if (params.inserts && Array.isArray(params.inserts)) {
+      inserts.value = params.inserts.map((insert: any) => ({
+        id: insert.id,
+        effect_type: insert.effect_type,
+        enabled: insert.enabled
+      }))
     }
     
     // Re-enable watches after Vue reactivity cycle completes

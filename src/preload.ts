@@ -35,6 +35,24 @@ contextBridge.exposeInMainWorld('audioEngine', {
   setGate: (track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => 
     ipcRenderer.invoke('audio-engine:set-gate', track, enabled, threshold, range, attack, release),
   
+  // Track Insert Effects Chain
+  addTrackInsert: (track: number, effectType: string, position?: number) =>
+    ipcRenderer.invoke('audio-engine:add-track-insert', track, effectType, position),
+  removeTrackInsert: (track: number, insertId: number) =>
+    ipcRenderer.invoke('audio-engine:remove-track-insert', track, insertId),
+  moveTrackInsert: (track: number, insertId: number, newPosition: number) =>
+    ipcRenderer.invoke('audio-engine:move-track-insert', track, insertId, newPosition),
+  setTrackInsertEnabled: (track: number, insertId: number, enabled: boolean) =>
+    ipcRenderer.invoke('audio-engine:set-track-insert-enabled', track, insertId, enabled),
+  setTrackInsertCompressor: (track: number, insertId: number, threshold: number, ratio: number, attack: number, release: number) =>
+    ipcRenderer.invoke('audio-engine:set-track-insert-compressor', track, insertId, threshold, ratio, attack, release),
+  setTrackInsertGate: (track: number, insertId: number, threshold: number, range: number, attack: number, release: number) =>
+    ipcRenderer.invoke('audio-engine:set-track-insert-gate', track, insertId, threshold, range, attack, release),
+  setTrackInsertReverb: (track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number) =>
+    ipcRenderer.invoke('audio-engine:set-track-insert-reverb', track, insertId, roomSize, damping, wet, width),
+  setTrackInsertDelay: (track: number, insertId: number, timeL: number, timeR: number, feedback: number, mix: number) =>
+    ipcRenderer.invoke('audio-engine:set-track-insert-delay', track, insertId, timeL, timeR, feedback, mix),
+  
   // Track source selection
   setTrackSourceInput: (track: number, leftChannel: number, rightChannel: number, deviceName?: string | null) => 
     ipcRenderer.invoke('audio-engine:set-track-source-input', track, leftChannel, rightChannel, deviceName),

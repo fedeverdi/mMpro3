@@ -123,8 +123,8 @@ const ALLPASS_TUNING_R4: usize = 225 + 23;
 
 const SCALE_WET: f32 = 3.0;
 const SCALE_DAMPING: f32 = 0.4;
-const SCALE_ROOM: f32 = 0.20;
-const OFFSET_ROOM: f32 = 0.4;
+const SCALE_ROOM: f32 = 0.28;
+const OFFSET_ROOM: f32 = 0.28;
 const COMB_OUTPUT_GAIN: f32 = 0.15;
 
 impl Reverb {
@@ -302,10 +302,10 @@ impl Reverb {
         let wet2 = self.wet * ((1.0 - self.width) * 0.5);
         let dry = 1.0 - self.wet;
         
-        let out_l = (out_l * wet1) + (out_r * wet2) + (left * dry);
-        let out_r = (out_r * wet1) + (out_l * wet2) + (right * dry);
+        let final_l = (out_l * wet1) + (out_r * wet2) + (left * dry);
+        let final_r = (out_r * wet1) + (out_l * wet2) + (right * dry);
         
-        (out_l, out_r)
+        (final_l, final_r)
     }
     
     fn clear(&mut self) {

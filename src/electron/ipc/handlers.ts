@@ -94,6 +94,39 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
     await sendCommandToEngine({ type: 'set_gate', track, enabled, threshold, range, attack, release })
   })
 
+  // Track Insert Effects Chain handlers
+  ipcMain.handle('audio-engine:add-track-insert', async (_, track: number, effectType: string, position?: number) => {
+    await sendCommandToEngine({ type: 'add_track_insert', track, effect_type: effectType, position })
+  })
+
+  ipcMain.handle('audio-engine:remove-track-insert', async (_, track: number, insertId: number) => {
+    await sendCommandToEngine({ type: 'remove_track_insert', track, insert_id: insertId })
+  })
+
+  ipcMain.handle('audio-engine:move-track-insert', async (_, track: number, insertId: number, newPosition: number) => {
+    await sendCommandToEngine({ type: 'move_track_insert', track, insert_id: insertId, new_position: newPosition })
+  })
+
+  ipcMain.handle('audio-engine:set-track-insert-enabled', async (_, track: number, insertId: number, enabled: boolean) => {
+    await sendCommandToEngine({ type: 'set_track_insert_enabled', track, insert_id: insertId, enabled })
+  })
+
+  ipcMain.handle('audio-engine:set-track-insert-compressor', async (_, track: number, insertId: number, threshold: number, ratio: number, attack: number, release: number) => {
+    await sendCommandToEngine({ type: 'set_track_insert_compressor', track, insert_id: insertId, threshold, ratio, attack, release })
+  })
+
+  ipcMain.handle('audio-engine:set-track-insert-gate', async (_, track: number, insertId: number, threshold: number, range: number, attack: number, release: number) => {
+    await sendCommandToEngine({ type: 'set_track_insert_gate', track, insert_id: insertId, threshold, range, attack, release })
+  })
+
+  ipcMain.handle('audio-engine:set-track-insert-reverb', async (_, track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number) => {
+    await sendCommandToEngine({ type: 'set_track_insert_reverb', track, insert_id: insertId, room_size: roomSize, damping, wet, width })
+  })
+
+  ipcMain.handle('audio-engine:set-track-insert-delay', async (_, track: number, insertId: number, timeL: number, timeR: number, feedback: number, mix: number) => {
+    await sendCommandToEngine({ type: 'set_track_insert_delay', track, insert_id: insertId, time_l: timeL, time_r: timeR, feedback, mix })
+  })
+
   ipcMain.handle('audio-engine:set-pan', async (_, track: number, pan: number) => {
     await sendCommandToEngine({ type: 'set_pan', track, pan })
   })

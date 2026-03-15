@@ -34,7 +34,7 @@ mod stereo_width;
 mod headroom;
 
 use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
-use routing::Router;
+use routing::{Router, InsertEffectData};
 use signal_gen::WaveformType;
 use ndi_stream::{NdiStream, NdiSource};
 use equalizer::FilterData;
@@ -447,6 +447,67 @@ enum Command {
     GetHeadroom,
     #[serde(rename = "reset_headroom")]
     ResetHeadroom,
+    
+    // Track Insert Effects Chain
+    #[serde(rename = "add_track_insert")]
+    AddTrackInsert {
+        track: usize,
+        effect_type: String, // "gate", "compressor", "reverb", "delay"
+        position: Option<usize>, // Where to insert (None = append to end)
+    },
+    #[serde(rename = "remove_track_insert")]
+    RemoveTrackInsert {
+        track: usize,
+        insert_id: usize,
+    },
+    #[serde(rename = "move_track_insert")]
+    MoveTrackInsert {
+        track: usize,
+        insert_id: usize,
+        new_position: usize,
+    },
+    #[serde(rename = "set_track_insert_enabled")]
+    SetTrackInsertEnabled {
+        track: usize,
+        insert_id: usize,
+        enabled: bool,
+    },
+    #[serde(rename = "set_track_insert_compressor")]
+    SetTrackInsertCompressor {
+        track: usize,
+        insert_id: usize,
+        threshold: f32,
+        ratio: f32,
+        attack: f32,
+        release: f32,
+    },
+    #[serde(rename = "set_track_insert_gate")]
+    SetTrackInsertGate {
+        track: usize,
+        insert_id: usize,
+        threshold: f32,
+        range: f32,
+        attack: f32,
+        release: f32,
+    },
+    #[serde(rename = "set_track_insert_reverb")]
+    SetTrackInsertReverb {
+        track: usize,
+        insert_id: usize,
+        room_size: f32,
+        damping: f32,
+        wet: f32,
+        width: f32,
+    },
+    #[serde(rename = "set_track_insert_delay")]
+    SetTrackInsertDelay {
+        track: usize,
+        insert_id: usize,
+        time_l: f32,
+        time_r: f32,
+        feedback: f32,
+        mix: f32,
+    },
 }
 
 /// Risposta inviata a Electron via stdout
@@ -671,6 +732,15 @@ struct TrackParameters {
     is_stereo: Option<bool>,
     // FFT data for parametric EQ visualization
     fft_data: Option<FFTDataSimple>,
+    // Insert effects chain
+    inserts: Option<Vec<InsertEffectInfo>>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct InsertEffectInfo {
+    id: usize,
+    effect_type: String, // "gate", "compressor", "reverb", "delay"
+    enabled: bool,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -1483,16 +1553,38 @@ impl AudioEngine {
                         
                         // Build meter structs directly (optimized - no legacy intermediate structs)
                         let track_meters: Vec<TrackMeters> = router.tracks.iter()
-                            .map(|t| TrackMeters {
+                            .map(|t| {
+                                // Find first compressor and gate in insert chain for visualization
+                                let (comp_input_db, comp_reduction_db) = t.inserts.iter()
+                                    .find_map(|slot| {
+                                        if let InsertEffectData::Compressor(comp) = &slot.effect {
+                                            Some((comp.input_level_db, comp.gain_reduction_db))
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .unwrap_or((-90.0, 0.0));
+                                
+                                let (gate_input_db, gate_attenuation_db) = t.inserts.iter()
+                                    .find_map(|slot| {
+                                        if let InsertEffectData::Gate(gate) = &slot.effect {
+                                            Some((gate.input_level_db, gate.attenuation_db))
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .unwrap_or((-90.0, 0.0));
+                                
+                                TrackMeters {
                                 track: t.id,
                                 level_l: t.level_l,
                                 level_r: t.level_r,
                                 waveform: t.get_waveform_buffer(128),
                                 phase_correlation: t.phase_correlation,
-                                compressor_input_db: t.compressor.input_level_db,
-                                compressor_reduction_db: t.compressor.gain_reduction_db,
-                                gate_input_db: t.gate.input_level_db,
-                                gate_attenuation_db: t.gate.attenuation_db,
+                                compressor_input_db: comp_input_db,
+                                compressor_reduction_db: comp_reduction_db,
+                                gate_input_db: gate_input_db,
+                                gate_attenuation_db: gate_attenuation_db,
                                 file_ended: t.file_player.as_ref().map_or(false, |p| p.file_ended),
                                 is_playing: t.file_player.as_ref().map_or(false, |p| p.playing),
                                 // Include essential parameters for remote sync
@@ -1508,6 +1600,7 @@ impl AudioEngine {
                                 playlist_id: t.playlist_id.clone(),
                                 playlist_name: t.playlist_name.clone(),
                                 playlist_current_index: t.playlist_current_index,
+                            }
                             })
                             .collect();
                         
@@ -2332,22 +2425,38 @@ impl AudioEngine {
     fn set_compressor(&self, track: usize, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.tracks.get_mut(track) {
-            t.compressor.set_enabled(enabled);
-            t.compressor.set_threshold(threshold);
-            t.compressor.set_ratio(ratio);
-            t.compressor.set_attack(attack);
-            t.compressor.set_release(release);
+            // Find first compressor in insert chain and modify it
+            // TODO: Add logic to create new compressor if none exists
+            for slot in &mut t.inserts {
+                if let InsertEffectData::Compressor(comp) = &mut slot.effect {
+                    slot.enabled = enabled;
+                    comp.set_enabled(enabled);
+                    comp.set_threshold(threshold);
+                    comp.set_ratio(ratio);
+                    comp.set_attack(attack);
+                    comp.set_release(release);
+                    break; // Modify only the first compressor found
+                }
+            }
         }
     }
 
     fn set_gate(&self, track: usize, enabled: bool, threshold: f32, range: f32, attack: f32, release: f32) {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.tracks.get_mut(track) {
-            t.gate.set_enabled(enabled);
-            t.gate.set_threshold(threshold);
-            t.gate.set_range(range);
-            t.gate.set_attack(attack);
-            t.gate.set_release(release);
+            // Find first gate in insert chain and modify it
+            // TODO: Add logic to create new gate if none exists
+            for slot in &mut t.inserts {
+                if let InsertEffectData::Gate(gate) = &mut slot.effect {
+                    slot.enabled = enabled;
+                    gate.set_enabled(enabled);
+                    gate.set_threshold(threshold);
+                    gate.set_range(range);
+                    gate.set_attack(attack);
+                    gate.set_release(release);
+                    break; // Modify only the first gate found
+                }
+            }
         }
     }
 
@@ -2898,6 +3007,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -2946,6 +3056,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3000,6 +3111,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3059,6 +3171,7 @@ impl AudioEngine {
                                 file_title: title.clone(),
                                 is_stereo,
                                 fft_data: None,
+                            inserts: None,
                             }]),
                             subgroups: None,
                             auxes: None,
@@ -3164,6 +3277,7 @@ impl AudioEngine {
                                 file_title,
                                 is_stereo,
                                 fft_data: None,
+                            inserts: None,
                             }]),
                             subgroups: None,
                             auxes: None,
@@ -3226,6 +3340,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3270,6 +3385,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3314,6 +3430,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3364,6 +3481,7 @@ impl AudioEngine {
                             file_title: None,
                             is_stereo: None,
                             fft_data: None,
+                            inserts: None,
                         });
                     }
                 }
@@ -3414,6 +3532,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3458,6 +3577,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3502,6 +3622,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3546,6 +3667,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3590,6 +3712,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3641,6 +3764,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3692,6 +3816,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3742,6 +3867,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3786,6 +3912,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3830,6 +3957,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3874,6 +4002,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -3918,6 +4047,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -4364,6 +4494,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -4430,6 +4561,7 @@ impl AudioEngine {
                         file_title: None,
                         is_stereo: None,
                         fft_data: None,
+                            inserts: None,
                     }]),
                     subgroups: None,
                     auxes: None,
@@ -4857,6 +4989,465 @@ impl AudioEngine {
                 Some(Response::Ok {
                     message: "Headroom measurements reset".to_string(),
                 })
+            },
+            
+            // Track Insert Effects Chain handlers
+            Command::AddTrackInsert { track, effect_type, position } => {
+                let mut router = self.router.lock().unwrap();
+                if let Some(t) = router.tracks.get_mut(track) {
+                    // Generate unique ID for this insert
+                    let insert_id = t.inserts.iter().map(|s| s.id).max().unwrap_or(0) + 1;
+                    
+                    // Create insert based on effect type
+                    use routing::InsertSlot;
+                    let sample_rate = 48000.0; // TODO: Get from actual sample rate
+                    let new_insert = match effect_type.as_str() {
+                        "gate" => InsertSlot::new_gate(insert_id, sample_rate),
+                        "compressor" => InsertSlot::new_compressor(insert_id, sample_rate),
+                        "reverb" => InsertSlot::new_reverb(insert_id, sample_rate),
+                        "delay" => InsertSlot::new_delay(insert_id, sample_rate),
+                        _ => {
+                            drop(router);
+                            return Some(Response::Error {
+                                message: format!("Unknown effect type: {}", effect_type),
+                            });
+                        }
+                    };
+                    
+                    // Insert at position or append
+                    if let Some(pos) = position {
+                        if pos <= t.inserts.len() {
+                            t.inserts.insert(pos, new_insert);
+                        } else {
+                            t.inserts.push(new_insert);
+                        }
+                    } else {
+                        t.inserts.push(new_insert);
+                    }
+                    
+                    // Build insert list for response
+                    let inserts: Vec<InsertEffectInfo> = t.inserts.iter().map(|slot| {
+                        InsertEffectInfo {
+                            id: slot.id,
+                            effect_type: slot.effect_type.clone(),
+                            enabled: slot.enabled,
+                        }
+                    }).collect();
+                    
+                    drop(router);
+                    
+                    Some(Response::ParametersChanged {
+                        tracks: Some(vec![TrackParameters {
+                            track,
+                            gain: None,
+                            volume: None,
+                            mute: None,
+                            solo: None,
+                            pan: None,
+                            route_to_master: None,
+                            route_to_subgroups: None,
+                            pad_enabled: None,
+                            hpf_enabled: None,
+                            phase_inverted: None,
+                            compressor_enabled: None,
+                            compressor_threshold_db: None,
+                            compressor_ratio: None,
+                            compressor_attack_ms: None,
+                            compressor_release_ms: None,
+                            gate_enabled: None,
+                            gate_threshold_db: None,
+                            gate_range_db: None,
+                            gate_attack_ms: None,
+                            gate_release_ms: None,
+                            eq_enabled: None,
+                            eq_low: None,
+                            eq_low_mid: None,
+                            eq_high_mid: None,
+                            eq_high: None,
+                            parametric_eq_enabled: None,
+                            eq_filters: None,
+                            aux_sends: None,
+                            file_name: None,
+                            file_artist: None,
+                            file_title: None,
+                            is_stereo: None,
+                            fft_data: None,
+                            inserts: Some(inserts),
+                        }]),
+                        subgroups: None,
+                        auxes: None,
+                        master: None,
+                    })
+                } else {
+                    Some(Response::Error {
+                        message: format!("Track {} not found", track),
+                    })
+                }
+            },
+            
+            Command::RemoveTrackInsert { track, insert_id } => {
+                let mut router = self.router.lock().unwrap();
+                if let Some(t) = router.tracks.get_mut(track) {
+                    // Find and remove insert by ID
+                    if let Some(pos) = t.inserts.iter().position(|slot| slot.id == insert_id) {
+                        t.inserts.remove(pos);
+                        
+                        // Build insert list for response
+                        let inserts: Vec<InsertEffectInfo> = t.inserts.iter().map(|slot| {
+                            InsertEffectInfo {
+                                id: slot.id,
+                                effect_type: slot.effect_type.clone(),
+                                enabled: slot.enabled,
+                            }
+                        }).collect();
+                        
+                        drop(router);
+                        
+                        Some(Response::ParametersChanged {
+                            tracks: Some(vec![TrackParameters {
+                                track,
+                                gain: None,
+                                volume: None,
+                                mute: None,
+                                solo: None,
+                                pan: None,
+                                route_to_master: None,
+                                route_to_subgroups: None,
+                                pad_enabled: None,
+                                hpf_enabled: None,
+                                phase_inverted: None,
+                                compressor_enabled: None,
+                                compressor_threshold_db: None,
+                                compressor_ratio: None,
+                                compressor_attack_ms: None,
+                                compressor_release_ms: None,
+                                gate_enabled: None,
+                                gate_threshold_db: None,
+                                gate_range_db: None,
+                                gate_attack_ms: None,
+                                gate_release_ms: None,
+                                eq_enabled: None,
+                                eq_low: None,
+                                eq_low_mid: None,
+                                eq_high_mid: None,
+                                eq_high: None,
+                                parametric_eq_enabled: None,
+                                eq_filters: None,
+                                aux_sends: None,
+                                file_name: None,
+                                file_artist: None,
+                                file_title: None,
+                                is_stereo: None,
+                                fft_data: None,
+                                inserts: Some(inserts),
+                            }]),
+                            subgroups: None,
+                            auxes: None,
+                            master: None,
+                        })
+                    } else {
+                        drop(router);
+                        Some(Response::Error {
+                            message: format!("Insert {} not found on track {}", insert_id, track),
+                        })
+                    }
+                } else {
+                    Some(Response::Error {
+                        message: format!("Track {} not found", track),
+                    })
+                }
+            },
+            
+            Command::MoveTrackInsert { track, insert_id, new_position } => {
+                let mut router = self.router.lock().unwrap();
+                if let Some(t) = router.tracks.get_mut(track) {
+                    // Find insert by ID
+                    if let Some(old_pos) = t.inserts.iter().position(|slot| slot.id == insert_id) {
+                        if new_position < t.inserts.len() {
+                            let insert = t.inserts.remove(old_pos);
+                            t.inserts.insert(new_position, insert);
+                            
+                            // Build insert list for response
+                            let inserts: Vec<InsertEffectInfo> = t.inserts.iter().map(|slot| {
+                                InsertEffectInfo {
+                                    id: slot.id,
+                                    effect_type: slot.effect_type.clone(),
+                                    enabled: slot.enabled,
+                                }
+                            }).collect();
+                            
+                            drop(router);
+                            
+                            Some(Response::ParametersChanged {
+                                tracks: Some(vec![TrackParameters {
+                                    track,
+                                    gain: None,
+                                    volume: None,
+                                    mute: None,
+                                    solo: None,
+                                    pan: None,
+                                    route_to_master: None,
+                                    route_to_subgroups: None,
+                                    pad_enabled: None,
+                                    hpf_enabled: None,
+                                    phase_inverted: None,
+                                    compressor_enabled: None,
+                                    compressor_threshold_db: None,
+                                    compressor_ratio: None,
+                                    compressor_attack_ms: None,
+                                    compressor_release_ms: None,
+                                    gate_enabled: None,
+                                    gate_threshold_db: None,
+                                    gate_range_db: None,
+                                    gate_attack_ms: None,
+                                    gate_release_ms: None,
+                                    eq_enabled: None,
+                                    eq_low: None,
+                                    eq_low_mid: None,
+                                    eq_high_mid: None,
+                                    eq_high: None,
+                                    parametric_eq_enabled: None,
+                                    eq_filters: None,
+                                    aux_sends: None,
+                                    file_name: None,
+                                    file_artist: None,
+                                    file_title: None,
+                                    is_stereo: None,
+                                    fft_data: None,
+                                    inserts: Some(inserts),
+                                }]),
+                                subgroups: None,
+                                auxes: None,
+                                master: None,
+                            })
+                        } else {
+                            drop(router);
+                            Some(Response::Error {
+                                message: format!("Invalid position: {}", new_position),
+                            })
+                        }
+                    } else {
+                        drop(router);
+                        Some(Response::Error {
+                            message: format!("Insert {} not found on track {}", insert_id, track),
+                        })
+                    }
+                } else {
+                    Some(Response::Error {
+                        message: format!("Track {} not found", track),
+                    })
+                }
+            },
+            
+            Command::SetTrackInsertEnabled { track, insert_id, enabled } => {
+                let mut router = self.router.lock().unwrap();
+                if let Some(t) = router.tracks.get_mut(track) {
+                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
+                        slot.enabled = enabled;
+                        
+                        // Also set the enabled state inside the effect itself
+                        match &mut slot.effect {
+                            InsertEffectData::Gate(gate) => gate.set_enabled(enabled),
+                            InsertEffectData::Compressor(comp) => comp.set_enabled(enabled),
+                            InsertEffectData::Reverb(rev) => rev.set_enabled(enabled),
+                            InsertEffectData::Delay(delay) => delay.set_enabled(enabled),
+                        }
+                        
+                        let inserts: Vec<InsertEffectInfo> = t.inserts.iter().map(|slot| {
+                            InsertEffectInfo {
+                                id: slot.id,
+                                effect_type: slot.effect_type.clone(),
+                                enabled: slot.enabled,
+                            }
+                        }).collect();
+                        
+                        drop(router);
+                        
+                        Some(Response::ParametersChanged {
+                            tracks: Some(vec![TrackParameters {
+                                track,
+                                gain: None,
+                                volume: None,
+                                mute: None,
+                                solo: None,
+                                pan: None,
+                                route_to_master: None,
+                                route_to_subgroups: None,
+                                pad_enabled: None,
+                                hpf_enabled: None,
+                                phase_inverted: None,
+                                compressor_enabled: None,
+                                compressor_threshold_db: None,
+                                compressor_ratio: None,
+                                compressor_attack_ms: None,
+                                compressor_release_ms: None,
+                                gate_enabled: None,
+                                gate_threshold_db: None,
+                                gate_range_db: None,
+                                gate_attack_ms: None,
+                                gate_release_ms: None,
+                                eq_enabled: None,
+                                eq_low: None,
+                                eq_low_mid: None,
+                                eq_high_mid: None,
+                                eq_high: None,
+                                parametric_eq_enabled: None,
+                                eq_filters: None,
+                                aux_sends: None,
+                                file_name: None,
+                                file_artist: None,
+                                file_title: None,
+                                is_stereo: None,
+                                fft_data: None,
+                                inserts: Some(inserts),
+                            }]),
+                            subgroups: None,
+                            auxes: None,
+                            master: None,
+                        })
+                    } else {
+                        drop(router);
+                        Some(Response::Error {
+                            message: format!("Insert {} not found on track {}", insert_id, track),
+                        })
+                    }
+                } else {
+                    Some(Response::Error {
+                        message: format!("Track {} not found", track),
+                    })
+                }
+            },
+            
+            Command::SetTrackInsertCompressor { track, insert_id, threshold, ratio, attack, release } => {
+                let mut router = self.router.lock().unwrap();
+                if let Some(t) = router.tracks.get_mut(track) {
+                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
+                        if let InsertEffectData::Compressor(comp) = &mut slot.effect {
+                            comp.set_threshold(threshold);
+                            comp.set_ratio(ratio);
+                            comp.set_attack(attack);
+                            comp.set_release(release);
+                            
+                            drop(router);
+                            Some(Response::Ok {
+                                message: format!("Compressor {} updated on track {}", insert_id, track),
+                            })
+                        } else {
+                            drop(router);
+                            Some(Response::Error {
+                                message: format!("Insert {} is not a compressor", insert_id),
+                            })
+                        }
+                    } else {
+                        drop(router);
+                        Some(Response::Error {
+                            message: format!("Insert {} not found on track {}", insert_id, track),
+                        })
+                    }
+                } else {
+                    Some(Response::Error {
+                        message: format!("Track {} not found", track),
+                    })
+                }
+            },
+            
+            Command::SetTrackInsertGate { track, insert_id, threshold, range, attack, release } => {
+                let mut router = self.router.lock().unwrap();
+                if let Some(t) = router.tracks.get_mut(track) {
+                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
+                        if let InsertEffectData::Gate(gate) = &mut slot.effect {
+                            gate.set_threshold(threshold);
+                            gate.set_range(range);
+                            gate.set_attack(attack);
+                            gate.set_release(release);
+                            
+                            drop(router);
+                            Some(Response::Ok {
+                                message: format!("Gate {} updated on track {}", insert_id, track),
+                            })
+                        } else {
+                            drop(router);
+                            Some(Response::Error {
+                                message: format!("Insert {} is not a gate", insert_id),
+                            })
+                        }
+                    } else {
+                        drop(router);
+                        Some(Response::Error {
+                            message: format!("Insert {} not found on track {}", insert_id, track),
+                        })
+                    }
+                } else {
+                    Some(Response::Error {
+                        message: format!("Track {} not found", track),
+                    })
+                }
+            },
+            
+            Command::SetTrackInsertReverb { track, insert_id, room_size, damping, wet, width } => {
+                let mut router = self.router.lock().unwrap();
+                if let Some(t) = router.tracks.get_mut(track) {
+                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
+                        if let InsertEffectData::Reverb(rev) = &mut slot.effect {
+                            rev.set_room_size(room_size);
+                            rev.set_damping(damping);
+                            rev.set_wet(wet);
+                            rev.set_width(width);
+                            
+                            drop(router);
+                            Some(Response::Ok {
+                                message: format!("Reverb {} updated on track {}", insert_id, track),
+                            })
+                        } else {
+                            drop(router);
+                            Some(Response::Error {
+                                message: format!("Insert {} is not a reverb", insert_id),
+                            })
+                        }
+                    } else {
+                        drop(router);
+                        Some(Response::Error {
+                            message: format!("Insert {} not found on track {}", insert_id, track),
+                        })
+                    }
+                } else {
+                    Some(Response::Error {
+                        message: format!("Track {} not found", track),
+                    })
+                }
+            },
+            
+            Command::SetTrackInsertDelay { track, insert_id, time_l, time_r, feedback, mix } => {
+                let mut router = self.router.lock().unwrap();
+                if let Some(t) = router.tracks.get_mut(track) {
+                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
+                        if let InsertEffectData::Delay(delay) = &mut slot.effect {
+                            delay.set_delay_time_left(time_l);
+                            delay.set_delay_time_right(time_r);
+                            delay.set_feedback(feedback);
+                            delay.set_mix(mix);
+                            
+                            drop(router);
+                            Some(Response::Ok {
+                                message: format!("Delay {} updated on track {}", insert_id, track),
+                            })
+                        } else {
+                            drop(router);
+                            Some(Response::Error {
+                                message: format!("Insert {} is not a delay", insert_id),
+                            })
+                        }
+                    } else {
+                        drop(router);
+                        Some(Response::Error {
+                            message: format!("Insert {} not found on track {}", insert_id, track),
+                        })
+                    }
+                } else {
+                    Some(Response::Error {
+                        message: format!("Track {} not found", track),
+                    })
+                }
             },
         }
     }

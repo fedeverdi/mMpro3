@@ -36,6 +36,17 @@ interface AudioEngine {
   clearParametricEQ: (track: number) => Promise<void>
   setCompressor: (track: number, enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => Promise<void>
   setGate: (track: number, enabled: boolean, threshold: number, range: number, attack: number, release: number) => Promise<void>
+  
+  // Track Insert Effects Chain
+  addTrackInsert: (track: number, effectType: string, position?: number) => Promise<void>
+  removeTrackInsert: (track: number, insertId: number) => Promise<void>
+  moveTrackInsert: (track: number, insertId: number, newPosition: number) => Promise<void>
+  setTrackInsertEnabled: (track: number, insertId: number, enabled: boolean) => Promise<void>
+  setTrackInsertCompressor: (track: number, insertId: number, threshold: number, ratio: number, attack: number, release: number) => Promise<void>
+  setTrackInsertGate: (track: number, insertId: number, threshold: number, range: number, attack: number, release: number) => Promise<void>
+  setTrackInsertReverb: (track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number) => Promise<void>
+  setTrackInsertDelay: (track: number, insertId: number, timeL: number, timeR: number, feedback: number, mix: number) => Promise<void>
+  
   listDevices: () => Promise<RustAudioDevice[]>
   listAudioInputs: () => Promise<RustAudioDevice[]>
   onResponse: (callback: (response: any) => void) => void

@@ -52,6 +52,78 @@ impl Default for AuxSend {
     }
 }
 
+/// Insert effect slot with unique ID for frontend tracking
+pub struct InsertSlot {
+    pub id: usize,              // Unique slot ID (for frontend reference)
+    pub effect_type: String,    // "gate", "compressor", "reverb", "delay"
+    pub enabled: bool,
+    pub effect: InsertEffectData,
+}
+
+/// Insert effect data (the actual processor)
+pub enum InsertEffectData {
+    Gate(NoiseGate),
+    Compressor(Compressor),
+    Reverb(Reverb),
+    Delay(Delay),
+}
+
+impl InsertSlot {
+    /// Create new gate insert
+    pub fn new_gate(id: usize, sample_rate: f32) -> Self {
+        Self {
+            id,
+            effect_type: "gate".to_string(),
+            enabled: false,
+            effect: InsertEffectData::Gate(NoiseGate::new(sample_rate)),
+        }
+    }
+    
+    /// Create new compressor insert
+    pub fn new_compressor(id: usize, sample_rate: f32) -> Self {
+        Self {
+            id,
+            effect_type: "compressor".to_string(),
+            enabled: false,
+            effect: InsertEffectData::Compressor(Compressor::new(sample_rate)),
+        }
+    }
+    
+    /// Create new reverb insert
+    pub fn new_reverb(id: usize, sample_rate: f32) -> Self {
+        Self {
+            id,
+            effect_type: "reverb".to_string(),
+            enabled: false,
+            effect: InsertEffectData::Reverb(Reverb::new(sample_rate)),
+        }
+    }
+    
+    /// Create new delay insert
+    pub fn new_delay(id: usize, sample_rate: f32) -> Self {
+        Self {
+            id,
+            effect_type: "delay".to_string(),
+            enabled: false,
+            effect: InsertEffectData::Delay(Delay::new(sample_rate)),
+        }
+    }
+    
+    /// Process audio through this insert effect
+    pub fn process(&mut self, left: f32, right: f32) -> (f32, f32) {
+        if !self.enabled {
+            return (left, right);
+        }
+        
+        match &mut self.effect {
+            InsertEffectData::Gate(gate) => gate.process(left, right),
+            InsertEffectData::Compressor(comp) => comp.process(left, right),
+            InsertEffectData::Reverb(rev) => rev.process(left, right),
+            InsertEffectData::Delay(delay) => delay.process(left, right),
+        }
+    }
+}
+
 pub struct FFTAnalyzer {
     buffer_left: Vec<f32>,
     buffer_right: Vec<f32>,
@@ -201,11 +273,9 @@ pub struct Track {
     pub playlist_name: Option<String>,
     pub playlist_current_index: Option<usize>,
     
-    // Compressor (before EQ)
-    pub compressor: Compressor,
-    
-    // Noise Gate (after gain)
-    pub gate: NoiseGate,
+    // Insert effects chain (processed in series after HPF, before EQ)
+    // Can contain multiple instances of same effect type in any order
+    pub inserts: Vec<InsertSlot>,
     
     // Equalizer (4-band fixed)
     pub equalizer: Equalizer,
@@ -260,8 +330,7 @@ impl Track {
             playlist_id: None,
             playlist_name: None,
             playlist_current_index: None,
-            compressor: Compressor::new(48000.0),
-            gate: NoiseGate::new(48000.0),
+            inserts: Vec::new(), // Empty insert effects chain by default
             equalizer: Equalizer::new(48000.0),
             parametric_eq: ParametricEqualizer::new(48000.0),
             hpf_filter: EQBand::new(FilterType::HighPass, 80.0, 48000.0),
@@ -348,17 +417,33 @@ impl Track {
 
     /// Update sample rate for all components
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
-        // Update sample rate for all processors
-        self.compressor.set_sample_rate(sample_rate);
-        self.gate.set_sample_rate(sample_rate);
+        // Update sample rate for insert effects chain
+        for slot in &mut self.inserts {
+            match &mut slot.effect {
+                InsertEffectData::Gate(gate) => {
+                    gate.set_sample_rate(sample_rate);
+                    gate.reset();
+                }
+                InsertEffectData::Compressor(comp) => {
+                    comp.set_sample_rate(sample_rate);
+                    comp.reset();
+                }
+                InsertEffectData::Reverb(rev) => {
+                    rev.set_sample_rate(sample_rate);
+                }
+                InsertEffectData::Delay(delay) => {
+                    delay.set_sample_rate(sample_rate);
+                }
+            }
+        }
+        
+        // Update sample rate for EQ
         self.equalizer.set_sample_rate(sample_rate);
         self.parametric_eq.set_sample_rate(sample_rate);
         self.hpf_filter.set_sample_rate(sample_rate);
         
         // CRITICAL: Reset all effect buffers to clear old audio at previous sample rate
         // This prevents pitch/speed artifacts when switching devices
-        self.compressor.reset();
-        self.gate.reset();
         self.equalizer.reset();
         self.parametric_eq.reset();
         self.hpf_filter.reset();
@@ -446,21 +531,25 @@ impl Track {
             (left, right)
         };
 
-        // ===== INSERT/DYNAMICS SECTION =====
-        // 4. GATE: Noise gate (eliminates unwanted noise)
-        let (left, right) = self.gate.process(left, right);
+        // ===== INSERT EFFECTS CHAIN =====
+        // 4. Process all insert effects in series (order matters!)
+        // Each slot can contain any effect type (gate, comp, reverb, delay)
+        // Can have multiple instances of same type (e.g., 2 compressors)
+        let (mut left, mut right) = (left, right);
+        for slot in &mut self.inserts {
+            let processed = slot.process(left, right);
+            left = processed.0;
+            right = processed.1;
+        }
 
-        // 5. COMPRESSOR: Dynamic range control
-        let (left, right) = self.compressor.process(left, right);
-
-        // 6. EQ: Tone shaping (4-band shelving/bell)
+        // 5. EQ: Tone shaping (4-band shelving/bell)
         let (left, right) = self.equalizer.process(left, right);
         
-        // 7. PARAMETRIC EQ: Surgical frequency control
+        // 6. PARAMETRIC EQ: Surgical frequency control
         let (left, right) = self.parametric_eq.process(left, right);
 
         // ===== OUTPUT STAGE (Channel Section) =====
-        // 8. PAN: Stereo positioning
+        // 7. PAN: Stereo positioning
         let (mut left, mut right) = if self.pan < 0.0 {
             // Pan left: reduce right channel
             (left, right * (1.0 + self.pan))
@@ -481,7 +570,7 @@ impl Track {
             self.fft_analyzer.push_samples(pre_fader_l, pre_fader_r);
         }
 
-        // 9. FADER: Final level control
+        // 8. FADER: Final level control
         left *= self.volume;
         right *= self.volume;
 

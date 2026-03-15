@@ -262,7 +262,8 @@ const applyPendingParameterUpdates = () => {
       playlistId: undefined,
       playlistName: undefined,
       playlistCurrentIndex: undefined,
-      auxSends: []
+      auxSends: [],
+      inserts: []
     }
     
     // Update only provided fields
@@ -312,6 +313,11 @@ const applyPendingParameterUpdates = () => {
     
     // Aux sends
     if (trackParams.aux_sends !== undefined && trackParams.aux_sends !== null) newParams.auxSends = trackParams.aux_sends
+    
+    // Insert effects
+    if (trackParams.inserts !== undefined && trackParams.inserts !== null) {
+      newParams.inserts = trackParams.inserts
+    }
     
     // EQ filters
     if (trackParams.eq_filters !== undefined) {
@@ -1146,6 +1152,75 @@ export const useAudioEngine = () => {
     window.audioEngine.setGate(track, enabled, threshold, range, attack, release)
   }
 
+  // Track Insert Effects Chain methods
+  const addTrackInsert = (track: number, effectType: string, position?: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.addTrackInsert(track, effectType, position)
+  }
+
+  const removeTrackInsert = (track: number, insertId: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.removeTrackInsert(track, insertId)
+  }
+
+  const moveTrackInsert = (track: number, insertId: number, newPosition: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.moveTrackInsert(track, insertId, newPosition)
+  }
+
+  const setTrackInsertEnabled = (track: number, insertId: number, enabled: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setTrackInsertEnabled(track, insertId, enabled)
+  }
+
+  const setTrackInsertCompressor = (
+    track: number,
+    insertId: number,
+    threshold: number,
+    ratio: number,
+    attack: number,
+    release: number
+  ) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setTrackInsertCompressor(track, insertId, threshold, ratio, attack, release)
+  }
+
+  const setTrackInsertGate = (
+    track: number,
+    insertId: number,
+    threshold: number,
+    range: number,
+    attack: number,
+    release: number
+  ) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setTrackInsertGate(track, insertId, threshold, range, attack, release)
+  }
+
+  const setTrackInsertReverb = (
+    track: number,
+    insertId: number,
+    roomSize: number,
+    damping: number,
+    wet: number,
+    width: number
+  ) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setTrackInsertReverb(track, insertId, roomSize, damping, wet, width)
+  }
+
+  const setTrackInsertDelay = (
+    track: number,
+    insertId: number,
+    timeL: number,
+    timeR: number,
+    feedback: number,
+    mix: number
+  ) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setTrackInsertDelay(track, insertId, timeL, timeR, feedback, mix)
+  }
+
   const setTrackSourceInput = (
     track: number,
     leftChannel: number,
@@ -1574,6 +1649,14 @@ export const useAudioEngine = () => {
     clearParametricEQ,
     setTrackCompressor,
     setTrackGate,
+    addTrackInsert,
+    removeTrackInsert,
+    moveTrackInsert,
+    setTrackInsertEnabled,
+    setTrackInsertCompressor,
+    setTrackInsertGate,
+    setTrackInsertReverb,
+    setTrackInsertDelay,
     setTrackSourceInput,
     setTrackSourceSignal,
     setSignalFrequency,
