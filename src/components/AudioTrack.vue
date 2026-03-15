@@ -69,6 +69,7 @@
         :track-level-l="trackLevelL"
         :track-level-r="trackLevelR"
         :phase-correlation="trackPhaseCorrelation"
+        :compressor-input-db="compressorInputDb"
         @add="handleAddInsert"
         @remove="handleRemoveInsert"
         @move="handleMoveInsert"

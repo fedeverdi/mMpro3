@@ -76,6 +76,7 @@ const props = defineProps<{
   trackLevelL: number
   trackLevelR: number
   phaseCorrelation: number
+  compressorInputDb: number
 }>()
 
 const emit = defineEmits<{
@@ -143,9 +144,8 @@ function startMonitoring() {
       return
     }
 
-    // Use meter values from props
-    const avgLevel = (props.trackLevelL + props.trackLevelR) / 2
-    currentInputLevel.value = Math.max(-60, Math.min(0, avgLevel))
+    // Use pre-compressor input level from props
+    currentInputLevel.value = Math.max(-60, Math.min(0, props.compressorInputDb))
 
     // Calculate gain reduction
     const inputDb = currentInputLevel.value
@@ -308,7 +308,7 @@ function drawCompressionCurve() {
   ctx.fillStyle = '#ef4444'
   ctx.font = 'bold 11px sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText(`Threshold: ${thresholdValue}dB`, dbToX(thresholdValue), padding - 10)
+  ctx.fillText(`Threshold: ${thresholdValue.toFixed(1)}dB`, dbToX(thresholdValue), padding - 10)
 
   // Ratio label
   ctx.fillStyle = '#f97316'

@@ -83,6 +83,7 @@
                 :track-level-l="trackLevelL"
                 :track-level-r="trackLevelR"
                 :phase-correlation="phaseCorrelation"
+                :compressor-input-db="compressorInputDb"
                 @toggle="toggleEffect(element.id)"
                 @remove="removeEffect(element.id)"
               />
@@ -117,6 +118,7 @@ const props = defineProps<{
   trackLevelL: number
   trackLevelR: number
   phaseCorrelation: number
+  compressorInputDb: number
 }>()
 
 const emit = defineEmits<{
