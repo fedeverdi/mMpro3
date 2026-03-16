@@ -92,8 +92,9 @@ const handleUpdateAux = async (index: number, updatedAux: any) => {
     const damping = reverbParams?.damping ?? 0.5
     const wet = reverbParams?.wet ?? 1.0
     const width = reverbParams?.width ?? 1.0
+    const preDelay = reverbParams?.preDelay ?? 0.0
 
-    await audioEngine.setAuxBusReverb(auxId, enabled, roomSize, damping, wet, width)
+    await audioEngine.setAuxBusReverb(auxId, enabled, roomSize, damping, wet, width, preDelay)
   }
 
   // Update reverb parameters (if only params changed, not enabled state)
@@ -106,7 +107,8 @@ const handleUpdateAux = async (index: number, updatedAux: any) => {
       reverbParams.roomSize,
       reverbParams.damping,
       reverbParams.wet,
-      reverbParams.width
+      reverbParams.width,
+      reverbParams.preDelay ?? 0.0
     )
   }
 

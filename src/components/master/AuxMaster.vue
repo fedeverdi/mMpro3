@@ -140,42 +140,52 @@
             <div v-if="selectedReverbAux !== null"
                 class="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]"
                 @mousedown.self="selectedReverbAux = null">
-                <div class="bg-gray-900 rounded-lg border-2 border-green-600 p-6 max-w-md w-full mx-4" @click.stop>
+                <div class="bg-gray-900 rounded-lg border-2 border-cyan-600 p-6 max-w-lg w-full mx-4" @click.stop>
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-bold text-green-300">
+                        <h3 class="text-lg font-bold text-cyan-300">
                             {{ auxBuses[selectedReverbAux]?.name }} - Reverb
                         </h3>
                         <button @click="selectedReverbAux = null"
                             class="text-gray-400 hover:text-white text-2xl">&times;</button>
                     </div>
-                    <div class="flex flex-wrap gap-4 justify-center">
-                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.roomSize || 0.5"
+                    
+                    <!-- PCM70-style label -->
+                    <div class="text-xs text-cyan-400 mb-3 font-mono">LEXICON PCM70 • DIGITAL REVERBERATOR</div>
+                    
+                    <div class="flex flex-wrap gap-3 justify-center">
+                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.roomSize ?? 0.5"
                             @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'roomSize', val)"
                             @dragStart="isDraggingReverbParams[selectedReverbAux!] = true"
                             @dragEnd="isDraggingReverbParams[selectedReverbAux!] = false"
-                            :min="0" :max="1" :step="0.01" label="Room Size" unit="" color="#10b981" />
-                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.damping || 0.5"
+                            :min="0" :max="1" :step="0.005" label="Size" unit="" color="#06b6d4" />
+                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.preDelay ?? 0.0"
+                            @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'preDelay', val)"
+                            @dragStart="isDraggingReverbParams[selectedReverbAux!] = true"
+                            @dragEnd="isDraggingReverbParams[selectedReverbAux!] = false"
+                            :min="0" :max="0.5" :step="0.002" label="Pre-Dly" unit="ms" color="#0ea5e9" />
+                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.damping ?? 0.5"
                             @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'damping', val)"
                             @dragStart="isDraggingReverbParams[selectedReverbAux!] = true"
                             @dragEnd="isDraggingReverbParams[selectedReverbAux!] = false"
-                            :min="0" :max="1" :step="0.01" label="Damping" unit="" color="#f59e0b" />
+                            :min="0" :max="1" :step="0.005" label="Damping" unit="" color="#14b8a6" />
                         <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.wet ?? 1.0"
                             @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'wet', val)"
                             @dragStart="isDraggingReverbParams[selectedReverbAux!] = true"
                             @dragEnd="isDraggingReverbParams[selectedReverbAux!] = false"
-                            :min="0"
-                            :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
-                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.width || 1.0"
+                            :min="0.7"
+                            :max="1" :step="0.005" label="Mix" unit="%" color="#10b981" />
+                        <Knob :modelValue="auxBuses[selectedReverbAux]?.reverbParams?.width ?? 1.0"
                             @update:modelValue="(val) => updateAuxReverbParam(selectedReverbAux!, 'width', val)"
                             @dragStart="isDraggingReverbParams[selectedReverbAux!] = true"
                             @dragEnd="isDraggingReverbParams[selectedReverbAux!] = false"
-                            :min="0" :max="1" :step="0.01" label="Width" unit="" color="#8b5cf6" />
+                            :min="0" :max="1" :step="0.005" label="Width" unit="" color="#8b5cf6" />
                     </div>
-                    <div class="mt-4 text-xs text-gray-400 text-center">
-                        <p><strong>Room Size:</strong> Reverb length (0 = small, 1 = large)</p>
-                        <p><strong>Damping:</strong> High frequency absorption</p>
-                        <p><strong>Wet:</strong> Effect amount (100% for aux send)</p>
-                        <p><strong>Width:</strong> Stereo spread of reverb</p>
+                    <div class="mt-4 text-xs text-gray-400 text-center bg-gray-800/50 rounded p-2">
+                        <p><strong class="text-cyan-400">SIZE:</strong> Reverb decay time (0.1-10 sec)</p>
+                        <p><strong class="text-cyan-400">PRE-DLY:</strong> Initial delay (0-500 ms)</p>
+                        <p><strong class="text-cyan-400">DAMPING:</strong> High frequency absorption</p>
+                        <p><strong class="text-cyan-400">MIX:</strong> Internal wet/dry • Use send level for dry/wet</p>
+                        <p><strong class="text-cyan-400">WIDTH:</strong> Stereo imaging</p>
                     </div>
                 </div>
             </div>
@@ -260,7 +270,7 @@ interface AuxBus {
     // FX Chain
     reverbNode?: any
     reverbEnabled?: boolean
-    reverbParams?: { roomSize: number, damping: number, wet: number, width: number }
+    reverbParams?: { roomSize: number, damping: number, wet: number, width: number, preDelay: number }
     delayNode?: any
     delayEnabled?: boolean
     delayParams?: { delayTime: number, feedback: number, wet: number }
@@ -512,37 +522,36 @@ function showDelayModal(index: number) {
 }
 
 // Update single reverb parameter
-function updateAuxReverbParam(index: number, param: 'roomSize' | 'damping' | 'wet' | 'width', value: number) {
+function updateAuxReverbParam(index: number, param: 'roomSize' | 'damping' | 'wet' | 'width' | 'preDelay', value: number) {
     if (!auxBuses.value || !auxBuses.value[index]) return
     const aux = auxBuses.value[index]
     
     // Extract aux ID from string (e.g., "aux-0" -> 0)
     const auxId = parseInt(aux.id.replace('aux-', ''))
 
-    // Update local params object (trigger reactivity by creating new object)
-    const currentParams = aux.reverbParams || { roomSize: 0.5, damping: 0.5, wet: 1.0, width: 1.0 }
-    auxBuses.value[index] = {
-        ...aux,
-        reverbParams: {
-            ...currentParams,
-            [param]: value
-        }
+    // Initialize reverbParams if it doesn't exist
+    if (!aux.reverbParams) {
+        aux.reverbParams = { roomSize: 0.5, damping: 0.5, wet: 1.0, width: 1.0, preDelay: 0.0 }
     }
+    
+    // Update the specific parameter directly (no object recreation)
+    aux.reverbParams[param] = value
 
     // Send all parameters to Rust backend
     if (audioEngine && audioEngine.state.value.isRunning && aux.reverbEnabled) {
         audioEngine.setAuxBusReverb(
             auxId, 
             true, 
-            auxBuses.value[index].reverbParams!.roomSize, 
-            auxBuses.value[index].reverbParams!.damping, 
-            auxBuses.value[index].reverbParams!.wet, 
-            auxBuses.value[index].reverbParams!.width
+            aux.reverbParams.roomSize, 
+            aux.reverbParams.damping, 
+            aux.reverbParams.wet, 
+            aux.reverbParams.width,
+            aux.reverbParams.preDelay
         )
     }
     
     // Emit for parent/detached window sync
-    emit('update-aux', index, auxBuses.value[index])
+    emit('update-aux', index, aux)
 }
 
 // Update single delay parameter

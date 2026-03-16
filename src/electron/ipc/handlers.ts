@@ -119,8 +119,8 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
     await sendCommandToEngine({ type: 'set_track_insert_gate', track, insert_id: insertId, threshold, range, attack, release })
   })
 
-  ipcMain.handle('audio-engine:set-track-insert-reverb', async (_, track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number) => {
-    await sendCommandToEngine({ type: 'set_track_insert_reverb', track, insert_id: insertId, room_size: roomSize, damping, wet, width })
+  ipcMain.handle('audio-engine:set-track-insert-reverb', async (_, track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number, preDelay: number) => {
+    await sendCommandToEngine({ type: 'set_track_insert_reverb', track, insert_id: insertId, room_size: roomSize, damping, wet, width, pre_delay: preDelay })
   })
 
   ipcMain.handle('audio-engine:set-track-insert-delay', async (_, track: number, insertId: number, timeL: number, timeR: number, feedback: number, mix: number) => {
@@ -376,8 +376,8 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
     await sendCommandToEngine({ type: 'set_master_delay', enabled, time_l: timeL, time_r: timeR, feedback, mix })
   })
 
-  ipcMain.handle('audio-engine:set-master-reverb', async (_, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
-    await sendCommandToEngine({ type: 'set_master_reverb', enabled, room_size: roomSize, damping, wet, width })
+  ipcMain.handle('audio-engine:set-master-reverb', async (_, enabled: boolean, roomSize: number, damping: number, wet: number, width: number, preDelay: number) => {
+    await sendCommandToEngine({ type: 'set_master_reverb', enabled, room_size: roomSize, damping, wet, width, pre_delay: preDelay })
   })
 
   ipcMain.handle('audio-engine:add-master-fx-effect', async (_, effectType: string) => {
@@ -415,8 +415,8 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
     await sendCommandToEngine({ type: 'set_aux_bus_mute', aux, mute })
   })
 
-  ipcMain.handle('audio-engine:set-aux-bus-reverb', async (_, aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => {
-    await sendCommandToEngine({ type: 'set_aux_bus_reverb', aux, enabled, room_size: roomSize, damping, wet, width })
+  ipcMain.handle('audio-engine:set-aux-bus-reverb', async (_, aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number, preDelay: number) => {
+    await sendCommandToEngine({ type: 'set_aux_bus_reverb', aux, enabled, room_size: roomSize, damping, wet, width, pre_delay: preDelay })
   })
 
   ipcMain.handle('audio-engine:set-aux-bus-delay', async (_, aux: number, enabled: boolean, time: number, feedback: number, mix: number) => {

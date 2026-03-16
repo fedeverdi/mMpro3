@@ -40,10 +40,11 @@
           <button @click="showModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
         </div>
         <div class="flex flex-wrap gap-4 justify-center">
-          <Knob v-model="roomSize" :min="0" :max="1" :step="0.01" label="Room Size" unit="" color="#10b981" />
-          <Knob v-model="damping" :min="0" :max="1" :step="0.01" label="Damping" unit="" color="#14b8a6" />
-          <Knob v-model="wet" :min="0" :max="1" :step="0.01" label="Wet" unit="%" color="#06b6d4" />
-          <Knob v-model="width" :min="0" :max="1" :step="0.01" label="Width" unit="" color="#8b5cf6" />
+          <Knob v-model="roomSize" :min="0" :max="1" :step="0.005" label="Size" unit="" color="#06b6d4" />
+          <Knob v-model="preDelay" :min="0" :max="0.5" :step="0.002" label="Pre-Dly" unit="ms" color="#0ea5e9" />
+          <Knob v-model="damping" :min="0" :max="1" :step="0.005" label="Damping" unit="" color="#14b8a6" />
+          <Knob v-model="wet" :min="0" :max="1" :step="0.005" label="Mix" unit="%" color="#10b981" />
+          <Knob v-model="width" :min="0" :max="1" :step="0.005" label="Width" unit="" color="#8b5cf6" />
         </div>
       </div>
     </div>
@@ -73,6 +74,7 @@ const showModal = ref(false)
 
 // Reverb parameters (0.0 to 1.0, same as ReverbEffect.vue)
 const roomSize = ref(0.5)
+const preDelay = ref(0.0)
 const damping = ref(0.5)
 const wet = ref(0.15)
 const width = ref(1.0)
@@ -82,7 +84,7 @@ function handleToggle() {
 }
 
 // Watch for parameter changes and send to backend
-watch([roomSize, damping, wet, width], () => {
+watch([roomSize, preDelay, damping, wet, width], () => {
   if (audioEngine?.state.value.isRunning && props.enabled) {
     audioEngine.setTrackInsertReverb(
       props.trackNumber - 1,
@@ -90,7 +92,8 @@ watch([roomSize, damping, wet, width], () => {
       roomSize.value,
       damping.value,
       wet.value,
-      width.value
+      width.value,
+      preDelay.value
     )
   }
 })

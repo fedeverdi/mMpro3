@@ -44,7 +44,7 @@ interface AudioEngine {
   setTrackInsertEnabled: (track: number, insertId: number, enabled: boolean) => Promise<void>
   setTrackInsertCompressor: (track: number, insertId: number, threshold: number, ratio: number, attack: number, release: number) => Promise<void>
   setTrackInsertGate: (track: number, insertId: number, threshold: number, range: number, attack: number, release: number) => Promise<void>
-  setTrackInsertReverb: (track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number) => Promise<void>
+  setTrackInsertReverb: (track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number, preDelay: number) => Promise<void>
   setTrackInsertDelay: (track: number, insertId: number, timeL: number, timeR: number, feedback: number, mix: number) => Promise<void>
   setTrackInsertExciter: (track: number, insertId: number, amount: number, frequency: number, mix: number) => Promise<void>
   setTrackInsertDeEsser: (track: number, insertId: number, threshold: number, frequency: number, range: number) => Promise<void>
@@ -105,7 +105,7 @@ interface AudioEngine {
   setMasterCompressor: (enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => Promise<void>
   setMasterLimiter: (enabled: boolean, ceiling: number, release: number) => Promise<void>
   setMasterDelay: (enabled: boolean, timeL: number, timeR: number, feedback: number, mix: number) => Promise<void>
-  setMasterReverb: (enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => Promise<void>
+  setMasterReverb: (enabled: boolean, roomSize: number, damping: number, wet: number, width: number, preDelay: number) => Promise<void>
   addMasterFxEffect: (effectType: string) => Promise<void>
   removeMasterFxEffect: (effectType: string) => Promise<void>
   
@@ -124,7 +124,7 @@ interface AudioEngine {
   setTrackAuxSend: (track: number, aux: number, level: number, preFader: boolean, muted: boolean) => Promise<void>
   setAuxBusGain: (aux: number, gain: number) => Promise<void>
   setAuxBusMute: (aux: number, mute: boolean) => Promise<void>
-  setAuxBusReverb: (aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) => Promise<void>
+  setAuxBusReverb: (aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number, preDelay: number) => Promise<void>
   setAuxBusDelay: (aux: number, enabled: boolean, time: number, feedback: number, mix: number) => Promise<void>
   setAuxBusRouteToMaster: (aux: number, route: boolean) => Promise<void>
   setAuxBusOutputEnabled: (aux: number, enabled: boolean) => Promise<void>

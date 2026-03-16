@@ -250,6 +250,7 @@ enum Command {
         damping: f32,
         wet: f32,
         width: f32,
+        pre_delay: f32,
     },
     #[serde(rename = "add_master_fx_effect")]
     AddMasterFxEffect {
@@ -348,6 +349,7 @@ enum Command {
         damping: f32,
         wet: f32,
         width: f32,
+        pre_delay: f32,
     },
     #[serde(rename = "set_aux_bus_delay")]
     SetAuxBusDelay {
@@ -501,6 +503,7 @@ enum Command {
         damping: f32,
         wet: f32,
         width: f32,
+        pre_delay: f32,
     },
     #[serde(rename = "set_track_insert_delay")]
     SetTrackInsertDelay {
@@ -2642,13 +2645,14 @@ impl AudioEngine {
         router.master.delay.set_mix(mix);
     }
 
-    fn set_master_reverb(&self, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32) {
+    fn set_master_reverb(&self, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32, pre_delay: f32) {
         let mut router = self.router.lock().unwrap();
         router.master.reverb.set_enabled(enabled);
         router.master.reverb.set_room_size(room_size);
         router.master.reverb.set_damping(damping);
         router.master.reverb.set_wet(wet);
         router.master.reverb.set_width(width);
+        router.master.reverb.set_pre_delay(pre_delay);
     }
 
     /// Get current state of all Master FX effects for synchronization
@@ -2848,7 +2852,7 @@ impl AudioEngine {
         }
     }
 
-    fn set_aux_bus_reverb(&self, aux: usize, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32) {
+    fn set_aux_bus_reverb(&self, aux: usize, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32, pre_delay: f32) {
         let mut router = self.router.lock().unwrap();
         if aux < router.aux_buses.len() {
             router.aux_buses[aux].reverb.set_enabled(enabled);
@@ -2856,6 +2860,7 @@ impl AudioEngine {
             router.aux_buses[aux].reverb.set_damping(damping);
             router.aux_buses[aux].reverb.set_wet(wet);
             router.aux_buses[aux].reverb.set_width(width);
+            router.aux_buses[aux].reverb.set_pre_delay(pre_delay);
         }
     }
 
@@ -4326,8 +4331,9 @@ impl AudioEngine {
                 damping,
                 wet,
                 width,
+                pre_delay,
             } => {
-                self.set_master_reverb(enabled, room_size, damping, wet, width);
+                self.set_master_reverb(enabled, room_size, damping, wet, width, pre_delay);
                 Some(Response::ParametersChanged {
                     tracks: None,
                     subgroups: None,
@@ -4644,8 +4650,9 @@ impl AudioEngine {
                 damping,
                 wet,
                 width,
+                pre_delay,
             } => {
-                self.set_aux_bus_reverb(aux, enabled, room_size, damping, wet, width);
+                self.set_aux_bus_reverb(aux, enabled, room_size, damping, wet, width, pre_delay);
                 Some(Response::ParametersChanged {
                     tracks: None,
                     subgroups: None,
@@ -5417,7 +5424,7 @@ impl AudioEngine {
                 }
             },
             
-            Command::SetTrackInsertReverb { track, insert_id, room_size, damping, wet, width } => {
+            Command::SetTrackInsertReverb { track, insert_id, room_size, damping, wet, width, pre_delay } => {
                 let mut router = self.router.lock().unwrap();
                 if let Some(t) = router.tracks.get_mut(track) {
                     if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
@@ -5426,6 +5433,7 @@ impl AudioEngine {
                             rev.set_damping(damping);
                             rev.set_wet(wet);
                             rev.set_width(width);
+                            rev.set_pre_delay(pre_delay);
                             
                             drop(router);
                             Some(Response::Ok {

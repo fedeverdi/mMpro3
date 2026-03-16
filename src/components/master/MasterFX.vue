@@ -43,6 +43,7 @@
           :initial-damping="effect.params.damping"
           :initial-wet="effect.params.wet"
           :initial-width="effect.params.width"
+          :initial-pre-delay="effect.params.preDelay"
           @toggle="(enabled) => handleEffectToggle(index, enabled)"
           @update="(params) => handleEffectUpdate(index, params)"
         />
@@ -196,7 +197,8 @@ const effects = computed(() => {
           roomSize: backendEffect.room_size,
           damping: backendEffect.damping,
           wet: backendEffect.wet,
-          width: backendEffect.width
+          width: backendEffect.width,
+          preDelay: backendEffect.pre_delay ?? 0.0
         }
         break
         
@@ -236,7 +238,8 @@ const reverbParams = ref({
   roomSize: 0.3,
   damping: 0.5,
   wet: 0.2,
-  width: 1.0
+  width: 1.0,
+  preDelay: 0.0
 })
 const delayParams = ref({
   delayTime: 0.25,
@@ -267,7 +270,8 @@ watch(() => props.fxEffects, (newEffects) => {
           roomSize: backendEffect.room_size,
           damping: backendEffect.damping,
           wet: backendEffect.wet,
-          width: backendEffect.width
+          width: backendEffect.width,
+          preDelay: backendEffect.pre_delay ?? 0.0
         }
         break
         
@@ -315,7 +319,8 @@ const defaultParams = {
     roomSize: 0.3,
     damping: 0.5,
     wet: 0.2,
-    width: 1.0
+    width: 1.0,
+    preDelay: 0.0
   },
   delay: {
     delayTime: 0.25,
@@ -348,7 +353,7 @@ onMounted(() => {
       audioEngine.setMasterCompressor(false, -24, 4, 30, 250)
       audioEngine.setMasterLimiter(false, -0.1, 100)
       audioEngine.setMasterDelay(false, 250, 250, 0.5, 0.3)
-      audioEngine.setMasterReverb(false, 0.3, 0.5, 0.2, 1.0)
+      audioEngine.setMasterReverb(false, 0.3, 0.5, 0.2, 1.0, 0.0)
     }
   })
 })
@@ -482,8 +487,9 @@ function toggleReverb(enabled: boolean, params?: any) {
   const damping = params?.damping ?? reverbParams.value.damping
   const wet = params?.wet ?? reverbParams.value.wet
   const width = params?.width ?? reverbParams.value.width
+  const preDelay = params?.preDelay ?? reverbParams.value.preDelay
   
-  audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width)
+  audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width, preDelay)
 }
 
 function updateReverb(params: any) {
@@ -492,6 +498,7 @@ function updateReverb(params: any) {
   if (params.damping !== undefined) reverbParams.value.damping = params.damping
   if (params.wet !== undefined) reverbParams.value.wet = params.wet
   if (params.width !== undefined) reverbParams.value.width = params.width
+  if (params.preDelay !== undefined) reverbParams.value.preDelay = params.preDelay
   
   // Send to Rust engine
   audioEngine.setMasterReverb(
@@ -499,7 +506,8 @@ function updateReverb(params: any) {
     params.roomSize ?? reverbParams.value.roomSize,
     params.damping ?? reverbParams.value.damping,
     params.wet ?? reverbParams.value.wet,
-    params.width ?? reverbParams.value.width
+    params.width ?? reverbParams.value.width,
+    params.preDelay ?? reverbParams.value.preDelay
   )
 }
 
@@ -577,6 +585,7 @@ function getSnapshot() {
     reverbDamping: reverbParams.value.damping,
     reverbWet: reverbParams.value.wet,
     reverbWidth: reverbParams.value.width,
+    reverbPreDelay: reverbParams.value.preDelay,
     delayEnabled: enabledEffects.has('delay'),
     delayTime: delayParams.value.delayTime,
     delayFeedback: delayParams.value.feedback,
@@ -637,7 +646,8 @@ function restoreSnapshot(snapshot: any) {
       roomSize: snapshot.reverbRoomSize ?? reverbParams.value.roomSize,
       damping: snapshot.reverbDamping ?? reverbParams.value.damping,
       wet: snapshot.reverbWet ?? reverbParams.value.wet,
-      width: snapshot.reverbWidth ?? reverbParams.value.width
+      width: snapshot.reverbWidth ?? reverbParams.value.width,
+      preDelay: snapshot.reverbPreDelay ?? reverbParams.value.preDelay
     }
     reverbParams.value = params
     toggleReverb(snapshot.reverbEnabled, params)

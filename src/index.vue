@@ -251,7 +251,7 @@ interface AuxBus {
   // FX Chain
   reverbNode?: any
   reverbEnabled?: boolean
-  reverbParams?: { roomSize: number, damping: number, wet: number, width: number }
+  reverbParams?: { roomSize: number, damping: number, wet: number, width: number, preDelay: number }
   delayNode?: any
   delayEnabled?: boolean
   delayParams?: { delayTime: number, feedback: number, wet: number }
@@ -835,7 +835,7 @@ async function handleLoadScene(scene: any) {
       aux.routeToMaster = false
       aux.selectedOutputDevice = null
       aux.reverbEnabled = false
-      aux.reverbParams = { roomSize: 0.5, damping: 0.5, wet: 1, width: 1 }
+      aux.reverbParams = { roomSize: 0.5, damping: 0.5, wet: 1, width: 1, preDelay: 0.0 }
       aux.delayEnabled = false
       aux.delayParams = { delayTime: 0.25, feedback: 0.3, wet: 1 }
     }
@@ -1016,10 +1016,11 @@ async function handleLoadScene(scene: any) {
                   aux.reverbParams.roomSize ?? 0.5,
                   aux.reverbParams.damping ?? 0.5,
                   aux.reverbParams.wet ?? 1.0,
-                  aux.reverbParams.width ?? 1.0
+                  aux.reverbParams.width ?? 1.0,
+                  aux.reverbParams.preDelay ?? 0.0
                 )
               } else {
-                audioEngine.setAuxBusReverb(auxIndex, false, 0.5, 0.5, 1.0, 1.0)
+                audioEngine.setAuxBusReverb(auxIndex, false, 0.5, 0.5, 1.0, 1.0, 0.0)
               }
 
               // Apply delay
@@ -1163,7 +1164,7 @@ function addAux() {
     // FX
     reverbNode: null,
     reverbEnabled: false,
-    reverbParams: { roomSize: 0.5, damping: 0.5, wet: 1.0, width: 1.0 },
+    reverbParams: { roomSize: 0.5, damping: 0.5, wet: 1.0, width: 1.0, preDelay: 0.0 },
     delayNode: null,
     delayEnabled: false,
     delayParams: { delayTime: 0.25, feedback: 0.3, wet: 1.0 }
@@ -1221,6 +1222,7 @@ async function updateAux(index: number, updatedAux: AuxBus) {
         const damping = reverbParams?.damping ?? 0.5
         const wet = reverbParams?.wet ?? 1.0
         const width = reverbParams?.width ?? 1.0
+        const preDelay = reverbParams?.preDelay ?? 0.0
 
         audioEngine.setAuxBusReverb(
           auxId,
@@ -1228,7 +1230,8 @@ async function updateAux(index: number, updatedAux: AuxBus) {
           roomSize,
           damping,
           wet,
-          width
+          width,
+          preDelay
         )
       }
 
@@ -1584,7 +1587,8 @@ onMounted(async () => {
             damping: auxData.reverb.damping ?? 0.5,
             wet: auxData.reverb.wet ?? 0.3,
             width: auxData.reverb.width ?? 1.0,
-          } : { roomSize: 0.3, damping: 0.5, wet: 0.3, width: 1.0 },
+            preDelay: auxData.reverb.preDelay ?? 0.0,
+          } : { roomSize: 0.3, damping: 0.5, wet: 0.3, width: 1.0, preDelay: 0.0 },
           delayEnabled: auxData.delay?.enabled ?? false,
           delayParams: auxData.delay ? {
             delayTime: (auxData.delay.delayTimeLMs ?? 250.0) / 1000, // Convert ms to seconds
@@ -1608,6 +1612,7 @@ onMounted(async () => {
             damping: auxData.reverb.damping ?? existingAux.reverbParams?.damping ?? 0.5,
             wet: auxData.reverb.wet ?? existingAux.reverbParams?.wet ?? 0.3,
             width: auxData.reverb.width ?? existingAux.reverbParams?.width ?? 1.0,
+            preDelay: auxData.reverb.preDelay ?? existingAux.reverbParams?.preDelay ?? 0.0,
           } : existingAux.reverbParams,
           delayEnabled: auxData.delay?.enabled ?? existingAux.delayEnabled,
           delayParams: auxData.delay ? {

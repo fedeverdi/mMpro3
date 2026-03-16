@@ -48,8 +48,8 @@ contextBridge.exposeInMainWorld('audioEngine', {
     ipcRenderer.invoke('audio-engine:set-track-insert-compressor', track, insertId, threshold, ratio, attack, release),
   setTrackInsertGate: (track: number, insertId: number, threshold: number, range: number, attack: number, release: number) =>
     ipcRenderer.invoke('audio-engine:set-track-insert-gate', track, insertId, threshold, range, attack, release),
-  setTrackInsertReverb: (track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number) =>
-    ipcRenderer.invoke('audio-engine:set-track-insert-reverb', track, insertId, roomSize, damping, wet, width),
+  setTrackInsertReverb: (track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number, preDelay: number) =>
+    ipcRenderer.invoke('audio-engine:set-track-insert-reverb', track, insertId, roomSize, damping, wet, width, preDelay),
   setTrackInsertDelay: (track: number, insertId: number, timeL: number, timeR: number, feedback: number, mix: number) =>
     ipcRenderer.invoke('audio-engine:set-track-insert-delay', track, insertId, timeL, timeR, feedback, mix),
   setTrackInsertExciter: (track: number, insertId: number, amount: number, frequency: number, mix: number) =>
@@ -105,8 +105,8 @@ contextBridge.exposeInMainWorld('audioEngine', {
     ipcRenderer.invoke('audio-engine:set-master-limiter', enabled, ceiling, release),
   setMasterDelay: (enabled: boolean, timeL: number, timeR: number, feedback: number, mix: number) =>
     ipcRenderer.invoke('audio-engine:set-master-delay', enabled, timeL, timeR, feedback, mix),
-  setMasterReverb: (enabled: boolean, roomSize: number, damping: number, wet: number, width: number) =>
-    ipcRenderer.invoke('audio-engine:set-master-reverb', enabled, roomSize, damping, wet, width),
+  setMasterReverb: (enabled: boolean, roomSize: number, damping: number, wet: number, width: number, preDelay: number) =>
+    ipcRenderer.invoke('audio-engine:set-master-reverb', enabled, roomSize, damping, wet, width, preDelay),
   
   // Master FX management
   addMasterFxEffect: (effectType: string) =>
@@ -137,8 +137,8 @@ contextBridge.exposeInMainWorld('audioEngine', {
     ipcRenderer.invoke('audio-engine:set-aux-bus-gain', aux, gain),
   setAuxBusMute: (aux: number, mute: boolean) =>
     ipcRenderer.invoke('audio-engine:set-aux-bus-mute', aux, mute),
-  setAuxBusReverb: (aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number) =>
-    ipcRenderer.invoke('audio-engine:set-aux-bus-reverb', aux, enabled, roomSize, damping, wet, width),
+  setAuxBusReverb: (aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number, preDelay: number) =>
+    ipcRenderer.invoke('audio-engine:set-aux-bus-reverb', aux, enabled, roomSize, damping, wet, width, preDelay),
   setAuxBusDelay: (aux: number, enabled: boolean, time: number, feedback: number, mix: number) =>
     ipcRenderer.invoke('audio-engine:set-aux-bus-delay', aux, enabled, time, feedback, mix),
   setAuxBusRouteToMaster: (aux: number, route: boolean) =>

@@ -434,8 +434,8 @@ export class RemoteAudioEngine {
     return this.send({ type: 'set_track_insert_gate', track, insert_id: insertId, threshold, range, attack, release })
   }
 
-  async setTrackInsertReverb(track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number): Promise<void> {
-    return this.send({ type: 'set_track_insert_reverb', track, insert_id: insertId, room_size: roomSize, damping, wet, width })
+  async setTrackInsertReverb(track: number, insertId: number, roomSize: number, damping: number, wet: number, width: number, preDelay: number): Promise<void> {
+    return this.send({ type: 'set_track_insert_reverb', track, insert_id: insertId, room_size: roomSize, damping, wet, width, pre_delay: preDelay })
   }
 
   async setTrackInsertDelay(track: number, insertId: number, timeL: number, timeR: number, feedback: number, mix: number): Promise<void> {
@@ -552,8 +552,8 @@ export class RemoteAudioEngine {
     return this.send({ type: 'set_master_delay', enabled, time_l: timeL, time_r: timeR, feedback, mix })
   }
 
-  async setMasterReverb(enabled: boolean, roomSize: number, damping: number, wet: number, width: number): Promise<void> {
-    return this.send({ type: 'set_master_reverb', enabled, room_size: roomSize, damping, wet, width })
+  async setMasterReverb(enabled: boolean, roomSize: number, damping: number, wet: number, width: number, preDelay: number): Promise<void> {
+    return this.send({ type: 'set_master_reverb', enabled, room_size: roomSize, damping, wet, width, pre_delay: preDelay })
   }
 
   async addMasterFxEffect(effectType: string): Promise<void> {
@@ -618,8 +618,8 @@ export class RemoteAudioEngine {
     return this.send({ type: 'set_aux_bus_mute', aux, mute })
   }
 
-  async setAuxBusReverb(aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number): Promise<void> {
-    return this.send({ type: 'set_aux_bus_reverb', aux, enabled, room_size: roomSize, damping, wet, width })
+  async setAuxBusReverb(aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number, preDelay: number): Promise<void> {
+    return this.send({ type: 'set_aux_bus_reverb', aux, enabled, room_size: roomSize, damping, wet, width, pre_delay: preDelay })
   }
 
   async setAuxBusDelay(aux: number, enabled: boolean, time: number, feedback: number, mix: number): Promise<void> {

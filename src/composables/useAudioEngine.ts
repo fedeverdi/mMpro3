@@ -1219,10 +1219,11 @@ export const useAudioEngine = () => {
     roomSize: number,
     damping: number,
     wet: number,
-    width: number
+    width: number,
+    preDelay: number
   ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-    window.audioEngine.setTrackInsertReverb(track, insertId, roomSize, damping, wet, width)
+    window.audioEngine.setTrackInsertReverb(track, insertId, roomSize, damping, wet, width, preDelay)
   }
 
   const setTrackInsertDelay = (
@@ -1444,10 +1445,11 @@ export const useAudioEngine = () => {
     roomSize: number,
     damping: number,
     wet: number,
-    width: number
+    width: number,
+    preDelay: number
   ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-    window.audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width)
+    window.audioEngine.setMasterReverb(enabled, roomSize, damping, wet, width, preDelay)
   }
 
   const addMasterFxEffect = async (effectType: string): Promise<void> => {
@@ -1548,10 +1550,11 @@ export const useAudioEngine = () => {
     roomSize: number,
     damping: number,
     wet: number,
-    width: number
+    width: number,
+    preDelay: number
   ) => {
     if (!window.audioEngine || !state.value.isRunning) return
-    window.audioEngine.setAuxBusReverb(aux, enabled, roomSize, damping, wet, width)
+    window.audioEngine.setAuxBusReverb(aux, enabled, roomSize, damping, wet, width, preDelay)
   }
 
   const setAuxBusDelay = (

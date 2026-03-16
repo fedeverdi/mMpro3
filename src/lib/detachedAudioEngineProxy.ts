@@ -71,7 +71,7 @@ export class DetachedAudioEngineProxy {
     })
   }
 
-  async setAuxBusReverb(aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number): Promise<void> {
+  async setAuxBusReverb(aux: number, enabled: boolean, roomSize: number, damping: number, wet: number, width: number, preDelay: number): Promise<void> {
     return this.wsClient.send({
       type: 'set_aux_bus_reverb',
       aux,
@@ -79,7 +79,8 @@ export class DetachedAudioEngineProxy {
       room_size: roomSize,
       damping,
       wet,
-      width
+      width,
+      pre_delay: preDelay
     })
   }
 
@@ -160,14 +161,15 @@ export class DetachedAudioEngineProxy {
     })
   }
 
-  async setMasterReverb(enabled: boolean, roomSize: number, damping: number, wet: number, width: number): Promise<void> {
+  async setMasterReverb(enabled: boolean, roomSize: number, damping: number, wet: number, width: number, preDelay: number): Promise<void> {
     return this.wsClient.send({
       type: 'set_master_reverb',
       enabled,
       room_size: roomSize,
       damping,
       wet,
-      width
+      width,
+      pre_delay: preDelay
     })
   }
 

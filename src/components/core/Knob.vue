@@ -222,16 +222,27 @@ function onDrag(e: MouseEvent | TouchEvent) {
   const deltaY = startY.value - currentY
   
   const range = props.max - props.min
-  const sensitivity = range / 200 // Adjust sensitivity
+  const sensitivity = range / 200
   const delta = deltaY * sensitivity
   
   let newValue = startValue.value + delta
+  
+  // Clamp to min/max
   newValue = Math.max(props.min, Math.min(props.max, newValue))
   
-  // Apply step
+  // Apply step quantization
   newValue = Math.round(newValue / props.step) * props.step
   
-  // Use requestAnimationFrame to throttle updates
+  // Final clamp after step rounding
+  newValue = Math.max(props.min, Math.min(props.max, newValue))
+  
+  // Reset drag reference when hitting limits to prevent delta accumulation
+  if (newValue === props.min || newValue === props.max) {
+    startY.value = currentY
+    startValue.value = newValue
+  }
+  
+  // Throttle updates with requestAnimationFrame
   pendingValue = newValue
   
   if (rafId === null) {

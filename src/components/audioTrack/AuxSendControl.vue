@@ -69,7 +69,7 @@ interface AuxBus {
   // FX Chain
   reverbNode?: any
   reverbEnabled?: boolean
-  reverbParams?: { roomSize: number, damping: number, wet: number, width: number }
+  reverbParams?: { roomSize: number, damping: number, wet: number, width: number, preDelay: number }
   delayNode?: any
   delayEnabled?: boolean
   delayParams?: { delayTime: number, feedback: number, wet: number }
