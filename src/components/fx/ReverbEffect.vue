@@ -53,6 +53,25 @@
 
           <!-- LCD Display -->
           <div class="bg-gradient-to-b from-blue-900 to-blue-950 border-2 border-blue-800 rounded-md p-4 mb-4 shadow-inner">
+            <!-- Preset Selector -->
+            <div class="mb-4 bg-blue-950/70 rounded px-3 py-2 border border-blue-800/50">
+              <div class="text-[0.65rem] text-cyan-500/70 mb-2">PRESET PROGRAM</div>
+              <div class="flex items-center justify-between gap-2">
+                <button @click="previousPreset" 
+                  class="text-cyan-300 hover:text-cyan-100 text-lg font-bold px-2 py-1 hover:bg-blue-800/30 rounded transition-colors">
+                  ◀
+                </button>
+                <div class="flex-1 text-center">
+                  <div class="text-sm font-bold text-cyan-300">{{ currentPreset.name }}</div>
+                  <div class="text-[0.6rem] text-cyan-500/50">{{ currentPresetIndex + 1 }} / {{ presets.length }}</div>
+                </div>
+                <button @click="nextPreset" 
+                  class="text-cyan-300 hover:text-cyan-100 text-lg font-bold px-2 py-1 hover:bg-blue-800/30 rounded transition-colors">
+                  ▶
+                </button>
+              </div>
+            </div>
+
             <div class="grid grid-cols-3 gap-4 text-cyan-300 font-mono">
               <!-- Decay Time Display -->
               <div class="bg-blue-950/50 rounded px-3 py-2 border border-blue-800/50">
@@ -133,6 +152,38 @@ const emit = defineEmits<{
   (e: 'update', params: { roomSize: number, damping: number, wet: number, width: number, preDelay: number }): void
 }>()
 
+// Preset definitions
+interface ReverbPreset {
+  name: string
+  roomSize: number
+  damping: number
+  wet: number
+  width: number
+  preDelay: number
+}
+
+const presets: ReverbPreset[] = [
+  { name: 'CONCERT HALL', roomSize: 0.85, damping: 0.3, wet: 0.35, width: 1.0, preDelay: 0.025 },
+  { name: 'LARGE HALL', roomSize: 0.75, damping: 0.4, wet: 0.3, width: 0.95, preDelay: 0.020 },
+  { name: 'MEDIUM HALL', roomSize: 0.55, damping: 0.45, wet: 0.25, width: 0.9, preDelay: 0.015 },
+  { name: 'SMALL HALL', roomSize: 0.40, damping: 0.5, wet: 0.2, width: 0.85, preDelay: 0.010 },
+  { name: 'CHAMBER', roomSize: 0.30, damping: 0.55, wet: 0.25, width: 0.8, preDelay: 0.005 },
+  { name: 'LARGE ROOM', roomSize: 0.35, damping: 0.6, wet: 0.2, width: 0.75, preDelay: 0.008 },
+  { name: 'MEDIUM ROOM', roomSize: 0.25, damping: 0.65, wet: 0.18, width: 0.7, preDelay: 0.005 },
+  { name: 'SMALL ROOM', roomSize: 0.18, damping: 0.7, wet: 0.15, width: 0.65, preDelay: 0.003 },
+  { name: 'STUDIO', roomSize: 0.20, damping: 0.75, wet: 0.12, width: 0.6, preDelay: 0.002 },
+  { name: 'PLATE', roomSize: 0.50, damping: 0.35, wet: 0.28, width: 1.0, preDelay: 0.001 },
+  { name: 'VOCAL PLATE', roomSize: 0.45, damping: 0.4, wet: 0.25, width: 0.9, preDelay: 0.012 },
+  { name: 'DRUM ROOM', roomSize: 0.28, damping: 0.8, wet: 0.2, width: 0.7, preDelay: 0.0 },
+  { name: 'BRIGHT HALL', roomSize: 0.65, damping: 0.25, wet: 0.3, width: 1.0, preDelay: 0.018 },
+  { name: 'DARK HALL', roomSize: 0.70, damping: 0.85, wet: 0.35, width: 0.95, preDelay: 0.022 },
+  { name: 'CATHEDRAL', roomSize: 0.95, damping: 0.2, wet: 0.4, width: 1.0, preDelay: 0.050 },
+  { name: 'ARENA', roomSize: 0.90, damping: 0.35, wet: 0.38, width: 1.0, preDelay: 0.040 },
+]
+
+const currentPresetIndex = ref(0)
+const currentPreset = computed(() => presets[currentPresetIndex.value])
+
 const isEnabled = ref(props.enabled ?? false)
 const showModal = ref(false)
 
@@ -161,6 +212,25 @@ const dampingDisplay = computed(() => {
 function toggleEffect() {
   isEnabled.value = !isEnabled.value
   emit('toggle', isEnabled.value)
+}
+
+function nextPreset() {
+  currentPresetIndex.value = (currentPresetIndex.value + 1) % presets.length
+  applyPreset()
+}
+
+function previousPreset() {
+  currentPresetIndex.value = (currentPresetIndex.value - 1 + presets.length) % presets.length
+  applyPreset()
+}
+
+function applyPreset() {
+  const preset = currentPreset.value
+  roomSize.value = preset.roomSize
+  damping.value = preset.damping
+  wet.value = preset.wet
+  width.value = preset.width
+  preDelay.value = preset.preDelay
 }
 
 watch([roomSize, damping, wet, width, preDelay], () => {

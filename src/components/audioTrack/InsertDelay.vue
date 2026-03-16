@@ -61,6 +61,7 @@ const props = defineProps<{
   trackLevelL: number
   trackLevelR: number
   phaseCorrelation: number
+  compressorInputDb?: number
 }>()
 
 const emit = defineEmits<{

@@ -74,6 +74,7 @@ const props = defineProps<{
   trackNumber: number
   insertId: number
   enabled: boolean
+  compressorInputDb?: number
 }>()
 
 const emit = defineEmits<{

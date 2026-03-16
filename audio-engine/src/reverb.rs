@@ -411,8 +411,9 @@ impl Reverb {
     
     pub fn set_room_size(&mut self, room_size: f32) {
         self.room_size = room_size.clamp(0.0, 1.0);
-        // Map room_size (0-1) to decay_time (0.1-10 seconds)
-        self.decay_time = 0.1 + (room_size * 9.9);
+        // Map room_size (0-1) to decay_time (0.1-5 seconds)
+        // Using quadratic curve for better control in small values
+        self.decay_time = 0.1 + (room_size * room_size * 4.9);
     }
     
     pub fn set_damping(&mut self, damping: f32) {
@@ -527,11 +528,13 @@ impl Reverb {
         // STAGE 4: Feedback Delay Network (FDN)
         // ========================================
         // Calculate decay coefficient based on decay time
-        // RT60 formula: g = 10^(-3 * delay_time / (sample_rate * decay_time))
+        // RT60 formula: g = 10^(-3 * delay_time / RT60)
+        // where -3 represents -60dB decay
         let decay_coefficient = {
             let avg_delay = FDN_DELAYS.iter().sum::<usize>() as f32 / FDN_DELAYS.len() as f32;
-            let delay_time = avg_delay / 44100.0; // Convert to seconds
-            (-3.0 * delay_time / self.decay_time).exp()
+            let delay_time = avg_delay / self.sample_rate; // Convert to seconds
+            // Use 10^x formula for correct RT60 behavior
+            10f32.powf(-3.0 * delay_time / self.decay_time)
         };
         
         // Read from delay lines and apply damping
