@@ -485,8 +485,9 @@ function handleInputSelect(deviceId: string | null) {
           const channelMatch = deviceId.match(/:(\d+)$/)
           const channelIndex = channelMatch ? parseInt(channelMatch[1]) : 0
                     
-          // For stereo: use channel and channel+1
-          audioEngine.setTrackSourceInput(props.trackNumber - 1, channelIndex, channelIndex + 1, deviceName)
+          // When selecting a single channel (mono input), duplicate it to both L/R
+          // This ensures mono signals are present on both channels of the track
+          audioEngine.setTrackSourceInput(props.trackNumber - 1, channelIndex, channelIndex, deviceName)
         }
       }
     } else {
