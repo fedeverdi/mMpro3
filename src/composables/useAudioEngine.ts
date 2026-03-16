@@ -71,6 +71,8 @@ export interface AudioEngineState {
     playlistCurrentIndex?: number
     // Aux sends
     auxSends: Array<{ level: number, preFader: boolean, muted: boolean }>
+    // Insert effects
+    inserts?: Array<any>
   }>
   subgroupLevels: Map<number, { 
     left: number; 
@@ -743,6 +745,7 @@ export const useAudioEngine = () => {
                   gain: trackLevel.gain,
                   volume: trackLevel.volume,
                   mute: trackLevel.mute,
+                  solo: trackLevel.solo ?? false,
                   pan: trackLevel.pan,
                   routeToMaster: trackLevel.route_to_master,
                   routeToSubgroups: newRoutes,
@@ -775,6 +778,10 @@ export const useAudioEngine = () => {
                   fileTitle: trackLevel.file_title,
                   isStereo: trackLevel.is_stereo ?? false,
                   isPlaying: trackLevel.is_playing ?? false,
+                  // Playlist state
+                  playlistId: trackLevel.playlist_id,
+                  playlistName: trackLevel.playlist_name,
+                  playlistCurrentIndex: trackLevel.playlist_current_index,
                   // Aux sends
                   auxSends: trackLevel.aux_sends || []
                 })
