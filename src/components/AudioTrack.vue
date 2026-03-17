@@ -567,8 +567,10 @@ function handlePlayFile() {
 function handleStopFile() {
   if (audioEngine?.state.value.isRunning && selectedFileName.value) {
     audioEngine.stopFile(props.trackNumber - 1)
-    // Reset current time
+    // Reset current time and playback tracking
     currentTime.value = 0
+    playbackStartTime = 0
+    playbackOffset = 0
     // isPlaying will be updated via Rust engine broadcast
   }
 }
@@ -615,8 +617,16 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
     selectedFileName.value = fileData.title || fileData.fileName
     audioSourceType.value = 'file'
     
-    // Reset current time when loading new file
+    // Stop time tracking interval if running
+    if (playbackIntervalId !== null) {
+      clearInterval(playbackIntervalId)
+      playbackIntervalId = null
+    }
+    
+    // Reset current time and playback tracking when loading new file
     currentTime.value = 0
+    playbackStartTime = 0
+    playbackOffset = 0
     
     // Reset file ended detection flag when loading a new file
     lastFileEndedDetected.value = false

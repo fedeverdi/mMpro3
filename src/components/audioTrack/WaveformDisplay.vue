@@ -2,13 +2,26 @@
   <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
     <div class="flex items-center gap-1">
       <div 
-        class="flex-1 px-0.5 py-0.5"
+        class="flex-1 px-0.5 py-0.5 relative"
         :class="showModeButtons ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''"
         @click="handleCanvasClick"
+        @mousedown="handleMouseDown"
+        @mousemove="handleMouseMove"
+        @mouseup="handleMouseUp"
+        @mouseleave="handleMouseLeave"
         :title="showModeButtons ? (internalMode === 'signal' ? 'Click to show full waveform' : 'Click to show real-time signal') : ''"
       >
         <canvas ref="canvasRef" class="w-full h-[30px] rounded border border-gray-700 bg-black"
           style="image-rendering: crisp-edges;"></canvas>
+        
+        <!-- Time tooltip during drag/hover -->
+        <div 
+          v-if="showTimeTooltip && tooltipTime !== null"
+          class="absolute pointer-events-none bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg border border-gray-600"
+          :style="{ left: tooltipX + 'px', top: '-30px' }"
+        >
+          {{ formatTime(tooltipTime) }}
+        </div>
       </div>
       
       <!-- Mode selector buttons -->
@@ -74,34 +87,100 @@ const internalMode = ref<'signal' | 'waveform'>(props.mode)
 let animationId: number | null = null
 let isDrawingLoop = false
 
+// Drag and tooltip state
+const isDragging = ref(false)
+const showTimeTooltip = ref(false)
+const tooltipTime = ref<number | null>(null)
+const tooltipX = ref(0)
+
 // Sync internal mode with prop
 watch(() => props.mode, (newMode) => {
   internalMode.value = newMode
 })
 
-function handleCanvasClick(event: MouseEvent) {
-  // If in waveform mode, seek to clicked position
-  if (internalMode.value === 'waveform' && props.audioBuffer) {
-    const canvas = canvasRef.value
-    if (!canvas) return
-    
-    const rect = canvas.getBoundingClientRect()
-    const clickX = event.clientX - rect.left
-    const width = rect.width
-    
-    // Calculate time based on full duration (we show entire track)
-    const duration = props.audioBuffer.duration
-    const clickProgress = clickX / width
-    const clickedTime = clickProgress * duration
-    
-    // Emit seek event
-    emit('seek', Math.max(0, Math.min(clickedTime, duration)))
-    return
-  }
+// Format time as MM:SS or HH:MM:SS
+function formatTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = Math.floor(seconds % 60)
   
-  // If showModeButtons, toggle mode on click
-  if (props.showModeButtons) {
-    internalMode.value = internalMode.value === 'signal' ? 'waveform' : 'signal'
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`
+}
+
+function calculateTimeFromPosition(clientX: number): number | null {
+  const canvas = canvasRef.value
+  if (!canvas || !props.audioBuffer) return null
+  
+  const rect = canvas.getBoundingClientRect()
+  const clickX = clientX - rect.left
+  const width = rect.width
+  
+  // Calculate time based on full duration
+  const duration = props.audioBuffer.duration
+  const clickProgress = Math.max(0, Math.min(1, clickX / width))
+  const time = clickProgress * duration
+  
+  return time
+}
+
+function handleMouseDown(event: MouseEvent) {
+  if (internalMode.value !== 'waveform' || !props.audioBuffer) return
+  
+  isDragging.value = true
+  showTimeTooltip.value = true
+  
+  const time = calculateTimeFromPosition(event.clientX)
+  if (time !== null) {
+    tooltipTime.value = time
+    tooltipX.value = event.clientX - (event.currentTarget as HTMLElement).getBoundingClientRect().left
+    emit('seek', time)
+  }
+}
+
+function handleMouseMove(event: MouseEvent) {
+  if (internalMode.value !== 'waveform' || !props.audioBuffer) return
+  
+  const time = calculateTimeFromPosition(event.clientX)
+  if (time !== null) {
+    tooltipX.value = event.clientX - (event.currentTarget as HTMLElement).getBoundingClientRect().left
+    
+    // Show tooltip on hover in waveform mode
+    showTimeTooltip.value = true
+    tooltipTime.value = time
+    
+    // Only seek if dragging
+    if (isDragging.value) {
+      emit('seek', time)
+    }
+  }
+}
+
+function handleMouseUp(event: MouseEvent) {
+  if (isDragging.value) {
+    isDragging.value = false
+    // Keep tooltip visible briefly after release
+    setTimeout(() => {
+      if (!isDragging.value) {
+        showTimeTooltip.value = false
+      }
+    }, 500)
+  }
+}
+
+function handleMouseLeave() {
+  isDragging.value = false
+  showTimeTooltip.value = false
+  tooltipTime.value = null
+}
+
+function handleCanvasClick(event: MouseEvent) {
+  // Seek is now handled by mousedown/mousemove
+  // Only handle mode toggle if NOT in waveform mode
+  if (internalMode.value === 'signal' && props.showModeButtons) {
+    internalMode.value = 'waveform'
   }
 }
 
@@ -124,6 +203,14 @@ onUnmounted(() => {
 // Watch for mode changes
 watch(() => internalMode.value, (newMode) => {
   stopSignalLoop()
+  
+  // Hide tooltip when leaving waveform mode
+  if (newMode !== 'waveform') {
+    showTimeTooltip.value = false
+    isDragging.value = false
+    tooltipTime.value = null
+  }
+  
   if (newMode === 'waveform') {
     drawFullWaveform()
   } else if (newMode === 'signal') {
@@ -291,18 +378,21 @@ function drawFullWaveform() {
   // Draw center line
   drawCenterLine(ctx, width, height)
 
-  // Draw playback position (red line)
+  // Draw playback position (red line) - visible only when playing or after seek
   if (props.isPlaying || currentTime > 0) {
     const progress = currentTime / duration
     const x = progress * width
     
-    // Draw playback cursor (red line) - always draw if we have a time
+    // Draw playback cursor (red line) - shorter with margins
     if (x >= 0 && x <= width) {
+      const marginTop = height * 0.15 // 15% margin from top
+      const marginBottom = height * 0.15 // 15% margin from bottom
+      
       ctx.strokeStyle = '#ef4444' // red-500
       ctx.lineWidth = 2 // More visible
       ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, height)
+      ctx.moveTo(x, marginTop)
+      ctx.lineTo(x, height - marginBottom)
       ctx.stroke()
       
       // Add glow effect
@@ -310,8 +400,8 @@ function drawFullWaveform() {
       ctx.shadowBlur = 4
       ctx.lineWidth = 1
       ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, height)
+      ctx.moveTo(x, marginTop)
+      ctx.lineTo(x, height - marginBottom)
       ctx.stroke()
       ctx.shadowBlur = 0
     }
