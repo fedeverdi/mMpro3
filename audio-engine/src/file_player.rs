@@ -222,6 +222,116 @@ impl AudioFilePlayer {
         // the current position in the source file, which is independent
         // of the output sample rate. The resampling ratio adjusts automatically.
     }
+    
+    /// Seek to a specific time position in seconds
+    pub fn seek(&mut self, time_seconds: f32) {
+        if self.samples.is_empty() || self.sample_rate == 0 {
+            return;
+        }
+        
+        let frames_count = self.samples.len() / self.channels as usize;
+        let max_time = frames_count as f32 / self.sample_rate as f32;
+        
+        // Clamp time to valid range
+        let time = time_seconds.max(0.0).min(max_time);
+        
+        // Calculate frame position
+        let frame_position = (time * self.sample_rate as f32) as f64;
+        
+        // Set resample position
+        self.resample_position = frame_position;
+        
+        // Clear file_ended flag when seeking
+        self.file_ended = false;
+    }
+    
+    /// Get current playback position in seconds
+    pub fn get_position(&self) -> f32 {
+        if self.sample_rate == 0 {
+            return 0.0;
+        }
+        
+        let frames_count = self.samples.len() / self.channels as usize;
+        let current_frame = self.resample_position.min(frames_count as f64);
+        
+        (current_frame / self.sample_rate as f64) as f32
+    }
+    
+    /// Get total duration in seconds
+    pub fn get_duration(&self) -> f32 {
+        if self.sample_rate == 0 || self.samples.is_empty() {
+            return 0.0;
+        }
+        
+        let frames_count = self.samples.len() / self.channels as usize;
+        frames_count as f32 / self.sample_rate as f32
+    }
+    
+    /// Get decimated waveform data for visualization
+    /// Returns mono samples (averaged if stereo) with the specified number of points
+    pub fn get_waveform_data(&self, num_points: usize) -> Vec<f32> {
+        if self.samples.is_empty() || self.channels == 0 {
+            return vec![0.0; num_points];
+        }
+        
+        let frames_count = self.samples.len() / self.channels as usize;
+        
+        if frames_count == 0 {
+            return vec![0.0; num_points];
+        }
+        
+        let mut waveform = Vec::with_capacity(num_points);
+        let samples_per_point = frames_count / num_points;
+        
+        if samples_per_point == 0 {
+            // If we have fewer frames than points, just return what we have
+            for i in 0..frames_count.min(num_points) {
+                let frame_offset = i * self.channels as usize;
+                let sample = if self.channels > 1 {
+                    // Average stereo to mono
+                    let left = self.samples[frame_offset];
+                    let right = self.samples[frame_offset + 1];
+                    (left + right) / 2.0
+                } else {
+                    self.samples[frame_offset]
+                };
+                waveform.push(sample);
+            }
+            // Pad with zeros if needed
+            while waveform.len() < num_points {
+                waveform.push(0.0);
+            }
+        } else {
+            // Decimate by finding min/max in each segment
+            for i in 0..num_points {
+                let start_frame = i * samples_per_point;
+                let end_frame = ((i + 1) * samples_per_point).min(frames_count);
+                
+                let mut min_val = 1.0f32;
+                let mut max_val = -1.0f32;
+                
+                for frame in start_frame..end_frame {
+                    let frame_offset = frame * self.channels as usize;
+                    let sample = if self.channels > 1 {
+                        // Average stereo to mono
+                        let left = self.samples.get(frame_offset).copied().unwrap_or(0.0);
+                        let right = self.samples.get(frame_offset + 1).copied().unwrap_or(0.0);
+                        (left + right) / 2.0
+                    } else {
+                        self.samples.get(frame_offset).copied().unwrap_or(0.0)
+                    };
+                    
+                    min_val = min_val.min(sample);
+                    max_val = max_val.max(sample);
+                }
+                
+                // Use average of min/max for visualization
+                waveform.push((min_val + max_val) / 2.0);
+            }
+        }
+        
+        waveform
+    }
 }
 
 impl Default for AudioFilePlayer {

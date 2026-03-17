@@ -81,6 +81,8 @@ contextBridge.exposeInMainWorld('audioEngine', {
   playFile: (track: number, fileId?: string) => ipcRenderer.invoke('audio-engine:play-file', track, fileId),
   pauseFile: (track: number) => ipcRenderer.invoke('audio-engine:pause-file', track),
   stopFile: (track: number) => ipcRenderer.invoke('audio-engine:stop-file', track),
+  seekFile: (track: number, timeSeconds: number) => ipcRenderer.invoke('audio-engine:seek-file', track, timeSeconds),
+  getWaveformData: (track: number, numPoints: number) => ipcRenderer.invoke('audio-engine:get-waveform-data', track, numPoints),
   
   // Master controls
   setMasterGain: (gain: number) => ipcRenderer.invoke('audio-engine:set-master-gain', gain),

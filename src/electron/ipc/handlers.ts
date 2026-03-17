@@ -292,6 +292,19 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
     await sendCommandToEngine({ type: 'stop_file', track })
   })
 
+  ipcMain.handle('audio-engine:seek-file', async (_, track: number, timeSeconds: number) => {
+    await sendCommandToEngine({ type: 'seek_file', track, time_seconds: timeSeconds })
+  })
+
+  ipcMain.handle('audio-engine:get-waveform-data', async (_, track: number, numPoints: number) => {
+    const { sendCommandAndWaitForResponse } = await import('../audio-engine/process')
+    return await sendCommandAndWaitForResponse(
+      { type: 'get_waveform_data', track, num_points: numPoints },
+      'waveform_data',
+      10000 // 10 second timeout for large files
+    )
+  })
+
   // ============================================================================
   // EQ Handlers
   // ============================================================================

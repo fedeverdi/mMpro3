@@ -4,7 +4,7 @@
       <div 
         class="flex-1 px-0.5 py-0.5"
         :class="showModeButtons ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''"
-        @click="showModeButtons ? handleClick() : null"
+        @click="handleCanvasClick"
         :title="showModeButtons ? (internalMode === 'signal' ? 'Click to show full waveform' : 'Click to show real-time signal') : ''"
       >
         <canvas ref="canvasRef" class="w-full h-[30px] rounded border border-gray-700 bg-black"
@@ -52,6 +52,7 @@ interface Props {
   mode?: 'signal' | 'waveform' // External mode control
   showModeButtons?: boolean // Show mode toggle buttons
   isActive?: boolean // Whether to draw (play or input active)
+  duration?: number // Track duration in seconds
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -60,8 +61,13 @@ const props = withDefaults(defineProps<Props>(), {
   currentTime: 0,
   mode: 'signal',
   showModeButtons: true,
-  isActive: false
+  isActive: false,
+  duration: 0
 })
+
+const emit = defineEmits<{
+  seek: [time: number]
+}>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const internalMode = ref<'signal' | 'waveform'>(props.mode)
@@ -73,8 +79,30 @@ watch(() => props.mode, (newMode) => {
   internalMode.value = newMode
 })
 
-function handleClick() {
-  internalMode.value = internalMode.value === 'signal' ? 'waveform' : 'signal'
+function handleCanvasClick(event: MouseEvent) {
+  // If in waveform mode, seek to clicked position
+  if (internalMode.value === 'waveform' && props.audioBuffer) {
+    const canvas = canvasRef.value
+    if (!canvas) return
+    
+    const rect = canvas.getBoundingClientRect()
+    const clickX = event.clientX - rect.left
+    const width = rect.width
+    
+    // Calculate time based on full duration (we show entire track)
+    const duration = props.audioBuffer.duration
+    const clickProgress = clickX / width
+    const clickedTime = clickProgress * duration
+    
+    // Emit seek event
+    emit('seek', Math.max(0, Math.min(clickedTime, duration)))
+    return
+  }
+  
+  // If showModeButtons, toggle mode on click
+  if (props.showModeButtons) {
+    internalMode.value = internalMode.value === 'signal' ? 'waveform' : 'signal'
+  }
 }
 
 onMounted(() => {
@@ -126,7 +154,13 @@ watch(() => props.audioBuffer, () => {
 })
 
 watch(() => props.currentTime, () => {
-  if (internalMode.value === 'waveform') {
+  if (internalMode.value === 'waveform' && props.audioBuffer) {
+    drawFullWaveform()
+  }
+})
+
+watch(() => props.isPlaying, () => {
+  if (internalMode.value === 'waveform' && props.audioBuffer) {
     drawFullWaveform()
   }
 })
@@ -222,25 +256,10 @@ function drawFullWaveform() {
   const sampleRate = props.audioBuffer.sampleRate
   const channelData = props.audioBuffer.getChannelData(0)
   
-  // Show 10 second window
-  const windowDuration = 10 // seconds
+  // Show entire track (we have decimated data, not full resolution)
   const currentTime = props.currentTime || 0
   
-  // Calculate window start/end to keep playhead centered or scroll
-  let windowStart = Math.max(0, currentTime - windowDuration / 2)
-  let windowEnd = windowStart + windowDuration
-  
-  // If we're near the end, adjust window
-  if (windowEnd > duration) {
-    windowEnd = duration
-    windowStart = Math.max(0, windowEnd - windowDuration)
-  }
-  
-  const windowStartSample = Math.floor(windowStart * sampleRate)
-  const windowEndSample = Math.floor(windowEnd * sampleRate)
-  const windowSamples = windowEndSample - windowStartSample
-  
-  const step = Math.ceil(windowSamples / width)
+  const step = Math.max(1, Math.ceil(channelData.length / width))
   const amp = height / 2
 
   ctx.strokeStyle = '#3b82f6' // blue-500
@@ -250,13 +269,13 @@ function drawFullWaveform() {
     let min = 1.0
     let max = -1.0
 
-    for (let j = 0; j < step; j++) {
-      const sampleIndex = windowStartSample + (i * step) + j
-      if (sampleIndex < channelData.length) {
-        const datum = channelData[sampleIndex]
-        if (datum < min) min = datum
-        if (datum > max) max = datum
-      }
+    const startSample = Math.floor((i / width) * channelData.length)
+    const endSample = Math.floor(((i + 1) / width) * channelData.length)
+
+    for (let sampleIndex = startSample; sampleIndex < endSample && sampleIndex < channelData.length; sampleIndex++) {
+      const datum = channelData[sampleIndex]
+      if (datum < min) min = datum
+      if (datum > max) max = datum
     }
 
     const x = i
@@ -274,27 +293,25 @@ function drawFullWaveform() {
 
   // Draw playback position (red line)
   if (props.isPlaying || currentTime > 0) {
-    const relativeTime = currentTime - windowStart
-    const progress = relativeTime / (windowEnd - windowStart)
+    const progress = currentTime / duration
     const x = progress * width
     
-    // Only draw if within visible window
+    // Draw playback cursor (red line) - always draw if we have a time
     if (x >= 0 && x <= width) {
-      // Calculate vertical margins for centered, shorter line
-      const verticalMargin = height * 0.1 // 10% margin top and bottom
-      const lineStart = verticalMargin
-      const lineEnd = height - verticalMargin
-      
       ctx.strokeStyle = '#ef4444' // red-500
-      ctx.lineWidth = 1 // Thinner line
+      ctx.lineWidth = 2 // More visible
       ctx.beginPath()
-      ctx.moveTo(x, lineStart)
-      ctx.lineTo(x, lineEnd)
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, height)
       ctx.stroke()
       
-      // Add subtle glow effect
+      // Add glow effect
       ctx.shadowColor = '#ef4444'
-      ctx.shadowBlur = 6
+      ctx.shadowBlur = 4
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, height)
       ctx.stroke()
       ctx.shadowBlur = 0
     }

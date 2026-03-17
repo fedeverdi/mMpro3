@@ -1054,6 +1054,11 @@ export const useAudioEngine = () => {
           // Frontend aux buses state sent to detached windows - handled by specific components
           break
 
+        case 'waveform_data':
+          // Waveform data response - handled by IPC promise resolution in Electron mode
+          // or by specific component in remote mode
+          break
+
         default:
           console.log('[useAudioEngine] Unhandled response type:', response.type)
       }
@@ -1319,6 +1324,16 @@ export const useAudioEngine = () => {
   const stopFile = (track: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
     window.audioEngine.stopFile(track)
+  }
+
+  const seekFile = (track: number, timeSeconds: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.seekFile(track, timeSeconds)
+  }
+
+  const getWaveformData = async (track: number, numPoints: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return null
+    return await window.audioEngine.getWaveformData(track, numPoints)
   }
 
   const setTrackPan = (track: number, pan: number) => {
@@ -1721,6 +1736,8 @@ export const useAudioEngine = () => {
     playFile,
     pauseFile,
     stopFile,
+    seekFile,
+    getWaveformData,
     setTrackPan,
     setTrackPad,
     setTrackHPF,

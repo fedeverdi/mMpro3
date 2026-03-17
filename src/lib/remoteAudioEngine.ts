@@ -507,6 +507,14 @@ export class RemoteAudioEngine {
     return this.send({ type: 'stop_file', track })
   }
 
+  async seekFile(track: number, timeSeconds: number): Promise<void> {
+    return this.send({ type: 'seek_file', track, time_seconds: timeSeconds })
+  }
+
+  async getWaveformData(track: number, numPoints: number): Promise<any> {
+    return this.send({ type: 'get_waveform_data', track, num_points: numPoints })
+  }
+
   async setMasterGain(gain: number): Promise<void> {
     return this.throttleSend('master_gain', { type: 'set_master_gain', gain })
   }

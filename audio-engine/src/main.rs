@@ -115,6 +115,10 @@ enum Command {
     PauseFile { track: usize },
     #[serde(rename = "stop_file")]
     StopFile { track: usize },
+    #[serde(rename = "seek_file")]
+    SeekFile { track: usize, time_seconds: f32 },
+    #[serde(rename = "get_waveform_data")]
+    GetWaveformData { track: usize, num_points: usize },
     #[serde(rename = "stop_all_files")]
     StopAllFiles,
 
@@ -662,6 +666,13 @@ enum Response {
     AudioConfig {
         sample_rate: u32,  // 0 = Auto
         buffer_size: u32,
+    },
+    #[serde(rename = "waveform_data")]
+    WaveformData {
+        track: usize,
+        data: Vec<f32>,
+        duration: f32,
+        sample_rate: u32,
     },
 }
 
@@ -2400,6 +2411,27 @@ impl AudioEngine {
         track::stop_file(&mut router, track)
     }
 
+    fn seek_file(&self, track: usize, time_seconds: f32) -> Result<()> {
+        let mut router = self.router.lock().unwrap();
+        track::seek_file(&mut router, track, time_seconds)
+    }
+
+    fn get_waveform_data(&self, track: usize, num_points: usize) -> Result<(Vec<f32>, f32, u32)> {
+        let router = self.router.lock().unwrap();
+        let data = track::get_waveform_data(&router, track, num_points)?;
+        
+        // Get duration and sample rate from the track
+        if let Some(t) = router.get_track(track) {
+            if let Some(player) = &t.file_player {
+                let duration = player.get_duration();
+                let sample_rate = player.sample_rate;
+                return Ok((data, duration, sample_rate));
+            }
+        }
+        
+        Err(anyhow::anyhow!("Track {} has no file loaded", track))
+    }
+
     fn stop_all_files(&self) {
         let mut router = self.router.lock().unwrap();
         router.stop_all_files();
@@ -3329,6 +3361,28 @@ impl AudioEngine {
             Command::StopFile { track } => {
                 let _ = self.stop_file(track);
                 None
+            }
+            Command::SeekFile { track, time_seconds } => {
+                let _ = self.seek_file(track, time_seconds);
+                None
+            }
+            Command::GetWaveformData { track, num_points } => {
+                match self.get_waveform_data(track, num_points) {
+                    Ok((data, duration, sample_rate)) => {
+                        Some(Response::WaveformData {
+                            track,
+                            data,
+                            duration,
+                            sample_rate,
+                        })
+                    }
+                    Err(e) => {
+                        eprintln!("[Engine] GetWaveformData FAILED for track {}: {}", track, e);
+                        Some(Response::Error {
+                            message: format!("Failed to get waveform data: {}", e),
+                        })
+                    }
+                }
             }
             Command::StopAllFiles => {
                 self.stop_all_files();

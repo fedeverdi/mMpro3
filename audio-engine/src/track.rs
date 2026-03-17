@@ -148,6 +148,24 @@ pub fn stop_file(router: &mut Router, track: usize) -> Result<()> {
     }
 }
 
+/// Seek file on track to specific time position
+pub fn seek_file(router: &mut Router, track: usize, time_seconds: f32) -> Result<()> {
+    if let Some(t) = router.get_track_mut(track) {
+        t.seek_file(time_seconds)
+    } else {
+        Err(anyhow!("Track {} not found", track))
+    }
+}
+
+/// Get waveform data from track for visualization
+pub fn get_waveform_data(router: &Router, track: usize, num_points: usize) -> Result<Vec<f32>> {
+    if let Some(t) = router.get_track(track) {
+        t.get_waveform_data(num_points)
+    } else {
+        Err(anyhow!("Track {} not found", track))
+    }
+}
+
 /// Set track gain (input trim)
 pub fn set_gain(router: &mut Router, track: usize, gain: f32) {
     if let Some(t) = router.get_track_mut(track) {

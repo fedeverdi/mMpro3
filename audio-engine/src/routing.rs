@@ -451,6 +451,25 @@ impl Track {
         }
     }
 
+    /// Seek file to specific time position
+    pub fn seek_file(&mut self, time_seconds: f32) -> anyhow::Result<()> {
+        if let Some(player) = &mut self.file_player {
+            player.seek(time_seconds);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Track {} has no file loaded", self.id))
+        }
+    }
+
+    /// Get waveform data for visualization
+    pub fn get_waveform_data(&self, num_points: usize) -> anyhow::Result<Vec<f32>> {
+        if let Some(player) = &self.file_player {
+            Ok(player.get_waveform_data(num_points))
+        } else {
+            Err(anyhow::anyhow!("Track {} has no file loaded", self.id))
+        }
+    }
+
     /// Update sample rate for all components
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         // Update sample rate for insert effects chain

@@ -43,8 +43,13 @@
       />
 
       <!-- Waveform Display - Always visible -->
-      <WaveformDisplay v-if="isLargeSize" :track-number="trackNumber - 1" :show-mode-buttons="false" mode="signal"
-        :is-active="(audioSourceType === 'file' && isPlaying) || (audioSourceType === 'input' && selectedAudioInput !== '')" />
+      <WaveformDisplay v-if="isLargeSize" :track-number="trackNumber - 1" :show-mode-buttons="true" mode="signal"
+        :is-active="(audioSourceType === 'file' && isPlaying) || (audioSourceType === 'input' && selectedAudioInput !== '')"
+        :audio-buffer="audioBuffer"
+        :current-time="currentTime"
+        :is-playing="isPlaying"
+        :duration="audioDuration"
+        @seek="handleSeek" />
     </div>
 
     <!-- Main Content -->
@@ -293,6 +298,11 @@ const selectedFileName = ref<string | null>(null)
 const audioSourceType = ref<'input' | 'file'>('input')
 const selectedAudioInput = ref<string>('')
 
+// Audio buffer for waveform visualization
+const audioBuffer = ref<AudioBuffer | null>(null)
+const currentTime = ref(0)
+const audioDuration = ref(0)
+
 // Playlist state
 const playlistFiles = ref<any[]>([])
 const currentPlaylistIndex = ref(0)
@@ -457,6 +467,41 @@ const trackWaveformData = computed(() => {
 // File playback state
 const isPlaying = ref(false)
 
+// Current time tracking for waveform
+let playbackStartTime = 0
+let playbackOffset = 0
+let playbackIntervalId: number | null = null
+
+watch(isPlaying, (newVal) => {
+  if (newVal) {
+    // Start time tracking
+    playbackStartTime = Date.now()
+    playbackOffset = currentTime.value
+    
+    playbackIntervalId = window.setInterval(() => {
+      const elapsed = (Date.now() - playbackStartTime) / 1000
+      currentTime.value = playbackOffset + elapsed
+      
+      // Clamp to duration
+      if (currentTime.value > audioDuration.value) {
+        currentTime.value = audioDuration.value
+      }
+    }, 100)
+  } else {
+    // Stop time tracking
+    if (playbackIntervalId !== null) {
+      clearInterval(playbackIntervalId)
+      playbackIntervalId = null
+    }
+  }
+})
+
+onUnmounted(() => {
+  if (playbackIntervalId !== null) {
+    clearInterval(playbackIntervalId)
+  }
+})
+
 // Refs to child components
 const trackEQRef = ref<InstanceType<typeof TrackEQ> | null>(null)
 const trackCompressorRef = ref<InstanceType<typeof TrackCompressor> | null>(null)
@@ -522,7 +567,24 @@ function handlePlayFile() {
 function handleStopFile() {
   if (audioEngine?.state.value.isRunning && selectedFileName.value) {
     audioEngine.stopFile(props.trackNumber - 1)
+    // Reset current time
+    currentTime.value = 0
     // isPlaying will be updated via Rust engine broadcast
+  }
+}
+
+function handleSeek(timeSeconds: number) {
+  if (audioEngine?.state.value.isRunning && selectedFileName.value) {
+    audioEngine.seekFile(props.trackNumber - 1, timeSeconds)
+    
+    // Update current time immediately
+    currentTime.value = timeSeconds
+    
+    // Reset playback tracking
+    if (isPlaying.value) {
+      playbackStartTime = Date.now()
+      playbackOffset = timeSeconds
+    }
   }
 }
 
@@ -553,6 +615,9 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
     selectedFileName.value = fileData.title || fileData.fileName
     audioSourceType.value = 'file'
     
+    // Reset current time when loading new file
+    currentTime.value = 0
+    
     // Reset file ended detection flag when loading a new file
     lastFileEndedDetected.value = false
 
@@ -564,6 +629,9 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
       const playlistIndex = fromPlaylist ? currentPlaylistIndex.value : null
       
       audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath, fileData.artist, fileData.title, playlistId, playlistName, playlistIndex)
+      
+      // Load waveform data from Rust backend
+      await loadWaveformFromBackend()
       
       // Auto-play the file only if requested
       if (autoPlay) {
@@ -578,6 +646,73 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
     }
   } catch (error) {
     console.error(`[Track ${props.trackNumber}] Error loading file from library:`, error)
+  }
+}
+
+// Load waveform data from Rust backend
+async function loadWaveformFromBackend() {
+  try {
+    console.log(`[Track ${props.trackNumber}] Requesting waveform data from backend...`)
+    
+    // Request 2000 points for smooth visualization
+    const result = await audioEngine.getWaveformData(props.trackNumber - 1, 2000)
+    
+    if (result && result.data) {
+      console.log(`[Track ${props.trackNumber}] Waveform data received:`, {
+        points: result.data.length,
+        duration: result.duration,
+        sampleRate: result.sample_rate
+      })
+      
+      // Use a valid sample rate (8000 Hz is the lowest common rate that's safe)
+      const useSampleRate = 8000
+      const numFrames = Math.floor(result.duration * useSampleRate)
+      
+      console.log(`[Track ${props.trackNumber}] Creating buffer: ${numFrames} frames at ${useSampleRate} Hz for ${result.duration}s`)
+      
+      // Create AudioBuffer with proper sample rate
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      audioBuffer.value = audioContext.createBuffer(1, numFrames, useSampleRate)
+      
+      // Resample the decimated data to fill the buffer
+      const channelData = audioBuffer.value.getChannelData(0)
+      const sourceData = result.data
+      
+      // Find peak value for normalization
+      let maxAbs = 0
+      for (let i = 0; i < sourceData.length; i++) {
+        maxAbs = Math.max(maxAbs, Math.abs(sourceData[i]))
+      }
+      
+      // Normalize to fill more of the display (target 0.7 peak)
+      const normalizeFactor = maxAbs > 0 ? 0.7 / maxAbs : 1.0
+      
+      // Interpolate source data to fill the buffer
+      for (let i = 0; i < numFrames; i++) {
+        const sourcePos = (i / numFrames) * sourceData.length
+        const sourceIndex = Math.floor(sourcePos)
+        const frac = sourcePos - sourceIndex
+        
+        // Linear interpolation between samples
+        const sample1 = sourceData[Math.min(sourceIndex, sourceData.length - 1)] || 0
+        const sample2 = sourceData[Math.min(sourceIndex + 1, sourceData.length - 1)] || 0
+        const interpolated = sample1 + (sample2 - sample1) * frac
+        
+        channelData[i] = interpolated * normalizeFactor
+      }
+      
+      audioDuration.value = result.duration
+      
+      console.log(`[Track ${props.trackNumber}] Waveform buffer created: ${numFrames} frames, peak=${maxAbs.toFixed(3)}, normalized=${normalizeFactor.toFixed(2)}x`)
+    } else {
+      throw new Error('No waveform data received from backend')
+    }
+  } catch (error: any) {
+    console.error(`[Track ${props.trackNumber}] Error loading waveform from backend:`, error)
+    audioBuffer.value = null
+    audioDuration.value = 0
+    
+    console.warn(`[Track ${props.trackNumber}] Waveform visualization disabled for this file`)
   }
 }
 
