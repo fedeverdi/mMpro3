@@ -163,22 +163,22 @@ interface ReverbPreset {
 }
 
 const presets: ReverbPreset[] = [
-  { name: 'CONCERT HALL', roomSize: 0.85, damping: 0.3, wet: 0.35, width: 1.0, preDelay: 0.025 },
-  { name: 'LARGE HALL', roomSize: 0.75, damping: 0.4, wet: 0.3, width: 0.95, preDelay: 0.020 },
-  { name: 'MEDIUM HALL', roomSize: 0.55, damping: 0.45, wet: 0.25, width: 0.9, preDelay: 0.015 },
-  { name: 'SMALL HALL', roomSize: 0.40, damping: 0.5, wet: 0.2, width: 0.85, preDelay: 0.010 },
-  { name: 'CHAMBER', roomSize: 0.30, damping: 0.55, wet: 0.25, width: 0.8, preDelay: 0.005 },
-  { name: 'LARGE ROOM', roomSize: 0.35, damping: 0.6, wet: 0.2, width: 0.75, preDelay: 0.008 },
-  { name: 'MEDIUM ROOM', roomSize: 0.25, damping: 0.65, wet: 0.18, width: 0.7, preDelay: 0.005 },
-  { name: 'SMALL ROOM', roomSize: 0.18, damping: 0.7, wet: 0.15, width: 0.65, preDelay: 0.003 },
-  { name: 'STUDIO', roomSize: 0.20, damping: 0.75, wet: 0.12, width: 0.6, preDelay: 0.002 },
-  { name: 'PLATE', roomSize: 0.50, damping: 0.35, wet: 0.28, width: 1.0, preDelay: 0.001 },
-  { name: 'VOCAL PLATE', roomSize: 0.45, damping: 0.4, wet: 0.25, width: 0.9, preDelay: 0.012 },
-  { name: 'DRUM ROOM', roomSize: 0.28, damping: 0.8, wet: 0.2, width: 0.7, preDelay: 0.0 },
-  { name: 'BRIGHT HALL', roomSize: 0.65, damping: 0.25, wet: 0.3, width: 1.0, preDelay: 0.018 },
-  { name: 'DARK HALL', roomSize: 0.70, damping: 0.85, wet: 0.35, width: 0.95, preDelay: 0.022 },
-  { name: 'CATHEDRAL', roomSize: 0.95, damping: 0.2, wet: 0.4, width: 1.0, preDelay: 0.050 },
-  { name: 'ARENA', roomSize: 0.90, damping: 0.35, wet: 0.38, width: 1.0, preDelay: 0.040 },
+  { name: 'CONCERT HALL', roomSize: 0.70, damping: 0.35, wet: 0.28, width: 1.0, preDelay: 0.020 },
+  { name: 'LARGE HALL', roomSize: 0.60, damping: 0.45, wet: 0.24, width: 0.95, preDelay: 0.018 },
+  { name: 'MEDIUM HALL', roomSize: 0.45, damping: 0.50, wet: 0.20, width: 0.9, preDelay: 0.012 },
+  { name: 'SMALL HALL', roomSize: 0.32, damping: 0.55, wet: 0.16, width: 0.85, preDelay: 0.008 },
+  { name: 'CHAMBER', roomSize: 0.25, damping: 0.60, wet: 0.18, width: 0.8, preDelay: 0.004 },
+  { name: 'LARGE ROOM', roomSize: 0.28, damping: 0.65, wet: 0.16, width: 0.75, preDelay: 0.006 },
+  { name: 'MEDIUM ROOM', roomSize: 0.20, damping: 0.70, wet: 0.14, width: 0.7, preDelay: 0.004 },
+  { name: 'SMALL ROOM', roomSize: 0.15, damping: 0.75, wet: 0.11, width: 0.65, preDelay: 0.002 },
+  { name: 'STUDIO', roomSize: 0.16, damping: 0.80, wet: 0.09, width: 0.6, preDelay: 0.001 },
+  { name: 'PLATE', roomSize: 0.40, damping: 0.40, wet: 0.22, width: 1.0, preDelay: 0.001 },
+  { name: 'VOCAL PLATE', roomSize: 0.35, damping: 0.45, wet: 0.20, width: 0.9, preDelay: 0.010 },
+  { name: 'DRUM ROOM', roomSize: 0.22, damping: 0.85, wet: 0.15, width: 0.7, preDelay: 0.0 },
+  { name: 'BRIGHT HALL', roomSize: 0.52, damping: 0.30, wet: 0.24, width: 1.0, preDelay: 0.015 },
+  { name: 'DARK HALL', roomSize: 0.58, damping: 0.88, wet: 0.26, width: 0.95, preDelay: 0.018 },
+  { name: 'CATHEDRAL', roomSize: 0.80, damping: 0.25, wet: 0.30, width: 1.0, preDelay: 0.040 },
+  { name: 'ARENA', roomSize: 0.75, damping: 0.40, wet: 0.28, width: 1.0, preDelay: 0.032 },
 ]
 
 const currentPresetIndex = ref(0)

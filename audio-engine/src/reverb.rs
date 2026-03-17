@@ -143,7 +143,7 @@ impl EarlyReflections {
             output += self.delay.read(delay) * gain;
         }
         
-        output * 0.3 // Scale down to prevent clipping
+        output * 0.18 // Scale down to prevent clipping and reduce echo
     }
     
     fn clear(&mut self) {
@@ -333,28 +333,28 @@ impl Reverb {
         
         // Initialize modulated input diffusers
         let input_diffuser_l = [
-            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_L[0], sample_rate), 8.0, 0.75),
-            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_L[1], sample_rate), 8.0, 0.75),
-            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_L[2], sample_rate), 8.0, 0.625),
-            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_L[3], sample_rate), 8.0, 0.625),
+            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_L[0], sample_rate), 6.0, 0.65),
+            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_L[1], sample_rate), 6.0, 0.65),
+            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_L[2], sample_rate), 6.0, 0.55),
+            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_L[3], sample_rate), 6.0, 0.55),
         ];
         
         let input_diffuser_r = [
-            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_R[0], sample_rate), 8.0, 0.75),
-            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_R[1], sample_rate), 8.0, 0.75),
-            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_R[2], sample_rate), 8.0, 0.625),
-            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_R[3], sample_rate), 8.0, 0.625),
+            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_R[0], sample_rate), 6.0, 0.65),
+            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_R[1], sample_rate), 6.0, 0.65),
+            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_R[2], sample_rate), 6.0, 0.55),
+            ModulatedAllPass::new(scale_delay(INPUT_DIFFUSER_R[3], sample_rate), 6.0, 0.55),
         ];
         
         // Initialize output diffusers
         let output_diffuser_l = [
-            AllPassFilter::new(scale_delay(OUTPUT_DIFFUSER_L[0], sample_rate), 0.5),
-            AllPassFilter::new(scale_delay(OUTPUT_DIFFUSER_L[1], sample_rate), 0.5),
+            AllPassFilter::new(scale_delay(OUTPUT_DIFFUSER_L[0], sample_rate), 0.4),
+            AllPassFilter::new(scale_delay(OUTPUT_DIFFUSER_L[1], sample_rate), 0.4),
         ];
         
         let output_diffuser_r = [
-            AllPassFilter::new(scale_delay(OUTPUT_DIFFUSER_R[0], sample_rate), 0.5),
-            AllPassFilter::new(scale_delay(OUTPUT_DIFFUSER_R[1], sample_rate), 0.5),
+            AllPassFilter::new(scale_delay(OUTPUT_DIFFUSER_R[0], sample_rate), 0.4),
+            AllPassFilter::new(scale_delay(OUTPUT_DIFFUSER_R[1], sample_rate), 0.4),
         ];
         
         // Initialize LFO phases
@@ -411,9 +411,9 @@ impl Reverb {
     
     pub fn set_room_size(&mut self, room_size: f32) {
         self.room_size = room_size.clamp(0.0, 1.0);
-        // Map room_size (0-1) to decay_time (0.1-5 seconds)
+        // Map room_size (0-1) to decay_time (0.1-4 seconds)
         // Using quadratic curve for better control in small values
-        self.decay_time = 0.1 + (room_size * room_size * 4.9);
+        self.decay_time = 0.1 + (room_size * room_size * 3.9);
     }
     
     pub fn set_damping(&mut self, damping: f32) {
@@ -572,8 +572,8 @@ impl Reverb {
             }
         }
         
-        late_l *= 0.25;
-        late_r *= 0.25;
+        late_l *= 0.20;
+        late_r *= 0.20;
         
         // ========================================
         // STAGE 5: Output diffusion
