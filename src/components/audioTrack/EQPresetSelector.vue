@@ -3,7 +3,8 @@
     <button 
       ref="buttonRef"
       @click="toggleDropdown"
-      class="w-full text-[0.65rem] font-semibold bg-gray-700 text-gray-200 border border-gray-600 rounded px-2 py-0.5 hover:bg-gray-600 hover:border-blue-500 focus:border-blue-500 focus:outline-none transition-all flex items-center justify-between">
+      class="w-full text-[0.65rem] font-semibold bg-gray-700 text-gray-200 border border-gray-600 rounded px-2 hover:bg-gray-600 hover:border-blue-500 focus:border-blue-500 focus:outline-none transition-all flex items-center justify-between"
+      :style="{ paddingTop: props.paddingY, paddingBottom: props.paddingY }">
       <span class="flex items-center gap-1.5 min-w-0">
         <!-- EQ Icon -->
         <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -53,6 +54,7 @@ interface Preset {
 interface Props {
   modelValue: string
   presets?: Preset[]
+  paddingY?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -68,7 +70,8 @@ const props = withDefaults(defineProps<Props>(), {
     { value: 'electronic', label: 'Electronic' },
     { value: 'vocal', label: 'Vocal Boost' },
     { value: 'dance', label: 'Dance' }
-  ]
+  ],
+  paddingY: '0.2rem'
 })
 
 const emit = defineEmits<{

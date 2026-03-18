@@ -5,6 +5,7 @@
         <EQPresetSelector
           v-model="selectedPreset"
           @change="applyPreset"
+          padding-y="0.2rem"
         />
       </div>
       <button
@@ -60,6 +61,7 @@ const showMasterEQ = ref(false)
 const masterEqCanvas = ref<HTMLCanvasElement | null>(null)
 const internalFiltersData = ref<any[]>([])
 const selectedPreset = ref<string>('')
+const isApplyingPreset = ref(false)
 
 // Import audio engine from context
 const audioEngine = inject('audioEngine') as any
@@ -95,10 +97,16 @@ async function applyPreset() {
   }
   
   try {
+    isApplyingPreset.value = true
     // Apply preset on backend - updated filters will arrive via ParametersChanged
     await audioEngine.applyEQPreset(selectedPreset.value)
+    // Wait for backend to update filters before allowing watch to reset preset
+    setTimeout(() => {
+      isApplyingPreset.value = false
+    }, 300)
   } catch (error) {
     console.error('[MasterEQDisplay] Failed to apply preset:', error)
+    isApplyingPreset.value = false
   }
 }
 
@@ -145,6 +153,8 @@ watch(() => props.filtersData, (newVal) => {
 
 // Watch internal filters to check if they match a preset
 watch(internalFiltersData, (newFilters) => {
+  // Don't reset preset while applying
+  if (isApplyingPreset.value) return
   if (!newFilters || newFilters.length < 5) return
   
   // Check if current filter values match any preset

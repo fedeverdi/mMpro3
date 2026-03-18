@@ -52,6 +52,7 @@
                   <EQPresetSelector
                     v-model="selectedPreset"
                     @change="applyPreset"
+                    padding-y="0.3rem"
                   />
                 </div>
               </div>
@@ -417,6 +418,7 @@ async function loadEQPresetsFromBackend() {
 }
 
 const selectedPreset = ref<string>('')
+const isApplyingPreset = ref(false)
 
 async function applyPreset() {
   if (!selectedPreset.value || selectedPreset.value === '') {
@@ -424,10 +426,16 @@ async function applyPreset() {
   }
   
   try {
+    isApplyingPreset.value = true
     // Apply preset on backend - updated filters will arrive via ParametersChanged
     await audioEngine.applyEQPreset(selectedPreset.value)
+    // Wait for backend to update filters before allowing watch to reset preset
+    setTimeout(() => {
+      isApplyingPreset.value = false
+    }, 300)
   } catch (error) {
     console.error('[ParametricEQModal] Failed to apply preset:', error)
+    isApplyingPreset.value = false
   }
 }
 
@@ -474,6 +482,8 @@ watch(fftDisplayMode, (newMode) => {
 
 // Watch for manual filter changes to detect if preset is still active
 watch(filters, (newFilters) => {
+  // Don't reset preset while applying
+  if (isApplyingPreset.value) return
   // If no preset is selected, nothing to check
   if (!selectedPreset.value || selectedPreset.value === '') return
   
