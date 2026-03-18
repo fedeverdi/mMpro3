@@ -45,6 +45,27 @@
                   </svg>
                 </button>
               </div>
+              <!-- Preset Selection -->
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-400">Preset:</label>
+                <select
+                  v-model="selectedPreset"
+                  @change="applyPreset"
+                  class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-medium border border-gray-700 hover:border-gray-600 cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Custom</option>
+                  <option value="flat">Flat</option>
+                  <option value="rock">Rock</option>
+                  <option value="pop">Pop</option>
+                  <option value="bass-enhanced">Bass Enhanced</option>
+                  <option value="treble-boost">Treble Boost</option>
+                  <option value="jazz">Jazz</option>
+                  <option value="classical">Classical</option>
+                  <option value="electronic">Electronic</option>
+                  <option value="vocal">Vocal Boost</option>
+                  <option value="dance">Dance</option>
+                </select>
+              </div>
               <button
                 @click="reset"
                 class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white transition-all text-xs font-medium border border-gray-700 hover:border-gray-600"
@@ -378,6 +399,123 @@ const getInitialFilters = (): EQFilter[] => {
 
 const filters = ref<EQFilter[]>(getInitialFilters())
 
+// EQ Presets
+const selectedPreset = ref<string>('')
+
+interface PresetGains {
+  lowshelf: number    // 100 Hz
+  low: number         // 300 Hz
+  mid: number         // 1000 Hz
+  high: number        // 2000 Hz
+  highshelf: number   // 10000 Hz
+}
+
+const eqPresets: Record<string, PresetGains> = {
+  flat: {
+    lowshelf: 0,
+    low: 0,
+    mid: 0,
+    high: 0,
+    highshelf: 0
+  },
+  rock: {
+    lowshelf: 5,
+    low: -2,
+    mid: -1,
+    high: 2,
+    highshelf: 4
+  },
+  pop: {
+    lowshelf: 2,
+    low: 1,
+    mid: 0,
+    high: 1,
+    highshelf: 2
+  },
+  'bass-enhanced': {
+    lowshelf: 8,
+    low: 6,
+    mid: 0,
+    high: -1,
+    highshelf: 0
+  },
+  'treble-boost': {
+    lowshelf: 0,
+    low: -1,
+    mid: 0,
+    high: 4,
+    highshelf: 6
+  },
+  jazz: {
+    lowshelf: 2,
+    low: 1,
+    mid: 1,
+    high: 1,
+    highshelf: 2
+  },
+  classical: {
+    lowshelf: 3,
+    low: 0,
+    mid: 0,
+    high: 0,
+    highshelf: 3
+  },
+  electronic: {
+    lowshelf: 6,
+    low: 3,
+    mid: -3,
+    high: 3,
+    highshelf: 6
+  },
+  vocal: {
+    lowshelf: -2,
+    low: -1,
+    mid: 4,
+    high: 3,
+    highshelf: 0
+  },
+  dance: {
+    lowshelf: 7,
+    low: 4,
+    mid: -2,
+    high: 2,
+    highshelf: 5
+  }
+}
+
+function applyPreset() {
+  if (!selectedPreset.value || selectedPreset.value === '') {
+    return
+  }
+  
+  const preset = eqPresets[selectedPreset.value]
+  if (!preset) return
+  
+  // Apply preset gains to the 5 bands
+  // Band 1: lowshelf (100 Hz)
+  // Band 2: peaking (300 Hz)
+  // Band 3: peaking (1000 Hz)
+  // Band 4: peaking (2000 Hz)
+  // Band 5: highshelf (10000 Hz)
+  
+  filters.value[0].gain = preset.lowshelf
+  filters.value[1].gain = preset.low
+  filters.value[2].gain = preset.mid
+  filters.value[3].gain = preset.high
+  filters.value[4].gain = preset.highshelf
+  
+  // Emit update to save changes
+  emit('update', {
+    input: null,
+    output: null,
+    filters: [],
+    filtersData: filters.value
+  })
+  
+  // Redraw curve
+  drawEQCurve()
+}
+
 // Combine user filters with system filters for visualization only
 const displayFilters = computed(() => {
   const system = props.systemFilters || []
@@ -418,6 +556,28 @@ onMounted(() => {
 watch(fftDisplayMode, (newMode) => {
   localStorage.setItem('fftDisplayMode', newMode)
 })
+
+// Watch for manual filter changes to detect if preset is still active
+watch(filters, (newFilters) => {
+  // If no preset is selected, nothing to check
+  if (!selectedPreset.value || selectedPreset.value === '') return
+  
+  const preset = eqPresets[selectedPreset.value]
+  if (!preset) return
+  
+  // Check if current filter values match the selected preset
+  const matches = 
+    newFilters[0].gain === preset.lowshelf &&
+    newFilters[1].gain === preset.low &&
+    newFilters[2].gain === preset.mid &&
+    newFilters[3].gain === preset.high &&
+    newFilters[4].gain === preset.highshelf
+  
+  // If they don't match, user modified manually - reset to Custom
+  if (!matches) {
+    selectedPreset.value = ''
+  }
+}, { deep: true })
 
 // Throttle for emit updates during drag (200ms = max 5 updates/sec)
 let lastEmitTime = 0

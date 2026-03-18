@@ -1,12 +1,32 @@
 <template>
   <div class="master-eq-track relative bg-gradient-to-b from-gray-900 to-gray-950 border border-blue-500/70 p-2 flex flex-col gap-3 h-full">
-    <button
-      @click="showMasterEQ = true"
-      class="absolute top-2.5 right-2 flex items-center justify-center gap-1 text-[0.65rem] font-semibold px-2 py-1 rounded bg-blue-600/80 hover:bg-blue-500 text-white transition-colors z-10"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="white" class="h-2 w-2"><path d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"/></svg>
-      Edit EQ
-    </button>
+    <div class="absolute top-2.5 right-2 flex items-center gap-2 z-10">
+      <select
+        v-model="selectedPreset"
+        @change="applyPreset"
+        class="text-[0.65rem] font-semibold px-2 py-1 rounded bg-gray-800/90 hover:bg-gray-700 text-gray-200 transition-all border border-gray-600 hover:border-gray-500 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500"
+        title="EQ Preset"
+      >
+        <option value="">Custom</option>
+        <option value="flat">Flat</option>
+        <option value="rock">Rock</option>
+        <option value="pop">Pop</option>
+        <option value="bass-enhanced">Bass Enhanced</option>
+        <option value="treble-boost">Treble Boost</option>
+        <option value="jazz">Jazz</option>
+        <option value="classical">Classical</option>
+        <option value="electronic">Electronic</option>
+        <option value="vocal">Vocal Boost</option>
+        <option value="dance">Dance</option>
+      </select>
+      <button
+        @click="showMasterEQ = true"
+        class="flex items-center justify-center gap-1 text-[0.65rem] font-semibold px-2 py-1 rounded bg-blue-600/80 hover:bg-blue-500 text-white transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="white" class="h-2 w-2"><path d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"/></svg>
+        Edit EQ
+      </button>
+    </div>
     
     <div>
       <p class="text-[0.7rem] font-bold text-blue-300 tracking-wide uppercase">Master Parametric EQ</p>
@@ -50,6 +70,119 @@ const emit = defineEmits<{
 const showMasterEQ = ref(false)
 const masterEqCanvas = ref<HTMLCanvasElement | null>(null)
 const internalFiltersData = ref<any[]>([])
+const selectedPreset = ref<string>('')
+
+// EQ Presets (same as in ParametricEQModal)
+interface PresetGains {
+  lowshelf: number    // 100 Hz
+  low: number         // 300 Hz
+  mid: number         // 1000 Hz
+  high: number        // 2000 Hz
+  highshelf: number   // 10000 Hz
+}
+
+const eqPresets: Record<string, PresetGains> = {
+  flat: {
+    lowshelf: 0,
+    low: 0,
+    mid: 0,
+    high: 0,
+    highshelf: 0
+  },
+  rock: {
+    lowshelf: 5,
+    low: -2,
+    mid: -1,
+    high: 2,
+    highshelf: 4
+  },
+  pop: {
+    lowshelf: 2,
+    low: 1,
+    mid: 0,
+    high: 1,
+    highshelf: 2
+  },
+  'bass-enhanced': {
+    lowshelf: 8,
+    low: 6,
+    mid: 0,
+    high: -1,
+    highshelf: 0
+  },
+  'treble-boost': {
+    lowshelf: 0,
+    low: -1,
+    mid: 0,
+    high: 4,
+    highshelf: 6
+  },
+  jazz: {
+    lowshelf: 2,
+    low: 1,
+    mid: 1,
+    high: 1,
+    highshelf: 2
+  },
+  classical: {
+    lowshelf: 3,
+    low: 0,
+    mid: 0,
+    high: 0,
+    highshelf: 3
+  },
+  electronic: {
+    lowshelf: 6,
+    low: 3,
+    mid: -3,
+    high: 3,
+    highshelf: 6
+  },
+  vocal: {
+    lowshelf: -2,
+    low: -1,
+    mid: 4,
+    high: 3,
+    highshelf: 0
+  },
+  dance: {
+    lowshelf: 7,
+    low: 4,
+    mid: -2,
+    high: 2,
+    highshelf: 5
+  }
+}
+
+function applyPreset() {
+  if (!selectedPreset.value || selectedPreset.value === '') {
+    return
+  }
+  
+  const preset = eqPresets[selectedPreset.value]
+  if (!preset) return
+  
+  // Ensure we have the default 5 bands structure
+  const filterColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F']
+  
+  // Create or update filters with preset values
+  const updatedFilters = [
+    { id: 1, type: 'lowshelf', frequency: 100, gain: preset.lowshelf, Q: 1, color: filterColors[0] },
+    { id: 2, type: 'peaking', frequency: 300, gain: preset.low, Q: 1, color: filterColors[1] },
+    { id: 3, type: 'peaking', frequency: 1000, gain: preset.mid, Q: 1, color: filterColors[2] },
+    { id: 4, type: 'peaking', frequency: 2000, gain: preset.high, Q: 1, color: filterColors[3] },
+    { id: 5, type: 'highshelf', frequency: 10000, gain: preset.highshelf, Q: 1, color: filterColors[5] }
+  ]
+  
+  // Update internal filters
+  internalFiltersData.value = updatedFilters as any[]
+  
+  // Emit to parent to sync with backend
+  emit('update:filtersData', internalFiltersData.value)
+  
+  // Redraw preview
+  requestRedraw()
+}
 
 const peakingCalculator = new PeakingFilter()
 const lowShelvingCalculator = new LowShelvingFilter()
@@ -91,6 +224,30 @@ const resizeTrigger = inject<Ref<number>>('resizeTrigger', ref(0))
 watch(() => props.filtersData, (newVal) => {
   syncFiltersData(newVal)
 }, { immediate: true })
+
+// Watch internal filters to check if they match a preset
+watch(internalFiltersData, (newFilters) => {
+  if (!newFilters || newFilters.length < 5) return
+  
+  // Check if current filter values match any preset
+  let matchedPreset = ''
+  
+  for (const [presetName, preset] of Object.entries(eqPresets)) {
+    const matches = 
+      newFilters[0]?.gain === preset.lowshelf &&
+      newFilters[1]?.gain === preset.low &&
+      newFilters[2]?.gain === preset.mid &&
+      newFilters[3]?.gain === preset.high &&
+      newFilters[4]?.gain === preset.highshelf
+    
+    if (matches) {
+      matchedPreset = presetName
+      break
+    }
+  }
+  
+  selectedPreset.value = matchedPreset
+}, { deep: true })
 
 onMounted(async () => {
   await nextTick()
