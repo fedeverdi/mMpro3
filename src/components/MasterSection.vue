@@ -23,8 +23,8 @@
 
       <!-- Faders Row -->
       <div v-if="fadersHeight > 0" class="flex gap-2 items-end mb-6 mt-2">
-        <MasterFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" @drag-start="isDraggingLeft = true" @drag-end="isDraggingLeft = false" />
-        <MasterFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" @drag-start="isDraggingRight = true" @drag-end="isDraggingRight = false" />
+        <MasterFader v-model="leftVolume" label="L" :trackHeight="fadersHeight" @drag-start="onDragStart('left')" @drag-end="onDragEnd('left')" />
+        <MasterFader v-model="rightVolume" label="R" :trackHeight="fadersHeight" @drag-start="onDragStart('right')" @drag-end="onDragEnd('right')" />
       </div>
     </div>
 
@@ -118,8 +118,9 @@ const isLinked = ref(true)
 const masterMuted = ref(false)
 const isDraggingLeft = ref(false)
 const isDraggingRight = ref(false)
-const isTogglingLink = ref(false)
-const isUpdatingFromEngine = ref(false)
+let settlingTimer: ReturnType<typeof setTimeout> | null = null
+let isSettling = false
+let linkToggledAt = 0
 
 // NDI Stream
 const { isStreaming: isNdiStreaming } = useNDI()
@@ -217,13 +218,26 @@ function onHeadphonesOutputSelect(deviceId: string | null) {
   // audioEngine.setHeadphonesOutput(deviceId)
 }
 
+function onDragStart(side: 'left' | 'right') {
+  if (settlingTimer) clearTimeout(settlingTimer)
+  isSettling = false
+  if (side === 'left') isDraggingLeft.value = true
+  else isDraggingRight.value = true
+}
+
+function onDragEnd(side: 'left' | 'right') {
+  if (side === 'left') isDraggingLeft.value = false
+  else isDraggingRight.value = false
+  // Keep ignoring backend echoes for 400ms after release (clears in-flight responses)
+  isSettling = true
+  if (settlingTimer) clearTimeout(settlingTimer)
+  settlingTimer = setTimeout(() => { isSettling = false }, 400)
+}
+
 // Link/unlink channels
 function toggleLink() {
-  isTogglingLink.value = true
+  linkToggledAt = Date.now()
   isLinked.value = !isLinked.value
-  if (isLinked.value) {
-    rightVolume.value = leftVolume.value
-  }
 }
 
 // Toggle master mute
@@ -232,110 +246,91 @@ function toggleMasterMute() {
 }
 
 // Watchers - Send changes to Rust engine
-watch([leftVolume, rightVolume], ([left, right]) => {
-  if (isUpdatingFromEngine.value) return
-  // Allow updates during drag - we need to send values to Rust in real-time
-  
-  if (audioEngine?.state.value.isRunning) {
-    if (isLinked.value) {
-      // When linked, send average as unified gain
-      const avgDb = (left + right) / 2
-      let gainValue: number
-      if (avgDb <= -90) {
-        gainValue = 0.0 // Mute
-      } else {
-        gainValue = Math.pow(10, avgDb / 20)
-      }
-      audioEngine.setMasterGain(gainValue)
-    } else {
-      // When unlinked, send left and right separately
-      const leftGain = left <= -90 ? 0.0 : Math.pow(10, left / 20)
-      const rightGain = right <= -90 ? 0.0 : Math.pow(10, right / 20)
-      audioEngine.setMasterGainLeft(leftGain)
-      audioEngine.setMasterGainRight(rightGain)
-    }
+
+// Fader moved by user → send to backend
+watch(leftVolume, (val) => {
+  if (!audioEngine?.state.value.isRunning) return
+  const gain = val <= -90 ? 0.0 : Math.pow(10, val / 20)
+  if (isLinked.value) {
+    rightVolume.value = val           // keep right in sync (UI only)
+    audioEngine.setMasterGain(gain)
+    audioEngine.setMasterGainLeft(gain)
+    audioEngine.setMasterGainRight(gain)
+  } else {
+    audioEngine.setMasterGainLeft(gain)
   }
 })
 
-watch(headphonesVolume, (volume) => {
-  if (audioEngine?.state.value.isRunning) {
-    // TODO: Send headphones volume to Rust engine
-    // audioEngine.setHeadphonesVolume(volume)
-  }
+watch(rightVolume, (val) => {
+  if (!audioEngine?.state.value.isRunning) return
+  if (isLinked.value) return          // handled by leftVolume watcher
+  const gain = val <= -90 ? 0.0 : Math.pow(10, val / 20)
+  audioEngine.setMasterGainRight(gain)
 })
 
 watch(masterMuted, (muted) => {
-  if (isUpdatingFromEngine.value) return
-  
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setMasterMute(muted)
-  }
-}, { flush: 'sync' })
+  if (audioEngine?.state.value.isRunning) audioEngine.setMasterMute(muted)
+})
 
 watch(isLinked, (linked) => {
-  if (isUpdatingFromEngine.value) return
-  if (linked === undefined) return // Skip initial undefined values
-  
-  if (audioEngine?.state.value.isRunning) {
-    audioEngine.setMasterLinked(linked)
-  }
-  
-  // Reset toggling flag after command is sent
-  setTimeout(() => {
-    isTogglingLink.value = false
-  }, 150)
-}, { flush: 'sync' })
-
-// Watch for meter level updates from audio engine
-watch(
-  () => audioEngine?.state.value.masterLevels,
-  async (levels) => {
-    if (levels) {
-      // Values are already in dB from useAudioEngine
-      leftLevel.value = levels.left
-      rightLevel.value = levels.right
-      
-      // Sync selectedMasterOutput from backend
-      if (levels.selectedMasterOutput !== selectedMasterOutput.value) {
-        selectedMasterOutput.value = levels.selectedMasterOutput ?? null
-      }
-      
-      // Sync master parameters from Rust engine
-      isUpdatingFromEngine.value = true
-      
-      if (levels.linked) {
-        // When linked, sync both from unified gain
-        const gainDb = levels.gain > 0 ? 20 * Math.log10(levels.gain) : -90
-        leftVolume.value = gainDb
-        rightVolume.value = gainDb
-      } else {
-        // When unlinked, sync from separate gains
-        const leftGainDb = levels.gainLeft > 0 ? 20 * Math.log10(levels.gainLeft) : -90
-        const rightGainDb = levels.gainRight > 0 ? 20 * Math.log10(levels.gainRight) : -90
-        leftVolume.value = leftGainDb
-        rightVolume.value = rightGainDb
-      }
-      
-      masterMuted.value = levels.mute
-      
-      // Don't update isLinked if user is actively toggling it
-      if (!isTogglingLink.value) {
-        isLinked.value = levels.linked ?? true
-      }
-      
-      await nextTick()
-      isUpdatingFromEngine.value = false
-    }
-  },
-  { deep: true, flush: 'sync' }
-)
-
-// When linked, sync right to left
-watch(leftVolume, (newVal) => {
-  if (isLinked.value) {
-    rightVolume.value = newVal
+  if (!audioEngine?.state.value.isRunning) return
+  audioEngine.setMasterLinked(linked)
+  if (linked) {
+    // Re-link: align right to left and send unified gain
+    rightVolume.value = leftVolume.value
+    const gain = leftVolume.value <= -90 ? 0.0 : Math.pow(10, leftVolume.value / 20)
+    audioEngine.setMasterGain(gain)
+    audioEngine.setMasterGainLeft(gain)
+    audioEngine.setMasterGainRight(gain)
   }
 })
+
+// VU meter levels — updated at 60fps from meters stream
+watch(
+  () => ({
+    left: audioEngine?.state.value.masterLevels.left,
+    right: audioEngine?.state.value.masterLevels.right,
+    selectedMasterOutput: audioEngine?.state.value.masterLevels.selectedMasterOutput,
+  }),
+  (v) => {
+    if (!v) return
+    leftLevel.value = v.left ?? -60
+    rightLevel.value = v.right ?? -60
+    if (v.selectedMasterOutput !== selectedMasterOutput.value) {
+      selectedMasterOutput.value = v.selectedMasterOutput ?? null
+    }
+  }
+)
+
+// Fader / link / mute sync — only fires when these specific primitives change
+watch(
+  [
+    () => audioEngine?.state.value.masterLevels.gain,
+    () => audioEngine?.state.value.masterLevels.gainLeft,
+    () => audioEngine?.state.value.masterLevels.gainRight,
+    () => audioEngine?.state.value.masterLevels.linked,
+    () => audioEngine?.state.value.masterLevels.mute,
+  ],
+  ([gain, gainLeft, gainRight, linked, mute]) => {
+    if (isDraggingLeft.value || isDraggingRight.value || isSettling) return
+
+    // Don't let stale backend echoes override link state for 500ms after user toggle
+    if (Date.now() - linkToggledAt > 500) {
+      isLinked.value = linked ?? true
+    }
+
+    if (linked) {
+      const db = gain > 0 ? 20 * Math.log10(gain) : -90
+      leftVolume.value = db
+      rightVolume.value = db
+    } else {
+      leftVolume.value  = gainLeft  > 0 ? 20 * Math.log10(gainLeft)  : -90
+      rightVolume.value = gainRight > 0 ? 20 * Math.log10(gainRight) : -90
+    }
+
+    masterMuted.value = mute
+  }
+)
 
 // Initialize
 onMounted(async () => {
