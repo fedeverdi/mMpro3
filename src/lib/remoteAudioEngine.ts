@@ -359,6 +359,10 @@ export class RemoteAudioEngine {
     return this.send({ type: 'set_mute', track, mute })
   }
 
+  async setSolo(track: number, solo: boolean): Promise<void> {
+    return this.send({ type: 'set_solo', track, solo })
+  }
+
   async setRouteToMaster(track: number, route: boolean): Promise<void> {
     return this.send({ type: 'set_route_to_master', track, route })
   }
@@ -377,6 +381,10 @@ export class RemoteAudioEngine {
 
   async setTrackPhaseInvert(track: number, enabled: boolean): Promise<void> {
     return this.send({ type: 'set_track_phase_invert', track, enabled })
+  }
+
+  async setTrackPFL(track: number, enabled: boolean): Promise<void> {
+    return this.send({ type: 'set_track_pfl', track, enabled })
   }
 
   async setEQ(track: number, low: number, low_mid: number, high_mid: number, high: number): Promise<void> {

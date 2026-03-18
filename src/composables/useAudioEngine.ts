@@ -17,8 +17,10 @@ export interface AudioEngineState {
   selectedInputDevice: string | null
   selectedOutputDevice: string | null
   trackLevels: Map<number, {
-    left: number
+    left: number              // Post-fader levels (normal)
     right: number
+    leftPreFader: number      // Pre-fader levels (for PFL metering)
+    rightPreFader: number
     phaseCorrelation: number
     compressorInputDb: number
     compressorReductionDb: number
@@ -39,6 +41,7 @@ export interface AudioEngineState {
     padEnabled: boolean
     hpfEnabled: boolean
     phaseInverted: boolean
+    pflEnabled: boolean
     compressor: {
       enabled: boolean
       thresholdDb: number
@@ -281,6 +284,7 @@ const applyPendingParameterUpdates = () => {
     if (trackParams.pad_enabled !== undefined && trackParams.pad_enabled !== null) newParams.padEnabled = trackParams.pad_enabled
     if (trackParams.hpf_enabled !== undefined && trackParams.hpf_enabled !== null) newParams.hpfEnabled = trackParams.hpf_enabled
     if (trackParams.phase_inverted !== undefined && trackParams.phase_inverted !== null) newParams.phaseInverted = trackParams.phase_inverted
+    if (trackParams.pfl_enabled !== undefined && trackParams.pfl_enabled !== null) newParams.pflEnabled = trackParams.pfl_enabled
     
     // Compressor
     if (trackParams.compressor_enabled !== undefined && trackParams.compressor_enabled !== null) newParams.compressor.enabled = trackParams.compressor_enabled
@@ -481,6 +485,8 @@ export const useAudioEngine = () => {
               state.value.trackLevels.set(trackMeter.track, {
                 left: trackMeter.level_l,
                 right: trackMeter.level_r,
+                leftPreFader: trackMeter.level_pre_fader_l,
+                rightPreFader: trackMeter.level_pre_fader_r,
                 phaseCorrelation: trackMeter.phase_correlation || 0,
                 compressorInputDb: trackMeter.compressor_input_db || -90,
                 compressorReductionDb: trackMeter.compressor_reduction_db || 0,
@@ -1376,6 +1382,11 @@ export const useAudioEngine = () => {
     window.audioEngine.setTrackPhaseInvert(track, enabled)
   }
 
+  const setTrackPFL = (track: number, enabled: boolean) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setTrackPFL(track, enabled)
+  }
+
   const setTrackEQ = (track: number, low: number, lowMid: number, highMid: number, high: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
     window.audioEngine.setEQ(track, low, lowMid, highMid, high)
@@ -1764,6 +1775,7 @@ export const useAudioEngine = () => {
     setTrackPad,
     setTrackHPF,
     setTrackPhaseInvert,
+    setTrackPFL,
     setMasterGain,
     setMasterGainLeft,
     setMasterGainRight,

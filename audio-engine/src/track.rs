@@ -254,3 +254,10 @@ pub fn set_phase_invert(router: &mut Router, track: usize, enabled: bool) {
         t.phase_inverted = enabled;
     }
 }
+
+/// Set track PFL (Pre-Fader Listen for cueing/monitoring)
+pub fn set_pfl(router: &mut Router, track: usize, enabled: bool) {
+    if let Some(t) = router.get_track_mut(track) {
+        t.pfl_enabled = enabled;
+    }
+}

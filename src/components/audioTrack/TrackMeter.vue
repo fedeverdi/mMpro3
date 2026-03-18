@@ -1,5 +1,5 @@
 <template>
-  <div class="track-meter">
+  <div class="track-meter relative">
     <!-- Stereo: 2 VU meters affiancati -->
     <div v-if="isStereo" class="flex gap-[0.03rem]">
       <VuMeter 

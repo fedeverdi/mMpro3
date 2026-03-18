@@ -154,6 +154,19 @@
 
           <!-- Routing and Phase Control Buttons -->
           <div class="flex flex-col gap-1 absolute left-[0.2rem] top-1/2 transform -translate-y-1/2 z-50">
+            <!-- PFL Button -->
+            <div class="flex flex-col items-center gap-0.5 mb-6">
+              <button @click="togglePFL"
+                class="w-5 h-5 flex items-center justify-center rounded transition-all border"
+                :class="pflEnabled
+                  ? 'bg-orange-500 border-orange-400 shadow-md shadow-orange-500/50'
+                  : 'bg-gray-800 border-gray-600 hover:bg-gray-700 hover:border-gray-500'"
+                :title="pflEnabled ? 'Pre-Fader Listen: ON' : 'Pre-Fader Listen: OFF'">
+                <div class="w-1.5 h-1.5 rounded-full" 
+                  :class="pflEnabled ? 'bg-white' : 'bg-gray-400'"></div>
+              </button>
+              <span class="text-[0.5rem] font-bold text-gray-400">PFL</span>
+            </div>
             <button @click="toggleRouteToMaster" title="Route to Master"
               class="w-5 h-7 text-[7px] font-bold rounded transition-all flex items-center justify-center"
               :class="routeToMaster ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'">
@@ -196,13 +209,14 @@
           </div>
 
           <TrackFader v-if="useFader && faderHeight > 0" v-model="volume" :trackHeight="faderHeight" 
+            class="ml-[1rem]"
             @drag-start="isDraggingVolume = true" @drag-end="isDraggingVolume = false" />
           
           <div v-else-if="!useFader" class="flex items-center justify-center flex-1">
             <KnobVolume v-model="volume" @drag-start="isDraggingVolume = true" @drag-end="isDraggingVolume = false" />
           </div>
 
-          <TrackMeter class="absolute right-[0.4rem] top-1/2 transform -translate-y-1/2 z-50" v-if="faderHeight > 0"
+          <TrackMeter class="absolute right-[-0.6rem] top-1/2 transform -translate-y-1/2 z-50" v-if="faderHeight > 0"
             :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
             :height="faderHeight + 20" />
         </div>
@@ -318,6 +332,7 @@ const pan = ref(0) // -1 to 1
 const isMuted = ref(false)
 const isSolo = ref(false)
 const phaseInverted = ref(false)
+const pflEnabled = ref(false)
 const showPhaseCorrelationModal = ref(false)
 const routeToMaster = ref(true)
 const routedSubgroups = ref<Set<number>>(new Set()) // Track which subgroups this track is routed to
@@ -796,6 +811,10 @@ function toggleSolo() {
   isSolo.value = !isSolo.value
 }
 
+function togglePFL() {
+  pflEnabled.value = !pflEnabled.value
+}
+
 function togglePhaseInvert() {
   phaseInverted.value = !phaseInverted.value
 }
@@ -1101,6 +1120,27 @@ watch(phaseInverted, (enabled) => {
   }
 })
 
+watch(pflEnabled, (enabled) => {
+  if (isUpdatingFromEngine.value) return
+  if (audioEngine?.state.value.isRunning) {
+    audioEngine.setTrackPFL(props.trackNumber - 1, enabled)
+    
+    // Immediately update displayed levels when PFL button is toggled
+    const levels = audioEngine.state.value.trackLevels.get(props.trackNumber - 1)
+    if (levels) {
+      if (enabled) {
+        // Show pre-fader levels
+        trackLevelL.value = levels.leftPreFader > 0 ? 20 * Math.log10(levels.leftPreFader) : -60
+        trackLevelR.value = levels.rightPreFader > 0 ? 20 * Math.log10(levels.rightPreFader) : -60
+      } else {
+        // Show post-fader levels
+        trackLevelL.value = levels.left > 0 ? 20 * Math.log10(levels.left) : -60
+        trackLevelR.value = levels.right > 0 ? 20 * Math.log10(levels.right) : -60
+      }
+    }
+  }
+})
+
 watch(isMuted, (muted) => {
   if (isUpdatingFromEngine.value) return
   if (audioEngine?.state.value.isRunning) {
@@ -1176,8 +1216,15 @@ watch(
     if (levels) {
       // Convert linear (0-1) to dB (-60 to 0)
       // dB = 20 * log10(linear)
-      trackLevelL.value = levels.left > 0 ? 20 * Math.log10(levels.left) : -60
-      trackLevelR.value = levels.right > 0 ? 20 * Math.log10(levels.right) : -60
+      // When PFL is enabled, show PRE-FADER levels for gain staging
+      // Otherwise show POST-FADER levels (normal operation)
+      if (pflEnabled.value) {
+        trackLevelL.value = levels.leftPreFader > 0 ? 20 * Math.log10(levels.leftPreFader) : -60
+        trackLevelR.value = levels.rightPreFader > 0 ? 20 * Math.log10(levels.rightPreFader) : -60
+      } else {
+        trackLevelL.value = levels.left > 0 ? 20 * Math.log10(levels.left) : -60
+        trackLevelR.value = levels.right > 0 ? 20 * Math.log10(levels.right) : -60
+      }
 
       // Update compressor visualization data
       compressorInputDb.value = levels.compressorInputDb || -90
@@ -1281,6 +1328,7 @@ onMounted(async () => {
     if (params.padEnabled !== undefined) padEnabled.value = params.padEnabled
     if (params.hpfEnabled !== undefined) hpfEnabled.value = params.hpfEnabled
     if (params.phaseInverted !== undefined) phaseInverted.value = params.phaseInverted
+    if (params.pflEnabled !== undefined) pflEnabled.value = params.pflEnabled
     
     // Update compressor state
     if (params.compressor) {
@@ -1567,6 +1615,7 @@ defineExpose({
     isMuted.value = state.mute ?? false
     isSolo.value = state.solo ?? false
     phaseInverted.value = state.phaseInvert ?? false
+    pflEnabled.value = state.pflEnabled ?? false
     padEnabled.value = state.padEnabled ?? false
     hpfEnabled.value = state.hpfEnabled ?? false
     

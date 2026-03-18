@@ -155,6 +155,10 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
     await sendCommandToEngine({ type: 'set_track_phase_invert', track, enabled })
   })
 
+  ipcMain.handle('audio-engine:set-track-pfl', async (_, track: number, enabled: boolean) => {
+    await sendCommandToEngine({ type: 'set_track_pfl', track, enabled })
+  })
+
   // ============================================================================
   // Track Source Handlers
   // ============================================================================

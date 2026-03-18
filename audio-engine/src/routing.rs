@@ -294,6 +294,7 @@ pub struct Track {
     pub pad_enabled: bool, // -24dB attenuation before gain
     pub hpf_enabled: bool, // High-pass filter @ 80Hz (between PAD and gain)
     pub phase_inverted: bool, // Phase inversion (180° polarity flip)
+    pub pfl_enabled: bool, // Pre-fader listen (cueing/monitoring)
     
     // Audio input
     pub input_channel_selection: ChannelSelection,
@@ -323,11 +324,16 @@ pub struct Track {
     hpf_filter: EQBand,
     
     // Processing state
-    pub level_l: f32,
+    pub level_l: f32,           // Post-fader levels (normal metering)
     pub level_r: f32,
+    pub level_pre_fader_l: f32, // Pre-fader levels (for PFL metering)
+    pub level_pre_fader_r: f32,
     
     // Phase correlation (-1 to +1)
     pub phase_correlation: f32,
+    
+    // PFL output (pre-fader signal for cueing)
+    pub pfl_output: (f32, f32),
     
     // Aux send outputs (stereo pairs for each aux bus)
     pub aux_outputs: Vec<(f32, f32)>,
@@ -360,6 +366,7 @@ impl Track {
             pad_enabled: false, // PAD off by default
             hpf_enabled: false, // HPF off by default
             phase_inverted: false, // Phase inversion off by default
+            pfl_enabled: false, // PFL off by default
             input_channel_selection: ChannelSelection::stereo(),
             signal_generator: None,
             file_player: None,
@@ -372,7 +379,10 @@ impl Track {
             hpf_filter: EQBand::new(FilterType::HighPass, 80.0, 48000.0),
             level_l: 0.0,
             level_r: 0.0,
+            level_pre_fader_l: 0.0,
+            level_pre_fader_r: 0.0,
             phase_correlation: 0.0,
+            pfl_output: (0.0, 0.0),
             aux_outputs: vec![(0.0, 0.0); MAX_AUX_BUSES], // Initialize all aux outputs
             waveform_buffer_l: vec![0.0; WAVEFORM_BUFFER_SIZE],
             waveform_buffer_r: vec![0.0; WAVEFORM_BUFFER_SIZE],
@@ -636,6 +646,9 @@ impl Track {
         if self.source != TrackSource::None {
             self.fft_analyzer.push_samples(pre_fader_l, pre_fader_r);
         }
+        
+        // Store pre-fader signal for PFL (Pre-Fader Listen)
+        self.pfl_output = (pre_fader_l, pre_fader_r);
 
         // 8. FADER: Final level control
         left *= self.volume;
@@ -657,10 +670,14 @@ impl Track {
         }
 
         // Update levels for metering (peak hold)
+        // Always track BOTH pre-fader and post-fader levels
+        // Frontend chooses which to display based on PFL button state
+        self.level_pre_fader_l = self.level_pre_fader_l.max(pre_fader_l.abs());
+        self.level_pre_fader_r = self.level_pre_fader_r.max(pre_fader_r.abs());
         self.level_l = self.level_l.max(left.abs());
         self.level_r = self.level_r.max(right.abs());
 
-        // Capture samples in waveform ring buffer
+        // Capture samples in waveform ring buffer (always post-fader for normal display)
         self.waveform_buffer_l[self.waveform_write_index] = left;
         self.waveform_buffer_r[self.waveform_write_index] = right;
         self.waveform_write_index = (self.waveform_write_index + 1) % WAVEFORM_BUFFER_SIZE;
@@ -742,6 +759,8 @@ impl Track {
     pub fn reset_levels(&mut self) {
         self.level_l = 0.0;
         self.level_r = 0.0;
+        self.level_pre_fader_l = 0.0;
+        self.level_pre_fader_r = 0.0;
     }
 }
 
@@ -1201,8 +1220,9 @@ impl Router {
 
         // Save master bus output for FFT analysis (before adding direct subgroups/aux)
         self.last_master_output = master_output;
-
-        // Return ONLY master output (direct subgroups/aux are written separately in output callback)
+        
+        // Return master output (fader always controls actual audio output)
+        // PFL only affects which levels are displayed in the UI meters
         master_output
     }
 
