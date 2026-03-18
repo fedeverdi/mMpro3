@@ -1,24 +1,12 @@
 <template>
   <div class="master-eq-track relative bg-gradient-to-b from-gray-900 to-gray-950 border border-blue-500/70 p-2 flex flex-col gap-3 h-full">
     <div class="absolute top-2.5 right-2 flex items-center gap-2 z-10">
-      <select
-        v-model="selectedPreset"
-        @change="applyPreset"
-        class="text-[0.65rem] font-semibold px-2 py-1 rounded bg-gray-800/90 hover:bg-gray-700 text-gray-200 transition-all border border-gray-600 hover:border-gray-500 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500"
-        title="EQ Preset"
-      >
-        <option value="">Custom</option>
-        <option value="flat">Flat</option>
-        <option value="rock">Rock</option>
-        <option value="pop">Pop</option>
-        <option value="bass-enhanced">Bass Enhanced</option>
-        <option value="treble-boost">Treble Boost</option>
-        <option value="jazz">Jazz</option>
-        <option value="classical">Classical</option>
-        <option value="electronic">Electronic</option>
-        <option value="vocal">Vocal Boost</option>
-        <option value="dance">Dance</option>
-      </select>
+      <div class="w-40">
+        <EQPresetSelector
+          v-model="selectedPreset"
+          @change="applyPreset"
+        />
+      </div>
       <button
         @click="showMasterEQ = true"
         class="flex items-center justify-center gap-1 text-[0.65rem] font-semibold px-2 py-1 rounded bg-blue-600/80 hover:bg-blue-500 text-white transition-colors"
@@ -57,6 +45,7 @@ import { PeakingFilter } from '~/lib/filters/peaking.class'
 import { LowShelvingFilter } from '~/lib/filters/lowShelving.class'
 import { HighShelvingFilter } from '~/lib/filters/highShelving.class'
 import ParametricEQModal from './ParametricEQModal.vue'
+import EQPresetSelector from '../audioTrack/EQPresetSelector.vue'
 
 interface Props {
   filtersData?: any[]

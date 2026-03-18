@@ -48,23 +48,12 @@
               <!-- Preset Selection -->
               <div class="flex items-center gap-2">
                 <label class="text-xs text-gray-400">Preset:</label>
-                <select
-                  v-model="selectedPreset"
-                  @change="applyPreset"
-                  class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-medium border border-gray-700 hover:border-gray-600 cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Custom</option>
-                  <option value="flat">Flat</option>
-                  <option value="rock">Rock</option>
-                  <option value="pop">Pop</option>
-                  <option value="bass-enhanced">Bass Enhanced</option>
-                  <option value="treble-boost">Treble Boost</option>
-                  <option value="jazz">Jazz</option>
-                  <option value="classical">Classical</option>
-                  <option value="electronic">Electronic</option>
-                  <option value="vocal">Vocal Boost</option>
-                  <option value="dance">Dance</option>
-                </select>
+                <div class="w-48">
+                  <EQPresetSelector
+                    v-model="selectedPreset"
+                    @change="applyPreset"
+                  />
+                </div>
               </div>
               <button
                 @click="reset"
@@ -314,6 +303,7 @@ import { ref, watch, onMounted, onUnmounted, nextTick, computed, inject } from '
 import { PeakingFilter } from '~/lib/filters/peaking.class'
 import { LowShelvingFilter } from '~/lib/filters/lowShelving.class'
 import { HighShelvingFilter } from '~/lib/filters/highShelving.class'
+import EQPresetSelector from '../audioTrack/EQPresetSelector.vue'
 
 defineOptions({
   inheritAttrs: false
