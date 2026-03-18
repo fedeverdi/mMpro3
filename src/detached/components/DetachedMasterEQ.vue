@@ -4,6 +4,7 @@
       v-model="isModalOpen"
       :trackNumber="0"
       :eq-filters="masterEqFilters"
+      :is-detached="true"
       title="Parametric EQ - Master Output"
       @update="handleFiltersUpdate"
     />

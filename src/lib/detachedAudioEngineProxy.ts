@@ -16,7 +16,31 @@ export class DetachedAudioEngineProxy {
     trackFFTData: null as Record<number, { binsLeft: Float32Array; binsRight: Float32Array; sampleRate: number }> | null
   })
 
-  constructor(private wsClient: DetachedWindowClient) {}
+  private eqPresets: any = null
+
+  constructor(private wsClient: DetachedWindowClient) {
+    // Load EQ presets on initialization
+    this.loadEQPresets()
+  }
+
+  private async loadEQPresets() {
+    try {
+      // Request presets from the server via WebSocket and wait for response
+      const response = await this.wsClient.sendAndWaitForResponse(
+        { type: 'get_eq_presets' },
+        'eq_presets',
+        5000
+      )
+      if (response && response.presets) {
+        this.eqPresets = response
+        console.log('[DetachedAudioEngineProxy] EQ presets loaded:', response.presets.length)
+      }
+    } catch (error) {
+      console.error('[DetachedAudioEngineProxy] Failed to load EQ presets:', error)
+      // Keep null, will retry on next getEQPresets call
+      this.eqPresets = null
+    }
+  }
 
   // Master EQ methods
   async setMasterParametricEQFilters(filters: Array<{type: string, frequency: number, gain: number, q: number}>): Promise<void> {
@@ -36,6 +60,22 @@ export class DetachedAudioEngineProxy {
   async clearMasterParametricEQ(): Promise<void> {
     return this.wsClient.send({ 
       type: 'clear_master_parametric_eq' 
+    })
+  }
+
+  async getEQPresets(): Promise<any> {
+    // If presets are not loaded yet, try to load them
+    if (!this.eqPresets) {
+      await this.loadEQPresets()
+    }
+    // Return cached presets
+    return this.eqPresets || { presets: [] }
+  }
+
+  async applyEQPreset(presetName: string): Promise<void> {
+    return this.wsClient.send({
+      type: 'apply_eq_preset',
+      preset_name: presetName
     })
   }
 

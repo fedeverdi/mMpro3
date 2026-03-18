@@ -79,6 +79,7 @@
                 </span>
               </button>
               <button
+                v-if="!props.isDetached"
                 @click="close"
                 class="text-gray-400 hover:text-white transition-colors p-1.5 hover:bg-gray-800 rounded-lg"
                 title="Close"
@@ -324,6 +325,7 @@ interface Props {
   eqFilters?: any
   systemFilters?: any[]  // System filters (like HPF) - only for visualization, not editable
   title?: string
+  isDetached?: boolean  // Hide close button when opened in detached window
 }
 
 const props = defineProps<Props>()

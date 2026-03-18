@@ -160,6 +160,39 @@ export class DetachedWindowClient {
   }
 
   /**
+   * Send command and wait for specific response type
+   */
+  sendAndWaitForResponse(command: any, responseType: string, timeout: number = 5000): Promise<any> {
+    return new Promise((resolve, reject) => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        reject(new Error('WebSocket not connected'))
+        return
+      }
+
+      const timeoutId = setTimeout(() => {
+        this.off(responseType, responseHandler)
+        reject(new Error(`Timeout waiting for response: ${responseType}`))
+      }, timeout)
+
+      const responseHandler = (data: any) => {
+        clearTimeout(timeoutId)
+        this.off(responseType, responseHandler)
+        resolve(data)
+      }
+
+      this.on(responseType, responseHandler)
+
+      try {
+        this.ws.send(JSON.stringify(command))
+      } catch (error) {
+        clearTimeout(timeoutId)
+        this.off(responseType, responseHandler)
+        reject(error)
+      }
+    })
+  }
+
+  /**
    * Check if connected
    */
   isConnected(): boolean {
