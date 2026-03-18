@@ -1336,6 +1336,16 @@ export const useAudioEngine = () => {
     return await window.audioEngine.getWaveformData(track, numPoints)
   }
 
+  const getEQPresets = async () => {
+    if (!window.audioEngine || !state.value.isRunning) return null
+    return await window.audioEngine.getEQPresets()
+  }
+
+  const applyEQPreset = async (presetName: string) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    await window.audioEngine.applyEQPreset(presetName)
+  }
+
   const setTrackPan = (track: number, pan: number) => {
     if (!window.audioEngine || !state.value.isRunning) return
     window.audioEngine.setPan(track, pan)
@@ -1738,6 +1748,8 @@ export const useAudioEngine = () => {
     stopFile,
     seekFile,
     getWaveformData,
+    getEQPresets,
+    applyEQPreset,
     setTrackPan,
     setTrackPad,
     setTrackHPF,

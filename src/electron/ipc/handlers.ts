@@ -365,6 +365,19 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
     await sendCommandToEngine({ type: 'clear_master_parametric_eq' })
   })
 
+  ipcMain.handle('audio-engine:get-eq-presets', async () => {
+    const { sendCommandAndWaitForResponse } = await import('../audio-engine/process')
+    return await sendCommandAndWaitForResponse(
+      { type: 'get_eq_presets' },
+      'eq_presets',
+      5000 // 5 second timeout
+    )
+  })
+
+  ipcMain.handle('audio-engine:apply-eq-preset', async (_, presetName: string) => {
+    await sendCommandToEngine({ type: 'apply_eq_preset', preset_name: presetName })
+  })
+
   ipcMain.handle('audio-engine:set-master-output-channels', async (_, leftChannel: number, rightChannel: number) => {
     await sendCommandToEngine({ type: 'set_master_output_channels', left_channel: leftChannel, right_channel: rightChannel })
   })

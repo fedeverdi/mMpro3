@@ -399,121 +399,44 @@ const getInitialFilters = (): EQFilter[] => {
 
 const filters = ref<EQFilter[]>(getInitialFilters())
 
-// EQ Presets
-const selectedPreset = ref<string>('')
-
-interface PresetGains {
-  lowshelf: number    // 100 Hz
-  low: number         // 300 Hz
-  mid: number         // 1000 Hz
-  high: number        // 2000 Hz
-  highshelf: number   // 10000 Hz
+// EQ Presets loaded from backend
+interface EQPresetFromBackend {
+  name: string
+  filters: Array<{
+    filter_type: string
+    frequency: number
+    gain: number
+    q: number
+  }>
 }
 
-const eqPresets: Record<string, PresetGains> = {
-  flat: {
-    lowshelf: 0,
-    low: 0,
-    mid: 0,
-    high: 0,
-    highshelf: 0
-  },
-  rock: {
-    lowshelf: 5,
-    low: -2,
-    mid: -1,
-    high: 2,
-    highshelf: 4
-  },
-  pop: {
-    lowshelf: 2,
-    low: 1,
-    mid: 0,
-    high: 1,
-    highshelf: 2
-  },
-  'bass-enhanced': {
-    lowshelf: 8,
-    low: 6,
-    mid: 0,
-    high: -1,
-    highshelf: 0
-  },
-  'treble-boost': {
-    lowshelf: 0,
-    low: -1,
-    mid: 0,
-    high: 4,
-    highshelf: 6
-  },
-  jazz: {
-    lowshelf: 2,
-    low: 1,
-    mid: 1,
-    high: 1,
-    highshelf: 2
-  },
-  classical: {
-    lowshelf: 3,
-    low: 0,
-    mid: 0,
-    high: 0,
-    highshelf: 3
-  },
-  electronic: {
-    lowshelf: 6,
-    low: 3,
-    mid: -3,
-    high: 3,
-    highshelf: 6
-  },
-  vocal: {
-    lowshelf: -2,
-    low: -1,
-    mid: 4,
-    high: 3,
-    highshelf: 0
-  },
-  dance: {
-    lowshelf: 7,
-    low: 4,
-    mid: -2,
-    high: 2,
-    highshelf: 5
+const eqPresetsFromBackend = ref<EQPresetFromBackend[]>([])
+
+// Load presets from backend
+async function loadEQPresetsFromBackend() {
+  try {
+    const response = await audioEngine.getEQPresets()
+    if (response && response.presets) {
+      eqPresetsFromBackend.value = response.presets
+    }
+  } catch (error) {
+    console.error('[ParametricEQModal] Failed to load EQ presets from backend:', error)
   }
 }
 
-function applyPreset() {
+const selectedPreset = ref<string>('')
+
+async function applyPreset() {
   if (!selectedPreset.value || selectedPreset.value === '') {
     return
   }
   
-  const preset = eqPresets[selectedPreset.value]
-  if (!preset) return
-  
-  // Apply preset gains to the 5 bands
-  // Band 1: lowshelf (100 Hz)
-  // Band 2: peaking (300 Hz)
-  // Band 3: peaking (1000 Hz)
-  // Band 4: peaking (2000 Hz)
-  // Band 5: highshelf (10000 Hz)
-  
-  filters.value[0].gain = preset.lowshelf
-  filters.value[1].gain = preset.low
-  filters.value[2].gain = preset.mid
-  filters.value[3].gain = preset.high
-  filters.value[4].gain = preset.highshelf
-  
-  // Emit update to save changes
-  emit('update', {
-    input: null,
-    output: null,
-    filters: [],
-    filtersData: filters.value
-  })
-  
-  // Redraw curve
-  drawEQCurve()
+  try {
+    // Apply preset on backend - updated filters will arrive via ParametersChanged
+    await audioEngine.applyEQPreset(selectedPreset.value)
+  } catch (error) {
+    console.error('[ParametricEQModal] Failed to apply preset:', error)
+  }
 }
 
 // Combine user filters with system filters for visualization only
@@ -562,16 +485,16 @@ watch(filters, (newFilters) => {
   // If no preset is selected, nothing to check
   if (!selectedPreset.value || selectedPreset.value === '') return
   
-  const preset = eqPresets[selectedPreset.value]
-  if (!preset) return
+  const preset = eqPresetsFromBackend.value.find(p => p.name === selectedPreset.value)
+  if (!preset || preset.filters.length !== 5) return
   
   // Check if current filter values match the selected preset
   const matches = 
-    newFilters[0].gain === preset.lowshelf &&
-    newFilters[1].gain === preset.low &&
-    newFilters[2].gain === preset.mid &&
-    newFilters[3].gain === preset.high &&
-    newFilters[4].gain === preset.highshelf
+    newFilters[0]?.gain === preset.filters[0].gain &&
+    newFilters[1]?.gain === preset.filters[1].gain &&
+    newFilters[2]?.gain === preset.filters[2].gain &&
+    newFilters[3]?.gain === preset.filters[3].gain &&
+    newFilters[4]?.gain === preset.filters[4].gain
   
   // If they don't match, user modified manually - reset to Custom
   if (!matches) {
@@ -594,6 +517,9 @@ let pendingDragUpdate: (() => void) | null = null
 
 onMounted(async () => {
   await nextTick()
+  
+  // Load EQ presets from backend
+  await loadEQPresetsFromBackend()
   
   setupCanvas()
   // Don't create filters immediately to avoid AudioContext warnings

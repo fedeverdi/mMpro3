@@ -82,6 +82,8 @@ interface AudioEngine {
   playFile: (trackIndex: number, fileId?: string) => Promise<void>
   pauseFile: (trackIndex: number) => Promise<void>
   stopFile: (trackIndex: number) => Promise<void>
+  seekFile: (trackIndex: number, timeSeconds: number) => Promise<void>
+  getWaveformData: (trackIndex: number, numPoints: number) => Promise<{ track: number; data: number[]; duration: number; sample_rate: number }>
   
   // Track Parameters
   setPan: (trackIndex: number, pan: number) => Promise<void>
@@ -100,6 +102,10 @@ interface AudioEngine {
   clearMasterParametricEQ: () => Promise<void>
   setMasterOutputChannels: (leftChannel: number, rightChannel: number) => Promise<void>
   setSelectedMasterOutput: (deviceId: string | null) => Promise<void>
+  
+  // EQ Presets
+  getEQPresets: () => Promise<{ presets: Array<{ name: string; filters: Array<{ filter_type: string; frequency: number; gain: number; q: number }> }> }>
+  applyEQPreset: (presetName: string) => Promise<void>
   
   // Master FX Controls
   setMasterCompressor: (enabled: boolean, threshold: number, ratio: number, attack: number, release: number) => Promise<void>

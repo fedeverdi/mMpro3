@@ -72,116 +72,45 @@ const masterEqCanvas = ref<HTMLCanvasElement | null>(null)
 const internalFiltersData = ref<any[]>([])
 const selectedPreset = ref<string>('')
 
-// EQ Presets (same as in ParametricEQModal)
-interface PresetGains {
-  lowshelf: number    // 100 Hz
-  low: number         // 300 Hz
-  mid: number         // 1000 Hz
-  high: number        // 2000 Hz
-  highshelf: number   // 10000 Hz
+// Import audio engine from context
+const audioEngine = inject('audioEngine') as any
+
+// EQ Presets loaded from backend
+interface EQPresetFromBackend {
+  name: string
+  filters: Array<{
+    filter_type: string
+    frequency: number
+    gain: number
+    q: number
+  }>
 }
 
-const eqPresets: Record<string, PresetGains> = {
-  flat: {
-    lowshelf: 0,
-    low: 0,
-    mid: 0,
-    high: 0,
-    highshelf: 0
-  },
-  rock: {
-    lowshelf: 5,
-    low: -2,
-    mid: -1,
-    high: 2,
-    highshelf: 4
-  },
-  pop: {
-    lowshelf: 2,
-    low: 1,
-    mid: 0,
-    high: 1,
-    highshelf: 2
-  },
-  'bass-enhanced': {
-    lowshelf: 8,
-    low: 6,
-    mid: 0,
-    high: -1,
-    highshelf: 0
-  },
-  'treble-boost': {
-    lowshelf: 0,
-    low: -1,
-    mid: 0,
-    high: 4,
-    highshelf: 6
-  },
-  jazz: {
-    lowshelf: 2,
-    low: 1,
-    mid: 1,
-    high: 1,
-    highshelf: 2
-  },
-  classical: {
-    lowshelf: 3,
-    low: 0,
-    mid: 0,
-    high: 0,
-    highshelf: 3
-  },
-  electronic: {
-    lowshelf: 6,
-    low: 3,
-    mid: -3,
-    high: 3,
-    highshelf: 6
-  },
-  vocal: {
-    lowshelf: -2,
-    low: -1,
-    mid: 4,
-    high: 3,
-    highshelf: 0
-  },
-  dance: {
-    lowshelf: 7,
-    low: 4,
-    mid: -2,
-    high: 2,
-    highshelf: 5
+const eqPresetsFromBackend = ref<EQPresetFromBackend[]>([])
+
+// Load presets from backend
+async function loadEQPresetsFromBackend() {
+  try {
+    const response = await audioEngine.getEQPresets()
+    if (response && response.presets) {
+      eqPresetsFromBackend.value = response.presets
+    }
+  } catch (error) {
+    console.error('[MasterEQDisplay] Failed to load EQ presets from backend:', error)
   }
 }
 
-function applyPreset() {
+async function applyPreset() {
   if (!selectedPreset.value || selectedPreset.value === '') {
     return
   }
   
-  const preset = eqPresets[selectedPreset.value]
-  if (!preset) return
-  
-  // Ensure we have the default 5 bands structure
-  const filterColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F']
-  
-  // Create or update filters with preset values
-  const updatedFilters = [
-    { id: 1, type: 'lowshelf', frequency: 100, gain: preset.lowshelf, Q: 1, color: filterColors[0] },
-    { id: 2, type: 'peaking', frequency: 300, gain: preset.low, Q: 1, color: filterColors[1] },
-    { id: 3, type: 'peaking', frequency: 1000, gain: preset.mid, Q: 1, color: filterColors[2] },
-    { id: 4, type: 'peaking', frequency: 2000, gain: preset.high, Q: 1, color: filterColors[3] },
-    { id: 5, type: 'highshelf', frequency: 10000, gain: preset.highshelf, Q: 1, color: filterColors[5] }
-  ]
-  
-  // Update internal filters
-  internalFiltersData.value = updatedFilters as any[]
-  
-  // Emit to parent to sync with backend
-  emit('update:filtersData', internalFiltersData.value)
-  
-  // Redraw preview
-  requestRedraw()
+  try {
+    // Apply preset on backend - updated filters will arrive via ParametersChanged
+    await audioEngine.applyEQPreset(selectedPreset.value)
+  } catch (error) {
+    console.error('[MasterEQDisplay] Failed to apply preset:', error)
+  }
 }
 
 const peakingCalculator = new PeakingFilter()
@@ -232,16 +161,18 @@ watch(internalFiltersData, (newFilters) => {
   // Check if current filter values match any preset
   let matchedPreset = ''
   
-  for (const [presetName, preset] of Object.entries(eqPresets)) {
+  for (const preset of eqPresetsFromBackend.value) {
+    if (preset.filters.length !== 5) continue
+    
     const matches = 
-      newFilters[0]?.gain === preset.lowshelf &&
-      newFilters[1]?.gain === preset.low &&
-      newFilters[2]?.gain === preset.mid &&
-      newFilters[3]?.gain === preset.high &&
-      newFilters[4]?.gain === preset.highshelf
+      newFilters[0]?.gain === preset.filters[0].gain &&
+      newFilters[1]?.gain === preset.filters[1].gain &&
+      newFilters[2]?.gain === preset.filters[2].gain &&
+      newFilters[3]?.gain === preset.filters[3].gain &&
+      newFilters[4]?.gain === preset.filters[4].gain
     
     if (matches) {
-      matchedPreset = presetName
+      matchedPreset = preset.name
       break
     }
   }
@@ -251,6 +182,10 @@ watch(internalFiltersData, (newFilters) => {
 
 onMounted(async () => {
   await nextTick()
+  
+  // Load EQ presets from backend
+  await loadEQPresetsFromBackend()
+  
   requestRedraw()
   window.addEventListener('resize', throttledRequestRedraw)
   

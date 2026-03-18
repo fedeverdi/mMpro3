@@ -496,6 +496,129 @@ impl ParametricEqualizer {
     }
 }
 
+/// Preset definition for EQ
+#[derive(Debug, Clone)]
+pub struct EQPreset {
+    pub name: String,
+    pub filters: Vec<(FilterType, f32, f32, f32)>, // (type, frequency, gain, Q)
+}
+
+impl EQPreset {
+    /// Get all available EQ presets
+    pub fn get_presets() -> Vec<EQPreset> {
+        vec![
+            EQPreset {
+                name: "flat".to_string(),
+                filters: vec![
+                    (FilterType::LowShelf, 100.0, 0.0, 1.0),
+                    (FilterType::Peaking, 300.0, 0.0, 1.0),
+                    (FilterType::Peaking, 1000.0, 0.0, 1.0),
+                    (FilterType::Peaking, 2000.0, 0.0, 1.0),
+                    (FilterType::HighShelf, 10000.0, 0.0, 1.0),
+                ],
+            },
+            EQPreset {
+                name: "rock".to_string(),
+                filters: vec![
+                    (FilterType::LowShelf, 100.0, 5.0, 1.0),
+                    (FilterType::Peaking, 300.0, -2.0, 1.0),
+                    (FilterType::Peaking, 1000.0, -1.0, 1.0),
+                    (FilterType::Peaking, 2000.0, 2.0, 1.0),
+                    (FilterType::HighShelf, 10000.0, 4.0, 1.0),
+                ],
+            },
+            EQPreset {
+                name: "pop".to_string(),
+                filters: vec![
+                    (FilterType::LowShelf, 100.0, 2.0, 1.0),
+                    (FilterType::Peaking, 300.0, 1.0, 1.0),
+                    (FilterType::Peaking, 1000.0, 0.0, 1.0),
+                    (FilterType::Peaking, 2000.0, 1.0, 1.0),
+                    (FilterType::HighShelf, 10000.0, 2.0, 1.0),
+                ],
+            },
+            EQPreset {
+                name: "bass-enhanced".to_string(),
+                filters: vec![
+                    (FilterType::LowShelf, 100.0, 8.0, 1.0),
+                    (FilterType::Peaking, 300.0, 6.0, 1.0),
+                    (FilterType::Peaking, 1000.0, 0.0, 1.0),
+                    (FilterType::Peaking, 2000.0, -1.0, 1.0),
+                    (FilterType::HighShelf, 10000.0, 0.0, 1.0),
+                ],
+            },
+            EQPreset {
+                name: "treble-boost".to_string(),
+                filters: vec![
+                    (FilterType::LowShelf, 100.0, 0.0, 1.0),
+                    (FilterType::Peaking, 300.0, -1.0, 1.0),
+                    (FilterType::Peaking, 1000.0, 0.0, 1.0),
+                    (FilterType::Peaking, 2000.0, 4.0, 1.0),
+                    (FilterType::HighShelf, 10000.0, 6.0, 1.0),
+                ],
+            },
+            EQPreset {
+                name: "jazz".to_string(),
+                filters: vec![
+                    (FilterType::LowShelf, 100.0, 2.0, 1.0),
+                    (FilterType::Peaking, 300.0, 1.0, 1.0),
+                    (FilterType::Peaking, 1000.0, 1.0, 1.0),
+                    (FilterType::Peaking, 2000.0, 1.0, 1.0),
+                    (FilterType::HighShelf, 10000.0, 2.0, 1.0),
+                ],
+            },
+            EQPreset {
+                name: "classical".to_string(),
+                filters: vec![
+                    (FilterType::LowShelf, 100.0, 3.0, 1.0),
+                    (FilterType::Peaking, 300.0, 0.0, 1.0),
+                    (FilterType::Peaking, 1000.0, 0.0, 1.0),
+                    (FilterType::Peaking, 2000.0, 0.0, 1.0),
+                    (FilterType::HighShelf, 10000.0, 3.0, 1.0),
+                ],
+            },
+            EQPreset {
+                name: "electronic".to_string(),
+                filters: vec![
+                    (FilterType::LowShelf, 100.0, 6.0, 1.0),
+                    (FilterType::Peaking, 300.0, 3.0, 1.0),
+                    (FilterType::Peaking, 1000.0, -3.0, 1.0),
+                    (FilterType::Peaking, 2000.0, 3.0, 1.0),
+                    (FilterType::HighShelf, 10000.0, 6.0, 1.0),
+                ],
+            },
+            EQPreset {
+                name: "vocal".to_string(),
+                filters: vec![
+                    (FilterType::LowShelf, 100.0, -2.0, 1.0),
+                    (FilterType::Peaking, 300.0, -1.0, 1.0),
+                    (FilterType::Peaking, 1000.0, 4.0, 1.0),
+                    (FilterType::Peaking, 2000.0, 3.0, 1.0),
+                    (FilterType::HighShelf, 10000.0, 0.0, 1.0),
+                ],
+            },
+            EQPreset {
+                name: "dance".to_string(),
+                filters: vec![
+                    (FilterType::LowShelf, 100.0, 7.0, 1.0),
+                    (FilterType::Peaking, 300.0, 4.0, 1.0),
+                    (FilterType::Peaking, 1000.0, -2.0, 1.0),
+                    (FilterType::Peaking, 2000.0, 2.0, 1.0),
+                    (FilterType::HighShelf, 10000.0, 5.0, 1.0),
+                ],
+            },
+        ]
+    }
+
+    /// Apply this preset to a ParametricEqualizer
+    pub fn apply_to(&self, eq: &mut ParametricEqualizer) {
+        eq.clear();
+        for (filter_type, frequency, gain, q) in &self.filters {
+            eq.add_band(*filter_type, *frequency, *gain, *q);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

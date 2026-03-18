@@ -100,6 +100,10 @@ contextBridge.exposeInMainWorld('audioEngine', {
   setSelectedMasterOutput: (deviceId: string | null) =>
     ipcRenderer.invoke('audio-engine:set-selected-master-output', deviceId),
   
+  // EQ Presets
+  getEQPresets: () => ipcRenderer.invoke('audio-engine:get-eq-presets'),
+  applyEQPreset: (presetName: string) => ipcRenderer.invoke('audio-engine:apply-eq-preset', presetName),
+  
   // Master FX controls
   setMasterCompressor: (enabled: boolean, threshold: number, ratio: number, attack: number, release: number) =>
     ipcRenderer.invoke('audio-engine:set-master-compressor', enabled, threshold, ratio, attack, release),

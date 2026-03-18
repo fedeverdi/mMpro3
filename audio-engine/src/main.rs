@@ -542,6 +542,14 @@ enum Command {
         depth: f32,
         mix: f32,
     },
+    
+    // EQ Presets
+    #[serde(rename = "get_eq_presets")]
+    GetEQPresets,
+    #[serde(rename = "apply_eq_preset")]
+    ApplyEQPreset {
+        preset_name: String,
+    },
 }
 
 /// Risposta inviata a Electron via stdout
@@ -674,6 +682,24 @@ enum Response {
         duration: f32,
         sample_rate: u32,
     },
+    #[serde(rename = "eq_presets")]
+    EQPresets {
+        presets: Vec<EQPresetData>,
+    },
+}
+
+#[derive(Debug, Serialize)]
+struct EQPresetData {
+    name: String,
+    filters: Vec<EQPresetFilter>,
+}
+
+#[derive(Debug, Serialize)]
+struct EQPresetFilter {
+    filter_type: String,
+    frequency: f32,
+    gain: f32,
+    q: f32,
 }
 
 // === METERS STRUCTS (Real-time data only) ===
@@ -5637,6 +5663,72 @@ impl AudioEngine {
                 } else {
                     Some(Response::Error {
                         message: format!("Track {} not found", track),
+                    })
+                }
+            },
+            Command::GetEQPresets => {
+                use crate::equalizer::EQPreset;
+                
+                let presets = EQPreset::get_presets();
+                let preset_data: Vec<EQPresetData> = presets.into_iter().map(|p| {
+                    EQPresetData {
+                        name: p.name,
+                        filters: p.filters.into_iter().map(|(filter_type, frequency, gain, q)| {
+                            EQPresetFilter {
+                                filter_type: filter_type.to_string(),
+                                frequency,
+                                gain,
+                                q,
+                            }
+                        }).collect(),
+                    }
+                }).collect();
+                
+                Some(Response::EQPresets {
+                    presets: preset_data,
+                })
+            },
+            Command::ApplyEQPreset { preset_name } => {
+                use crate::equalizer::EQPreset;
+                
+                let presets = EQPreset::get_presets();
+                if let Some(preset) = presets.into_iter().find(|p| p.name == preset_name) {
+                    let mut router = self.router.lock().unwrap();
+                    preset.apply_to(&mut router.master.parametric_eq);
+                    
+                    // Get updated filters from the equalizer
+                    let filters_data = router.master.parametric_eq.export_filters();
+                    let filters: Vec<ParametricFilter> = filters_data.iter().map(|f| {
+                        ParametricFilter {
+                            filter_type: f.filter_type.clone(),
+                            frequency: f.frequency,
+                            gain: f.gain,
+                            q: f.q,
+                        }
+                    }).collect();
+                    
+                    drop(router);
+                    
+                    // Send ParametersChanged instead of Ok
+                    Some(Response::ParametersChanged {
+                        tracks: None,
+                        subgroups: None,
+                        auxes: None,
+                        master: Some(MasterParameters {
+                            gain: None,
+                            gain_left: None,
+                            gain_right: None,
+                            mute: None,
+                            linked: None,
+                            eq_filters: Some(filters),
+                            fx_effects: None,
+                            selected_output: None,
+                            available_output_devices: None,
+                        }),
+                    })
+                } else {
+                    Some(Response::Error {
+                        message: format!("EQ preset not found: {}", preset_name),
                     })
                 }
             },

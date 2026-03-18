@@ -540,6 +540,14 @@ export class RemoteAudioEngine {
     return this.send({ type: 'clear_master_parametric_eq' })
   }
 
+  async getEQPresets(): Promise<any> {
+    return this.send({ type: 'get_eq_presets' })
+  }
+
+  async applyEQPreset(presetName: string): Promise<void> {
+    return this.send({ type: 'apply_eq_preset', preset_name: presetName })
+  }
+
   async setMasterOutputChannels(leftChannel: number, rightChannel: number): Promise<void> {
     return this.send({ type: 'set_master_output_channels', left_channel: leftChannel, right_channel: rightChannel })
   }
