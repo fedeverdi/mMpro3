@@ -4183,7 +4183,6 @@ impl AudioEngine {
                         eq_filters: None,
                         fx_effects: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4203,7 +4202,6 @@ impl AudioEngine {
                         eq_filters: None,
                         fx_effects: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4223,7 +4221,6 @@ impl AudioEngine {
                         eq_filters: None,
                         fx_effects: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4243,7 +4240,6 @@ impl AudioEngine {
                         eq_filters: None,
                         fx_effects: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4263,7 +4259,6 @@ impl AudioEngine {
                         eq_filters: None,
                         fx_effects: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4283,7 +4278,6 @@ impl AudioEngine {
                         eq_filters: Some(filters),
                         fx_effects: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4307,7 +4301,6 @@ impl AudioEngine {
                         eq_filters: Some(vec![]),
                         fx_effects: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4334,7 +4327,6 @@ impl AudioEngine {
                         fx_effects: None,
                         selected_output: Some(device_id),
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4363,7 +4355,6 @@ impl AudioEngine {
                         fx_effects: Some(fx_effects),
                         selected_output: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4387,7 +4378,6 @@ impl AudioEngine {
                         fx_effects: Some(self.get_master_fx_effects()),
                         selected_output: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4413,7 +4403,6 @@ impl AudioEngine {
                         fx_effects: Some(self.get_master_fx_effects()),
                         selected_output: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4440,7 +4429,6 @@ impl AudioEngine {
                         fx_effects: Some(self.get_master_fx_effects()),
                         selected_output: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4460,7 +4448,6 @@ impl AudioEngine {
                         fx_effects: Some(self.get_master_fx_effects()),
                         selected_output: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }
@@ -4480,7 +4467,6 @@ impl AudioEngine {
                         fx_effects: Some(self.get_master_fx_effects()),
                         selected_output: None,
                         available_output_devices: None,
-                        current_eq_preset: None,
                     }),
                 })
             }

@@ -405,6 +405,7 @@ pub struct ParametricEqualizer {
     bands: Vec<EQBand>,
     sample_rate: f32,
     pub enabled: bool,
+    pub current_preset_name: Option<String>,
 }
 
 impl ParametricEqualizer {
@@ -413,6 +414,7 @@ impl ParametricEqualizer {
             bands: Vec::new(),
             sample_rate,
             enabled: true,
+            current_preset_name: None,
         }
     }
 
@@ -454,6 +456,8 @@ impl ParametricEqualizer {
             band.set_frequency(frequency);
             band.set_gain(gain_db);
             band.set_q(q);
+            // Reset preset name when manually modifying filters
+            self.current_preset_name = None;
         }
     }
 
@@ -493,6 +497,11 @@ impl ParametricEqualizer {
     /// Export all filter data for serialization
     pub fn export_filters(&self) -> Vec<FilterData> {
         self.bands.iter().map(|band| band.export_data()).collect()
+    }
+
+    /// Get the current preset name (if any)
+    pub fn get_current_preset_name(&self) -> Option<String> {
+        self.current_preset_name.clone()
     }
 }
 
@@ -616,6 +625,8 @@ impl EQPreset {
         for (filter_type, frequency, gain, q) in &self.filters {
             eq.add_band(*filter_type, *frequency, *gain, *q);
         }
+        // Set the preset name after applying
+        eq.current_preset_name = Some(self.name.clone());
     }
 }
 

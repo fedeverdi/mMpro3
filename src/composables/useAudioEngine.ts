@@ -119,6 +119,7 @@ export interface AudioEngineState {
     selectedMasterOutput?: string | null;
   }
   masterEQFilters: any[]
+  masterCurrentEQPreset: string | null
   masterFxEffects: any[]
   fftData: { binsLeft: Float32Array; binsRight: Float32Array; sampleRate: number } | null
   trackFFTData: Record<number, { binsLeft: Float32Array; binsRight: Float32Array; sampleRate: number }> | null
@@ -192,6 +193,7 @@ const state = ref<AudioEngineState>({
   auxLevels: new Map(),
   masterLevels: { left: -60, right: -60, gain: 1.0, gainLeft: 1.0, gainRight: 1.0, mute: false, linked: true, selectedMasterOutput: null },
   masterEQFilters: [],
+  masterCurrentEQPreset: null,
   masterFxEffects: [],
   fftData: null,
   trackFFTData: null,
@@ -381,6 +383,10 @@ const applyPendingParameterUpdates = () => {
     if (master.linked !== undefined && master.linked !== null) state.value.masterLevels.linked = master.linked
     if (master.selected_output !== undefined) state.value.masterLevels.selectedMasterOutput = master.selected_output
     if (master.eq_filters !== undefined && master.eq_filters !== null) state.value.masterEQFilters = master.eq_filters
+    if (master.current_eq_preset !== undefined && master.current_eq_preset !== null) {
+      console.log('[useAudioEngine] Updating masterCurrentEQPreset:', master.current_eq_preset)
+      state.value.masterCurrentEQPreset = master.current_eq_preset
+    }
     if (master.fx_effects !== undefined && master.fx_effects !== null) {
       console.log('[useAudioEngine] Updating masterFxEffects:', master.fx_effects)
       state.value.masterFxEffects = master.fx_effects

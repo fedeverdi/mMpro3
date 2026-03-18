@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick, toRaw, inject, type Ref } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, toRaw, inject, type Ref, computed } from 'vue'
 import { PeakingFilter } from '~/lib/filters/peaking.class'
 import { LowShelvingFilter } from '~/lib/filters/lowShelving.class'
 import { HighShelvingFilter } from '~/lib/filters/highShelving.class'
@@ -65,6 +65,9 @@ const isApplyingPreset = ref(false)
 
 // Import audio engine from context
 const audioEngine = inject('audioEngine') as any
+
+// Get audioEngineState from parent
+const audioEngineState = inject<Ref<any>>('audioEngineState', ref(null))
 
 // EQ Presets loaded from backend
 interface EQPresetFromBackend {
@@ -100,10 +103,10 @@ async function applyPreset() {
     isApplyingPreset.value = true
     // Apply preset on backend - updated filters will arrive via ParametersChanged
     await audioEngine.applyEQPreset(selectedPreset.value)
-    // Wait for backend to update filters before allowing watch to reset preset
+    // Wait longer for backend to update filters and preset name
     setTimeout(() => {
       isApplyingPreset.value = false
-    }, 300)
+    }, 1000)
   } catch (error) {
     console.error('[MasterEQDisplay] Failed to apply preset:', error)
     isApplyingPreset.value = false
@@ -152,38 +155,44 @@ watch(() => props.filtersData, (newVal) => {
 }, { immediate: true })
 
 // Watch internal filters to check if they match a preset
-watch(internalFiltersData, (newFilters) => {
-  // Don't reset preset while applying
-  if (isApplyingPreset.value) return
-  if (!newFilters || newFilters.length < 5) return
-  
-  // Check if current filter values match any preset
-  let matchedPreset = ''
-  
-  for (const preset of eqPresetsFromBackend.value) {
-    if (preset.filters.length !== 5) continue
-    
-    const matches = 
-      newFilters[0]?.gain === preset.filters[0].gain &&
-      newFilters[1]?.gain === preset.filters[1].gain &&
-      newFilters[2]?.gain === preset.filters[2].gain &&
-      newFilters[3]?.gain === preset.filters[3].gain &&
-      newFilters[4]?.gain === preset.filters[4].gain
-    
-    if (matches) {
-      matchedPreset = preset.name
-      break
-    }
-  }
-  
-  selectedPreset.value = matchedPreset
-}, { deep: true })
+// DISABLED: Now relying on masterCurrentEQPreset from backend for accurate sync
+// watch(internalFiltersData, (newFilters) => {
+//   // Don't reset preset while applying
+//   if (isApplyingPreset.value) return
+//   if (!newFilters || newFilters.length < 5) return
+//   
+//   // Check if current filter values match any preset
+//   let matchedPreset = ''
+//   
+//   for (const preset of eqPresetsFromBackend.value) {
+//     if (preset.filters.length !== 5) continue
+//     
+//     const matches = 
+//       newFilters[0]?.gain === preset.filters[0].gain &&
+//       newFilters[1]?.gain === preset.filters[1].gain &&
+//       newFilters[2]?.gain === preset.filters[2].gain &&
+//       newFilters[3]?.gain === preset.filters[3].gain &&
+//       newFilters[4]?.gain === preset.filters[4].gain
+//     
+//     if (matches) {
+//       matchedPreset = preset.name
+//       break
+//     }
+//   }
+//   
+//   selectedPreset.value = matchedPreset
+// }, { deep: true })
 
 onMounted(async () => {
   await nextTick()
   
   // Load EQ presets from backend
   await loadEQPresetsFromBackend()
+  
+  // Sync preset from backend state
+  if (audioEngineState && audioEngineState.value?.masterCurrentEQPreset) {
+    selectedPreset.value = audioEngineState.value.masterCurrentEQPreset
+  }
   
   requestRedraw()
   window.addEventListener('resize', throttledRequestRedraw)
@@ -192,6 +201,20 @@ onMounted(async () => {
   watch(resizeTrigger, () => {
     requestRedraw()
   })
+  
+  // Watch for changes in masterCurrentEQPreset from backend
+  if (audioEngineState) {
+    watch(
+      () => audioEngineState.value?.masterCurrentEQPreset,
+      (newPreset) => {
+        // Sync preset from backend (handles reload and preset application)
+        if (newPreset !== undefined && newPreset !== selectedPreset.value) {
+          console.log('[MasterEQDisplay] Syncing preset from backend:', newPreset)
+          selectedPreset.value = newPreset || ''
+        }
+      }
+    )
+  }
 })
 
 onUnmounted(() => {

@@ -300,7 +300,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick, computed, inject } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, computed, inject, type Ref } from 'vue'
 import { PeakingFilter } from '~/lib/filters/peaking.class'
 import { LowShelvingFilter } from '~/lib/filters/lowShelving.class'
 import { HighShelvingFilter } from '~/lib/filters/highShelving.class'
@@ -327,6 +327,9 @@ const emit = defineEmits<{
 
 // Inject audio engine for FFT data
 const audioEngine = inject<any>('audioEngine')
+
+// Get audioEngineState from parent (only for master EQ)
+const audioEngineState = inject<Ref<any>>('audioEngineState', ref(null))
 
 const titleText = computed(() => props.title || `Parametric EQ - Track ${props.trackNumber}`)
 
@@ -429,10 +432,10 @@ async function applyPreset() {
     isApplyingPreset.value = true
     // Apply preset on backend - updated filters will arrive via ParametersChanged
     await audioEngine.applyEQPreset(selectedPreset.value)
-    // Wait for backend to update filters before allowing watch to reset preset
+    // Wait longer for backend to update filters and preset name
     setTimeout(() => {
       isApplyingPreset.value = false
-    }, 300)
+    }, 1000)
   } catch (error) {
     console.error('[ParametricEQModal] Failed to apply preset:', error)
     isApplyingPreset.value = false
@@ -482,6 +485,9 @@ watch(fftDisplayMode, (newMode) => {
 
 // Watch for manual filter changes to detect if preset is still active
 watch(filters, (newFilters) => {
+  // For master EQ, rely on backend's current_eq_preset instead
+  if (props.trackNumber === 0) return
+  
   // Don't reset preset while applying
   if (isApplyingPreset.value) return
   // If no preset is selected, nothing to check
@@ -523,12 +529,31 @@ onMounted(async () => {
   // Load EQ presets from backend
   await loadEQPresetsFromBackend()
   
+  // Sync preset from backend state (only for master EQ)
+  if (props.trackNumber === 0 && audioEngineState && audioEngineState.value?.masterCurrentEQPreset) {
+    selectedPreset.value = audioEngineState.value.masterCurrentEQPreset
+  }
+  
   setupCanvas()
   // Don't create filters immediately to avoid AudioContext warnings
   // They will be created when user interacts or when modal is opened
   drawEQCurve()
   
   window.addEventListener('resize', handleResize)
+  
+  // Watch for changes in masterCurrentEQPreset from backend (only for master EQ)
+  if (props.trackNumber === 0 && audioEngineState) {
+    watch(
+      () => audioEngineState.value?.masterCurrentEQPreset,
+      (newPreset) => {
+        // Sync preset from backend (handles reload and preset application)
+        if (newPreset !== undefined && newPreset !== selectedPreset.value) {
+          console.log('[ParametricEQModal] Syncing preset from backend:', newPreset)
+          selectedPreset.value = newPreset || ''
+        }
+      }
+    )
+  }
 })
 
 onUnmounted(() => {
