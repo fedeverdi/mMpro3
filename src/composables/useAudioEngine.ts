@@ -1065,6 +1065,10 @@ export const useAudioEngine = () => {
           // or by specific component in remote mode
           break
 
+        case 'eq_presets':
+          // EQ presets response - handled directly by the caller via promise resolution
+          break
+
         default:
           console.log('[useAudioEngine] Unhandled response type:', response.type)
       }

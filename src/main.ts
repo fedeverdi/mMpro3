@@ -81,7 +81,7 @@ const broadcastRemoteControlState = () => {
  */
 const broadcastToWebSocketClientsWrapper = (response: any) => {
   // Update cached state for new detached windows
-  if (response.type === 'parameters' || response.type === 'levels') {
+  if (response.type === 'parameters' || response.type === 'levels' || response.type === 'parameters_changed') {
     if (response.master) {
       lastKnownState.masterParameters = response.master
     }

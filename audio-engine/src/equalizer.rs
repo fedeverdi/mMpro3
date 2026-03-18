@@ -439,6 +439,8 @@ impl ParametricEqualizer {
     /// Clear all bands
     pub fn clear(&mut self) {
         self.bands.clear();
+        // Reset preset name when clearing filters
+        self.current_preset_name = None;
     }
 
     /// Add a new band with specified parameters

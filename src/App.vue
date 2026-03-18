@@ -46,20 +46,32 @@ const { error: showError } = useNotifications()
 const initializeEngine = async () => {
   
   try {
-    // Load license from Rust engine FIRST (must complete before UI renders)
+    const isRemoteMode = !(window as any).electronAPI
+
+    // In remote mode, start engine connection BEFORE license loading.
+    // The license loader waits for 'audio-engine-ready' which is emitted by
+    // initializeRemoteEngine() (called inside loadDevices()). Without this,
+    // the two would deadlock and the 10s timeout would always fire.
+    let loadDevicesPromise: Promise<void>
+    let loadInputsPromise: Promise<void>
+    if (isRemoteMode) {
+      loadDevicesPromise = audioEngine.loadDevices()
+      loadInputsPromise = enumerateAudioInputs()
+    }
+
+    // Load license from Rust engine (must complete before UI renders)
     await license.waitForLicenseLoad()
-    
-    // Load available audio devices from Rust engine (outputs)
-    const loadDevicesPromise = audioEngine.loadDevices()
-    
-    // Enumerate audio input devices (skip if in remote mode)
-    const loadInputsPromise = enumerateAudioInputs()
-    
+
+    if (!isRemoteMode) {
+      // Electron: initialize devices after license (original order)
+      loadDevicesPromise = audioEngine.loadDevices()
+      loadInputsPromise = enumerateAudioInputs()
+    }
+
     // Wait for both to complete (allow partial failures)
-    await Promise.allSettled([loadDevicesPromise, loadInputsPromise])
+    await Promise.allSettled([loadDevicesPromise!, loadInputsPromise!])
     
     // If in remote mode, give WebSocket time to sync engine state
-    const isRemoteMode = !(window as any).electronAPI
     if (isRemoteMode) {
       await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms for state sync
     }
@@ -232,6 +244,7 @@ onUnmounted(() => {
 
 // Provide audio engine and app ready state to all child components
 provide('audioEngine', audioEngine)
+provide('audioEngineState', audioEngine.state)
 provide('isAppReady', isAppReady)
 provide('exitRemoteControl', handleExitRemoteControl)
 </script>
