@@ -7,7 +7,7 @@
     leave-from-class="opacity-100 translate-y-0 scale-100"
     leave-to-class="opacity-0 -translate-y-2 scale-95"
   >
-    <div v-show="show" class="track-eq bg-gray-900 rounded border border-gray-700 p-2 mb-2 max-h-[400px] overflow-y-auto">
+    <div v-show="show" class="track-eq bg-gray-900 rounded border border-gray-700 p-2 mb-2 max-h-[calc(60vh-140px)] overflow-y-auto">
       <!-- EQ Header -->
       <div class="flex items-center justify-between mb-3">
         <span class="text-[10px] font-bold text-gray-400">EQUALIZER</span>
