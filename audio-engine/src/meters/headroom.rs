@@ -1,8 +1,6 @@
 // Headroom Meter - Measures distance from 0 dBFS (clipping)
 // Monitors peak levels and calculates available headroom
 
-use std::collections::VecDeque;
-
 /// Headroom measurement result
 #[derive(Debug, Clone, Copy)]
 pub struct HeadroomMeasurement {

@@ -5,6 +5,11 @@ pub mod license;
 pub mod helpers;
 pub mod audio_engine;
 pub(crate) mod callback;  // Audio callback helpers (real-time safe)
+pub(crate) mod recording; // Recording and WAV file writing
+pub(crate) mod track_control; // Track control trait and methods
+pub(crate) mod master_control; // Master bus control methods
+pub(crate) mod master_fx_control; // Master FX control methods
+pub(crate) mod aux_control; // Aux bus control methods
 mod audio_engine_traits;  // Trait definitions for splitting impl blocks
 
 pub use config::*;

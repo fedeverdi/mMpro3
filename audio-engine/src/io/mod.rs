@@ -4,4 +4,4 @@ pub mod ndi_ffi;
 pub mod ndi_stream;
 
 pub use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
-pub use ndi_stream::{NdiStream, NdiSource};
+pub use ndi_stream::NdiStream;

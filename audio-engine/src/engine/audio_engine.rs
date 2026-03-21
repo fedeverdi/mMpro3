@@ -2,40 +2,24 @@ use anyhow::Result;
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::Stream;
 use std::collections::HashSet;
-use std::io::{self as stdio, BufRead};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Instant;
-use std::fs::File;
-use std::io::Write;
 use std::path::PathBuf;
 
-use crate::io::{AudioIO, ChannelSelection, DeviceInfo, NdiStream, NdiSource};
-use crate::processing::{Router, InsertEffectData, WaveformType};
-use crate::effects::tone::FilterData;
+use crate::io::{AudioIO, ChannelSelection, DeviceInfo, NdiStream};
+use crate::processing::{Router, InsertEffectData};
 use crate::ipc::*;
 use crate::engine::{
-    AudioConfigData, LicenseData,
-    load_audio_config, save_audio_config,
-    load_license_from_file, save_license_to_file,
-    get_available_disk_space_gb, send_response,
+    load_audio_config,
+    load_license_from_file,
 };
-use crate::engine::callback::{frame_output, metering, fft, performance::PerformanceStats, recording};
-
-// Module aliases for backward compatibility
-use crate::processing::routing;
+use crate::engine::callback::{frame_output, metering, fft, performance::PerformanceStats, recording as rec_stats};
 use crate::processing::track;
 use crate::processing::file_player;
-use crate::processing::signal_gen;
-use crate::processing::bpm_detector;
 use crate::io::ndi_stream;
-use crate::effects::dynamics::{compressor, limiter, gate, deesser};
-use crate::effects::spatial::{delay, reverb, chorus};
-use crate::effects::tone::{equalizer, exciter};
-use crate::meters::{loudness, dynamic_range, phase_correlation, stereo_width, headroom};
-use crate::io::audio_io;
 
 pub struct AudioEngine {
     pub(crate) audio_io: AudioIO,
@@ -151,6 +135,110 @@ impl AudioEngine {
         self.audio_io.list_devices()
     }
 
+    /// Clean up existing streams before restart
+    fn cleanup_existing_streams(&mut self) {
+        if self.input_stream.is_none() && self.output_stream.is_none() {
+            return;
+        }
+        
+        eprintln!("[Engine] Streams still active, forcing stop before restart...");
+        
+        // CRITICAL: Suspend updates to prevent race conditions during device/sample rate change
+        self.updates_suspended.store(true, Ordering::Relaxed);
+        eprintln!("[Engine] Audio processing suspended");
+        
+        // Wait for any in-flight callbacks to complete
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        
+        // CRITICAL: Call pause() BEFORE dropping to actually stop the stream
+        if let Some(stream) = &self.input_stream {
+            let _ = stream.pause();
+            eprintln!("[Engine] Input stream paused");
+        }
+        if let Some(stream) = &self.output_stream {
+            let _ = stream.pause();
+            eprintln!("[Engine] Output stream paused");
+        }
+        
+        // Wait for pause to take effect
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        
+        // Now drop the streams
+        {
+            let _input = self.input_stream.take();
+            let _output = self.output_stream.take();
+            // Drops happen here when variables go out of scope
+        }
+        eprintln!("[Engine] Streams dropped");
+        
+        // Clear buffers
+        if let Ok(mut buffer) = self.input_buffer.lock() {
+            buffer.clear();
+        }
+        if let Ok(mut buffer) = self.master_tap_buffer.lock() {
+            buffer.clear();
+        }
+        
+        // Wait for OS to release audio hardware
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        eprintln!("[Engine] System cleanup complete");
+    }
+
+    /// Log device configuration details
+    fn log_device_configuration(
+        &self,
+        device_name: &str,
+        output_channels: usize,
+        buffer_size: cpal::BufferSize,
+        is_bluetooth: bool,
+    ) {
+        match buffer_size {
+            cpal::BufferSize::Fixed(size) => {
+                let latency_ms = (size as f32 / self.sample_rate as f32) * 1000.0;
+                eprintln!("[Engine] ═══════════════════════════════════════════════════");
+                eprintln!("[Engine] Audio Configuration");
+                eprintln!("[Engine] ───────────────────────────────────────────────────");
+                eprintln!("[Engine] Device: {}", device_name);
+                eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
+                eprintln!("[Engine] Output Channels: {}", output_channels);
+                eprintln!("[Engine] Buffer Size: {} frames ({:.2}ms latency)", size, latency_ms);
+                eprintln!("[Engine] Type: {}", if is_bluetooth { "Bluetooth" } else { "Wired" });
+                eprintln!("[Engine] ═══════════════════════════════════════════════════");
+            },
+            cpal::BufferSize::Default => {
+                eprintln!("[Engine] ═══════════════════════════════════════════════════");
+                eprintln!("[Engine] Audio Configuration");
+                eprintln!("[Engine] ───────────────────────────────────────────────────");
+                eprintln!("[Engine] Device: {}", device_name);
+                eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
+                eprintln!("[Engine] Output Channels: {}", output_channels);
+                eprintln!("[Engine] Buffer Size: DEFAULT (system auto)");
+                eprintln!("[Engine] Type: {}", if is_bluetooth { "Bluetooth" } else { "Wired" });
+                eprintln!("[Engine] ═══════════════════════════════════════════════════");
+            },
+        }
+    }
+
+    /// Update sample rate for all audio components (router, tracks, aux buses, master)
+    fn update_sample_rate_for_components(&mut self, sample_rate_changed: bool) {
+        let mut router = self.router.lock().unwrap();
+        
+        for track in router.tracks.iter_mut() {
+            track.set_sample_rate(self.sample_rate as f32);
+        }
+        
+        for aux_bus in router.aux_buses.iter_mut() {
+            aux_bus.set_sample_rate(self.sample_rate as f32);
+        }
+        
+        router.master.parametric_eq.set_sample_rate(self.sample_rate as f32);
+        router.master.set_sample_rate(self.sample_rate as f32);
+        
+        if sample_rate_changed {
+            eprintln!("[Engine] All components updated to {} Hz", self.sample_rate);
+        }
+    }
+
     pub(crate) fn start(
         &mut self,
         input_device_name: Option<String>,
@@ -172,52 +260,7 @@ impl AudioEngine {
         };
         
         // Force stop if streams are still active (restart scenario)
-        if self.input_stream.is_some() || self.output_stream.is_some() {
-            eprintln!("[Engine] Streams still active, forcing stop before restart...");
-            
-            // CRITICAL: Suspend updates to prevent race conditions during device/sample rate change
-            // This stops the audio callback from processing while we're changing sample rates
-            self.updates_suspended.store(true, Ordering::Relaxed);
-            eprintln!("[Engine] Audio processing suspended");
-            
-            // Wait for any in-flight callbacks to complete
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            
-            // CRITICAL: Call pause() BEFORE dropping to actually stop the stream
-            if let Some(stream) = &self.input_stream {
-                let _ = stream.pause();
-                eprintln!("[Engine] Input stream paused");
-            }
-            if let Some(stream) = &self.output_stream {
-                let _ = stream.pause();
-                eprintln!("[Engine] Output stream paused");
-            }
-            
-            // Wait for pause to take effect
-            std::thread::sleep(std::time::Duration::from_millis(50));
-            
-            // Now drop the streams
-            {
-                let _input = self.input_stream.take();
-                let _output = self.output_stream.take();
-                // Drops happen here when variables go out of scope
-            }
-            eprintln!("[Engine] Streams dropped");
-            
-            // Clear input buffer when stopping
-            if let Ok(mut buffer) = self.input_buffer.lock() {
-                buffer.clear();
-            }
-            
-            // Clear master tap buffer to avoid old audio data
-            if let Ok(mut buffer) = self.master_tap_buffer.lock() {
-                buffer.clear();
-            }
-            
-            // Wait for OS to release audio hardware
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            eprintln!("[Engine] System cleanup complete");
-        }
+        self.cleanup_existing_streams();
 
         // Get output device (REQUIRED)
         let output_device = if let Some(name) = output_device_name {
@@ -272,60 +315,13 @@ impl AudioEngine {
         
         // Get channel count for logging
         let output_channels = output_config.channels as usize;
+        let actual_buffer_size = output_config.buffer_size;
         
         // Log configuration
-        let actual_buffer_size = output_config.buffer_size;
-        let device_type = if is_bluetooth { "🎧 Bluetooth" } else { "🔌 Wired" };
-        
-        match actual_buffer_size {
-            cpal::BufferSize::Fixed(size) => {
-                let latency_ms = (size as f32 / self.sample_rate as f32) * 1000.0;
-                eprintln!("[Engine] ═══════════════════════════════════════════════════");
-                eprintln!("[Engine] Audio Configuration");
-                eprintln!("[Engine] ───────────────────────────────────────────────────");
-                eprintln!("[Engine] Device: {}", output_device_name);
-                eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
-                eprintln!("[Engine] Output Channels: {}", output_channels);
-                eprintln!("[Engine] Buffer Size: {} frames ({:.2}ms latency)", size, latency_ms);
-                eprintln!("[Engine] Type: {}", if is_bluetooth { "Bluetooth" } else { "Wired" });
-                eprintln!("[Engine] ═══════════════════════════════════════════════════");
-            },
-            cpal::BufferSize::Default => {
-                eprintln!("[Engine] ═══════════════════════════════════════════════════");
-                eprintln!("[Engine] Audio Configuration");
-                eprintln!("[Engine] ───────────────────────────────────────────────────");
-                eprintln!("[Engine] Device: {}", output_device_name);
-                eprintln!("[Engine] Sample Rate: {} Hz", self.sample_rate);
-                eprintln!("[Engine] Output Channels: {}", output_channels);
-                eprintln!("[Engine] Buffer Size: DEFAULT (system auto)");
-                eprintln!("[Engine] Type: {}", if is_bluetooth { "Bluetooth" } else { "Wired" });
-                eprintln!("[Engine] ═══════════════════════════════════════════════════");
-            },
-        }
+        self.log_device_configuration(&output_device_name, output_channels, actual_buffer_size, is_bluetooth);
                 
         // Update sample rate for all active file players and equalizers
-        {
-            let mut router = self.router.lock().unwrap();
-            for track in router.tracks.iter_mut() {
-                track.set_sample_rate(self.sample_rate as f32);
-                // Note: set_sample_rate already calls player.set_output_sample_rate()
-                // which resets resample_position to avoid pitch/speed issues
-            }
-            
-            // Update aux buses
-            for aux_bus in router.aux_buses.iter_mut() {
-                aux_bus.set_sample_rate(self.sample_rate as f32);
-            }
-            
-            // Update master bus (EQ + FX chain)
-            router.master.parametric_eq.set_sample_rate(self.sample_rate as f32);
-            router.master.set_sample_rate(self.sample_rate as f32);
-            
-            // Log sample rate change completion
-            if sample_rate_changed {
-                eprintln!("[Engine] All components updated to {} Hz", self.sample_rate);
-            }
-        }
+        self.update_sample_rate_for_components(sample_rate_changed);
 
         // Update NDI stream sample rate
         let _ = self.ndi_stream.set_sample_rate(self.sample_rate);
@@ -476,7 +472,7 @@ impl AudioEngine {
                         // Send audio to NDI stream (if active)
                         // Get the selected source audio
                         if ndi_stream.is_active() {
-                            use std::sync::atomic::{AtomicBool, AtomicU64, Ordering as AtomicOrdering};
+                            use std::sync::atomic::{AtomicBool, AtomicU64};
                             static NDI_FIRST_SAMPLE: AtomicBool = AtomicBool::new(true);
                             static NDI_SAMPLE_COUNT: AtomicU64 = AtomicU64::new(0);
                             let ndi_source = ndi_stream.get_source();
@@ -663,7 +659,7 @@ impl AudioEngine {
                 }
                 
                 // Send recording stats every 1 second (only if recording is enabled)
-                if let Some((elapsed_seconds, file_size_bytes, available_space_gb)) = recording::check_recording_stats(
+                if let Some((elapsed_seconds, file_size_bytes, available_space_gb)) = rec_stats::check_recording_stats(
                     &master_tap_enabled,
                     &recording_start_time,
                     &recording_last_stats_time,
@@ -920,88 +916,13 @@ impl AudioEngine {
         // Save WAV file if we have samples and path
         if !samples.is_empty() && path.is_some() {
             let file_path = path.unwrap();
-            match self.write_wav_file(&file_path, &samples, sample_rate, bit_depth) {
+            match crate::engine::recording::write_wav_file(&file_path, &samples, sample_rate, bit_depth) {
                 Ok(_) => {},
                 Err(e) => eprintln!("[Engine] ✗ Failed to save recording: {}", e),
             }
         } else {
             eprintln!("[Engine] ✓ Master tap disabled (no recording to save)");
         }
-    }
-
-    fn write_wav_file(&self, path: &PathBuf, samples: &[f32], sample_rate: u32, bit_depth: u32) -> Result<()> {
-        let mut file = File::create(path)?;
-        
-        let num_samples = samples.len();
-        let num_channels = 2u16; // Stereo
-        let bits_per_sample = bit_depth as u16;
-        let bytes_per_sample = bits_per_sample / 8;
-        let byte_rate = sample_rate * num_channels as u32 * bytes_per_sample as u32;
-        let block_align = num_channels * bytes_per_sample;
-        let data_size = num_samples as u32 * bytes_per_sample as u32;
-        
-        // For 32-bit float, we use format code 3 (IEEE float), otherwise format code 1 (PCM)
-        let format_code = if bit_depth == 32 { 3u16 } else { 1u16 };
-        
-        // Write WAV header
-        file.write_all(b"RIFF")?;
-        file.write_all(&(36 + data_size).to_le_bytes())?;
-        file.write_all(b"WAVE")?;
-        
-        // fmt chunk
-        file.write_all(b"fmt ")?;
-        file.write_all(&16u32.to_le_bytes())?; // chunk size
-        file.write_all(&format_code.to_le_bytes())?; // PCM (1) or IEEE Float (3)
-        file.write_all(&num_channels.to_le_bytes())?;
-        file.write_all(&sample_rate.to_le_bytes())?;
-        file.write_all(&byte_rate.to_le_bytes())?;
-        file.write_all(&block_align.to_le_bytes())?;
-        file.write_all(&bits_per_sample.to_le_bytes())?;
-        
-        // data chunk
-        file.write_all(b"data")?;
-        file.write_all(&data_size.to_le_bytes())?;
-        
-        // Write samples based on bit depth
-        match bit_depth {
-            16 => {
-                // Convert f32 to i16
-                for sample in samples {
-                    let s = sample.max(-1.0).min(1.0);
-                    let i16_sample = if s < 0.0 {
-                        (s * 32768.0) as i16
-                    } else {
-                        (s * 32767.0) as i16
-                    };
-                    file.write_all(&i16_sample.to_le_bytes())?;
-                }
-            },
-            24 => {
-                // Convert f32 to i24 (stored as 3 bytes)
-                for sample in samples {
-                    let s = sample.max(-1.0).min(1.0);
-                    let i32_sample = if s < 0.0 {
-                        (s * 8388608.0) as i32  // 2^23
-                    } else {
-                        (s * 8388607.0) as i32
-                    };
-                    // Write only the lower 3 bytes (little-endian)
-                    let bytes = i32_sample.to_le_bytes();
-                    file.write_all(&bytes[0..3])?;
-                }
-            },
-            32 => {
-                // Write f32 directly (IEEE float format)
-                for sample in samples {
-                    file.write_all(&sample.to_le_bytes())?;
-                }
-            },
-            _ => {
-                return Err(anyhow::anyhow!("Unsupported bit depth: {}", bit_depth));
-            }
-        }
-        
-        Ok(())
     }
 
     // Track source commands
@@ -1039,40 +960,11 @@ impl AudioEngine {
     }
 
     pub(crate) fn set_signal_frequency(&mut self, track: usize, frequency: f32) -> Result<()> {
-        let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            if let Some(ref mut generator) = t.signal_generator {
-                generator.set_frequency(frequency);
-                Ok(())
-            } else {
-                Err(anyhow::anyhow!("Track {} has no signal generator", track))
-            }
-        } else {
-            Err(anyhow::anyhow!("Track {} not found", track))
-        }
+        crate::engine::track_control::set_signal_frequency_impl(&self.router, track, frequency)
     }
 
     pub(crate) fn set_signal_waveform(&mut self, track: usize, waveform: &str) -> Result<()> {
-        let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            if let Some(ref mut generator) = t.signal_generator {
-                let wave = match waveform.to_lowercase().as_str() {
-                    "sine" => WaveformType::Sine,
-                    "square" => WaveformType::Square,
-                    "sawtooth" => WaveformType::Sawtooth,
-                    "triangle" => WaveformType::Triangle,
-                    "white" => WaveformType::WhiteNoise,
-                    "pink" => WaveformType::PinkNoise,
-                    _ => return Err(anyhow::anyhow!("Unknown waveform: {}", waveform)),
-                };
-                generator.set_waveform(wave);
-                Ok(())
-            } else {
-                Err(anyhow::anyhow!("Track {} has no signal generator", track))
-            }
-        } else {
-            Err(anyhow::anyhow!("Track {} not found", track))
-        }
+        crate::engine::track_control::set_signal_waveform_impl(&self.router, track, waveform)
     }
 
     pub(crate) fn clear_track_source(&mut self, track: usize) -> Result<()> {
@@ -1101,23 +993,14 @@ impl AudioEngine {
         }
         
         // Now quickly assign the pre-loaded player to the track (fast operation)
-        let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            t.set_file_player(player);
-            t.source = routing::TrackSource::FilePlayer;
-            
-            // Set playlist state
-            t.playlist_id = playlist_id.map(|s| s.to_string());
-            t.playlist_name = playlist_name.map(|s| s.to_string());
-            t.playlist_current_index = playlist_index;
-            
-            println!("[Engine] Track {} loaded file from playlist: id={:?}, name={:?}, index={:?}", 
-                track, t.playlist_id, t.playlist_name, t.playlist_current_index);
-            
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!("Track {} not found", track))
-        }
+        crate::engine::track_control::set_track_source_file_impl(
+            &self.router,
+            track,
+            player,
+            playlist_id.map(|s| s.to_string()),
+            playlist_name.map(|s| s.to_string()),
+            playlist_index,
+        )
     }
 
     pub(crate) fn set_track_source_aux_return(&mut self, track: usize, aux: usize) -> Result<()> {
@@ -1126,13 +1009,7 @@ impl AudioEngine {
             eprintln!("[Engine] Failed to close audio input for track {}: {}", track, e);
         }
         
-        let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            t.source = routing::TrackSource::AuxReturn(aux);
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!("Track {} not found", track))
-        }
+        crate::engine::track_control::set_track_source_aux_return_impl(&self.router, track, aux)
     }
 
     pub(crate) fn play_file(&mut self, track: usize, file_path: Option<&str>, artist: Option<&str>, title: Option<&str>) -> Result<()> {
@@ -1161,19 +1038,7 @@ impl AudioEngine {
     }
 
     pub(crate) fn get_waveform_data(&self, track: usize, num_points: usize) -> Result<(Vec<f32>, f32, u32)> {
-        let router = self.router.lock().unwrap();
-        let data = track::get_waveform_data(&router, track, num_points)?;
-        
-        // Get duration and sample rate from the track
-        if let Some(t) = router.get_track(track) {
-            if let Some(player) = &t.file_player {
-                let duration = player.get_duration();
-                let sample_rate = player.sample_rate;
-                return Ok((data, duration, sample_rate));
-            }
-        }
-        
-        Err(anyhow::anyhow!("Track {} has no file loaded", track))
+        crate::engine::track_control::get_waveform_data_impl(&self.router, track, num_points)
     }
 
     pub(crate) fn stop_all_files(&self) {
@@ -1284,266 +1149,84 @@ impl AudioEngine {
 
     // Parametric EQ controls
     pub(crate) fn set_parametric_eq_filters(&self, track: usize, filters: &[ParametricFilter]) {
-        use equalizer::FilterType;
-        
-        let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.tracks.get_mut(track) {
-            // Clear existing filters
-            t.parametric_eq.clear();
-            
-            // Add new filters
-            for filter in filters {
-                let filter_type = match filter.filter_type.as_str() {
-                    "lowshelf" => FilterType::LowShelf,
-                    "highshelf" => FilterType::HighShelf,
-                    "peaking" => FilterType::Peaking,
-                    "lowpass" => FilterType::LowPass,
-                    "highpass" => FilterType::HighPass,
-                    _ => {
-                        eprintln!("[Track {}] Unknown filter type: {}", track, filter.filter_type);
-                        continue;
-                    }
-                };
-                
-                t.parametric_eq.add_band(filter_type, filter.frequency, filter.gain, filter.q);
-            }
-        } else {
-            eprintln!("[Engine] Invalid track number: {}", track);
-        }
+        crate::engine::track_control::set_parametric_eq_filters_impl(&self.router, track, filters);
     }
 
     pub(crate) fn set_parametric_eq_enabled(&self, track: usize, enabled: bool) {
-        let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.tracks.get_mut(track) {
-            t.parametric_eq.set_enabled(enabled);
-        } else {
-            eprintln!("[Engine] Invalid track number: {}", track);
-        }
+        crate::engine::track_control::set_parametric_eq_enabled_impl(&self.router, track, enabled);
     }
 
     pub(crate) fn clear_parametric_eq(&self, track: usize) {
-        let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.tracks.get_mut(track) {
-            t.parametric_eq.clear();
-        } else {
-            eprintln!("[Engine] Invalid track number: {}", track);
-        }
+        crate::engine::track_control::clear_parametric_eq_impl(&self.router, track);
     }
 
     // Master controls
     pub(crate) fn set_master_gain(&self, gain: f32) {
-        let mut router = self.router.lock().unwrap();
-        router.master.gain = gain.max(0.0); // No upper limit
-        // When setting unified gain, also update left/right
-        router.master.gain_left = gain.max(0.0);
-        router.master.gain_right = gain.max(0.0);
-        let gain_db = if gain > 0.0 { 20.0 * gain.log10() } else { -90.0 };
+        crate::engine::master_control::set_master_gain_impl(&self.router, gain);
     }
 
     pub(crate) fn set_master_gain_left(&self, gain: f32) {
-        let mut router = self.router.lock().unwrap();
-        router.master.gain_left = gain.max(0.0);
+        crate::engine::master_control::set_master_gain_left_impl(&self.router, gain);
     }
 
     pub(crate) fn set_master_gain_right(&self, gain: f32) {
-        let mut router = self.router.lock().unwrap();
-        router.master.gain_right = gain.max(0.0);
+        crate::engine::master_control::set_master_gain_right_impl(&self.router, gain);
     }
 
     pub(crate) fn set_master_mute(&self, mute: bool) {
-        let mut router = self.router.lock().unwrap();
-        router.master.mute = mute;
+        crate::engine::master_control::set_master_mute_impl(&self.router, mute);
     }
 
     pub(crate) fn set_master_linked(&self, linked: bool) {
-        let mut router = self.router.lock().unwrap();
-        router.master.linked = linked;
+        crate::engine::master_control::set_master_linked_impl(&self.router, linked);
     }
 
     pub(crate) fn set_master_parametric_eq_filters(&self, filters: &[ParametricFilter]) {
-        use equalizer::FilterType;
-        
-        let mut router = self.router.lock().unwrap();
-        // Clear existing filters
-        router.master.parametric_eq.clear();
-        
-        // Add new filters
-        for filter in filters {
-            let filter_type = match filter.filter_type.as_str() {
-                "lowshelf" => FilterType::LowShelf,
-                "highshelf" => FilterType::HighShelf,
-                "peaking" => FilterType::Peaking,
-                "lowpass" => FilterType::LowPass,
-                "highpass" => FilterType::HighPass,
-                _ => {
-                    eprintln!("[Master] Unknown filter type: {}", filter.filter_type);
-                    continue;
-                }
-            };
-            
-            router.master.parametric_eq.add_band(filter_type, filter.frequency, filter.gain, filter.q);
-        }
+        crate::engine::master_control::set_master_parametric_eq_filters_impl(&self.router, filters);
     }
 
     pub(crate) fn set_master_parametric_eq_enabled(&self, enabled: bool) {
-        let mut router = self.router.lock().unwrap();
-        router.master.parametric_eq.set_enabled(enabled);
+        crate::engine::master_control::set_master_parametric_eq_enabled_impl(&self.router, enabled);
     }
 
     pub(crate) fn clear_master_parametric_eq(&self) {
-        let mut router = self.router.lock().unwrap();
-        router.master.parametric_eq.clear();
+        crate::engine::master_control::clear_master_parametric_eq_impl(&self.router);
     }
 
     pub(crate) fn set_master_output_channels(&self, left_ch: u16, right_ch: u16) {
-        let mut router = self.router.lock().unwrap();
-        router.master.output_channel_selection = ChannelSelection::new(left_ch, right_ch);
+        crate::engine::master_control::set_master_output_channels_impl(&self.router, left_ch, right_ch);
     }
 
     // Master FX methods
     pub(crate) fn set_master_compressor(&self, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
-        let mut router = self.router.lock().unwrap();
-        router.master.compressor.set_enabled(enabled);
-        router.master.compressor.set_threshold(threshold);
-        router.master.compressor.set_ratio(ratio);
-        router.master.compressor.set_attack(attack);
-        router.master.compressor.set_release(release);
+        crate::engine::master_fx_control::set_master_compressor_impl(&self.router, enabled, threshold, ratio, attack, release);
     }
 
     pub(crate) fn set_master_limiter(&self, enabled: bool, ceiling: f32, release: f32) {
-        let mut router = self.router.lock().unwrap();
-        router.master.limiter.set_enabled(enabled);
-        router.master.limiter.set_ceiling(ceiling);
-        router.master.limiter.set_release(release);
+        crate::engine::master_fx_control::set_master_limiter_impl(&self.router, enabled, ceiling, release);
     }
 
     pub(crate) fn set_master_delay(&self, enabled: bool, time_l: f32, time_r: f32, feedback: f32, mix: f32) {
-        let mut router = self.router.lock().unwrap();
-        router.master.delay.set_enabled(enabled);
-        router.master.delay.set_delay_time_left(time_l);
-        router.master.delay.set_delay_time_right(time_r);
-        router.master.delay.set_feedback(feedback);
-        router.master.delay.set_mix(mix);
+        crate::engine::master_fx_control::set_master_delay_impl(&self.router, enabled, time_l, time_r, feedback, mix);
     }
 
     pub(crate) fn set_master_reverb(&self, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32, pre_delay: f32) {
-        let mut router = self.router.lock().unwrap();
-        router.master.reverb.set_enabled(enabled);
-        router.master.reverb.set_room_size(room_size);
-        router.master.reverb.set_damping(damping);
-        router.master.reverb.set_wet(wet);
-        router.master.reverb.set_width(width);
-        router.master.reverb.set_pre_delay(pre_delay);
+        crate::engine::master_fx_control::set_master_reverb_impl(&self.router, enabled, room_size, damping, wet, width, pre_delay);
     }
 
     /// Get current state of all Master FX effects for synchronization
     pub(crate) fn get_master_fx_effects(&self) -> Vec<MasterFxEffect> {
-        let router = self.router.lock().unwrap();
-        let master = &router.master;
-        
-        let mut effects = Vec::new();
-        
-        // Only include effects that are "present" in the FX list
-        if master.compressor_present {
-            effects.push(MasterFxEffect::Compressor {
-                enabled: master.compressor.is_enabled(),
-                threshold: master.compressor.get_threshold(),
-                ratio: master.compressor.get_ratio(),
-                attack: master.compressor.get_attack(),
-                release: master.compressor.get_release(),
-            });
-        }
-        
-        if master.limiter_present {
-            effects.push(MasterFxEffect::Limiter {
-                enabled: master.limiter.is_enabled(),
-                threshold: master.limiter.get_ceiling(),
-                release: master.limiter.get_release(),
-            });
-        }
-        
-        if master.delay_present {
-            effects.push(MasterFxEffect::Delay {
-                enabled: master.delay.is_enabled(),
-                time_l: master.delay.get_delay_time_l_ms(),
-                time_r: master.delay.get_delay_time_r_ms(),
-                feedback: master.delay.get_feedback(),
-                mix: master.delay.get_mix(),
-            });
-        }
-        
-        if master.reverb_present {
-            effects.push(MasterFxEffect::Reverb {
-                enabled: master.reverb.is_enabled(),
-                room_size: master.reverb.get_room_size(),
-                damping: master.reverb.get_damping(),
-                wet: master.reverb.get_wet(),
-                width: master.reverb.get_width(),
-            });
-        }
-        
-        println!("[Engine] get_master_fx_effects returning {} effects", effects.len());
-        effects
+        crate::engine::master_fx_control::get_master_fx_effects_impl(&self.router)
     }
 
     /// Add a Master FX effect to the FX list
     pub(crate) fn add_master_fx_effect(&self, effect_type: &str) {
-        let mut router = self.router.lock().unwrap();
-        let master = &mut router.master;
-        
-        match effect_type {
-            "compressor" => {
-                master.compressor_present = true;
-                println!("[Engine] Added Master Compressor to FX list");
-            }
-            "limiter" => {
-                master.limiter_present = true;
-                println!("[Engine] Added Master Limiter to FX list");
-            }
-            "delay" => {
-                master.delay_present = true;
-                println!("[Engine] Added Master Delay to FX list");
-            }
-            "reverb" => {
-                master.reverb_present = true;
-                println!("[Engine] Added Master Reverb to FX list");
-            }
-            _ => {
-                eprintln!("[Engine] Unknown effect type: {}", effect_type);
-            }
-        }
+        crate::engine::master_fx_control::add_master_fx_effect_impl(&self.router, effect_type);
     }
 
     /// Remove a Master FX effect from the FX list
     pub(crate) fn remove_master_fx_effect(&self, effect_type: &str) {
-        let mut router = self.router.lock().unwrap();
-        let master = &mut router.master;
-        
-        match effect_type {
-            "compressor" => {
-                master.compressor_present = false;
-                master.compressor.set_enabled(false); // Also disable it
-                println!("[Engine] Removed Master Compressor from FX list");
-            }
-            "limiter" => {
-                master.limiter_present = false;
-                master.limiter.set_enabled(false); // Also disable it
-                println!("[Engine] Removed Master Limiter from FX list");
-            }
-            "delay" => {
-                master.delay_present = false;
-                master.delay.set_enabled(false); // Also disable it
-                println!("[Engine] Removed Master Delay from FX list");
-            }
-            "reverb" => {
-                master.reverb_present = false;
-                master.reverb.set_enabled(false); // Also disable it
-                println!("[Engine] Removed Master Reverb from FX list");
-            }
-            _ => {
-                eprintln!("[Engine] Unknown effect type: {}", effect_type);
-            }
-        }
+        crate::engine::master_fx_control::remove_master_fx_effect_impl(&self.router, effect_type);
     }
 
     // Subgroup methods
@@ -1593,103 +1276,44 @@ impl AudioEngine {
     }
 
     pub(crate) fn set_track_route_to_subgroup(&self, track: usize, subgroup: usize, route: bool) {
-        let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            if route {
-                // Add subgroup to routing if not already present
-                if !t.route_to_subgroups.contains(&subgroup) {
-                    t.route_to_subgroups.push(subgroup);
-                }
-            } else {
-                // Remove subgroup from routing
-                t.route_to_subgroups.retain(|&sg| sg != subgroup);
-            }
-        }
+        crate::engine::track_control::set_track_route_to_subgroup_impl(&self.router, track, subgroup, route);
     }
 
     // Aux bus methods
     pub(crate) fn set_track_aux_send(&self, track: usize, aux: usize, level: f32, pre_fader: bool, muted: bool) {
-        let mut router = self.router.lock().unwrap();
-        if let Some(t) = router.get_track_mut(track) {
-            if aux < t.aux_sends.len() {
-                t.aux_sends[aux].level = level.max(0.0);
-                t.aux_sends[aux].pre_fader = pre_fader;
-                t.aux_sends[aux].muted = muted;
-            }
-        }
+        crate::engine::track_control::set_track_aux_send_impl(&self.router, track, aux, level, pre_fader, muted);
     }
 
     pub(crate) fn set_aux_bus_gain(&self, aux: usize, gain: f32) {
-        let mut router = self.router.lock().unwrap();
-        if aux < router.aux_buses.len() {
-            router.aux_buses[aux].gain = gain.max(0.0);
-        }
+        crate::engine::aux_control::set_aux_bus_gain_impl(&self.router, aux, gain);
     }
 
     pub(crate) fn set_aux_bus_mute(&self, aux: usize, mute: bool) {
-        let mut router = self.router.lock().unwrap();
-        if aux < router.aux_buses.len() {
-            router.aux_buses[aux].mute = mute;
-        }
+        crate::engine::aux_control::set_aux_bus_mute_impl(&self.router, aux, mute);
     }
 
     pub(crate) fn set_aux_bus_reverb(&self, aux: usize, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32, pre_delay: f32) {
-        let mut router = self.router.lock().unwrap();
-        if aux < router.aux_buses.len() {
-            router.aux_buses[aux].reverb.set_enabled(enabled);
-            router.aux_buses[aux].reverb.set_room_size(room_size);
-            router.aux_buses[aux].reverb.set_damping(damping);
-            router.aux_buses[aux].reverb.set_wet(wet);
-            router.aux_buses[aux].reverb.set_width(width);
-            router.aux_buses[aux].reverb.set_pre_delay(pre_delay);
-        }
+        crate::engine::aux_control::set_aux_bus_reverb_impl(&self.router, aux, enabled, room_size, damping, wet, width, pre_delay);
     }
 
     pub(crate) fn set_aux_bus_delay(&self, aux: usize, enabled: bool, time: f32, feedback: f32, mix: f32) {
-        let mut router = self.router.lock().unwrap();
-        if aux < router.aux_buses.len() {
-            router.aux_buses[aux].delay.set_enabled(enabled);
-            router.aux_buses[aux].delay.set_delay_time_left(time);
-            router.aux_buses[aux].delay.set_delay_time_right(time);
-            router.aux_buses[aux].delay.set_feedback(feedback);
-            router.aux_buses[aux].delay.set_mix(mix);
-        }
+        crate::engine::aux_control::set_aux_bus_delay_impl(&self.router, aux, enabled, time, feedback, mix);
     }
 
     pub(crate) fn set_aux_bus_route_to_master(&self, aux: usize, route: bool) {
-        let mut router = self.router.lock().unwrap();
-        if aux < router.aux_buses.len() {
-            router.aux_buses[aux].route_to_master = route;
-        }
+        crate::engine::aux_control::set_aux_bus_route_to_master_impl(&self.router, aux, route);
     }
 
     pub(crate) fn set_aux_bus_route_to_subgroup(&self, aux: usize, subgroup: usize, route: bool) {
-        let mut router = self.router.lock().unwrap();
-        if aux < router.aux_buses.len() {
-            if route {
-                // Add subgroup to routing if not already present
-                if !router.aux_buses[aux].route_to_subgroups.contains(&subgroup) {
-                    router.aux_buses[aux].route_to_subgroups.push(subgroup);
-                }
-            } else {
-                // Remove subgroup from routing
-                router.aux_buses[aux].route_to_subgroups.retain(|&sg| sg != subgroup);
-            }
-        }
+        crate::engine::aux_control::set_aux_bus_route_to_subgroup_impl(&self.router, aux, subgroup, route);
     }
 
     pub(crate) fn set_aux_bus_output_enabled(&self, aux: usize, enabled: bool) {
-        let mut router = self.router.lock().unwrap();
-        if aux < router.aux_buses.len() {
-            router.aux_buses[aux].output_enabled = enabled;
-        }
+        crate::engine::aux_control::set_aux_bus_output_enabled_impl(&self.router, aux, enabled);
     }
 
     pub(crate) fn set_aux_bus_output_channels(&self, aux: usize, left_ch: u16, right_ch: u16) {
-        let mut router = self.router.lock().unwrap();
-        if aux < router.aux_buses.len() {
-            router.aux_buses[aux].output_channel_selection = ChannelSelection::new(left_ch, right_ch);
-        }
+        crate::engine::aux_control::set_aux_bus_output_channels_impl(&self.router, aux, left_ch, right_ch);
     }
 
     /// Handle a command and return an optional response (only for critical operations)
