@@ -8,6 +8,7 @@ mod io;
 mod processing;
 mod engine;
 mod ipc;
+mod command;
 
 use ipc::*;  // Import all IPC message types
 use engine::{

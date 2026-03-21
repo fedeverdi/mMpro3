@@ -1,0 +1,15 @@
+# File da ignorare (residui di refactoring precedenti)
+
+# Vecchio tentativo di suddivisione fallito
+src/engine/audio_engine/
+src/engine/stream_manager.rs
+src/engine/audio_engine_traits.rs
+
+# Backup temporanei
+*.bak
+*.bak2
+*.backup
+
+# La struttura CORRETTA è:
+# - src/engine/audio_engine.rs (file principale AudioEngine)
+# - src/command/ (handler dei comandi organizzati per funzionalità)

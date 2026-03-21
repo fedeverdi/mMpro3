@@ -37,14 +37,14 @@ use crate::meters::{loudness, dynamic_range, phase_correlation, stereo_width, he
 use crate::io::audio_io;
 
 pub struct AudioEngine {
-    audio_io: AudioIO,
-    router: Arc<Mutex<Router>>,
+    pub(crate) audio_io: AudioIO,
+    pub(crate) router: Arc<Mutex<Router>>,
     input_stream: Option<Stream>,
     output_stream: Option<Stream>,
     sample_rate: u32,
     input_sample_rate: u32, // Track input sample rate (may differ from output)
     output_buffer_size: Option<u32>, // Track output buffer size for input matching
-    updates_suspended: Arc<AtomicBool>,
+    pub(crate) updates_suspended: Arc<AtomicBool>,
     active_stream_id: Arc<AtomicUsize>, // ID of the currently active output stream
     input_buffer: Arc<Mutex<Vec<f32>>>, // Shared buffer - always contains latest input frame
     input_channels: Arc<AtomicUsize>,
@@ -59,8 +59,8 @@ pub struct AudioEngine {
     recording_bit_depth: Arc<Mutex<u32>>, // Recording bit depth (16, 24, or 32)
     recording_format: Arc<Mutex<String>>, // Recording format ("wav", "mp3", "opus")
     output_sender: mpsc::SyncSender<String>, // Non-blocking channel for sending updates to frontend
-    ndi_stream: Arc<NdiStream>, // NDI audio streaming
-    pub selected_master_output: Arc<Mutex<Option<String>>>, // Selected master output device ID
+    pub(crate) ndi_stream: Arc<NdiStream>, // NDI audio streaming
+    pub(crate) selected_master_output: Arc<Mutex<Option<String>>>, // Selected master output device ID
     pub available_output_devices: Vec<DeviceInfo>, // List of available output devices
 }
 
@@ -150,7 +150,7 @@ impl AudioEngine {
         self.audio_io.list_devices()
     }
 
-    fn start(
+    pub(crate) fn start(
         &mut self,
         input_device_name: Option<String>,
         output_device_name: Option<String>,
@@ -956,7 +956,7 @@ impl AudioEngine {
         Ok(())
     }
 
-    fn stop(&mut self) -> Result<()> {
+    pub(crate) fn stop(&mut self) -> Result<()> {
         if let Some(stream) = self.input_stream.take() {
             drop(stream);
         }
@@ -1078,7 +1078,7 @@ impl AudioEngine {
     }
 
     // Master tap controls
-    fn enable_master_tap(&self, file_path: String, _sample_rate: u32, bit_depth: u32, format: &str) {
+    pub(crate) fn enable_master_tap(&self, file_path: String, _sample_rate: u32, bit_depth: u32, format: &str) {
         // Clear previous buffer
         if let Ok(mut buffer) = self.master_tap_buffer.lock() {
             buffer.clear();
@@ -1111,7 +1111,7 @@ impl AudioEngine {
         self.master_tap_enabled.store(true, Ordering::Relaxed);
     }
 
-    fn disable_master_tap(&self) {
+    pub(crate) fn disable_master_tap(&self) {
         self.master_tap_enabled.store(false, Ordering::Relaxed);
         
         // Clear recording times
@@ -1237,7 +1237,7 @@ impl AudioEngine {
     }
 
     // Track source commands
-    fn set_track_source_input(&mut self, track: usize, left_ch: u16, right_ch: u16, device_name: Option<String>) -> Result<()> {
+    pub(crate) fn set_track_source_input(&mut self, track: usize, left_ch: u16, right_ch: u16, device_name: Option<String>) -> Result<()> {
         // If device_name is None, clear the track source and close input
         if device_name.is_none() {
             // Close audio input for this track
@@ -1260,7 +1260,7 @@ impl AudioEngine {
         track::set_source_input(&mut router, track, left_ch, right_ch)
     }
 
-    fn set_track_source_signal(&mut self, track: usize, waveform: &str, frequency: f32) -> Result<()> {
+    pub(crate) fn set_track_source_signal(&mut self, track: usize, waveform: &str, frequency: f32) -> Result<()> {
         // Close input stream when track switches away from audio input
         if let Err(e) = self.close_audio_input(track) {
             eprintln!("[Engine] Failed to close audio input for track {}: {}", track, e);
@@ -1270,7 +1270,7 @@ impl AudioEngine {
         track::set_source_signal(&mut router, track, waveform, frequency, self.sample_rate)
     }
 
-    fn set_signal_frequency(&mut self, track: usize, frequency: f32) -> Result<()> {
+    pub(crate) fn set_signal_frequency(&mut self, track: usize, frequency: f32) -> Result<()> {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.get_track_mut(track) {
             if let Some(ref mut generator) = t.signal_generator {
@@ -1284,7 +1284,7 @@ impl AudioEngine {
         }
     }
 
-    fn set_signal_waveform(&mut self, track: usize, waveform: &str) -> Result<()> {
+    pub(crate) fn set_signal_waveform(&mut self, track: usize, waveform: &str) -> Result<()> {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.get_track_mut(track) {
             if let Some(ref mut generator) = t.signal_generator {
@@ -1307,12 +1307,12 @@ impl AudioEngine {
         }
     }
 
-    fn clear_track_source(&mut self, track: usize) -> Result<()> {
+    pub(crate) fn clear_track_source(&mut self, track: usize) -> Result<()> {
         let mut router = self.router.lock().unwrap();
         track::clear_source(&mut router, track)
     }
 
-    fn set_track_source_file(&mut self, track: usize, file_path: &str, artist: Option<&str>, title: Option<&str>, playlist_id: Option<&str>, playlist_name: Option<&str>, playlist_index: Option<usize>) -> Result<()> {
+    pub(crate) fn set_track_source_file(&mut self, track: usize, file_path: &str, artist: Option<&str>, title: Option<&str>, playlist_id: Option<&str>, playlist_name: Option<&str>, playlist_index: Option<usize>) -> Result<()> {
         // Close input stream when track switches away from audio input
         if let Err(e) = self.close_audio_input(track) {
             eprintln!("[Engine] Failed to close audio input for track {}: {}", track, e);
@@ -1352,7 +1352,7 @@ impl AudioEngine {
         }
     }
 
-    fn set_track_source_aux_return(&mut self, track: usize, aux: usize) -> Result<()> {
+    pub(crate) fn set_track_source_aux_return(&mut self, track: usize, aux: usize) -> Result<()> {
         // Close input stream when track switches away from audio input
         if let Err(e) = self.close_audio_input(track) {
             eprintln!("[Engine] Failed to close audio input for track {}: {}", track, e);
@@ -1367,7 +1367,7 @@ impl AudioEngine {
         }
     }
 
-    fn play_file(&mut self, track: usize, file_path: Option<&str>, artist: Option<&str>, title: Option<&str>) -> Result<()> {
+    pub(crate) fn play_file(&mut self, track: usize, file_path: Option<&str>, artist: Option<&str>, title: Option<&str>) -> Result<()> {
         // If file_path is provided, set the source file first
         if let Some(path) = file_path {
             self.set_track_source_file(track, path, artist, title, None, None, None)?;
@@ -1377,22 +1377,22 @@ impl AudioEngine {
         track::play_file(&mut router, track, self.sample_rate)
     }
 
-    fn pause_file(&self, track: usize) -> Result<()> {
+    pub(crate) fn pause_file(&self, track: usize) -> Result<()> {
         let mut router = self.router.lock().unwrap();
         track::pause_file(&mut router, track)
     }
 
-    fn stop_file(&self, track: usize) -> Result<()> {
+    pub(crate) fn stop_file(&self, track: usize) -> Result<()> {
         let mut router = self.router.lock().unwrap();
         track::stop_file(&mut router, track)
     }
 
-    fn seek_file(&self, track: usize, time_seconds: f32) -> Result<()> {
+    pub(crate) fn seek_file(&self, track: usize, time_seconds: f32) -> Result<()> {
         let mut router = self.router.lock().unwrap();
         track::seek_file(&mut router, track, time_seconds)
     }
 
-    fn get_waveform_data(&self, track: usize, num_points: usize) -> Result<(Vec<f32>, f32, u32)> {
+    pub(crate) fn get_waveform_data(&self, track: usize, num_points: usize) -> Result<(Vec<f32>, f32, u32)> {
         let router = self.router.lock().unwrap();
         let data = track::get_waveform_data(&router, track, num_points)?;
         
@@ -1408,64 +1408,64 @@ impl AudioEngine {
         Err(anyhow::anyhow!("Track {} has no file loaded", track))
     }
 
-    fn stop_all_files(&self) {
+    pub(crate) fn stop_all_files(&self) {
         let mut router = self.router.lock().unwrap();
         router.stop_all_files();
     }
 
     // Track controls
-    fn set_gain(&self, track: usize, gain: f32) {
+    pub(crate) fn set_gain(&self, track: usize, gain: f32) {
         let mut router = self.router.lock().unwrap();
         track::set_gain(&mut router, track, gain);
     }
 
-    fn set_volume(&self, track: usize, volume: f32) {
+    pub(crate) fn set_volume(&self, track: usize, volume: f32) {
         let mut router = self.router.lock().unwrap();
         track::set_volume(&mut router, track, volume);
     }
 
-    fn set_mute(&self, track: usize, mute: bool) {
+    pub(crate) fn set_mute(&self, track: usize, mute: bool) {
         let mut router = self.router.lock().unwrap();
         track::set_mute(&mut router, track, mute);
     }
 
-    fn set_solo(&self, track: usize, solo: bool) {
+    pub(crate) fn set_solo(&self, track: usize, solo: bool) {
         let mut router = self.router.lock().unwrap();
         track::set_solo(&mut router, track, solo);
     }
 
-    fn set_route_to_master(&self, track: usize, route: bool) {
+    pub(crate) fn set_route_to_master(&self, track: usize, route: bool) {
         let mut router = self.router.lock().unwrap();
         track::set_route_to_master(&mut router, track, route);
     }
 
-    fn set_pan(&self, track: usize, pan: f32) {
+    pub(crate) fn set_pan(&self, track: usize, pan: f32) {
         let mut router = self.router.lock().unwrap();
         track::set_pan(&mut router, track, pan);
     }
 
-    fn set_pad(&self, track: usize, enabled: bool) {
+    pub(crate) fn set_pad(&self, track: usize, enabled: bool) {
         let mut router = self.router.lock().unwrap();
         track::set_pad(&mut router, track, enabled);
     }
 
-    fn set_hpf(&self, track: usize, enabled: bool) {
+    pub(crate) fn set_hpf(&self, track: usize, enabled: bool) {
         let mut router = self.router.lock().unwrap();
         track::set_hpf(&mut router, track, enabled);
     }
 
-    fn set_phase_invert(&self, track: usize, enabled: bool) {
+    pub(crate) fn set_phase_invert(&self, track: usize, enabled: bool) {
         let mut router = self.router.lock().unwrap();
         track::set_phase_invert(&mut router, track, enabled);
     }
 
-    fn set_pfl(&self, track: usize, enabled: bool) {
+    pub(crate) fn set_pfl(&self, track: usize, enabled: bool) {
         let mut router = self.router.lock().unwrap();
         track::set_pfl(&mut router, track, enabled);
     }
 
     // Track dynamics controls
-    fn set_compressor(&self, track: usize, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
+    pub(crate) fn set_compressor(&self, track: usize, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.tracks.get_mut(track) {
             // Find first compressor in insert chain and modify it
@@ -1484,7 +1484,7 @@ impl AudioEngine {
         }
     }
 
-    fn set_gate(&self, track: usize, enabled: bool, threshold: f32, range: f32, attack: f32, release: f32) {
+    pub(crate) fn set_gate(&self, track: usize, enabled: bool, threshold: f32, range: f32, attack: f32, release: f32) {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.tracks.get_mut(track) {
             // Find first gate in insert chain and modify it
@@ -1504,18 +1504,18 @@ impl AudioEngine {
     }
 
     // Track EQ controls
-    fn set_eq(&self, track: usize, low: f32, low_mid: f32, high_mid: f32, high: f32) {
+    pub(crate) fn set_eq(&self, track: usize, low: f32, low_mid: f32, high_mid: f32, high: f32) {
         let mut router = self.router.lock().unwrap();
         track::set_eq(&mut router, track, low, low_mid, high_mid, high);
     }
 
-    fn set_eq_enabled(&self, track: usize, enabled: bool) {
+    pub(crate) fn set_eq_enabled(&self, track: usize, enabled: bool) {
         let mut router = self.router.lock().unwrap();
         track::set_eq_enabled(&mut router, track, enabled);
     }
 
     // Parametric EQ controls
-    fn set_parametric_eq_filters(&self, track: usize, filters: &[ParametricFilter]) {
+    pub(crate) fn set_parametric_eq_filters(&self, track: usize, filters: &[ParametricFilter]) {
         use equalizer::FilterType;
         
         let mut router = self.router.lock().unwrap();
@@ -1544,7 +1544,7 @@ impl AudioEngine {
         }
     }
 
-    fn set_parametric_eq_enabled(&self, track: usize, enabled: bool) {
+    pub(crate) fn set_parametric_eq_enabled(&self, track: usize, enabled: bool) {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.tracks.get_mut(track) {
             t.parametric_eq.set_enabled(enabled);
@@ -1553,7 +1553,7 @@ impl AudioEngine {
         }
     }
 
-    fn clear_parametric_eq(&self, track: usize) {
+    pub(crate) fn clear_parametric_eq(&self, track: usize) {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.tracks.get_mut(track) {
             t.parametric_eq.clear();
@@ -1563,7 +1563,7 @@ impl AudioEngine {
     }
 
     // Master controls
-    fn set_master_gain(&self, gain: f32) {
+    pub(crate) fn set_master_gain(&self, gain: f32) {
         let mut router = self.router.lock().unwrap();
         router.master.gain = gain.max(0.0); // No upper limit
         // When setting unified gain, also update left/right
@@ -1572,27 +1572,27 @@ impl AudioEngine {
         let gain_db = if gain > 0.0 { 20.0 * gain.log10() } else { -90.0 };
     }
 
-    fn set_master_gain_left(&self, gain: f32) {
+    pub(crate) fn set_master_gain_left(&self, gain: f32) {
         let mut router = self.router.lock().unwrap();
         router.master.gain_left = gain.max(0.0);
     }
 
-    fn set_master_gain_right(&self, gain: f32) {
+    pub(crate) fn set_master_gain_right(&self, gain: f32) {
         let mut router = self.router.lock().unwrap();
         router.master.gain_right = gain.max(0.0);
     }
 
-    fn set_master_mute(&self, mute: bool) {
+    pub(crate) fn set_master_mute(&self, mute: bool) {
         let mut router = self.router.lock().unwrap();
         router.master.mute = mute;
     }
 
-    fn set_master_linked(&self, linked: bool) {
+    pub(crate) fn set_master_linked(&self, linked: bool) {
         let mut router = self.router.lock().unwrap();
         router.master.linked = linked;
     }
 
-    fn set_master_parametric_eq_filters(&self, filters: &[ParametricFilter]) {
+    pub(crate) fn set_master_parametric_eq_filters(&self, filters: &[ParametricFilter]) {
         use equalizer::FilterType;
         
         let mut router = self.router.lock().unwrap();
@@ -1617,23 +1617,23 @@ impl AudioEngine {
         }
     }
 
-    fn set_master_parametric_eq_enabled(&self, enabled: bool) {
+    pub(crate) fn set_master_parametric_eq_enabled(&self, enabled: bool) {
         let mut router = self.router.lock().unwrap();
         router.master.parametric_eq.set_enabled(enabled);
     }
 
-    fn clear_master_parametric_eq(&self) {
+    pub(crate) fn clear_master_parametric_eq(&self) {
         let mut router = self.router.lock().unwrap();
         router.master.parametric_eq.clear();
     }
 
-    fn set_master_output_channels(&self, left_ch: u16, right_ch: u16) {
+    pub(crate) fn set_master_output_channels(&self, left_ch: u16, right_ch: u16) {
         let mut router = self.router.lock().unwrap();
         router.master.output_channel_selection = ChannelSelection::new(left_ch, right_ch);
     }
 
     // Master FX methods
-    fn set_master_compressor(&self, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
+    pub(crate) fn set_master_compressor(&self, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
         let mut router = self.router.lock().unwrap();
         router.master.compressor.set_enabled(enabled);
         router.master.compressor.set_threshold(threshold);
@@ -1642,14 +1642,14 @@ impl AudioEngine {
         router.master.compressor.set_release(release);
     }
 
-    fn set_master_limiter(&self, enabled: bool, ceiling: f32, release: f32) {
+    pub(crate) fn set_master_limiter(&self, enabled: bool, ceiling: f32, release: f32) {
         let mut router = self.router.lock().unwrap();
         router.master.limiter.set_enabled(enabled);
         router.master.limiter.set_ceiling(ceiling);
         router.master.limiter.set_release(release);
     }
 
-    fn set_master_delay(&self, enabled: bool, time_l: f32, time_r: f32, feedback: f32, mix: f32) {
+    pub(crate) fn set_master_delay(&self, enabled: bool, time_l: f32, time_r: f32, feedback: f32, mix: f32) {
         let mut router = self.router.lock().unwrap();
         router.master.delay.set_enabled(enabled);
         router.master.delay.set_delay_time_left(time_l);
@@ -1658,7 +1658,7 @@ impl AudioEngine {
         router.master.delay.set_mix(mix);
     }
 
-    fn set_master_reverb(&self, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32, pre_delay: f32) {
+    pub(crate) fn set_master_reverb(&self, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32, pre_delay: f32) {
         let mut router = self.router.lock().unwrap();
         router.master.reverb.set_enabled(enabled);
         router.master.reverb.set_room_size(room_size);
@@ -1669,7 +1669,7 @@ impl AudioEngine {
     }
 
     /// Get current state of all Master FX effects for synchronization
-    fn get_master_fx_effects(&self) -> Vec<MasterFxEffect> {
+    pub(crate) fn get_master_fx_effects(&self) -> Vec<MasterFxEffect> {
         let router = self.router.lock().unwrap();
         let master = &router.master;
         
@@ -1719,7 +1719,7 @@ impl AudioEngine {
     }
 
     /// Add a Master FX effect to the FX list
-    fn add_master_fx_effect(&self, effect_type: &str) {
+    pub(crate) fn add_master_fx_effect(&self, effect_type: &str) {
         let mut router = self.router.lock().unwrap();
         let master = &mut router.master;
         
@@ -1747,7 +1747,7 @@ impl AudioEngine {
     }
 
     /// Remove a Master FX effect from the FX list
-    fn remove_master_fx_effect(&self, effect_type: &str) {
+    pub(crate) fn remove_master_fx_effect(&self, effect_type: &str) {
         let mut router = self.router.lock().unwrap();
         let master = &mut router.master;
         
@@ -1779,52 +1779,52 @@ impl AudioEngine {
     }
 
     // Subgroup methods
-    fn add_subgroup(&self) -> usize {
+    pub(crate) fn add_subgroup(&self) -> usize {
         let mut router = self.router.lock().unwrap();
         router.add_subgroup()
     }
 
-    fn remove_subgroup(&self, subgroup: usize) {
+    pub(crate) fn remove_subgroup(&self, subgroup: usize) {
         let mut router = self.router.lock().unwrap();
         router.remove_subgroup(subgroup);
     }
 
-    fn set_subgroup_gain(&self, subgroup: usize, gain: f32) {
+    pub(crate) fn set_subgroup_gain(&self, subgroup: usize, gain: f32) {
         let mut router = self.router.lock().unwrap();
         if let Some(sg) = router.get_subgroup_mut(subgroup) {
             sg.gain = gain.max(0.0);
         }
     }
 
-    fn set_subgroup_mute(&self, subgroup: usize, mute: bool) {
+    pub(crate) fn set_subgroup_mute(&self, subgroup: usize, mute: bool) {
         let mut router = self.router.lock().unwrap();
         if let Some(sg) = router.get_subgroup_mut(subgroup) {
             sg.mute = mute;
         }
     }
 
-    fn set_subgroup_output_enabled(&self, subgroup: usize, enabled: bool) {
+    pub(crate) fn set_subgroup_output_enabled(&self, subgroup: usize, enabled: bool) {
         let mut router = self.router.lock().unwrap();
         if let Some(sg) = router.get_subgroup_mut(subgroup) {
             sg.output_enabled = enabled;
         }
     }
 
-    fn set_subgroup_route_to_master(&self, subgroup: usize, route: bool) {
+    pub(crate) fn set_subgroup_route_to_master(&self, subgroup: usize, route: bool) {
         let mut router = self.router.lock().unwrap();
         if let Some(sg) = router.get_subgroup_mut(subgroup) {
             sg.route_to_master = route;
         }
     }
 
-    fn set_subgroup_output_channels(&self, subgroup: usize, left_ch: u16, right_ch: u16) {
+    pub(crate) fn set_subgroup_output_channels(&self, subgroup: usize, left_ch: u16, right_ch: u16) {
         let mut router = self.router.lock().unwrap();
         if let Some(sg) = router.get_subgroup_mut(subgroup) {
             sg.output_channel_selection = ChannelSelection::new(left_ch, right_ch);
         }
     }
 
-    fn set_track_route_to_subgroup(&self, track: usize, subgroup: usize, route: bool) {
+    pub(crate) fn set_track_route_to_subgroup(&self, track: usize, subgroup: usize, route: bool) {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.get_track_mut(track) {
             if route {
@@ -1840,7 +1840,7 @@ impl AudioEngine {
     }
 
     // Aux bus methods
-    fn set_track_aux_send(&self, track: usize, aux: usize, level: f32, pre_fader: bool, muted: bool) {
+    pub(crate) fn set_track_aux_send(&self, track: usize, aux: usize, level: f32, pre_fader: bool, muted: bool) {
         let mut router = self.router.lock().unwrap();
         if let Some(t) = router.get_track_mut(track) {
             if aux < t.aux_sends.len() {
@@ -1851,21 +1851,21 @@ impl AudioEngine {
         }
     }
 
-    fn set_aux_bus_gain(&self, aux: usize, gain: f32) {
+    pub(crate) fn set_aux_bus_gain(&self, aux: usize, gain: f32) {
         let mut router = self.router.lock().unwrap();
         if aux < router.aux_buses.len() {
             router.aux_buses[aux].gain = gain.max(0.0);
         }
     }
 
-    fn set_aux_bus_mute(&self, aux: usize, mute: bool) {
+    pub(crate) fn set_aux_bus_mute(&self, aux: usize, mute: bool) {
         let mut router = self.router.lock().unwrap();
         if aux < router.aux_buses.len() {
             router.aux_buses[aux].mute = mute;
         }
     }
 
-    fn set_aux_bus_reverb(&self, aux: usize, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32, pre_delay: f32) {
+    pub(crate) fn set_aux_bus_reverb(&self, aux: usize, enabled: bool, room_size: f32, damping: f32, wet: f32, width: f32, pre_delay: f32) {
         let mut router = self.router.lock().unwrap();
         if aux < router.aux_buses.len() {
             router.aux_buses[aux].reverb.set_enabled(enabled);
@@ -1877,7 +1877,7 @@ impl AudioEngine {
         }
     }
 
-    fn set_aux_bus_delay(&self, aux: usize, enabled: bool, time: f32, feedback: f32, mix: f32) {
+    pub(crate) fn set_aux_bus_delay(&self, aux: usize, enabled: bool, time: f32, feedback: f32, mix: f32) {
         let mut router = self.router.lock().unwrap();
         if aux < router.aux_buses.len() {
             router.aux_buses[aux].delay.set_enabled(enabled);
@@ -1888,14 +1888,14 @@ impl AudioEngine {
         }
     }
 
-    fn set_aux_bus_route_to_master(&self, aux: usize, route: bool) {
+    pub(crate) fn set_aux_bus_route_to_master(&self, aux: usize, route: bool) {
         let mut router = self.router.lock().unwrap();
         if aux < router.aux_buses.len() {
             router.aux_buses[aux].route_to_master = route;
         }
     }
 
-    fn set_aux_bus_route_to_subgroup(&self, aux: usize, subgroup: usize, route: bool) {
+    pub(crate) fn set_aux_bus_route_to_subgroup(&self, aux: usize, subgroup: usize, route: bool) {
         let mut router = self.router.lock().unwrap();
         if aux < router.aux_buses.len() {
             if route {
@@ -1910,14 +1910,14 @@ impl AudioEngine {
         }
     }
 
-    fn set_aux_bus_output_enabled(&self, aux: usize, enabled: bool) {
+    pub(crate) fn set_aux_bus_output_enabled(&self, aux: usize, enabled: bool) {
         let mut router = self.router.lock().unwrap();
         if aux < router.aux_buses.len() {
             router.aux_buses[aux].output_enabled = enabled;
         }
     }
 
-    fn set_aux_bus_output_channels(&self, aux: usize, left_ch: u16, right_ch: u16) {
+    pub(crate) fn set_aux_bus_output_channels(&self, aux: usize, left_ch: u16, right_ch: u16) {
         let mut router = self.router.lock().unwrap();
         if aux < router.aux_buses.len() {
             router.aux_buses[aux].output_channel_selection = ChannelSelection::new(left_ch, right_ch);
@@ -1927,2858 +1927,122 @@ impl AudioEngine {
     /// Handle a command and return an optional response (only for critical operations)
     pub fn handle_command(&mut self, command: Command) -> Option<Response> {
         match command {
-            Command::Start {
-                input_device,
-                output_device,
-                sample_rate,
-                buffer_size,
-            } => match self.start(input_device, output_device, sample_rate, buffer_size) {
-                Ok(_) => Some(Response::Started),
-                Err(e) => Some(Response::Error {
-                    message: format!("Start failed: {}", e),
-                }),
-            },
-            Command::Stop => match self.stop() {
-                Ok(_) => Some(Response::Stopped),
-                Err(e) => Some(Response::Error {
-                    message: format!("Stop failed: {}", e),
-                }),
-            },
-            Command::EnableMasterTap { 
-                file_path, 
-                sample_rate, 
-                bit_depth, 
-                format 
-            } => {
-                self.enable_master_tap(
-                    file_path, 
-                    sample_rate.unwrap_or(48000),
-                    bit_depth.unwrap_or(16),
-                    format.as_deref().unwrap_or("wav")
-                );
-                Some(Response::Ok {
-                    message: "Recording started".to_string(),
-                })
-            }
-            Command::DisableMasterTap => {
-                self.disable_master_tap();
-                Some(Response::Ok {
-                    message: "Recording stopped and saved".to_string(),
-                })
-            }
-            Command::SaveLicense { key, license_type, expires_at } => {
-                match save_license_to_file(&key, &license_type, expires_at.as_deref()) {
-                    Ok(_) => Some(Response::Ok {
-                        message: "License saved".to_string(),
-                    }),
-                    Err(e) => Some(Response::Error {
-                        message: format!("Failed to save license: {}", e),
-                    }),
-                }
-            }
-            Command::GetLicense => {
-                match load_license_from_file() {
-                    Ok(license) => Some(Response::License {
-                        key: license.key,
-                        license_type: license.license_type,
-                        expires_at: license.expires_at,
-                        is_valid: license.is_valid,
-                    }),
-                    Err(e) => Some(Response::License {
-                        key: "DEMO".to_string(),
-                        license_type: "demo".to_string(),
-                        expires_at: None,
-                        is_valid: true,
-                    }),
-                }
-            }
-            Command::SaveAudioConfig { sample_rate, buffer_size } => {
-                let config = AudioConfigData {
-                    sample_rate,
-                    buffer_size,
-                };
-                match save_audio_config(&config) {
-                    Ok(_) => Some(Response::Ok {
-                        message: "Audio config saved".to_string(),
-                    }),
-                    Err(e) => Some(Response::Error {
-                        message: format!("Failed to save audio config: {}", e),
-                    }),
-                }
-            }
-            Command::GetAudioConfig => {
-                let config = load_audio_config();
-                Some(Response::AudioConfig {
-                    sample_rate: config.sample_rate,
-                    buffer_size: config.buffer_size,
-                })
-            }
-            Command::SetTrackSourceInput {
-                track,
-                left_channel,
-                right_channel,
-                device_name,
-            } => {
-                let _ = self.set_track_source_input(track, left_channel, right_channel, device_name.clone());
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: Some(format!("Audio Input ({})", device_name.unwrap_or_else(|| "Default".to_string()))),
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetTrackSourceSignal {
-                track,
-                waveform,
-                frequency,
-            } => {
-                let _ = self.set_track_source_signal(track, &waveform, frequency);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: Some(format!("Signal Generator ({} @ {} Hz)", waveform, frequency)),
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetSignalFrequency { track, frequency } => {
-                // Fire-and-forget command, no response needed
-                let _ = self.set_signal_frequency(track, frequency);
-                None
-            }
-            Command::SetSignalWaveform { track, waveform } => {
-                // Fire-and-forget command, no response needed
-                let _ = self.set_signal_waveform(track, &waveform);
-                None
-            }
-            Command::ClearTrackSource { track } => {
-                let _ = self.clear_track_source(track);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: Some("".to_string()),
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetTrackSourceFile { track, file_path, artist, title, playlist_id, playlist_name, playlist_index } => {
-                match self.set_track_source_file(track, &file_path, artist.as_deref(), title.as_deref(), playlist_id.as_deref(), playlist_name.as_deref(), playlist_index) {
-                    Ok(_) => {
-                        // Read track parameters after file is loaded
-                        let mut router = self.router.lock().unwrap();
-                        let (gain, is_stereo) = if let Some(t) = router.get_track_mut(track) {
-                            let stereo = if let Some(ref player) = t.file_player {
-                                player.channels >= 2
-                            } else {
-                                false
-                            };
-                            (Some(t.gain), Some(stereo))
-                        } else {
-                            (None, None)
-                        };
-                        drop(router);
-                        
-                        Some(Response::ParametersChanged {
-                            tracks: Some(vec![TrackParameters {
-                                track,
-                                gain,
-                                volume: None,
-                                mute: None,
-                        solo: None,
-                                pan: None,
-                                route_to_master: None,
-                                route_to_subgroups: None,
-                                pad_enabled: None,
-                                hpf_enabled: None,
-                                phase_inverted: None,
-                                pfl_enabled: None,
-                                compressor_enabled: None,
-                                compressor_threshold_db: None,
-                                compressor_ratio: None,
-                                compressor_attack_ms: None,
-                                compressor_release_ms: None,
-                                gate_enabled: None,
-                                gate_threshold_db: None,
-                                gate_range_db: None,
-                                gate_attack_ms: None,
-                                gate_release_ms: None,
-                                eq_enabled: None,
-                                eq_low: None,
-                                eq_low_mid: None,
-                                eq_high_mid: None,
-                                eq_high: None,
-                                parametric_eq_enabled: None,
-                                eq_filters: None,
-                                aux_sends: None,
-                                file_name: Some(file_path.clone()),
-                                file_artist: artist.clone(),
-                                file_title: title.clone(),
-                                is_stereo,
-                                fft_data: None,
-                            inserts: None,
-                            }]),
-                            subgroups: None,
-                            auxes: None,
-                            master: None,
-                        })
-                    }
-                    Err(e) => {
-                        eprintln!("[Engine] SetTrackSourceFile FAILED for track {}: {}", track, e);
-                        None
-                    }
-                }
-            }
-            Command::PlayFile { track, file_path, artist, title } => {
-                match self.play_file(track, file_path.as_deref(), artist.as_deref(), title.as_deref()) {
-                    Ok(_) => {
-                        // Read track parameters after file is loaded
-                        let mut router = self.router.lock().unwrap();
-                        let (gain, is_stereo, file_name, file_artist, file_title) = if let Some(t) = router.get_track_mut(track) {
-                            let stereo = if let Some(ref player) = t.file_player {
-                                player.channels >= 2
-                            } else {
-                                false
-                            };
-                            
-                            // If file_path is provided, use it and the provided metadata
-                            // Otherwise, read metadata from existing file_player
-                            let (fname, fartist, ftitle) = if file_path.is_some() {
-                                // Extract filename from provided path
-                                let fname = if let Some(ref path) = file_path {
-                                    std::path::Path::new(path)
-                                        .file_name()
-                                        .and_then(|n| n.to_str())
-                                        .map(|s| s.to_string())
-                                        .unwrap_or_else(|| path.clone())
-                                } else {
-                                    String::new()
-                                };
-                                
-                                // If artist/title not provided but file_player exists, preserve existing metadata
-                                let (final_artist, final_title) = if artist.is_none() && title.is_none() {
-                                    if let Some(ref player) = t.file_player {
-                                        (player.file_artist.clone(), player.file_title.clone())
-                                    } else {
-                                        (None, None)
-                                    }
-                                } else {
-                                    (artist, title)
-                                };
-                                
-                                (Some(fname), final_artist, final_title)
-                            } else {
-                                // Read from existing file_player
-                                if let Some(ref player) = t.file_player {
-                                    (
-                                        Some(player.file_name.clone()),
-                                        player.file_artist.clone(),
-                                        player.file_title.clone()
-                                    )
-                                } else {
-                                    (Some(String::new()), None, None)
-                                }
-                            };
-                            
-                            (Some(t.gain), Some(stereo), fname, fartist, ftitle)
-                        } else {
-                            (None, None, Some(String::new()), None, None)
-                        };
-                        drop(router);
-                        
-                        Some(Response::ParametersChanged {
-                            tracks: Some(vec![TrackParameters {
-                                track,
-                                gain,
-                                volume: None,
-                                mute: None,
-                        solo: None,
-                                pan: None,
-                                route_to_master: None,
-                                route_to_subgroups: None,
-                                pad_enabled: None,
-                                hpf_enabled: None,
-                                phase_inverted: None,
-                                pfl_enabled: None,
-                                compressor_enabled: None,
-                                compressor_threshold_db: None,
-                                compressor_ratio: None,
-                                compressor_attack_ms: None,
-                                compressor_release_ms: None,
-                                gate_enabled: None,
-                                gate_threshold_db: None,
-                                gate_range_db: None,
-                                gate_attack_ms: None,
-                                gate_release_ms: None,
-                                eq_enabled: None,
-                                eq_low: None,
-                                eq_low_mid: None,
-                                eq_high_mid: None,
-                                eq_high: None,
-                                parametric_eq_enabled: None,
-                                eq_filters: None,
-                                aux_sends: None,
-                                file_name,
-                                file_artist,
-                                file_title,
-                                is_stereo,
-                                fft_data: None,
-                            inserts: None,
-                            }]),
-                            subgroups: None,
-                            auxes: None,
-                            master: None,
-                        })
-                    }
-                    Err(e) => {
-                        eprintln!("[Engine] PlayFile FAILED for track {}: {}", track, e);
-                        None
-                    }
-                }
-            }
-            Command::PauseFile { track } => {
-                let _ = self.pause_file(track);
-                None
-            }
-            Command::StopFile { track } => {
-                let _ = self.stop_file(track);
-                None
-            }
-            Command::SeekFile { track, time_seconds } => {
-                let _ = self.seek_file(track, time_seconds);
-                None
-            }
-            Command::GetWaveformData { track, num_points } => {
-                match self.get_waveform_data(track, num_points) {
-                    Ok((data, duration, sample_rate)) => {
-                        Some(Response::WaveformData {
-                            track,
-                            data,
-                            duration,
-                            sample_rate,
-                        })
-                    }
-                    Err(e) => {
-                        eprintln!("[Engine] GetWaveformData FAILED for track {}: {}", track, e);
-                        Some(Response::Error {
-                            message: format!("Failed to get waveform data: {}", e),
-                        })
-                    }
-                }
-            }
-            Command::StopAllFiles => {
-                self.stop_all_files();
-                None
-            }
-            Command::SetGain { track, gain } => {
-                self.set_gain(track, gain);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: Some(gain),
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetVolume { track, volume } => {
-                self.set_volume(track, volume);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: Some(volume),
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetMute { track, mute } => {
-                self.set_mute(track, mute);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: Some(mute),
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetSolo { track, solo } => {
-                self.set_solo(track, solo);
-                
-                // Get all track mute and solo states after solo change
-                let router = self.router.lock().unwrap();
-                let mut track_params = Vec::new();
-                
-                for i in 0..router.tracks.len() {
-                    if let Some(t) = router.get_track(i) {
-                        track_params.push(TrackParameters {
-                            track: i,
-                            gain: None,
-                            volume: None,
-                            mute: Some(t.mute),
-                            solo: Some(t.solo),
-                            pan: None,
-                            route_to_master: None,
-                            route_to_subgroups: None,
-                            pad_enabled: None,
-                            hpf_enabled: None,
-                            phase_inverted: None,
-                            pfl_enabled: None,
-                            compressor_enabled: None,
-                            compressor_threshold_db: None,
-                            compressor_ratio: None,
-                            compressor_attack_ms: None,
-                            compressor_release_ms: None,
-                            gate_enabled: None,
-                            gate_threshold_db: None,
-                            gate_range_db: None,
-                            gate_attack_ms: None,
-                            gate_release_ms: None,
-                            eq_enabled: None,
-                            eq_low: None,
-                            eq_low_mid: None,
-                            eq_high_mid: None,
-                            eq_high: None,
-                            parametric_eq_enabled: None,
-                            eq_filters: None,
-                            aux_sends: None,
-                            file_name: None,
-                            file_artist: None,
-                            file_title: None,
-                            is_stereo: None,
-                            fft_data: None,
-                            inserts: None,
-                        });
-                    }
-                }
-                drop(router);
-                
-                Some(Response::ParametersChanged {
-                    tracks: Some(track_params),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetRouteToMaster { track, route } => {
-                self.set_route_to_master(track, route);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: Some(route),
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetPan { track, pan } => {
-                self.set_pan(track, pan);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: Some(pan),
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetTrackPad { track, enabled } => {
-                self.set_pad(track, enabled);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: Some(enabled),
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetTrackHPF { track, enabled } => {
-                self.set_hpf(track, enabled);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: Some(enabled),
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetTrackPhaseInvert { track, enabled } => {
-                self.set_phase_invert(track, enabled);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: Some(enabled),
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetTrackPFL { track, enabled } => {
-                self.set_pfl(track, enabled);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: Some(enabled),
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetCompressor {
-                track,
-                enabled,
-                threshold,
-                ratio,
-                attack,
-                release,
-            } => {
-                self.set_compressor(track, enabled, threshold, ratio, attack, release);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: Some(enabled),
-                        compressor_threshold_db: Some(threshold),
-                        compressor_ratio: Some(ratio),
-                        compressor_attack_ms: Some(attack),
-                        compressor_release_ms: Some(release),
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetGate {
-                track,
-                enabled,
-                threshold,
-                range,
-                attack,
-                release,
-            } => {
-                self.set_gate(track, enabled, threshold, range, attack, release);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: Some(enabled),
-                        gate_threshold_db: Some(threshold),
-                        gate_range_db: Some(range),
-                        gate_attack_ms: Some(attack),
-                        gate_release_ms: Some(release),
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetEQ {
-                track,
-                low,
-                low_mid,
-                high_mid,
-                high,
-            } => {
-                self.set_eq(track, low, low_mid, high_mid, high);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: Some(low),
-                        eq_low_mid: Some(low_mid),
-                        eq_high_mid: Some(high_mid),
-                        eq_high: Some(high),
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetEQEnabled { track, enabled } => {
-                self.set_eq_enabled(track, enabled);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: Some(enabled),
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetParametricEQFilters { track, filters } => {
-                self.set_parametric_eq_filters(track, &filters);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: Some(filters),
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetParametricEQEnabled { track, enabled } => {
-                self.set_parametric_eq_enabled(track, enabled);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: Some(enabled),
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::ClearParametricEQ { track } => {
-                self.clear_parametric_eq(track);
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: Some(vec![]),
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetMasterGain { gain } => {
-                self.set_master_gain(gain);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: Some(gain),
-                        gain_left: None,
-                        gain_right: None,
-                        mute: None,
-                        linked: None,
-                        selected_output: None,
-                        eq_filters: None,
-                        fx_effects: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::SetMasterGainLeft { gain } => {
-                self.set_master_gain_left(gain);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: Some(gain),
-                        gain_right: None,
-                        mute: None,
-                        linked: None,
-                        selected_output: None,
-                        eq_filters: None,
-                        fx_effects: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::SetMasterGainRight { gain } => {
-                self.set_master_gain_right(gain);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: Some(gain),
-                        mute: None,
-                        linked: None,
-                        selected_output: None,
-                        eq_filters: None,
-                        fx_effects: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::SetMasterMute { mute } => {
-                self.set_master_mute(mute);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: None,
-                        mute: Some(mute),
-                        linked: None,
-                        selected_output: None,
-                        eq_filters: None,
-                        fx_effects: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::SetMasterLinked { linked } => {
-                self.set_master_linked(linked);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: None,
-                        mute: None,
-                        linked: Some(linked),
-                        selected_output: None,
-                        eq_filters: None,
-                        fx_effects: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::SetMasterParametricEQFilters { filters } => {
-                self.set_master_parametric_eq_filters(&filters);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: None,
-                        mute: None,
-                        linked: None,
-                        selected_output: None,
-                        eq_filters: Some(filters),
-                        fx_effects: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::SetMasterParametricEQEnabled { enabled } => {
-                self.set_master_parametric_eq_enabled(enabled);
-                None
-            }
-            Command::ClearMasterParametricEQ => {
-                self.clear_master_parametric_eq();
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: None,
-                        mute: None,
-                        linked: None,
-                        selected_output: None,
-                        eq_filters: Some(vec![]),
-                        fx_effects: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::SetMasterOutputChannels {
-                left_channel,
-                right_channel,
-            } => {
-                self.set_master_output_channels(left_channel, right_channel);
-                None
-            }
-            Command::SetSelectedMasterOutput { device_id } => {
-                *self.selected_master_output.lock().unwrap() = device_id.clone();
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: None,
-                        mute: None,
-                        linked: None,
-                        eq_filters: None,
-                        fx_effects: None,
-                        selected_output: Some(device_id),
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::SetMasterCompressor {
-                enabled,
-                threshold,
-                ratio,
-                attack,
-                release,
-            } => {
-                println!("[Engine] SetMasterCompressor: enabled={}", enabled);
-                self.set_master_compressor(enabled, threshold, ratio, attack, release);
-                let fx_effects = self.get_master_fx_effects();
-                println!("[Engine] Returning fx_effects: {:?}", fx_effects);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: None,
-                        mute: None,
-                        linked: None,
-                        eq_filters: None,
-                        fx_effects: Some(fx_effects),
-                        selected_output: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::SetMasterLimiter {
-                enabled,
-                ceiling,
-                release,
-            } => {
-                self.set_master_limiter(enabled, ceiling, release);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: None,
-                        mute: None,
-                        linked: None,
-                        eq_filters: None,
-                        fx_effects: Some(self.get_master_fx_effects()),
-                        selected_output: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::SetMasterDelay {
-                enabled,
-                time_l,
-                time_r,
-                feedback,
-                mix,
-            } => {
-                self.set_master_delay(enabled, time_l, time_r, feedback, mix);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: None,
-                        mute: None,
-                        linked: None,
-                        eq_filters: None,
-                        fx_effects: Some(self.get_master_fx_effects()),
-                        selected_output: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::SetMasterReverb {
-                enabled,
-                room_size,
-                damping,
-                wet,
-                width,
-                pre_delay,
-            } => {
-                self.set_master_reverb(enabled, room_size, damping, wet, width, pre_delay);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: None,
-                        mute: None,
-                        linked: None,
-                        eq_filters: None,
-                        fx_effects: Some(self.get_master_fx_effects()),
-                        selected_output: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::AddMasterFxEffect { effect_type } => {
-                self.add_master_fx_effect(&effect_type);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: None,
-                        mute: None,
-                        linked: None,
-                        eq_filters: None,
-                        fx_effects: Some(self.get_master_fx_effects()),
-                        selected_output: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::RemoveMasterFxEffect { effect_type } => {
-                self.remove_master_fx_effect(&effect_type);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: None,
-                    master: Some(MasterParameters {
-                        gain: None,
-                        gain_left: None,
-                        gain_right: None,
-                        mute: None,
-                        linked: None,
-                        eq_filters: None,
-                        fx_effects: Some(self.get_master_fx_effects()),
-                        selected_output: None,
-                        available_output_devices: None,
-                        current_eq_preset: None,
-                    }),
-                })
-            }
-            Command::AddSubgroup => {
-                let id = self.add_subgroup();
-                Some(Response::SubgroupCreated { id })
-            }
-            Command::RemoveSubgroup { subgroup } => {
-                self.remove_subgroup(subgroup);
-                None
-            }
-            Command::SetSubgroupGain { subgroup, gain } => {
-                self.set_subgroup_gain(subgroup, gain);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: Some(vec![SubgroupParameters {
-                        subgroup,
-                        gain: Some(gain),
-                        mute: None,
-                        route_to_master: None,
-                        selected_output: None,
-                    }]),
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetSubgroupMute { subgroup, mute } => {
-                self.set_subgroup_mute(subgroup, mute);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: Some(vec![SubgroupParameters {
-                        subgroup,
-                        gain: None,
-                        mute: Some(mute),
-                        route_to_master: None,
-                        selected_output: None,
-                    }]),
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetSubgroupOutputEnabled { subgroup, enabled } => {
-                self.set_subgroup_output_enabled(subgroup, enabled);
-                None
-            }
-            Command::SetSubgroupRouteToMaster { subgroup, route } => {
-                self.set_subgroup_route_to_master(subgroup, route);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: Some(vec![SubgroupParameters {
-                        subgroup,
-                        gain: None,
-                        mute: None,
-                        route_to_master: Some(route),
-                        selected_output: None,
-                    }]),
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetSubgroupOutputChannels {
-                subgroup,
-                left_channel,
-                right_channel,
-            } => {
-                self.set_subgroup_output_channels(subgroup, left_channel, right_channel);
-                None
-            }
-            Command::SetSelectedSubgroupOutput { subgroup, device_id } => {
-                if let Ok(mut router) = self.router.try_lock() {
-                    if let Some(sg) = router.subgroups.iter_mut().find(|s| s.id == subgroup) {
-                        sg.selected_output = device_id.clone();
-                    }
-                }
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: Some(vec![SubgroupParameters {
-                        subgroup,
-                        gain: None,
-                        mute: None,
-                        route_to_master: None,
-                        selected_output: Some(device_id),
-                    }]),
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetTrackRouteToSubgroup {
-                track,
-                subgroup,
-                route,
-            } => {
-                self.set_track_route_to_subgroup(track, subgroup, route);
-                
-                // Get updated routing list
-                let route_to_subgroups = if let Ok(router) = self.router.try_lock() {
-                    if track < router.tracks.len() {
-                        router.tracks[track].route_to_subgroups.clone()
-                    } else {
-                        vec![]
-                    }
-                } else {
-                    vec![]
-                };
-                
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: Some(route_to_subgroups),
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: None,
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetTrackAuxSend {
-                track,
-                aux,
-                level,
-                pre_fader,
-                muted,
-            } => {
-                self.set_track_aux_send(track, aux, level, pre_fader, muted);
-                
-                // Get updated aux sends for this track and convert to AuxSendData
-                let aux_sends = if let Ok(router) = self.router.try_lock() {
-                    if track < router.tracks.len() {
-                        router.tracks[track].aux_sends.iter().map(|send| AuxSendData {
-                            level: send.level,
-                            pre_fader: send.pre_fader,
-                            muted: send.muted,
-                        }).collect()
-                    } else {
-                        vec![]
-                    }
-                } else {
-                    vec![]
-                };
-                
-                Some(Response::ParametersChanged {
-                    tracks: Some(vec![TrackParameters {
-                        track,
-                        gain: None,
-                        volume: None,
-                        mute: None,
-                        solo: None,
-                        pan: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        pad_enabled: None,
-                        hpf_enabled: None,
-                        phase_inverted: None,
-                        pfl_enabled: None,
-                        compressor_enabled: None,
-                        compressor_threshold_db: None,
-                        compressor_ratio: None,
-                        compressor_attack_ms: None,
-                        compressor_release_ms: None,
-                        gate_enabled: None,
-                        gate_threshold_db: None,
-                        gate_range_db: None,
-                        gate_attack_ms: None,
-                        gate_release_ms: None,
-                        eq_enabled: None,
-                        eq_low: None,
-                        eq_low_mid: None,
-                        eq_high_mid: None,
-                        eq_high: None,
-                        parametric_eq_enabled: None,
-                        eq_filters: None,
-                        aux_sends: Some(aux_sends),
-                        file_name: None,
-                        file_artist: None,
-                        file_title: None,
-                        is_stereo: None,
-                        fft_data: None,
-                            inserts: None,
-                    }]),
-                    subgroups: None,
-                    auxes: None,
-                    master: None,
-                })
-            }
-            Command::SetAuxBusGain { aux, gain } => {
-                self.set_aux_bus_gain(aux, gain);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: Some(vec![AuxParameters {
-                        aux,
-                        gain: Some(gain),
-                        mute: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        output_enabled: None,
-                        output_channel_selection_left: None,
-                        output_channel_selection_right: None,
-                        selected_output: None,
-                        reverb: None,
-                        delay: None,
-                    }]),
-                    master: None,
-                })
-            }
-            Command::SetAuxBusMute { aux, mute } => {
-                self.set_aux_bus_mute(aux, mute);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: Some(vec![AuxParameters {
-                        aux,
-                        gain: None,
-                        mute: Some(mute),
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        output_enabled: None,
-                        output_channel_selection_left: None,
-                        output_channel_selection_right: None,
-                        selected_output: None,
-                        reverb: None,
-                        delay: None,
-                    }]),
-                    master: None,
-                })
-            }
-            Command::SetAuxBusReverb {
-                aux,
-                enabled,
-                room_size,
-                damping,
-                wet,
-                width,
-                pre_delay,
-            } => {
-                self.set_aux_bus_reverb(aux, enabled, room_size, damping, wet, width, pre_delay);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: Some(vec![AuxParameters {
-                        aux,
-                        gain: None,
-                        mute: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        output_enabled: None,
-                        output_channel_selection_left: None,
-                        output_channel_selection_right: None,
-                        selected_output: None,
-                        reverb: Some(AuxReverbParams {
-                            enabled,
-                            room_size,
-                            damping,
-                            wet,
-                            width,
-                        }),
-                        delay: None,
-                    }]),
-                    master: None,
-                })
-            }
-            Command::SetAuxBusDelay {
-                aux,
-                enabled,
-                time,
-                feedback,
-                mix,
-            } => {
-                self.set_aux_bus_delay(aux, enabled, time, feedback, mix);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: Some(vec![AuxParameters {
-                        aux,
-                        gain: None,
-                        mute: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        output_enabled: None,
-                        output_channel_selection_left: None,
-                        output_channel_selection_right: None,
-                        selected_output: None,
-                        reverb: None,
-                        delay: Some(AuxDelayParams {
-                            enabled,
-                            delay_time_l_ms: time,
-                            delay_time_r_ms: time,
-                            feedback,
-                            mix,
-                        }),
-                    }]),
-                    master: None,
-                })
-            }
-            Command::SetAuxBusRouteToMaster { aux, route } => {
-                self.set_aux_bus_route_to_master(aux, route);
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: Some(vec![AuxParameters {
-                        aux,
-                        gain: None,
-                        mute: None,
-                        route_to_master: Some(route),
-                        route_to_subgroups: None,
-                        output_enabled: None,
-                        output_channel_selection_left: None,
-                        output_channel_selection_right: None,
-                        selected_output: None,
-                        reverb: None,
-                        delay: None,
-                    }]),
-                    master: None,
-                })
-            }
-            Command::SetAuxBusOutputEnabled { aux, enabled } => {
-                self.set_aux_bus_output_enabled(aux, enabled);
-                None
-            }
-            Command::SetAuxBusOutputChannels {
-                aux,
-                left_channel,
-                right_channel,
-            } => {
-                self.set_aux_bus_output_channels(aux, left_channel, right_channel);
-                None
-            }
-            Command::SetAuxBusRouteToSubgroup { aux, subgroup, route } => {
-                self.set_aux_bus_route_to_subgroup(aux, subgroup, route);
-                
-                // Get updated routing list
-                let route_to_subgroups = if let Ok(router) = self.router.try_lock() {
-                    if let Some(aux_bus) = router.aux_buses.iter().find(|a| a.id == aux) {
-                        aux_bus.route_to_subgroups.clone()
-                    } else {
-                        vec![]
-                    }
-                } else {
-                    vec![]
-                };
-                
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: Some(vec![AuxParameters {
-                        aux,
-                        gain: None,
-                        mute: None,
-                        route_to_master: None,
-                        route_to_subgroups: Some(route_to_subgroups),
-                        output_enabled: None,
-                        output_channel_selection_left: None,
-                        output_channel_selection_right: None,
-                        selected_output: None,
-                        reverb: None,
-                        delay: None,
-                    }]),
-                    master: None,
-                })
-            }
-            Command::SetAuxBusSelectedOutput { aux, device_id } => {
-                if let Ok(mut router) = self.router.try_lock() {
-                    if let Some(aux_bus) = router.aux_buses.iter_mut().find(|a| a.id == aux) {
-                        aux_bus.selected_output = device_id.clone();
-                    }
-                }
-                Some(Response::ParametersChanged {
-                    tracks: None,
-                    subgroups: None,
-                    auxes: Some(vec![AuxParameters {
-                        aux,
-                        gain: None,
-                        mute: None,
-                        route_to_master: None,
-                        route_to_subgroups: None,
-                        output_enabled: None,
-                        output_channel_selection_left: None,
-                        output_channel_selection_right: None,
-                        selected_output: Some(device_id),
-                        reverb: None,
-                        delay: None,
-                    }]),
-                    master: None,
-                })
-            }
-            Command::SetTrackSourceAuxReturn { track, aux } => {
-                match self.set_track_source_aux_return(track, aux) {
-                    Ok(_) => None,
-                    Err(e) => Some(Response::Error {
-                        message: e.to_string(),
-                    }),
-                }
-            }
-            Command::SetUpdatesSuspended { suspended } => {
-                self.updates_suspended.store(suspended, Ordering::Relaxed);
-                None // No response needed, performance-critical
-            }
-            Command::OpenAudioInput { device_name } => {
-                // Note: This command is deprecated. Input is now managed automatically
-                // via SetTrackSourceInput. Kept for backwards compatibility.
-                eprintln!("[Engine] Warning: OpenAudioInput command is deprecated, use SetTrackSourceInput instead");
-                None
-            }
-            Command::CloseAudioInput => {
-                // Note: This command is deprecated. Input is now managed automatically
-                // via track source changes. Kept for backwards compatibility.
-                eprintln!("[Engine] Warning: CloseAudioInput command is deprecated, input is managed automatically");
-                None
-            }
-            Command::ListDevices => match self.list_devices() {
-                Ok(devices) => Some(Response::Devices { devices }),
-                Err(e) => Some(Response::Error {
-                    message: format!("List devices failed: {}", e),
-                }),
-            },
+            // ===== Stream and device commands =====
+            Command::Start { .. } | Command::Stop | 
+            Command::EnableMasterTap { .. } | Command::DisableMasterTap => {
+                self.handle_stream_command(command)
+            }
+            
+            // ===== Configuration commands =====
+            Command::SaveLicense { .. } | Command::GetLicense |
+            Command::SaveAudioConfig { .. } | Command::GetAudioConfig => {
+                self.handle_config_command(command)
+            }
+            
+            // ===== File playback commands =====
+            Command::PauseFile { .. } | Command::StopFile { .. } | Command::SeekFile { .. } |
+            Command::GetWaveformData { .. } | Command::StopAllFiles => {
+                self.handle_file_playback_command(command)
+            }
+            
+            // ===== Audio input commands =====
+            Command::OpenAudioInput { .. } | Command::CloseAudioInput | 
             Command::ListAudioInputs => {
-                match self.audio_io.list_devices() {
-                    Ok(devices) => {
-                        // Filter only input devices and expand multi-channel devices
-                        let input_devices: Vec<DeviceInfo> = devices.into_iter()
-                            .filter(|d| d.input_channels > 0)
-                            .flat_map(|device| {
-                                if device.input_channels > 2 {
-                                    // Expand multi-channel device into individual channel entries
-                                    let channel_count = device.input_channels as usize;
-                                    eprintln!("[Engine] Expanding {} into {} channels", device.name, channel_count);
-                                    (0..channel_count).map(move |ch| {
-                                        DeviceInfo {
-                                            id: format!("{}:{}", device.id, ch),
-                                            name: format!("{} - Channel {}", device.name, ch + 1),
-                                            input_channels: device.input_channels,
-                                            output_channels: device.output_channels,
-                                            default_sample_rate: device.default_sample_rate,
-                                            is_default: false, // Individual channels are not marked as default
-                                        }
-                                    }).collect::<Vec<_>>()
-                                } else {
-                                    // Single or stereo channel device
-                                    vec![device]
-                                }
-                            })
-                            .collect();
-                        
-                        Some(Response::AudioInputs { inputs: input_devices })
-                    },
-                    Err(e) => {
-                        eprintln!("[Engine] Error listing audio inputs: {}", e);
-                        Some(Response::Error {
-                            message: format!("Failed to list audio inputs: {}", e),
-                        })
-                    },
-                }
-            },
+                self.handle_audio_input_command(command)
+            }
             
-            // NDI Streaming commands
-            Command::StartNdi { stream_name, source } => {
-                match NdiSource::from_str(&source) {
-                    Some(ndi_source) => {
-                        match self.ndi_stream.start(stream_name, ndi_source) {
-                            Ok(_) => Some(Response::Ok {
-                                message: "NDI stream started".to_string(),
-                            }),
-                            Err(e) => Some(Response::Error {
-                                message: format!("Failed to start NDI: {}", e),
-                            }),
-                        }
-                    }
-                    None => Some(Response::Error {
-                        message: format!("Invalid NDI source: {}", source),
-                    }),
-                }
-            },
-            Command::StopNdi => {
-                match self.ndi_stream.stop() {
-                    Ok(_) => Some(Response::Ok {
-                        message: "NDI stream stopped".to_string(),
-                    }),
-                    Err(e) => Some(Response::Error {
-                        message: format!("Failed to stop NDI: {}", e),
-                    }),
-                }
-            },
-            Command::SetNdiSource { source } => {
-                match NdiSource::from_str(&source) {
-                    Some(ndi_source) => {
-                        match self.ndi_stream.set_source(ndi_source) {
-                            Ok(_) => None, // Silent success
-                            Err(e) => Some(Response::Error {
-                                message: format!("Failed to set NDI source: {}", e),
-                            }),
-                        }
-                    }
-                    None => Some(Response::Error {
-                        message: format!("Invalid NDI source: {}", source),
-                    }),
-                }
-            },
-            Command::SetNdiName { name } => {
-                match self.ndi_stream.set_stream_name(name) {
-                    Ok(_) => None, // Silent success
-                    Err(e) => Some(Response::Error {
-                        message: format!("Failed to set NDI name: {}", e),
-                    }),
-                }
-            },
-            Command::SetNdiVideoText { text } => {
-                self.ndi_stream.set_video_text(text);
-                None // Silent success
-            },
+            // ===== Metering commands =====
+            Command::GetLoudness | Command::ResetLoudness |
+            Command::GetDynamicRange | Command::ResetDynamicRange |
+            Command::GetPhaseCorrelation | Command::ResetPhaseCorrelation |
+            Command::GetStereoWidth | Command::ResetStereoWidth |
+            Command::GetHeadroom | Command::ResetHeadroom => {
+                self.handle_metering_command(command)
+            }
             
-            Command::GetLoudness => {
-                let router = self.router.lock().unwrap();
-                let loudness_data = router.loudness_meter.get_measurements();
-                Some(Response::LoudnessData {
-                    momentary_lufs: loudness_data.momentary,
-                    short_term_lufs: loudness_data.short_term,
-                    integrated_lufs: loudness_data.integrated,
-                    loudness_range_lu: loudness_data.loudness_range,
-                    true_peak_dbtp: loudness_data.true_peak_dbtp,
-                })
-            },
+            // ===== NDI streaming commands =====
+            Command::StartNdi { .. } | Command::StopNdi |
+            Command::SetNdiSource { .. } | Command::SetNdiName { .. } |
+            Command::SetNdiVideoText { .. } => {
+                self.handle_ndi_command(command)
+            }
             
-            Command::ResetLoudness => {
-                let mut router = self.router.lock().unwrap();
-                router.loudness_meter.reset();
-                Some(Response::Ok {
-                    message: "Loudness measurements reset".to_string(),
-                })
-            },
+            // ===== Miscellaneous commands =====
+            Command::ListDevices | Command::SetUpdatesSuspended { .. } => {
+                self.handle_misc_command(command)
+            }
             
-            Command::GetDynamicRange => {
-                let router = self.router.lock().unwrap();
-                let dr_data = router.dynamic_range_meter.get_measurements();
-                Some(Response::DynamicRangeData {
-                    peak_db_l: dr_data.peak_db_l,
-                    peak_db_r: dr_data.peak_db_r,
-                    rms_db_l: dr_data.rms_db_l,
-                    rms_db_r: dr_data.rms_db_r,
-                    dynamic_range_l: dr_data.dynamic_range_l,
-                    dynamic_range_r: dr_data.dynamic_range_r,
-                    dynamic_range_stereo: dr_data.dynamic_range_stereo,
-                })
-            },
+            // ===== EQ Presets commands =====
+            Command::GetEQPresets | Command::ApplyEQPreset { .. } => {
+                self.handle_eq_presets_command(command)
+            }
             
-            Command::ResetDynamicRange => {
-                let mut router = self.router.lock().unwrap();
-                router.dynamic_range_meter.reset();
-                Some(Response::Ok {
-                    message: "Dynamic range measurements reset".to_string(),
-                })
-            },
+            // ===== Track Source commands =====
+            Command::SetTrackSourceInput { .. } | Command::SetTrackSourceSignal { .. } |
+            Command::SetSignalFrequency { .. } | Command::SetSignalWaveform { .. } |
+            Command::ClearTrackSource { .. } | Command::SetTrackSourceFile { .. } |
+            Command::PlayFile { .. } | Command::SetTrackSourceAuxReturn { .. } => {
+                self.handle_track_source_command(command)
+            }
             
-            Command::GetPhaseCorrelation => {
-                let router = self.router.lock().unwrap();
-                let phase_data = router.phase_correlation_meter.get_measurement();
-                Some(Response::PhaseCorrelationData {
-                    correlation: phase_data.correlation,
-                    mono_compatible: phase_data.mono_compatible,
-                })
-            },
+            // ===== Track Control commands =====
+            Command::SetGain { .. } | Command::SetVolume { .. } | Command::SetMute { .. } |
+            Command::SetSolo { .. } | Command::SetPan { .. } | Command::SetRouteToMaster { .. } |
+            Command::SetTrackPad { .. } | Command::SetTrackHPF { .. } | Command::SetTrackPhaseInvert { .. } |
+            Command::SetTrackPFL { .. } | Command::SetTrackRouteToSubgroup { .. } => {
+                self.handle_track_control_command(command)
+            }
             
-            Command::ResetPhaseCorrelation => {
-                let mut router = self.router.lock().unwrap();
-                router.phase_correlation_meter.reset();
-                Some(Response::Ok {
-                    message: "Phase correlation measurements reset".to_string(),
-                })
-            },
+            // ===== Track Effects commands =====
+            Command::SetCompressor { .. } | Command::SetGate { .. } | Command::SetEQ { .. } |
+            Command::SetEQEnabled { .. } | Command::SetParametricEQFilters { .. } |
+            Command::SetParametricEQEnabled { .. } | Command::ClearParametricEQ { .. } |
+            Command::SetTrackAuxSend { .. } => {
+                self.handle_track_effects_command(command)
+            }
             
-            Command::GetStereoWidth => {
-                let router = self.router.lock().unwrap();
-                let width_data = router.stereo_width_meter.get_measurement();
-                Some(Response::StereoWidthData {
-                    width_percent: width_data.width_percent,
-                    mid_rms: width_data.mid_rms,
-                    side_rms: width_data.side_rms,
-                    balance: width_data.balance,
-                })
-            },
+            // ===== Track Inserts commands =====
+            Command::AddTrackInsert { .. } | Command::RemoveTrackInsert { .. } |
+            Command::MoveTrackInsert { .. } | Command::SetTrackInsertEnabled { .. } |
+            Command::SetTrackInsertCompressor { .. } | Command::SetTrackInsertGate { .. } |
+            Command::SetTrackInsertReverb { .. } | Command::SetTrackInsertDelay { .. } |
+            Command::SetTrackInsertExciter { .. } | Command::SetTrackInsertDeEsser { .. } |
+            Command::SetTrackInsertChorus { .. } => {
+                self.handle_track_inserts_command(command)
+            }
             
-            Command::ResetStereoWidth => {
-                let mut router = self.router.lock().unwrap();
-                router.stereo_width_meter.reset();
-                Some(Response::Ok {
-                    message: "Stereo width measurements reset".to_string(),
-                })
-            },
+            // ===== Master Control commands =====
+            Command::SetMasterGain { .. } | Command::SetMasterGainLeft { .. } |
+            Command::SetMasterGainRight { .. } | Command::SetMasterMute { .. } |
+            Command::SetMasterLinked { .. } | Command::SetMasterParametricEQFilters { .. } |
+            Command::SetMasterParametricEQEnabled { .. } | Command::ClearMasterParametricEQ |
+            Command::SetMasterOutputChannels { .. } | Command::SetSelectedMasterOutput { .. } => {
+                self.handle_master_control_command(command)
+            }
             
-            Command::GetHeadroom => {
-                let router = self.router.lock().unwrap();
-                let headroom_data = router.headroom_meter.get_measurement();
-                Some(Response::HeadroomData {
-                    peak_l: headroom_data.peak_l,
-                    peak_r: headroom_data.peak_r,
-                    headroom_l: headroom_data.headroom_l,
-                    headroom_r: headroom_data.headroom_r,
-                    headroom_stereo: headroom_data.headroom_stereo,
-                })
-            },
+            // ===== Master Effects commands =====
+            Command::SetMasterCompressor { .. } | Command::SetMasterLimiter { .. } |
+            Command::SetMasterDelay { .. } | Command::SetMasterReverb { .. } |
+            Command::AddMasterFxEffect { .. } | Command::RemoveMasterFxEffect { .. } => {
+                self.handle_master_effects_command(command)
+            }
             
-            Command::ResetHeadroom => {
-                let mut router = self.router.lock().unwrap();
-                router.headroom_meter.reset();
-                Some(Response::Ok {
-                    message: "Headroom measurements reset".to_string(),
-                })
-            },
+            // ===== Subgroups commands =====
+            Command::AddSubgroup | Command::RemoveSubgroup { .. } |
+            Command::SetSubgroupGain { .. } | Command::SetSubgroupMute { .. } |
+            Command::SetSubgroupOutputEnabled { .. } | Command::SetSubgroupRouteToMaster { .. } |
+            Command::SetSubgroupOutputChannels { .. } | Command::SetSelectedSubgroupOutput { .. } => {
+                self.handle_subgroups_command(command)
+            }
             
-            // Track Insert Effects Chain handlers
-            Command::AddTrackInsert { track, effect_type, position } => {
-                let mut router = self.router.lock().unwrap();
-                if let Some(t) = router.tracks.get_mut(track) {
-                    // Generate unique ID for this insert
-                    let insert_id = t.inserts.iter().map(|s| s.id).max().unwrap_or(0) + 1;
-                    
-                    // Create insert based on effect type
-                    use routing::InsertSlot;
-                    let sample_rate = 48000.0; // TODO: Get from actual sample rate
-                    let new_insert = match effect_type.as_str() {
-                        "gate" => InsertSlot::new_gate(insert_id, sample_rate),
-                        "compressor" => InsertSlot::new_compressor(insert_id, sample_rate),
-                        "reverb" => InsertSlot::new_reverb(insert_id, sample_rate),
-                        "delay" => InsertSlot::new_delay(insert_id, sample_rate),
-                        "exciter" => InsertSlot::new_exciter(insert_id, sample_rate),
-                        "deesser" => InsertSlot::new_deesser(insert_id, sample_rate),
-                        "chorus" => InsertSlot::new_chorus(insert_id, sample_rate),
-                        _ => {
-                            drop(router);
-                            return Some(Response::Error {
-                                message: format!("Unknown effect type: {}", effect_type),
-                            });
-                        }
-                    };
-                    
-                    // Insert at position or append
-                    if let Some(pos) = position {
-                        if pos <= t.inserts.len() {
-                            t.inserts.insert(pos, new_insert);
-                        } else {
-                            t.inserts.push(new_insert);
-                        }
-                    } else {
-                        t.inserts.push(new_insert);
-                    }
-                    
-                    // Build insert list for response
-                    let inserts: Vec<InsertEffectInfo> = t.inserts.iter().map(|slot| {
-                        InsertEffectInfo {
-                            id: slot.id,
-                            effect_type: slot.effect_type.clone(),
-                            enabled: slot.enabled,
-                        }
-                    }).collect();
-                    
-                    drop(router);
-                    
-                    Some(Response::ParametersChanged {
-                        tracks: Some(vec![TrackParameters {
-                            track,
-                            gain: None,
-                            volume: None,
-                            mute: None,
-                            solo: None,
-                            pan: None,
-                            route_to_master: None,
-                            route_to_subgroups: None,
-                            pad_enabled: None,
-                            hpf_enabled: None,
-                            phase_inverted: None,
-                            pfl_enabled: None,
-                            compressor_enabled: None,
-                            compressor_threshold_db: None,
-                            compressor_ratio: None,
-                            compressor_attack_ms: None,
-                            compressor_release_ms: None,
-                            gate_enabled: None,
-                            gate_threshold_db: None,
-                            gate_range_db: None,
-                            gate_attack_ms: None,
-                            gate_release_ms: None,
-                            eq_enabled: None,
-                            eq_low: None,
-                            eq_low_mid: None,
-                            eq_high_mid: None,
-                            eq_high: None,
-                            parametric_eq_enabled: None,
-                            eq_filters: None,
-                            aux_sends: None,
-                            file_name: None,
-                            file_artist: None,
-                            file_title: None,
-                            is_stereo: None,
-                            fft_data: None,
-                            inserts: Some(inserts),
-                        }]),
-                        subgroups: None,
-                        auxes: None,
-                        master: None,
-                    })
-                } else {
-                    Some(Response::Error {
-                        message: format!("Track {} not found", track),
-                    })
-                }
-            },
-            
-            Command::RemoveTrackInsert { track, insert_id } => {
-                let mut router = self.router.lock().unwrap();
-                if let Some(t) = router.tracks.get_mut(track) {
-                    // Find and remove insert by ID
-                    if let Some(pos) = t.inserts.iter().position(|slot| slot.id == insert_id) {
-                        t.inserts.remove(pos);
-                        
-                        // Build insert list for response
-                        let inserts: Vec<InsertEffectInfo> = t.inserts.iter().map(|slot| {
-                            InsertEffectInfo {
-                                id: slot.id,
-                                effect_type: slot.effect_type.clone(),
-                                enabled: slot.enabled,
-                            }
-                        }).collect();
-                        
-                        drop(router);
-                        
-                        Some(Response::ParametersChanged {
-                            tracks: Some(vec![TrackParameters {
-                                track,
-                                gain: None,
-                                volume: None,
-                                mute: None,
-                                solo: None,
-                                pan: None,
-                                route_to_master: None,
-                                route_to_subgroups: None,
-                                pad_enabled: None,
-                                hpf_enabled: None,
-                                phase_inverted: None,
-                                pfl_enabled: None,
-                                compressor_enabled: None,
-                                compressor_threshold_db: None,
-                                compressor_ratio: None,
-                                compressor_attack_ms: None,
-                                compressor_release_ms: None,
-                                gate_enabled: None,
-                                gate_threshold_db: None,
-                                gate_range_db: None,
-                                gate_attack_ms: None,
-                                gate_release_ms: None,
-                                eq_enabled: None,
-                                eq_low: None,
-                                eq_low_mid: None,
-                                eq_high_mid: None,
-                                eq_high: None,
-                                parametric_eq_enabled: None,
-                                eq_filters: None,
-                                aux_sends: None,
-                                file_name: None,
-                                file_artist: None,
-                                file_title: None,
-                                is_stereo: None,
-                                fft_data: None,
-                                inserts: Some(inserts),
-                            }]),
-                            subgroups: None,
-                            auxes: None,
-                            master: None,
-                        })
-                    } else {
-                        drop(router);
-                        Some(Response::Error {
-                            message: format!("Insert {} not found on track {}", insert_id, track),
-                        })
-                    }
-                } else {
-                    Some(Response::Error {
-                        message: format!("Track {} not found", track),
-                    })
-                }
-            },
-            
-            Command::MoveTrackInsert { track, insert_id, new_position } => {
-                let mut router = self.router.lock().unwrap();
-                if let Some(t) = router.tracks.get_mut(track) {
-                    // Find insert by ID
-                    if let Some(old_pos) = t.inserts.iter().position(|slot| slot.id == insert_id) {
-                        if new_position < t.inserts.len() {
-                            let insert = t.inserts.remove(old_pos);
-                            t.inserts.insert(new_position, insert);
-                            
-                            // Build insert list for response
-                            let inserts: Vec<InsertEffectInfo> = t.inserts.iter().map(|slot| {
-                                InsertEffectInfo {
-                                    id: slot.id,
-                                    effect_type: slot.effect_type.clone(),
-                                    enabled: slot.enabled,
-                                }
-                            }).collect();
-                            
-                            drop(router);
-                            
-                            Some(Response::ParametersChanged {
-                                tracks: Some(vec![TrackParameters {
-                                    track,
-                                    gain: None,
-                                    volume: None,
-                                    mute: None,
-                                    solo: None,
-                                    pan: None,
-                                    route_to_master: None,
-                                    route_to_subgroups: None,
-                                    pad_enabled: None,
-                                    hpf_enabled: None,
-                                    phase_inverted: None,
-                                    pfl_enabled: None,
-                                    compressor_enabled: None,
-                                    compressor_threshold_db: None,
-                                    compressor_ratio: None,
-                                    compressor_attack_ms: None,
-                                    compressor_release_ms: None,
-                                    gate_enabled: None,
-                                    gate_threshold_db: None,
-                                    gate_range_db: None,
-                                    gate_attack_ms: None,
-                                    gate_release_ms: None,
-                                    eq_enabled: None,
-                                    eq_low: None,
-                                    eq_low_mid: None,
-                                    eq_high_mid: None,
-                                    eq_high: None,
-                                    parametric_eq_enabled: None,
-                                    eq_filters: None,
-                                    aux_sends: None,
-                                    file_name: None,
-                                    file_artist: None,
-                                    file_title: None,
-                                    is_stereo: None,
-                                    fft_data: None,
-                                    inserts: Some(inserts),
-                                }]),
-                                subgroups: None,
-                                auxes: None,
-                                master: None,
-                            })
-                        } else {
-                            drop(router);
-                            Some(Response::Error {
-                                message: format!("Invalid position: {}", new_position),
-                            })
-                        }
-                    } else {
-                        drop(router);
-                        Some(Response::Error {
-                            message: format!("Insert {} not found on track {}", insert_id, track),
-                        })
-                    }
-                } else {
-                    Some(Response::Error {
-                        message: format!("Track {} not found", track),
-                    })
-                }
-            },
-            
-            Command::SetTrackInsertEnabled { track, insert_id, enabled } => {
-                let mut router = self.router.lock().unwrap();
-                if let Some(t) = router.tracks.get_mut(track) {
-                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
-                        slot.enabled = enabled;
-                        
-                        // Also set the enabled state inside the effect itself
-                        match &mut slot.effect {
-                            InsertEffectData::Gate(gate) => gate.set_enabled(enabled),
-                            InsertEffectData::Compressor(comp) => comp.set_enabled(enabled),
-                            InsertEffectData::Reverb(rev) => rev.set_enabled(enabled),
-                            InsertEffectData::Delay(delay) => delay.set_enabled(enabled),
-                            InsertEffectData::Exciter(exciter) => exciter.set_enabled(enabled),
-                            InsertEffectData::DeEsser(deesser) => deesser.set_enabled(enabled),
-                            InsertEffectData::Chorus(chorus) => chorus.set_enabled(enabled),
-                        }
-                        
-                        let inserts: Vec<InsertEffectInfo> = t.inserts.iter().map(|slot| {
-                            InsertEffectInfo {
-                                id: slot.id,
-                                effect_type: slot.effect_type.clone(),
-                                enabled: slot.enabled,
-                            }
-                        }).collect();
-                        
-                        drop(router);
-                        
-                        Some(Response::ParametersChanged {
-                            tracks: Some(vec![TrackParameters {
-                                track,
-                                gain: None,
-                                volume: None,
-                                mute: None,
-                                solo: None,
-                                pan: None,
-                                route_to_master: None,
-                                route_to_subgroups: None,
-                                pad_enabled: None,
-                                hpf_enabled: None,
-                                phase_inverted: None,
-                                pfl_enabled: None,
-                                compressor_enabled: None,
-                                compressor_threshold_db: None,
-                                compressor_ratio: None,
-                                compressor_attack_ms: None,
-                                compressor_release_ms: None,
-                                gate_enabled: None,
-                                gate_threshold_db: None,
-                                gate_range_db: None,
-                                gate_attack_ms: None,
-                                gate_release_ms: None,
-                                eq_enabled: None,
-                                eq_low: None,
-                                eq_low_mid: None,
-                                eq_high_mid: None,
-                                eq_high: None,
-                                parametric_eq_enabled: None,
-                                eq_filters: None,
-                                aux_sends: None,
-                                file_name: None,
-                                file_artist: None,
-                                file_title: None,
-                                is_stereo: None,
-                                fft_data: None,
-                                inserts: Some(inserts),
-                            }]),
-                            subgroups: None,
-                            auxes: None,
-                            master: None,
-                        })
-                    } else {
-                        drop(router);
-                        Some(Response::Error {
-                            message: format!("Insert {} not found on track {}", insert_id, track),
-                        })
-                    }
-                } else {
-                    Some(Response::Error {
-                        message: format!("Track {} not found", track),
-                    })
-                }
-            },
-            
-            Command::SetTrackInsertCompressor { track, insert_id, threshold, ratio, attack, release } => {
-                let mut router = self.router.lock().unwrap();
-                if let Some(t) = router.tracks.get_mut(track) {
-                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
-                        if let InsertEffectData::Compressor(comp) = &mut slot.effect {
-                            comp.set_threshold(threshold);
-                            comp.set_ratio(ratio);
-                            comp.set_attack(attack);
-                            comp.set_release(release);
-                            
-                            drop(router);
-                            Some(Response::Ok {
-                                message: format!("Compressor {} updated on track {}", insert_id, track),
-                            })
-                        } else {
-                            drop(router);
-                            Some(Response::Error {
-                                message: format!("Insert {} is not a compressor", insert_id),
-                            })
-                        }
-                    } else {
-                        drop(router);
-                        Some(Response::Error {
-                            message: format!("Insert {} not found on track {}", insert_id, track),
-                        })
-                    }
-                } else {
-                    Some(Response::Error {
-                        message: format!("Track {} not found", track),
-                    })
-                }
-            },
-            
-            Command::SetTrackInsertGate { track, insert_id, threshold, range, attack, release } => {
-                let mut router = self.router.lock().unwrap();
-                if let Some(t) = router.tracks.get_mut(track) {
-                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
-                        if let InsertEffectData::Gate(gate) = &mut slot.effect {
-                            gate.set_threshold(threshold);
-                            gate.set_range(range);
-                            gate.set_attack(attack);
-                            gate.set_release(release);
-                            
-                            drop(router);
-                            Some(Response::Ok {
-                                message: format!("Gate {} updated on track {}", insert_id, track),
-                            })
-                        } else {
-                            drop(router);
-                            Some(Response::Error {
-                                message: format!("Insert {} is not a gate", insert_id),
-                            })
-                        }
-                    } else {
-                        drop(router);
-                        Some(Response::Error {
-                            message: format!("Insert {} not found on track {}", insert_id, track),
-                        })
-                    }
-                } else {
-                    Some(Response::Error {
-                        message: format!("Track {} not found", track),
-                    })
-                }
-            },
-            
-            Command::SetTrackInsertReverb { track, insert_id, room_size, damping, wet, width, pre_delay } => {
-                let mut router = self.router.lock().unwrap();
-                if let Some(t) = router.tracks.get_mut(track) {
-                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
-                        if let InsertEffectData::Reverb(rev) = &mut slot.effect {
-                            rev.set_room_size(room_size);
-                            rev.set_damping(damping);
-                            rev.set_wet(wet);
-                            rev.set_width(width);
-                            rev.set_pre_delay(pre_delay);
-                            
-                            drop(router);
-                            Some(Response::Ok {
-                                message: format!("Reverb {} updated on track {}", insert_id, track),
-                            })
-                        } else {
-                            drop(router);
-                            Some(Response::Error {
-                                message: format!("Insert {} is not a reverb", insert_id),
-                            })
-                        }
-                    } else {
-                        drop(router);
-                        Some(Response::Error {
-                            message: format!("Insert {} not found on track {}", insert_id, track),
-                        })
-                    }
-                } else {
-                    Some(Response::Error {
-                        message: format!("Track {} not found", track),
-                    })
-                }
-            },
-            
-            Command::SetTrackInsertDelay { track, insert_id, time_l, time_r, feedback, mix } => {
-                let mut router = self.router.lock().unwrap();
-                if let Some(t) = router.tracks.get_mut(track) {
-                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
-                        if let InsertEffectData::Delay(delay) = &mut slot.effect {
-                            delay.set_delay_time_left(time_l);
-                            delay.set_delay_time_right(time_r);
-                            delay.set_feedback(feedback);
-                            delay.set_mix(mix);
-                            
-                            drop(router);
-                            Some(Response::Ok {
-                                message: format!("Delay {} updated on track {}", insert_id, track),
-                            })
-                        } else {
-                            drop(router);
-                            Some(Response::Error {
-                                message: format!("Insert {} is not a delay", insert_id),
-                            })
-                        }
-                    } else {
-                        drop(router);
-                        Some(Response::Error {
-                            message: format!("Insert {} not found on track {}", insert_id, track),
-                        })
-                    }
-                } else {
-                    Some(Response::Error {
-                        message: format!("Track {} not found", track),
-                    })
-                }
-            },
-            
-            Command::SetTrackInsertExciter { track, insert_id, amount, frequency, mix } => {
-                let mut router = self.router.lock().unwrap();
-                if let Some(t) = router.tracks.get_mut(track) {
-                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
-                        if let InsertEffectData::Exciter(exciter) = &mut slot.effect {
-                            exciter.set_amount(amount);
-                            exciter.set_frequency(frequency);
-                            exciter.set_mix(mix);
-                            
-                            drop(router);
-                            Some(Response::Ok {
-                                message: format!("Exciter {} updated on track {}", insert_id, track),
-                            })
-                        } else {
-                            drop(router);
-                            Some(Response::Error {
-                                message: format!("Insert {} is not an exciter", insert_id),
-                            })
-                        }
-                    } else {
-                        drop(router);
-                        Some(Response::Error {
-                            message: format!("Insert {} not found on track {}", insert_id, track),
-                        })
-                    }
-                } else {
-                    Some(Response::Error {
-                        message: format!("Track {} not found", track),
-                    })
-                }
-            },
-            
-            Command::SetTrackInsertDeEsser { track, insert_id, threshold, frequency, range } => {
-                let mut router = self.router.lock().unwrap();
-                if let Some(t) = router.tracks.get_mut(track) {
-                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
-                        if let InsertEffectData::DeEsser(deesser) = &mut slot.effect {
-                            deesser.set_threshold(threshold);
-                            deesser.set_frequency(frequency);
-                            deesser.set_range(range);
-                            
-                            drop(router);
-                            Some(Response::Ok {
-                                message: format!("DeEsser {} updated on track {}", insert_id, track),
-                            })
-                        } else {
-                            drop(router);
-                            Some(Response::Error {
-                                message: format!("Insert {} is not a de-esser", insert_id),
-                            })
-                        }
-                    } else {
-                        drop(router);
-                        Some(Response::Error {
-                            message: format!("Insert {} not found on track {}", insert_id, track),
-                        })
-                    }
-                } else {
-                    Some(Response::Error {
-                        message: format!("Track {} not found", track),
-                    })
-                }
-            },
-            
-            Command::SetTrackInsertChorus { track, insert_id, rate, depth, mix } => {
-                let mut router = self.router.lock().unwrap();
-                if let Some(t) = router.tracks.get_mut(track) {
-                    if let Some(slot) = t.inserts.iter_mut().find(|s| s.id == insert_id) {
-                        if let InsertEffectData::Chorus(chorus) = &mut slot.effect {
-                            chorus.set_rate(rate);
-                            chorus.set_depth(depth);
-                            chorus.set_mix(mix);
-                            
-                            drop(router);
-                            Some(Response::Ok {
-                                message: format!("Chorus {} updated on track {}", insert_id, track),
-                            })
-                        } else {
-                            drop(router);
-                            Some(Response::Error {
-                                message: format!("Insert {} is not a chorus", insert_id),
-                            })
-                        }
-                    } else {
-                        drop(router);
-                        Some(Response::Error {
-                            message: format!("Insert {} not found on track {}", insert_id, track),
-                        })
-                    }
-                } else {
-                    Some(Response::Error {
-                        message: format!("Track {} not found", track),
-                    })
-                }
-            },
-            Command::GetEQPresets => {
-                use equalizer::EQPreset;
-                
-                let presets = EQPreset::get_presets();
-                let preset_data: Vec<EQPresetData> = presets.into_iter().map(|p| {
-                    EQPresetData {
-                        name: p.name,
-                        filters: p.filters.into_iter().map(|(filter_type, frequency, gain, q)| {
-                            EQPresetFilter {
-                                filter_type: filter_type.to_string(),
-                                frequency,
-                                gain,
-                                q,
-                            }
-                        }).collect(),
-                    }
-                }).collect();
-                
-                Some(Response::EQPresets {
-                    presets: preset_data,
-                })
-            },
-            Command::ApplyEQPreset { preset_name } => {
-                use equalizer::EQPreset;
-                
-                let presets = EQPreset::get_presets();
-                if let Some(preset) = presets.into_iter().find(|p| p.name == preset_name) {
-                    let mut router = self.router.lock().unwrap();
-                    preset.apply_to(&mut router.master.parametric_eq);
-                    
-                    // Get updated filters from the equalizer
-                    let filters_data = router.master.parametric_eq.export_filters();
-                    let filters: Vec<ParametricFilter> = filters_data.iter().map(|f| {
-                        ParametricFilter {
-                            filter_type: f.filter_type.clone(),
-                            frequency: f.frequency,
-                            gain: f.gain,
-                            q: f.q,
-                        }
-                    }).collect();
-                    
-                    drop(router);
-                    
-                    // Send ParametersChanged instead of Ok
-                    Some(Response::ParametersChanged {
-                        tracks: None,
-                        subgroups: None,
-                        auxes: None,
-                        master: Some(MasterParameters {
-                            gain: None,
-                            gain_left: None,
-                            gain_right: None,
-                            mute: None,
-                            linked: None,
-                            eq_filters: Some(filters),
-                            current_eq_preset: Some(Some(preset_name.clone())),
-                            fx_effects: None,
-                            selected_output: None,
-                            available_output_devices: None,
-                        }),
-                    })
-                } else {
-                    Some(Response::Error {
-                        message: format!("EQ preset not found: {}", preset_name),
-                    })
-                }
-            },
+            // ===== Aux Buses commands =====
+            Command::SetAuxBusGain { .. } | Command::SetAuxBusMute { .. } |
+            Command::SetAuxBusReverb { .. } | Command::SetAuxBusDelay { .. } |
+            Command::SetAuxBusRouteToMaster { .. } | Command::SetAuxBusOutputEnabled { .. } |
+            Command::SetAuxBusOutputChannels { .. } | Command::SetAuxBusRouteToSubgroup { .. } |
+            Command::SetAuxBusSelectedOutput { .. } => {
+                self.handle_aux_buses_command(command)
+            }
         }
     }
 }

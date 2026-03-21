@@ -4,6 +4,7 @@ pub mod config;
 pub mod license;
 pub mod helpers;
 pub mod audio_engine;
+mod audio_engine_traits;  // Trait definitions for splitting impl blocks
 
 pub use config::*;
 pub use license::*;
