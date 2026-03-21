@@ -137,7 +137,7 @@
           <!-- BPM Display - solo quando rilevato -->
           <div v-if="detectedBpm > 0" class="left-[0.1rem] absolute text-center mb-1 -top-[3rem]">
             <div class="text-[0.65rem] font-bold text-slate-400">
-              {{ detectedBpm.toFixed(1) }}
+              {{ detectedBpm.toFixed(0) }}
             </div>
             <div class="text-[0.45rem] font-bold text-slate-400">
               BPM

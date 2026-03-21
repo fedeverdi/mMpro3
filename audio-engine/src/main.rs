@@ -1149,7 +1149,15 @@ impl AudioEngine {
             Err(_) => 1 // Default to 1 aux bus if license can't be loaded
         };
         
-        let router = Arc::new(Mutex::new(Router::new(24, num_aux_buses))); // Support up to 24 tracks + dynamic aux count
+        // Load audio configuration to get sample rate
+        let config = load_audio_config_from_file();
+        let initial_sample_rate = if config.sample_rate == 0 { 
+            48000.0  // Default to 48kHz if Auto
+        } else { 
+            config.sample_rate as f32 
+        };
+        
+        let router = Arc::new(Mutex::new(Router::new(24, num_aux_buses, initial_sample_rate))); // Support up to 24 tracks + dynamic aux count
         let updates_suspended = Arc::new(AtomicBool::new(false));
         let input_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
         let input_channels = Arc::new(AtomicUsize::new(2)); // Default stereo

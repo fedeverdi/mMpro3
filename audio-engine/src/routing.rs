@@ -355,7 +355,7 @@ pub struct Track {
 }
 
 impl Track {
-    pub fn new(id: usize) -> Self {
+    pub fn new(id: usize, sample_rate: f32) -> Self {
         Self {
             id,
             source: TrackSource::None,
@@ -378,9 +378,9 @@ impl Track {
             playlist_name: None,
             playlist_current_index: None,
             inserts: Vec::new(), // Empty insert effects chain by default
-            equalizer: Equalizer::new(48000.0),
-            parametric_eq: ParametricEqualizer::new(48000.0),
-            hpf_filter: EQBand::new(FilterType::HighPass, 80.0, 48000.0),
+            equalizer: Equalizer::new(sample_rate),
+            parametric_eq: ParametricEqualizer::new(sample_rate),
+            hpf_filter: EQBand::new(FilterType::HighPass, 80.0, sample_rate),
             level_l: 0.0,
             level_r: 0.0,
             level_pre_fader_l: 0.0,
@@ -389,7 +389,7 @@ impl Track {
             pfl_output: (0.0, 0.0),
             aux_outputs: vec![(0.0, 0.0); MAX_AUX_BUSES], // Initialize all aux outputs
             waveform_buffer_l: vec![0.0; WAVEFORM_BUFFER_SIZE],
-            bpm_detector: BPMDetector::new(48000.0),
+            bpm_detector: BPMDetector::new(sample_rate),
             waveform_buffer_r: vec![0.0; WAVEFORM_BUFFER_SIZE],
             waveform_write_index: 0,
             fft_analyzer: FFTAnalyzer::new(),
@@ -420,6 +420,8 @@ impl Track {
         self.source = TrackSource::FilePlayer;
         self.file_player = Some(player);
         self.signal_generator = None;
+        // Reset BPM detector when loading a new file
+        self.bpm_detector.reset();
     }
 
     /// Set EQ parameters
@@ -460,6 +462,8 @@ impl Track {
     pub fn stop_file(&mut self) -> anyhow::Result<()> {
         if let Some(player) = &mut self.file_player {
             player.stop();
+            // Reset BPM detector when stopping playback
+            self.bpm_detector.reset();
             Ok(())
         } else {
             Err(anyhow::anyhow!("Track {} has no file loaded", self.id))
@@ -1082,11 +1086,11 @@ pub struct Router {
 }
 
 impl Router {
-    pub fn new(num_tracks: usize, num_aux_buses: usize) -> Self {
-        let tracks = (0..num_tracks).map(Track::new).collect();
+    pub fn new(num_tracks: usize, num_aux_buses: usize, sample_rate: f32) -> Self {
+        let tracks = (0..num_tracks).map(|id| Track::new(id, sample_rate)).collect();
         
         // Initialize aux buses based on license
-        let aux_buses = (0..num_aux_buses).map(|i| AuxBus::new(i, 48000.0)).collect();
+        let aux_buses = (0..num_aux_buses).map(|i| AuxBus::new(i, sample_rate)).collect();
         
         // Initialize 2 subgroups by default
         let subgroups = vec![
@@ -1099,11 +1103,11 @@ impl Router {
             aux_buses,
             master: MasterBus::new(),
             fft_analyzer: FFTAnalyzer::new(),
-            loudness_meter: LoudnessMeter::new(48000.0),
-            dynamic_range_meter: DynamicRangeMeter::new(48000.0),
-            phase_correlation_meter: PhaseCorrelationMeter::new(48000.0),
-            stereo_width_meter: StereoWidthMeter::new(48000.0),
-            headroom_meter: HeadroomMeter::new(48000.0),
+            loudness_meter: LoudnessMeter::new(sample_rate as f64),
+            dynamic_range_meter: DynamicRangeMeter::new(sample_rate as f64),
+            phase_correlation_meter: PhaseCorrelationMeter::new(sample_rate as f64),
+            stereo_width_meter: StereoWidthMeter::new(sample_rate as f64),
+            headroom_meter: HeadroomMeter::new(sample_rate),
             last_master_output: (0.0, 0.0),
             last_subgroup_outputs: Vec::new(),
             last_aux_outputs: Vec::new(),
@@ -1259,7 +1263,7 @@ mod tests {
 
     #[test]
     fn test_track_creation() {
-        let track = Track::new(0);
+        let track = Track::new(0, 48000.0);
         assert_eq!(track.id, 0);
         assert_eq!(track.source, TrackSource::None);
         assert_eq!(track.gain, 1.0);
@@ -1274,7 +1278,7 @@ mod tests {
 
     #[test]
     fn test_muted_track() {
-        let mut track = Track::new(0);
+        let mut track = Track::new(0, 48000.0);
         track.mute = true;
         track.gain = 1.0;
         let (l, r) = track.process(None);

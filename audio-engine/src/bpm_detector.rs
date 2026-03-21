@@ -1,10 +1,75 @@
 /// BPM Detection using autocorrelation on low-frequency energy envelope
 /// Focuses on bass/kick drum to avoid confusion from vocals
 
-const ENERGY_BUFFER_SIZE: usize = 48000 * 8; // 8 seconds @ 48kHz
-const MIN_BPM: f32 = 80.0;
-const MAX_BPM: f32 = 160.0;
+const ENERGY_BUFFER_SECONDS: usize = 20; // Increased from 8 to 20 seconds for better precision
+const MIN_BPM: f32 = 60.0;  // Extended to cover slower tempos (ballads, downtempo)
+const MAX_BPM: f32 = 180.0; // Extended to cover faster tempos (EDM, drum & bass)
 const ENERGY_HOP_SIZE: usize = 512; // Decimate energy for efficiency
+
+/// Fold BPM to the most musically sensible range (70-140 BPM preferred)
+/// Corrects for harmonic detection errors (2x, 3x, 4x) and subdivisions (0.5x, 0.25x)
+fn fold_to_musical_bpm(mut bpm: f32) -> f32 {
+    // Target range: preferably 70-140 BPM (most common for modern music)
+    const PREFERRED_MIN: f32 = 70.0;
+    const PREFERRED_MAX: f32 = 140.0;
+    
+    // If already in preferred range, return as-is
+    if bpm >= PREFERRED_MIN && bpm <= PREFERRED_MAX {
+        return bpm;
+    }
+    
+    // Try dividing by powers of 2 (for harmonic errors: 2x, 4x, 8x)
+    let mut best_bpm = bpm;
+    let mut best_score = score_bpm(bpm);
+    
+    for divisor in [2.0, 3.0, 4.0, 8.0] {
+        let candidate = bpm / divisor;
+        if candidate >= MIN_BPM && candidate <= MAX_BPM {
+            let score = score_bpm(candidate);
+            if score > best_score {
+                best_bpm = candidate;
+                best_score = score;
+            }
+        }
+    }
+    
+    // Try multiplying by powers of 2 (for subdivision errors: 0.5x, 0.25x)
+    for multiplier in [2.0, 3.0, 4.0] {
+        let candidate = bpm * multiplier;
+        if candidate >= MIN_BPM && candidate <= MAX_BPM {
+            let score = score_bpm(candidate);
+            if score > best_score {
+                best_bpm = candidate;
+                best_score = score;
+            }
+        }
+    }
+    
+    best_bpm
+}
+
+/// Score a BPM value based on how musically sensible it is
+/// Higher score = more likely to be correct
+fn score_bpm(bpm: f32) -> f32 {
+    const PREFERRED_MIN: f32 = 70.0;
+    const PREFERRED_MAX: f32 = 140.0;
+    
+    // Heavily favor the 70-140 range
+    if bpm >= PREFERRED_MIN && bpm <= PREFERRED_MAX {
+        return 100.0;
+    }
+    
+    // Moderate favor for extended ranges
+    if bpm >= 60.0 && bpm < PREFERRED_MIN {
+        return 50.0; // Slow songs (ballads)
+    }
+    if bpm > PREFERRED_MAX && bpm <= 180.0 {
+        return 50.0; // Fast songs (EDM)
+    }
+    
+    // Very low score for extreme values
+    0.0
+}
 
 pub struct BPMDetector {
     sample_rate: f32,
@@ -33,7 +98,10 @@ pub struct BPMDetector {
 
 impl BPMDetector {
     pub fn new(sample_rate: f32) -> Self {
-        let envelope_size = ENERGY_BUFFER_SIZE / ENERGY_HOP_SIZE;
+        // Calculate buffer size dynamically based on sample rate
+        let buffer_size_samples = (sample_rate as usize) * ENERGY_BUFFER_SECONDS;
+        let envelope_size = buffer_size_samples / ENERGY_HOP_SIZE;
+        
         // Low-pass filter @ 150Hz (isola kick drum)
         let cutoff = 150.0;
         let rc = 1.0 / (2.0 * std::f32::consts::PI * cutoff);
@@ -52,7 +120,7 @@ impl BPMDetector {
             current_bpm: 0.0,
             last_estimate_time: 0,
             sample_counter: 0,
-            bpm_history: vec![0.0; 20],
+            bpm_history: vec![0.0; 12],  // Balanced: faster than 20, more stable than 8
             bpm_history_index: 0,
             bpm_lock: None,
             bpm_lock_confidence: 0,
@@ -145,7 +213,11 @@ impl BPMDetector {
         // Convert best lag back to BPM
         if best_correlation > 0.25 {
             let period_seconds = best_lag as f32 / envelope_sample_rate;
-            let bpm = 60.0 / period_seconds;
+            let mut bpm = 60.0 / period_seconds;
+            
+            // HARMONIC FOLDING: riporta il BPM nel range musicalmente sensato
+            // Preferenza per il range 70-140 BPM (il più comune per musica moderna)
+            bpm = fold_to_musical_bpm(bpm);
             
             // Se abbiamo un lock e il nuovo BPM è vicino, mantienilo
             if let Some(locked_bpm) = self.bpm_lock {
@@ -169,18 +241,19 @@ impl BPMDetector {
             self.bpm_history[self.bpm_history_index] = bpm;
             self.bpm_history_index = (self.bpm_history_index + 1) % self.bpm_history.len();
             
-            // Average non-zero history
+            // Average all valid (non-zero) history for better precision
             let valid: Vec<f32> = self.bpm_history.iter()
                 .filter(|&&v| v > 0.0)
                 .copied()
                 .collect();
             
             if !valid.is_empty() {
+                // Use all valid readings for more stable average
                 self.current_bpm = valid.iter().sum::<f32>() / valid.len() as f32;
-                self.current_bpm = (self.current_bpm * 10.0).round() / 10.0;
+                self.current_bpm = self.current_bpm.round();
                 
                 // Se abbiamo abbastanza letture stabili, crea un lock
-                if valid.len() >= 8 {
+                if valid.len() >= 6 {
                     let variance: f32 = valid.iter()
                         .map(|&v| (v - self.current_bpm).powi(2))
                         .sum::<f32>() / valid.len() as f32;
@@ -198,7 +271,7 @@ impl BPMDetector {
     
     /// Get current BPM estimate
     pub fn get_bpm(&self) -> f32 {
-        // Return BPM if we have enough history
+        // Return BPM if we have enough history (requires 3 readings for stability)
         if self.bpm_history.iter().filter(|&&v| v > 0.0).count() >= 3 {
             self.current_bpm
         } else {
