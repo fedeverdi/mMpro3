@@ -28,6 +28,7 @@ mod chorus;
 mod routing;
 mod signal_gen;
 mod track;
+mod bpm_detector;
 mod ndi_ffi;
 mod ndi_stream;
 mod loudness;
@@ -721,6 +722,7 @@ struct TrackMeters {
     gate_attenuation_db: f32,
     file_ended: bool,
     is_playing: bool,
+    bpm: f32,                   // Detected BPM (0.0 if not detected)
     // Include essential parameters for remote sync
     gain: f32,
     volume: f32,
@@ -1662,6 +1664,7 @@ impl AudioEngine {
                                 gate_attenuation_db: gate_attenuation_db,
                                 file_ended: t.file_player.as_ref().map_or(false, |p| p.file_ended),
                                 is_playing: t.file_player.as_ref().map_or(false, |p| p.playing),
+                                bpm: t.bpm_detector.get_bpm(),
                                 // Include essential parameters for remote sync
                                 gain: t.gain,
                                 volume: t.volume,

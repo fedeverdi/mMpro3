@@ -27,6 +27,7 @@ export interface AudioEngineState {
     gateInputDb: number
     gateAttenuationDb: number
     fileEnded: boolean
+    bpm: number               // Detected BPM (0 if not detected)
   }>
   trackWaveforms: Map<number, number[]>
   trackEQFilters: Map<number, any[]>
@@ -492,7 +493,8 @@ export const useAudioEngine = () => {
                 compressorReductionDb: trackMeter.compressor_reduction_db || 0,
                 gateInputDb: trackMeter.gate_input_db || -90,
                 gateAttenuationDb: trackMeter.gate_attenuation_db || 0,
-                fileEnded: trackMeter.file_ended || false
+                fileEnded: trackMeter.file_ended || false,
+                bpm: trackMeter.bpm || 0
               })
 
               if (trackMeter.waveform) {
@@ -730,12 +732,15 @@ export const useAudioEngine = () => {
               state.value.trackLevels.set(trackLevel.track, {
                 left: trackLevel.level_l,
                 right: trackLevel.level_r,
+                leftPreFader: trackLevel.level_pre_fader_l || 0,
+                rightPreFader: trackLevel.level_pre_fader_r || 0,
                 phaseCorrelation: trackLevel.phase_correlation || 0,
                 compressorInputDb: trackLevel.compressor_input_db || -90,
                 compressorReductionDb: trackLevel.compressor_reduction_db || 0,
                 gateInputDb: trackLevel.gate_input_db || -90,
                 gateAttenuationDb: trackLevel.gate_attenuation_db || 0,
-                fileEnded: trackLevel.file_ended || false
+                fileEnded: trackLevel.file_ended || false,
+                bpm: trackLevel.bpm || 0
               })
 
               if (trackLevel.waveform) {

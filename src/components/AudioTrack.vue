@@ -34,21 +34,13 @@
       </div>
 
       <!-- Play/Stop Controls -->
-      <PlayStopControls 
-        :disabled="!selectedFileName"
-        :is-playing="isPlaying"
-        :is-playlist-mode="isPlaylistMode"
-        @play="handlePlayFile"
-        @stop="handleStopFile"
-      />
+      <PlayStopControls :disabled="!selectedFileName" :is-playing="isPlaying" :is-playlist-mode="isPlaylistMode"
+        @play="handlePlayFile" @stop="handleStopFile" />
 
       <!-- Waveform Display - Always visible -->
       <WaveformDisplay v-if="isLargeSize" :track-number="trackNumber - 1" :show-mode-buttons="true" mode="signal"
         :is-active="(audioSourceType === 'file' && isPlaying) || (audioSourceType === 'input' && selectedAudioInput !== '')"
-        :audio-buffer="audioBuffer"
-        :current-time="currentTime"
-        :is-playing="isPlaying"
-        :duration="audioDuration"
+        :audio-buffer="audioBuffer" :current-time="currentTime" :is-playing="isPlaying" :duration="audioDuration"
         @seek="handleSeek" />
     </div>
 
@@ -62,24 +54,15 @@
           <HPFButton v-model="hpfEnabled" />
         </div>
         <div class="scale-[0.65]">
-          <Knob v-model="gain" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Gain" unit="dB"
-            color="#8b5cf6" @drag-start="isDraggingGain = true" @drag-end="isDraggingGain = false" />
+          <Knob v-model="gain" :min="-12" :max="12" :step="0.5" :centerValue="0" label="Gain" unit="dB" color="#8b5cf6"
+            @drag-start="isDraggingGain = true" @drag-end="isDraggingGain = false" />
         </div>
       </div>
 
       <!-- Insert Effects Chain -->
-      <InsertEffectsChain
-        :track-number="trackNumber"
-        :inserts="inserts"
-        :track-level-l="trackLevelL"
-        :track-level-r="trackLevelR"
-        :phase-correlation="trackPhaseCorrelation"
-        :compressor-input-db="compressorInputDb"
-        @add="handleAddInsert"
-        @remove="handleRemoveInsert"
-        @move="handleMoveInsert"
-        @toggle="handleToggleInsert"
-      />
+      <InsertEffectsChain :track-number="trackNumber" :inserts="inserts" :track-level-l="trackLevelL"
+        :track-level-r="trackLevelR" :phase-correlation="trackPhaseCorrelation" :compressor-input-db="compressorInputDb"
+        @add="handleAddInsert" @remove="handleRemoveInsert" @move="handleMoveInsert" @toggle="handleToggleInsert" />
 
       <!-- EQ Section -->
       <div class="w-full bg-gray-900 rounded p-1 border border-gray-700 relative">
@@ -101,7 +84,8 @@
         </div>
 
         <!-- EQ Thumbnail (Frequency Response Curve) -->
-        <EQThumbnail v-if="isLargeSize" :system-filters="eq4BandFilters" :filters="parametricEQFilters" :track-number="trackNumber" />
+        <EQThumbnail v-if="isLargeSize" :system-filters="eq4BandFilters" :filters="parametricEQFilters"
+          :track-number="trackNumber" />
 
         <!-- 4-Band Parametric EQ - Absolute positioned -->
         <div class="absolute top-full left-0 right-0 z-[1000] mt-1">
@@ -125,45 +109,52 @@
             ×
           </button>
           <div class="grid grid-cols-1 gap-2 pt-6">
-            <AuxSendControl v-for="aux in props.auxBuses" :key="aux.id" :aux="aux"
-              :aux-send-data="auxSendsData[aux.id]" @update-level="(val) => updateAuxSend(aux.id, val)"
-              @toggle-pre-post="toggleAuxPrePost(aux.id)" @toggle-mute="toggleAuxMute(aux.id)" 
-              @drag-start="handleAuxDragStart(aux.id)" @drag-end="handleAuxDragEnd(aux.id)" />
+            <AuxSendControl v-for="aux in props.auxBuses" :key="aux.id" :aux="aux" :aux-send-data="auxSendsData[aux.id]"
+              @update-level="(val) => updateAuxSend(aux.id, val)" @toggle-pre-post="toggleAuxPrePost(aux.id)"
+              @toggle-mute="toggleAuxMute(aux.id)" @drag-start="handleAuxDragStart(aux.id)"
+              @drag-end="handleAuxDragEnd(aux.id)" />
           </div>
         </div>
       </div>
 
-        <!-- Mute & Solo Buttons -->
-      <MuteSoloButtons 
-        :is-muted="isMuted"
-        :is-solo="isSolo"
-        @toggle-mute="toggleMute"
-        @toggle-solo="toggleSolo"
-      />
+      <!-- Mute & Solo Buttons -->
+      <MuteSoloButtons :is-muted="isMuted" :is-solo="isSolo" @toggle-mute="toggleMute" @toggle-solo="toggleSolo" />
 
 
       <!-- Pan Knob -->
-      <div class="flex justify-center scale-[0.75]" :class="{ 'scale-[0.5] -mt-5' : !isLargeSize }">
+      <div class="flex justify-center scale-[0.75]" :class="{ 'scale-[0.5] -mt-5': !isLargeSize }">
         <PanKnob v-model="pan" label="Pan" @drag-start="isDraggingPan = true" @drag-end="isDraggingPan = false" />
       </div>
-      <div class="text-[0.455rem] uppercase text-center mb-6" :class="{ 'mb-[2.5rem] -mt-5' : !isLargeSize }">Volume</div>
+
+
+      <div class="text-[0.455rem] uppercase text-center mb-6" :class="{ 'mb-[2.5rem] -mt-5': !isLargeSize }">Volume
+      </div>
 
       <!-- Volume Fader and VU Meter -->
       <div class="flex flex-col flex-1 min-h-0 pb-[2rem] ">
         <div ref="faderContainer" class="flex-1 relative flex items-center justify-center gap-1 min-h-0">
 
+          <!-- BPM Display - solo quando rilevato -->
+          <div v-if="detectedBpm > 0" class="left-[0.1rem] absolute text-center mb-1 -top-[3rem]">
+            <div class="text-[0.65rem] font-bold text-slate-400">
+              {{ detectedBpm.toFixed(1) }}
+            </div>
+            <div class="text-[0.45rem] font-bold text-slate-400">
+              BPM
+            </div>
+          </div>
+
+
           <!-- Routing and Phase Control Buttons -->
           <div class="flex flex-col gap-1 absolute left-[0.2rem] top-1/2 transform -translate-y-1/2 z-50">
             <!-- PFL Button -->
             <div class="flex flex-col items-center gap-0.5 mb-6">
-              <button @click="togglePFL"
-                class="w-5 h-5 flex items-center justify-center rounded transition-all border"
+              <button @click="togglePFL" class="w-5 h-5 flex items-center justify-center rounded transition-all border"
                 :class="pflEnabled
                   ? 'bg-orange-500 border-orange-400 shadow-md shadow-orange-500/50'
                   : 'bg-gray-800 border-gray-600 hover:bg-gray-700 hover:border-gray-500'"
                 :title="pflEnabled ? 'Pre-Fader Listen: ON' : 'Pre-Fader Listen: OFF'">
-                <div class="w-1.5 h-1.5 rounded-full" 
-                  :class="pflEnabled ? 'bg-white' : 'bg-gray-400'"></div>
+                <div class="w-1.5 h-1.5 rounded-full" :class="pflEnabled ? 'bg-white' : 'bg-gray-400'"></div>
               </button>
               <span class="text-[0.5rem] font-bold text-gray-400">PFL</span>
             </div>
@@ -181,8 +172,7 @@
             </button>
             <!-- Phase Invert Button -->
             <button @click="togglePhaseInvert"
-              class="w-5 h-5 mt-4 text-[0.65rem] font-bold rounded transition-all border mt-1"
-              :class="phaseInverted
+              class="w-5 h-5 mt-4 text-[0.65rem] font-bold rounded transition-all border mt-1" :class="phaseInverted
                 ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-500/50'
                 : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:border-gray-500'"
               title="Phase Invert">
@@ -190,16 +180,14 @@
             </button>
             <!-- Phase Correlation Button -->
             <button @click="showPhaseCorrelationModal = true"
-              class="w-5 h-5 text-[0.5rem] font-bold rounded border transition-all duration-300"
-              :class="{
+              class="w-5 h-5 text-[0.5rem] font-bold rounded border transition-all duration-300" :class="{
                 'bg-red-900 border-red-600 text-red-300 animate-pulse': hasSignal && trackPhaseCorrelation < -0.2,
                 'bg-yellow-900 border-yellow-600 text-yellow-300': hasSignal && trackPhaseCorrelation >= -0.2 && trackPhaseCorrelation < 0.2,
                 'bg-green-900 border-green-600 text-green-300': hasSignal && trackPhaseCorrelation >= 0.2 && trackPhaseCorrelation < 0.85,
                 'bg-blue-900 border-blue-600 text-blue-300': hasSignal && trackPhaseCorrelation >= 0.85,
                 'bg-transparent border-gray-600 text-gray-400': !hasSignal,
                 'hover:brightness-110': hasSignal
-              }"
-              :title="hasSignal ? `Phase Correlation: ${trackPhaseCorrelation.toFixed(2)}` : 'No signal'">
+              }" :title="hasSignal ? `Phase Correlation: ${trackPhaseCorrelation.toFixed(2)}` : 'No signal'">
               <svg class="w-3 h-3 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M12 2 L18 8 L12 14 L6 8 Z" />
                 <line x1="12" y1="14" x2="12" y2="22" />
@@ -208,36 +196,28 @@
             </button>
           </div>
 
-          <TrackFader v-if="useFader && faderHeight > 0" v-model="volume" :trackHeight="faderHeight" 
-            class="ml-[1rem]"
+          <TrackFader v-if="useFader && faderHeight > 0" v-model="volume" :trackHeight="faderHeight" class="ml-[1rem]"
             @drag-start="isDraggingVolume = true" @drag-end="isDraggingVolume = false" />
-          
+
           <div v-else-if="!useFader" class="flex items-center justify-center flex-1">
             <KnobVolume v-model="volume" @drag-start="isDraggingVolume = true" @drag-end="isDraggingVolume = false" />
           </div>
 
           <TrackMeter class="absolute right-[-0.6rem] top-1/2 transform -translate-y-1/2 z-50" v-if="faderHeight > 0"
-            :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo"
-            :height="faderHeight + 20" />
+            :levelL="trackLevelL" :levelR="trackLevelR" :isStereo="isStereo" :height="faderHeight + 20" />
         </div>
       </div>
     </div>
   </div>
 
   <!-- Parametric EQ Modal -->
-  <ParametricEQModal v-model="showParametricEQ" :track-number="trackNumber - 1"
-    :eq-filters="parametricEQFilters"
+  <ParametricEQModal v-model="showParametricEQ" :track-number="trackNumber - 1" :eq-filters="parametricEQFilters"
     :title="`Parametric EQ - Track ${trackNumber}`" @update="handleParametricEQUpdate" />
-  
+
   <!-- Phase Correlation Modal -->
-  <PhaseCorrelationModal 
-    v-model="showPhaseCorrelationModal" 
-    :track-number="trackNumber"
-    :correlation="trackPhaseCorrelation"
-    :audio-data-l="trackWaveformData.left"
-    :audio-data-r="trackWaveformData.right"
-    :is-stereo="isStereo"
-  />
+  <PhaseCorrelationModal v-model="showPhaseCorrelationModal" :track-number="trackNumber"
+    :correlation="trackPhaseCorrelation" :audio-data-l="trackWaveformData.left" :audio-data-r="trackWaveformData.right"
+    :is-stereo="isStereo" />
 </template>
 
 <script setup lang="ts">
@@ -469,7 +449,7 @@ const isStereo = computed(() => {
 const trackWaveformData = computed(() => {
   const waveform = audioEngine?.state.value.trackWaveforms.get(props.trackNumber - 1)
   if (!waveform || waveform.length === 0) return { left: new Float32Array(0), right: new Float32Array(0) }
-  
+
   // Convert mono waveform to stereo (split evenly)
   // In reality the waveform is already mixed L+R, so we just duplicate it
   const float32Array = new Float32Array(waveform)
@@ -492,11 +472,11 @@ watch(isPlaying, (newVal) => {
     // Start time tracking
     playbackStartTime = Date.now()
     playbackOffset = currentTime.value
-    
+
     playbackIntervalId = window.setInterval(() => {
       const elapsed = (Date.now() - playbackStartTime) / 1000
       currentTime.value = playbackOffset + elapsed
-      
+
       // Clamp to duration
       if (currentTime.value > audioDuration.value) {
         currentTime.value = audioDuration.value
@@ -544,7 +524,7 @@ function handleInputSelect(deviceId: string | null) {
           // Extract channel indices from composite ID if present (format: "deviceId:channelIndex")
           const channelMatch = deviceId.match(/:(\d+)$/)
           const channelIndex = channelMatch ? parseInt(channelMatch[1]) : 0
-                    
+
           // When selecting a single channel (mono input), duplicate it to both L/R
           // This ensures mono signals are present on both channels of the track
           audioEngine.setTrackSourceInput(props.trackNumber - 1, channelIndex, channelIndex, deviceName)
@@ -569,7 +549,7 @@ function handlePlayFile() {
     playNextInPlaylist()
     return
   }
-  
+
   // Otherwise, play the current file (file is already loaded in Rust)
   if (audioEngine?.state.value.isRunning && selectedFileName.value) {
 
@@ -593,10 +573,10 @@ function handleStopFile() {
 function handleSeek(timeSeconds: number) {
   if (audioEngine?.state.value.isRunning && selectedFileName.value) {
     audioEngine.seekFile(props.trackNumber - 1, timeSeconds)
-    
+
     // Update current time immediately
     currentTime.value = timeSeconds
-    
+
     // Reset playback tracking
     if (isPlaying.value) {
       playbackStartTime = Date.now()
@@ -610,7 +590,7 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
   try {
     // If string ID is passed, fetch file data from library
     let fileData: any
-    
+
     if (typeof fileIdOrObject === 'string') {
       fileData = await window.audioEngine.getLibraryFile(fileIdOrObject)
       if (!fileData) {
@@ -620,29 +600,32 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
       // File object passed directly
       fileData = fileIdOrObject
     }
-    
+
     // Reset playlist mode if NOT loading from playlist
     if (!fromPlaylist) {
       currentPlaylist.value = null
       playlistFiles.value = []
       currentPlaylistIndex.value = 0
     }
-    
+
     selectedAudioFile.value = fileData.id
     selectedFileName.value = fileData.title || fileData.fileName
     audioSourceType.value = 'file'
-    
+
     // Stop time tracking interval if running
     if (playbackIntervalId !== null) {
       clearInterval(playbackIntervalId)
       playbackIntervalId = null
     }
-    
+
     // Reset current time and playback tracking when loading new file
     currentTime.value = 0
     playbackStartTime = 0
     playbackOffset = 0
-    
+
+    // Reset BPM detection when loading new file
+    detectedBpm.value = 0
+
     // Reset file ended detection flag when loading a new file
     lastFileEndedDetected.value = false
 
@@ -652,12 +635,12 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
       const playlistId = fromPlaylist ? currentPlaylist.value?.id : null
       const playlistName = fromPlaylist ? currentPlaylist.value?.name : null
       const playlistIndex = fromPlaylist ? currentPlaylistIndex.value : null
-      
+
       audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath, fileData.artist, fileData.title, playlistId, playlistName, playlistIndex)
-      
+
       // Load waveform data from Rust backend
       await loadWaveformFromBackend()
-      
+
       // Auto-play the file only if requested
       if (autoPlay) {
         audioEngine.playFile(props.trackNumber - 1)
@@ -678,56 +661,56 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
 async function loadWaveformFromBackend() {
   try {
     console.log(`[Track ${props.trackNumber}] Requesting waveform data from backend...`)
-    
+
     // Request 2000 points for smooth visualization
     const result = await audioEngine.getWaveformData(props.trackNumber - 1, 2000)
-    
+
     if (result && result.data) {
       console.log(`[Track ${props.trackNumber}] Waveform data received:`, {
         points: result.data.length,
         duration: result.duration,
         sampleRate: result.sample_rate
       })
-      
+
       // Use a valid sample rate (8000 Hz is the lowest common rate that's safe)
       const useSampleRate = 8000
       const numFrames = Math.floor(result.duration * useSampleRate)
-      
+
       console.log(`[Track ${props.trackNumber}] Creating buffer: ${numFrames} frames at ${useSampleRate} Hz for ${result.duration}s`)
-      
+
       // Create AudioBuffer with proper sample rate
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
       audioBuffer.value = audioContext.createBuffer(1, numFrames, useSampleRate)
-      
+
       // Resample the decimated data to fill the buffer
       const channelData = audioBuffer.value.getChannelData(0)
       const sourceData = result.data
-      
+
       // Find peak value for normalization
       let maxAbs = 0
       for (let i = 0; i < sourceData.length; i++) {
         maxAbs = Math.max(maxAbs, Math.abs(sourceData[i]))
       }
-      
+
       // Normalize to fill more of the display (target 0.7 peak)
       const normalizeFactor = maxAbs > 0 ? 0.7 / maxAbs : 1.0
-      
+
       // Interpolate source data to fill the buffer
       for (let i = 0; i < numFrames; i++) {
         const sourcePos = (i / numFrames) * sourceData.length
         const sourceIndex = Math.floor(sourcePos)
         const frac = sourcePos - sourceIndex
-        
+
         // Linear interpolation between samples
         const sample1 = sourceData[Math.min(sourceIndex, sourceData.length - 1)] || 0
         const sample2 = sourceData[Math.min(sourceIndex + 1, sourceData.length - 1)] || 0
         const interpolated = sample1 + (sample2 - sample1) * frac
-        
+
         channelData[i] = interpolated * normalizeFactor
       }
-      
+
       audioDuration.value = result.duration
-      
+
       console.log(`[Track ${props.trackNumber}] Waveform buffer created: ${numFrames} frames, peak=${maxAbs.toFixed(3)}, normalized=${normalizeFactor.toFixed(2)}x`)
     } else {
       throw new Error('No waveform data received from backend')
@@ -736,7 +719,7 @@ async function loadWaveformFromBackend() {
     console.error(`[Track ${props.trackNumber}] Error loading waveform from backend:`, error)
     audioBuffer.value = null
     audioDuration.value = 0
-    
+
     console.warn(`[Track ${props.trackNumber}] Waveform visualization disabled for this file`)
   }
 }
@@ -748,7 +731,7 @@ async function loadPlaylistFromLibrary(playlist: any) {
     const { usePlaylist } = await import('~/composables/usePlaylist')
     const { getPlaylistFiles } = usePlaylist()
     const files = await getPlaylistFiles(playlist.id)
-        
+
     if (files.length === 0) {
       return
     }
@@ -757,15 +740,15 @@ async function loadPlaylistFromLibrary(playlist: any) {
     currentPlaylist.value = playlist
     playlistFiles.value = files
     currentPlaylistIndex.value = 0
-    
+
     // Load and play first file
     const firstFile = files[0]
     const trackName = firstFile.title || firstFile.fileName
     const trackDisplay = firstFile.artist ? `${firstFile.artist} - ${trackName}` : trackName
-    
+
     selectedFileName.value = `${playlist.name} (1/${files.length}) - ${trackDisplay}`
     audioSourceType.value = 'file'
-    
+
     // Load first file from playlist (fromPlaylist = true, autoPlay = false - user must press play)
     await loadFileFromLibrary(firstFile, false, true)
   } catch (error) {
@@ -776,7 +759,7 @@ async function loadPlaylistFromLibrary(playlist: any) {
 // Play next file in playlist
 async function playNextInPlaylist() {
   if (!currentPlaylist.value || playlistFiles.value.length === 0) return
-  
+
   // Save the current playing state before stopping
   const wasPlaying = isPlaying.value
 
@@ -788,17 +771,17 @@ async function playNextInPlaylist() {
 
   // Wait a bit for the audio buffer to clear
   await new Promise(resolve => setTimeout(resolve, 100))
-  
+
   const nextIndex = (currentPlaylistIndex.value + 1) % playlistFiles.value.length
   currentPlaylistIndex.value = nextIndex
-  
+
   const nextFile = playlistFiles.value[nextIndex]
   if (!nextFile) return
-  
+
   const trackName = nextFile.title || nextFile.fileName
   const trackDisplay = nextFile.artist ? `${nextFile.artist} - ${trackName}` : trackName
   selectedFileName.value = `${currentPlaylist.value.name} (${nextIndex + 1}/${playlistFiles.value.length}) - ${trackDisplay}`
-  
+
   // Load and auto-play if it was playing before (fromPlaylist = true)
   await loadFileFromLibrary(nextFile, wasPlaying, true)
 }
@@ -826,7 +809,7 @@ function toggleRouteToMaster() {
 function toggleSubgroupRoute(subgroupId: number) {
   // Create a new Set to trigger Vue reactivity
   const newRoutes = new Set(routedSubgroups.value)
-  
+
   if (newRoutes.has(subgroupId)) {
     newRoutes.delete(subgroupId)
     routedSubgroups.value = newRoutes
@@ -920,7 +903,7 @@ function handleAuxSendsUpdate(sends: Record<string, { level: number, preFader: b
 function updateAuxSend(auxId: string | number, level: number) {
   // Extract numeric index from aux ID (aux-0, aux-1, etc.)
   const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
-  
+
   // Get existing state or create default
   const existingState = auxSendsState.value.get(auxIndex) || {
     level: -60,
@@ -948,7 +931,7 @@ function updateAuxSend(auxId: string | number, level: number) {
 function toggleAuxPrePost(auxId: string | number) {
   // Extract numeric index from aux ID
   const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
-  
+
   // Get existing state or create default
   const existingState = auxSendsState.value.get(auxIndex) || {
     level: -60,
@@ -974,7 +957,7 @@ function toggleAuxPrePost(auxId: string | number) {
 function toggleAuxMute(auxId: string | number) {
   // Extract numeric index from aux ID
   const auxIndex = typeof auxId === 'number' ? auxId : parseInt(auxId.replace(/\D/g, ''))
-  
+
   // Get existing state or create default
   const existingState = auxSendsState.value.get(auxIndex) || {
     level: -60,
@@ -1011,7 +994,7 @@ function handleAuxDragEnd(auxId: string | number) {
 function handleParametricEQUpdate(filters: any) {
   // Set flag to prevent watch loop
   isUpdatingParametricFromUser.value = true
-  
+
   // Save filters for EQThumbnail display
   if (filters.filtersData) {
     parametricEQFilters.value = filters.filtersData.map((f: any) => ({
@@ -1033,7 +1016,7 @@ function handleParametricEQUpdate(filters: any) {
 
     audioEngine.setParametricEQFilters(props.trackNumber - 1, rustFilters)
   }
-  
+
   // Reset flag after a short delay to allow Rust broadcast to complete
   setTimeout(() => {
     isUpdatingParametricFromUser.value = false
@@ -1124,7 +1107,7 @@ watch(pflEnabled, (enabled) => {
   if (isUpdatingFromEngine.value) return
   if (audioEngine?.state.value.isRunning) {
     audioEngine.setTrackPFL(props.trackNumber - 1, enabled)
-    
+
     // Immediately update displayed levels when PFL button is toggled
     const levels = audioEngine.state.value.trackLevels.get(props.trackNumber - 1)
     if (levels) {
@@ -1209,6 +1192,9 @@ const compressorReductionDb = ref(0)
 const gateInputDb = ref(-90)
 const gateAttenuationDb = ref(0)
 
+// BPM detection data
+const detectedBpm = ref(0)
+
 // Watch for meter level updates from audio engine
 watch(
   () => audioEngine?.state.value.trackLevels.get(props.trackNumber - 1),
@@ -1233,7 +1219,13 @@ watch(
       // Update gate visualization data
       gateInputDb.value = levels.gateInputDb || -90
       gateAttenuationDb.value = levels.gateAttenuationDb || 0
-      
+
+      // Update BPM detection - mantieni l'ultimo valore valido
+      if (levels.bpm && levels.bpm > 0) {
+        detectedBpm.value = levels.bpm
+      }
+      // Non azzerare se il detector non rileva temporaneamente (mantieni l'ultimo valore)
+
       // Check if file ended naturally (for playlist auto-advance)
       if (levels.fileEnded && currentPlaylist.value && playlistFiles.value.length > 0) {
         // Avoid duplicate calls (fileEnded stays true until new file is loaded)
@@ -1255,7 +1247,7 @@ let updateFaderHeightTimeout: ReturnType<typeof setTimeout> | null = null
 function updateFaderHeight() {
   // Throttle resize calculations to prevent blocking during window animations
   if (updateFaderHeightTimeout) return
-  
+
   updateFaderHeightTimeout = setTimeout(() => {
     if (faderContainer.value) {
       faderHeight.value = faderContainer.value.clientHeight
@@ -1279,13 +1271,13 @@ onMounted(async () => {
   })
 
   updateFaderHeight()
-  
+
   // Load initial state from trackParameters if available
   const initialParams = audioEngine?.state.value.trackParameters?.get(props.trackNumber - 1)
   if (initialParams?.routeToSubgroups) {
     routedSubgroups.value = new Set(initialParams.routeToSubgroups)
   }
-  
+
   // Load initial aux sends state (critical for remote browsers)
   if (initialParams?.auxSends && Array.isArray(initialParams.auxSends)) {
     initialParams.auxSends.forEach((send: any, auxId: number) => {
@@ -1300,23 +1292,23 @@ onMounted(async () => {
       auxSendsIsDragging.value.set(auxId, false)
     })
   }
-  
+
   // Watch for track parameter updates from Rust engine (incoming sync)
   watch(() => audioEngine?.state.value.trackParameters?.get(props.trackNumber - 1), (params) => {
     if (!params) return
-    
+
     isUpdatingFromEngine.value = true
-    
+
     // Convert linear gain to dB for volume (skip if dragging)
     if (params.volume !== undefined && !isDraggingVolume.value) {
       volume.value = params.volume > 0 ? 20 * Math.log10(params.volume) : -90
     }
-    
+
     // Convert linear gain to dB for gain (skip if dragging)
     if (params.gain !== undefined && !isDraggingGain.value) {
       gain.value = params.gain > 0 ? 20 * Math.log10(params.gain) : -12
     }
-    
+
     // Update other parameters
     if (params.mute !== undefined) isMuted.value = params.mute
     if (params.solo !== undefined) isSolo.value = params.solo
@@ -1329,7 +1321,7 @@ onMounted(async () => {
     if (params.hpfEnabled !== undefined) hpfEnabled.value = params.hpfEnabled
     if (params.phaseInverted !== undefined) phaseInverted.value = params.phaseInverted
     if (params.pflEnabled !== undefined) pflEnabled.value = params.pflEnabled
-    
+
     // Update compressor state
     if (params.compressor) {
       compressorEnabled.value = params.compressor.enabled
@@ -1343,7 +1335,7 @@ onMounted(async () => {
         })
       }
     }
-    
+
     // Update gate state  
     if (params.gate) {
       gateEnabled.value = params.gate.enabled
@@ -1357,20 +1349,20 @@ onMounted(async () => {
         })
       }
     }
-    
+
     // Update EQ enabled states
     if (params.eqEnabled !== undefined) eqEnabled.value = params.eqEnabled
     if (params.parametricEqEnabled !== undefined) {
       // Note: parametricEqEnabled from backend doesn't directly map to showParametricEQ (which is modal visibility)
       // We just sync the enabled state, modal visibility is controlled by user
     }
-    
+
     // Update EQ band values
     if (params.eqLow !== undefined) eqLow.value = params.eqLow
     if (params.eqLowMid !== undefined) eqLowMid.value = params.eqLowMid
     if (params.eqHighMid !== undefined) eqHighMid.value = params.eqHighMid
     if (params.eqHigh !== undefined) eqHigh.value = params.eqHigh
-    
+
     // Update file player state (sync fileName from backend)
     // Watch fileArtist and fileTitle - update label whenever they change
     if (params.fileArtist !== undefined || params.fileTitle !== undefined || (params.fileName && params.fileName.trim() !== '')) {
@@ -1382,18 +1374,18 @@ onMounted(async () => {
       } else if (params.fileName && params.fileName.trim() !== '') {
         displayName = params.fileName
       }
-      
+
       if (displayName) {
         selectedFileName.value = displayName
         audioSourceType.value = 'file'
       }
     }
-    
+
     // Sync play state from Rust engine
     if (params.isPlaying !== undefined) {
       isPlaying.value = params.isPlaying
     }
-    
+
     // Sync playlist state from Rust engine (server-side truth)
     // IMPORTANTE: Il backend viene usato solo per RIPRISTINARE lo stato dopo un reload
     // Lo stato locale ha SEMPRE la precedenza durante l'uso normale
@@ -1406,12 +1398,12 @@ onMounted(async () => {
             const { usePlaylist } = await import('~/composables/usePlaylist')
             const { getPlaylistFiles } = usePlaylist()
             const files = await getPlaylistFiles(params.playlistId!)
-          
+
             if (files && files.length > 0) {
               currentPlaylist.value = { id: params.playlistId, name: params.playlistName }
               playlistFiles.value = files
               currentPlaylistIndex.value = params.playlistCurrentIndex ?? 0
-              
+
               // Update display name to show playlist info
               const currentFile = files[params.playlistCurrentIndex ?? 0]
               if (currentFile) {
@@ -1429,7 +1421,7 @@ onMounted(async () => {
       } else if (params.playlistCurrentIndex !== undefined && params.playlistCurrentIndex !== currentPlaylistIndex.value) {
         // La playlist è la stessa ma l'indice è cambiato (es: next track)
         currentPlaylistIndex.value = params.playlistCurrentIndex
-        
+
         // Update display name
         if (playlistFiles.value.length > 0) {
           const currentFile = playlistFiles.value[params.playlistCurrentIndex]
@@ -1443,7 +1435,7 @@ onMounted(async () => {
     }
     // NON cancelliamo mai lo stato locale della playlist basandoci sui params dal backend
     // Lo stato locale ha sempre la precedenza, il backend serve solo per il ripristino
-    
+
     // Sync aux sends from Rust engine (only when not dragging)
     if (params.auxSends && Array.isArray(params.auxSends)) {
       params.auxSends.forEach((send: any, auxId: number) => {
@@ -1453,11 +1445,11 @@ onMounted(async () => {
           // Only sync if backend has a meaningful value (level > 0)
           // or if we don't have existing state yet
           const existingState = auxSendsState.value.get(auxId)
-          
+
           if (send.level > 0 || !existingState) {
             // Convert linear to dB for level, use -60 as default for uninitialized (0.0) sends
             const levelDb = send.level > 0 ? 20 * Math.log10(send.level) : -60
-            
+
             // Update or create the aux send state
             auxSendsState.value.set(auxId, {
               level: levelDb,
@@ -1468,7 +1460,7 @@ onMounted(async () => {
         }
       })
     }
-    
+
     // Sync insert effects from Rust engine
     if (params.inserts && Array.isArray(params.inserts)) {
       inserts.value = params.inserts.map((insert: any) => ({
@@ -1477,22 +1469,22 @@ onMounted(async () => {
         enabled: insert.enabled
       }))
     }
-    
+
     // Re-enable watches after Vue reactivity cycle completes
     nextTick(() => { isUpdatingFromEngine.value = false })
   }, { deep: true, immediate: true })
-  
+
   // Watch for EQ filter updates from Rust engine
   watch(() => audioEngine?.state.value.trackEQFilters, (trackEQMap) => {
     if (!trackEQMap) return
-    
+
     // Don't update if we just sent the changes (prevent loop)
     if (isUpdatingParametricFromUser.value) return
-    
+
     // NOTE: Rust uses 0-indexed tracks, but frontend trackNumber is 1-indexed
     const filters = trackEQMap.get(props.trackNumber - 1)
     if (!filters) return
-    
+
     // Convert q (lowercase) to Q (uppercase) for frontend
     // The modal will handle its own blocking during drag via isDragging flag
     parametricEQFilters.value = filters.map((f: any) => ({
@@ -1520,7 +1512,7 @@ defineExpose({
       id: selectedAudioFile.value,
       fileName: selectedFileName.value || ''
     } : undefined,
-    
+
     // Playlist state
     playlist: currentPlaylist.value ? {
       id: currentPlaylist.value.id,
@@ -1533,7 +1525,7 @@ defineExpose({
         artist: f.artist
       }))
     } : undefined,
-    
+
     // Basic controls
     gain: gain.value,
     volume: volume.value,
@@ -1543,25 +1535,25 @@ defineExpose({
     phaseInvert: phaseInverted.value,
     padEnabled: padEnabled.value,
     hpfEnabled: hpfEnabled.value,
-    
+
     // Routing
     routeToMaster: routeToMaster.value,
     routedSubgroups: Array.from(routedSubgroups.value),
-    
+
     // Aux Sends
     auxSends: auxSendsData.value,
-    
+
     // Effects enabled state (detailed params are in Rust)
     gateEnabled: gateEnabled.value,
     compressorEnabled: compressorEnabled.value,
-    
+
     // EQ (4-band)
     eqEnabled: eqEnabled.value,
     eqLow: eqLow.value,
     eqLowMid: eqLowMid.value,
     eqHighMid: eqHighMid.value,
     eqHigh: eqHigh.value,
-    
+
     // Parametric EQ
     parametricEQFilters: parametricEQFilters.value
   }),
@@ -1576,18 +1568,18 @@ defineExpose({
         }
         playlistFiles.value = state.playlist.files || []
         currentPlaylistIndex.value = state.playlist.currentIndex || 0
-        
+
         // Load current file from playlist
         if (playlistFiles.value.length > 0) {
           const currentIndex = currentPlaylistIndex.value
           const currentFile = playlistFiles.value[currentIndex]
-          
+
           if (currentFile) {
             const trackName = currentFile.title || currentFile.fileName
             const trackDisplay = currentFile.artist ? `${currentFile.artist} - ${trackName}` : trackName
             selectedFileName.value = `${currentPlaylist.value.name} (${currentIndex + 1}/${playlistFiles.value.length}) - ${trackDisplay}`
             audioSourceType.value = 'file'
-            
+
             // Load the file without auto-playing (fromPlaylist = true)
             await loadFileFromLibrary(currentFile, false, true)
           }
@@ -1607,7 +1599,7 @@ defineExpose({
         audioSourceType.value = 'file'
       }
     }
-    
+
     // Basic controls
     gain.value = state.gain ?? -12
     volume.value = state.volume ?? 0
@@ -1618,16 +1610,16 @@ defineExpose({
     pflEnabled.value = state.pflEnabled ?? false
     padEnabled.value = state.padEnabled ?? false
     hpfEnabled.value = state.hpfEnabled ?? false
-    
+
     // Routing
     routeToMaster.value = state.routeToMaster ?? true
     routedSubgroups.value = new Set(state.routedSubgroups ?? [])
-    
+
     // Apply basic controls and routing to backend
     if (audioEngine?.state.value.isRunning) {
       // Apply route to master
       audioEngine.setTrackRouteToMaster(props.trackNumber - 1, routeToMaster.value)
-      
+
       // Apply routes to subgroups
       if (state.routedSubgroups && Array.isArray(state.routedSubgroups)) {
         for (const subgroupId of state.routedSubgroups) {
@@ -1635,21 +1627,21 @@ defineExpose({
         }
       }
     }
-    
+
     // Aux Sends - populate local state Map and apply to backend
     if (state.auxSends) {
       for (const [auxKey, sendData] of Object.entries(state.auxSends)) {
         const send = sendData as { level: number, preFader: boolean, muted: boolean }
         // Extract numeric index from aux key (aux-0, aux-1, etc.)
         const auxIndex = typeof auxKey === 'string' ? parseInt(auxKey.replace(/\D/g, '')) : auxKey
-        
+
         // Update local state
         auxSendsState.value.set(auxIndex, {
           level: send.level,
           preFader: send.preFader,
           muted: send.muted
         })
-        
+
         // Apply to backend
         if (audioEngine?.state.value.isRunning) {
           const linearGain = Math.pow(10, send.level / 20)
@@ -1663,18 +1655,18 @@ defineExpose({
         }
       }
     }
-    
+
     // Effects
     gateEnabled.value = state.gateEnabled ?? false
     compressorEnabled.value = state.compressorEnabled ?? false
-    
+
     // EQ
     eqEnabled.value = state.eqEnabled ?? false
     eqLow.value = state.eqLow ?? 0
     eqLowMid.value = state.eqLowMid ?? 0
     eqHighMid.value = state.eqHighMid ?? 0
     eqHigh.value = state.eqHigh ?? 0
-    
+
     // Parametric EQ
     parametricEQFilters.value = state.parametricEQFilters ?? []
   }
@@ -1708,4 +1700,3 @@ defineExpose({
   scrollbar-color: #4b5563 #1f2937;
 }
 </style>
-

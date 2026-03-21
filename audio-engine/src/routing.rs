@@ -16,6 +16,7 @@ use crate::exciter::Exciter;
 use crate::deesser::DeEsser;
 use crate::chorus::Chorus;
 use crate::signal_gen::{SignalGenerator, WaveformType};
+use crate::bpm_detector::BPMDetector;
 use rustfft::{FftPlanner, num_complex::Complex};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -346,6 +347,9 @@ pub struct Track {
     // FFT analyzer for track-specific spectrum visualization
     pub fft_analyzer: FFTAnalyzer,
     
+    // BPM detector for real-time tempo detection
+    pub bpm_detector: BPMDetector,
+    
     // Phase correlation calculation counter (calculate every N samples)
     phase_correlation_counter: usize,
 }
@@ -385,6 +389,7 @@ impl Track {
             pfl_output: (0.0, 0.0),
             aux_outputs: vec![(0.0, 0.0); MAX_AUX_BUSES], // Initialize all aux outputs
             waveform_buffer_l: vec![0.0; WAVEFORM_BUFFER_SIZE],
+            bpm_detector: BPMDetector::new(48000.0),
             waveform_buffer_r: vec![0.0; WAVEFORM_BUFFER_SIZE],
             waveform_write_index: 0,
             fft_analyzer: FFTAnalyzer::new(),
@@ -645,6 +650,8 @@ impl Track {
         // This ensures FFT shows the actual audio content independent of fader position
         if self.source != TrackSource::None {
             self.fft_analyzer.push_samples(pre_fader_l, pre_fader_r);
+            // Feed BPM detector with pre-fader signal (clean audio for analysis)
+            self.bpm_detector.process(pre_fader_l, pre_fader_r);
         }
         
         // Store pre-fader signal for PFL (Pre-Fader Listen)
