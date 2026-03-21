@@ -1,22 +1,22 @@
 /// Audio routing engine
-use crate::audio_io::ChannelSelection;
-use crate::compressor::Compressor;
-use crate::delay::Delay;
-use crate::equalizer::{Equalizer, ParametricEqualizer, EQBand, FilterType};
-use crate::file_player::AudioFilePlayer;
-use crate::gate::NoiseGate;
-use crate::limiter::Limiter;
-use crate::loudness::LoudnessMeter;
-use crate::dynamic_range::DynamicRangeMeter;
-use crate::phase_correlation::PhaseCorrelationMeter;
-use crate::stereo_width::StereoWidthMeter;
-use crate::headroom::HeadroomMeter;
-use crate::reverb::Reverb;
-use crate::exciter::Exciter;
-use crate::deesser::DeEsser;
-use crate::chorus::Chorus;
-use crate::signal_gen::{SignalGenerator, WaveformType};
-use crate::bpm_detector::BPMDetector;
+use crate::io::ChannelSelection;
+use crate::effects::dynamics::compressor::Compressor;
+use crate::effects::spatial::delay::Delay;
+use crate::effects::tone::equalizer::{Equalizer, ParametricEqualizer, EQBand, FilterType};
+use crate::processing::file_player::AudioFilePlayer;
+use crate::effects::dynamics::gate::NoiseGate;
+use crate::effects::dynamics::limiter::Limiter;
+use crate::meters::loudness::LoudnessMeter;
+use crate::meters::dynamic_range::DynamicRangeMeter;
+use crate::meters::phase_correlation::PhaseCorrelationMeter;
+use crate::meters::stereo_width::StereoWidthMeter;
+use crate::meters::headroom::HeadroomMeter;
+use crate::effects::spatial::reverb::Reverb;
+use crate::effects::tone::exciter::Exciter;
+use crate::effects::dynamics::deesser::DeEsser;
+use crate::effects::spatial::chorus::Chorus;
+use crate::processing::signal_gen::{SignalGenerator, WaveformType};
+use crate::processing::bpm_detector::BPMDetector;
 use rustfft::{FftPlanner, num_complex::Complex};
 
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -1,9 +1,9 @@
 /// Track source management utilities
 use anyhow::{anyhow, Result};
-use crate::audio_io::ChannelSelection;
-use crate::file_player::AudioFilePlayer;
-use crate::routing::{Router, TrackSource};
-use crate::signal_gen::WaveformType;
+use crate::io::ChannelSelection;
+use crate::processing::file_player::AudioFilePlayer;
+use crate::processing::routing::{Router, TrackSource};
+use crate::processing::signal_gen::WaveformType;
 
 /// Clear track source (set to None)
 pub fn clear_source(
