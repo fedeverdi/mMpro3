@@ -77,7 +77,7 @@ impl AudioFilePlayer {
         
         // Get audio specs
         let codec_params = &track.codec_params;
-        self.channels = codec_params.channels.map(|c| c.count() as u16).unwrap_or(2);
+        let declared_channels = codec_params.channels.map(|c| c.count() as u16).unwrap_or(2);
         self.sample_rate = codec_params.sample_rate.unwrap_or(44100);
 
         // Create decoder
@@ -86,6 +86,7 @@ impl AudioFilePlayer {
 
         // Decode all samples
         let mut all_samples = Vec::new();
+        let mut actual_channels: Option<u16> = None;
         
         loop {
             let packet = match format.next_packet() {
@@ -106,6 +107,12 @@ impl AudioFilePlayer {
                     let mut sample_buf = SampleBuffer::<f32>::new(duration, spec);
                     sample_buf.copy_interleaved_ref(decoded);
                     
+                    // Capture actual channel count from decoded data (first packet)
+                    if actual_channels.is_none() {
+                        let decoded_channels = spec.channels.count() as u16;
+                        actual_channels = Some(decoded_channels);
+                    }
+                    
                     all_samples.extend_from_slice(sample_buf.samples());
                 }
                 Err(e) => {
@@ -116,7 +123,9 @@ impl AudioFilePlayer {
         }
 
         self.samples = all_samples;
+        self.channels = actual_channels.unwrap_or(declared_channels);
         self.position = 0;
+        self.resample_position = 0.0; // CRITICAL: Reset resample position when loading new file
         self.file_ended = false;
         
         // Extract filename from path
