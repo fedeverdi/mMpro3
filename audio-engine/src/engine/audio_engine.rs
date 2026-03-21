@@ -22,6 +22,7 @@ use crate::engine::{
     load_license_from_file, save_license_to_file,
     get_available_disk_space_gb, send_response,
 };
+use crate::engine::callback::{frame_output, metering, fft, performance::PerformanceStats, recording};
 
 // Module aliases for backward compatibility
 use crate::processing::routing;
@@ -506,56 +507,10 @@ impl AudioEngine {
                             data[out_frame_start + ch] = 0.0;
                         }
 
-                        // Write master output to its channels
-                        let master_left_ch = router.master.output_channel_selection.left as usize;
-                        let master_right_ch = router.master.output_channel_selection.right as usize;
-                        if master_left_ch < output_channels {
-                            data[out_frame_start + master_left_ch] += master_right.clamp(-1.0, 1.0); // SWAPPED: was master_left
-                        }
-                        if master_right_ch < output_channels {
-                            data[out_frame_start + master_right_ch] += master_left.clamp(-1.0, 1.0); // SWAPPED: was master_right
-                        }
-
-                        // Write subgroup outputs to their channels (if enabled)
-                        for (i, subgroup) in router.subgroups.iter().enumerate() {
-                            if subgroup.output_enabled && i < router.last_subgroup_outputs.len() {
-                                let (sg_l, sg_r) = router.last_subgroup_outputs[i];
-                                let sg_left_ch = subgroup.output_channel_selection.left as usize;
-                                let sg_right_ch = subgroup.output_channel_selection.right as usize;
-                                
-                                if sg_left_ch < output_channels {
-                                    data[out_frame_start + sg_left_ch] += sg_l.clamp(-1.0, 1.0);
-                                }
-                                if sg_right_ch < output_channels {
-                                    data[out_frame_start + sg_right_ch] += sg_r.clamp(-1.0, 1.0);
-                                }
-                            }
-                        }
-
-                        // Write aux outputs to their channels (if enabled)
-                        for (i, aux_bus) in router.aux_buses.iter().enumerate() {
-                            if aux_bus.output_enabled && i < router.last_aux_outputs.len() {
-                                let (aux_l, aux_r) = router.last_aux_outputs[i];
-                                let aux_left_ch = aux_bus.output_channel_selection.left as usize;
-                                let aux_right_ch = aux_bus.output_channel_selection.right as usize;
-                                
-                                // If both channels are the same, send mono mix to single channel
-                                if aux_left_ch == aux_right_ch {
-                                    let mono = (aux_l + aux_r) * 0.5;
-                                    if aux_left_ch < output_channels {
-                                        data[out_frame_start + aux_left_ch] += mono.clamp(-1.0, 1.0);
-                                    }
-                                } else {
-                                    // Send stereo to different channels
-                                    if aux_left_ch < output_channels {
-                                        data[out_frame_start + aux_left_ch] += aux_l.clamp(-1.0, 1.0);
-                                    }
-                                    if aux_right_ch < output_channels {
-                                        data[out_frame_start + aux_right_ch] += aux_r.clamp(-1.0, 1.0);
-                                    }
-                                }
-                            }
-                        }
+                        // Write all outputs to buffer using frame_output helpers
+                        frame_output::write_output_frame(data, frame_idx, output_channels, master_left, master_right, &router);
+                        frame_output::write_subgroup_outputs(data, frame_idx, output_channels, &router);
+                        frame_output::write_aux_outputs(data, frame_idx, output_channels, &router);
                     }
 
                     // Check if we need to send meter updates
@@ -565,143 +520,8 @@ impl AudioEngine {
                     let levels_to_send = if *counter >= meter_interval {
                         *counter = 0;
                         
-                        // Build meter structs directly (optimized - no legacy intermediate structs)
-                        let track_meters: Vec<TrackMeters> = router.tracks.iter()
-                            .map(|t| {
-                                // Find first compressor and gate in insert chain for visualization
-                                let (comp_input_db, comp_reduction_db) = t.inserts.iter()
-                                    .find_map(|slot| {
-                                        if let InsertEffectData::Compressor(comp) = &slot.effect {
-                                            Some((comp.input_level_db, comp.gain_reduction_db))
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .unwrap_or((-90.0, 0.0));
-                                
-                                let (gate_input_db, gate_attenuation_db) = t.inserts.iter()
-                                    .find_map(|slot| {
-                                        if let InsertEffectData::Gate(gate) = &slot.effect {
-                                            Some((gate.input_level_db, gate.attenuation_db))
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .unwrap_or((-90.0, 0.0));
-                                
-                                TrackMeters {
-                                track: t.id,
-                                level_l: t.level_l,
-                                level_r: t.level_r,
-                                level_pre_fader_l: t.level_pre_fader_l,
-                                level_pre_fader_r: t.level_pre_fader_r,
-                                waveform: t.get_waveform_buffer(128),
-                                phase_correlation: t.phase_correlation,
-                                compressor_input_db: comp_input_db,
-                                compressor_reduction_db: comp_reduction_db,
-                                gate_input_db: gate_input_db,
-                                gate_attenuation_db: gate_attenuation_db,
-                                file_ended: t.file_player.as_ref().map_or(false, |p| p.file_ended),
-                                is_playing: t.file_player.as_ref().map_or(false, |p| p.playing),
-                                bpm: t.bpm_detector.get_bpm(),
-                                // Include essential parameters for remote sync
-                                gain: t.gain,
-                                volume: t.volume,
-                                mute: t.mute,
-                                pan: t.pan,
-                                is_stereo: t.file_player.as_ref().map_or(false, |p| p.channels >= 2),
-                                file_name: t.file_player.as_ref().map_or(String::new(), |p| p.file_name.clone()),
-                                file_artist: t.file_player.as_ref().and_then(|p| p.file_artist.clone()),
-                                file_title: t.file_player.as_ref().and_then(|p| p.file_title.clone()),
-                                // Playlist state
-                                playlist_id: t.playlist_id.clone(),
-                                playlist_name: t.playlist_name.clone(),
-                                playlist_current_index: t.playlist_current_index,
-                            }
-                            })
-                            .collect();
-                        
-                        let subgroup_meters: Vec<SubgroupMeters> = router.subgroups.iter()
-                            .map(|sg| SubgroupMeters {
-                                subgroup: sg.id,
-                                level_l: sg.level_l,
-                                level_r: sg.level_r,
-                            })
-                            .collect();
-                        
-                        let aux_meters: Vec<AuxMeters> = router.aux_buses.iter()
-                            .map(|aux| AuxMeters {
-                                aux: aux.id,
-                                level_l: aux.level_l,
-                                level_r: aux.level_r,
-                            })
-                            .collect();
-                        
-                        let master_l = router.master.level_l;
-                        let master_r = router.master.level_r;
-                        
-                        // Collect headroom data
-                        let headroom_data = router.headroom_meter.get_measurement();
-                        
-                        // Collect all other meter data
-                        let loudness_meas = router.loudness_meter.get_measurements();
-                        let dynamic_range_meas = router.dynamic_range_meter.get_measurements();
-                        let phase_correlation_meas = router.phase_correlation_meter.get_measurement();
-                        let stereo_width_meas = router.stereo_width_meter.get_measurement();
-                        
-                        // Convert to serializable structs
-                        let loudness_data = LoudnessDataStruct {
-                            momentary_lufs: loudness_meas.momentary,
-                            short_term_lufs: loudness_meas.short_term,
-                            integrated_lufs: loudness_meas.integrated,
-                            loudness_range_lu: loudness_meas.loudness_range,
-                            true_peak_dbtp: loudness_meas.true_peak_dbtp,
-                        };
-                        
-                        let dynamic_range_data = DynamicRangeDataStruct {
-                            peak_db_l: dynamic_range_meas.peak_db_l,
-                            peak_db_r: dynamic_range_meas.peak_db_r,
-                            rms_db_l: dynamic_range_meas.rms_db_l,
-                            rms_db_r: dynamic_range_meas.rms_db_r,
-                            dynamic_range_l: dynamic_range_meas.dynamic_range_l,
-                            dynamic_range_r: dynamic_range_meas.dynamic_range_r,
-                            dynamic_range_stereo: dynamic_range_meas.dynamic_range_stereo,
-                        };
-                        
-                        let phase_correlation_data = PhaseCorrelationDataStruct {
-                            correlation: phase_correlation_meas.correlation,
-                            mono_compatible: phase_correlation_meas.mono_compatible,
-                        };
-                        
-                        let stereo_width_data = StereoWidthDataStruct {
-                            width_percent: stereo_width_meas.width_percent,
-                            mid_rms: stereo_width_meas.mid_rms,
-                            side_rms: stereo_width_meas.side_rms,
-                            balance: stereo_width_meas.balance,
-                        };
-                        
-                        // Reset peak levels after reading
-                        router.master.reset_levels();
-                        for track in router.tracks.iter_mut() {
-                            track.reset_levels();
-                        }
-                        for subgroup in router.subgroups.iter_mut() {
-                            subgroup.reset_levels();
-                        }
-                        
-                        // Return meter data to serialize outside the lock
-                        Some((
-                            track_meters,
-                            subgroup_meters,
-                            aux_meters,
-                            master_l,
-                            master_r,
-                            headroom_data,
-                            loudness_data,
-                            dynamic_range_data,
-                            phase_correlation_data,
-                            stereo_width_data
-                        ))
+                        // Collect all meter data using helper function
+                        Some(metering::collect_meter_data(&mut router))
                     } else {
                         None
                     };
@@ -709,23 +529,14 @@ impl AudioEngine {
                     levels_to_send
                 }; // Lock is released here
                 
-                // Check for FFT data outside the lock
+                // Collect FFT data outside the lock using helpers
                 let fft_data = {
                     let mut router = router_output.lock().unwrap();
-                    router.fft_analyzer.analyze()
+                    fft::collect_master_fft(&mut router)
                 };
-                
-                // Check for track FFT data outside the lock
-                // Generate FFT for all tracks with audio loaded (ignore mute status)
-                // This allows EQ editing with FFT visualization even on muted tracks
-                let track_fft_data: Vec<(usize, Vec<f32>, Vec<f32>)> = {
+                let track_fft_data = {
                     let mut router = router_output.lock().unwrap();
-                    router.tracks.iter_mut()
-                        .filter(|t| t.source != routing::TrackSource::None)
-                        .filter_map(|t| {
-                            t.fft_analyzer.analyze().map(|(left, right)| (t.id, left, right))
-                        })
-                        .collect()
+                    fft::collect_track_fft(&mut router)
                 };
                 
                 // CRITICAL: Check if updates are suspended (during window resize)
@@ -852,65 +663,22 @@ impl AudioEngine {
                 }
                 
                 // Send recording stats every 1 second (only if recording is enabled)
-                if master_tap_enabled.load(Ordering::Relaxed) {
-                    if let (Ok(start_time), Ok(mut last_stats_time)) = (
-                        recording_start_time.lock(),
-                        recording_last_stats_time.lock()
-                    ) {
-                        if let (Some(start), Some(last)) = (*start_time, *last_stats_time) {
-                            let now = Instant::now();
-                            let elapsed_since_last = now.duration_since(last);
-                            
-                            // Send stats every 1 second
-                            if elapsed_since_last.as_secs() >= 1 {
-                                let elapsed_seconds = now.duration_since(start).as_secs();
-                                
-                                // Calculate file size (stereo interleaved samples, saved as 16-bit WAV)
-                                let num_samples = if let Ok(buffer) = master_tap_buffer.try_lock() {
-                                    buffer.len() as u64
-                                } else {
-                                    0
-                                };
-                                
-                                // Get configured bit depth to calculate accurate file size
-                                let bytes_per_sample = if let Ok(bd) = recording_bit_depth.lock() {
-                                    match *bd {
-                                        16 => 2,
-                                        24 => 3,
-                                        32 => 4,
-                                        _ => 2, // fallback to 16-bit
-                                    }
-                                } else {
-                                    2 // fallback to 16-bit
-                                };
-                                let file_size_bytes = num_samples * bytes_per_sample;
-                                
-                                // Get available disk space for the recordings directory
-                                let available_space_gb = if let Ok(path) = recording_path.lock() {
-                                    if let Some(ref p) = *path {
-                                        get_available_disk_space_gb(p)
-                                    } else {
-                                        0.0
-                                    }
-                                } else {
-                                    0.0
-                                };
-                                
-                                let response = Response::RecordingStats {
-                                    elapsed_seconds,
-                                    file_size_bytes,
-                                    available_space_gb,
-                                };
-                                
-                                if let Ok(json) = serde_json::to_string(&response) {
-                                    // Use try_send to avoid blocking audio thread if channel is full
-                                    let _ = output_sender.try_send(json);
-                                }
-                                
-                                // Update last stats time
-                                *last_stats_time = Some(now);
-                            }
-                        }
+                if let Some((elapsed_seconds, file_size_bytes, available_space_gb)) = recording::check_recording_stats(
+                    &master_tap_enabled,
+                    &recording_start_time,
+                    &recording_last_stats_time,
+                    &master_tap_buffer,
+                    &recording_bit_depth,
+                    &recording_path,
+                ) {
+                    let response = Response::RecordingStats {
+                        elapsed_seconds,
+                        file_size_bytes,
+                        available_space_gb,
+                    };
+                    
+                    if let Ok(json) = serde_json::to_string(&response) {
+                        let _ = output_sender.try_send(json);
                     }
                 }
             },
