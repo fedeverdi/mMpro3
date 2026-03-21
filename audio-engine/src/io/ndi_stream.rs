@@ -5,7 +5,7 @@ use anyhow::{Result, Context};
 use crossbeam_channel::{bounded, Sender, Receiver};
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread;
-use crate::ndi_ffi::NdiSender;
+use super::ndi_ffi::NdiSender;
 
 /// NDI Stream source selection
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -324,7 +324,7 @@ fn create_video_frame(text: &str, sample_rate: u32, channels: u32, elapsed_secs:
     let mut img = RgbaImage::from_pixel(WIDTH, HEIGHT, dark_blue);
     
     // Load embedded font (cross-platform Roboto font)
-    let font_data = include_bytes!("../assets/Roboto-Regular.ttf");
+    let font_data = include_bytes!("../../assets/Roboto-Regular.ttf");
     let font = match FontRef::try_from_slice(font_data) {
         Ok(f) => f,
         Err(_) => {

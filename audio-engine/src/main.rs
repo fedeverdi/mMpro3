@@ -3,7 +3,7 @@ use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::Stream;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::io::{self, BufRead};
+use std::io::{self as stdio, BufRead};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc;
@@ -13,35 +13,31 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-// Import our modules
-mod audio_io;
-mod delay;
-mod limiter;
-mod compressor;
-mod equalizer;
-mod file_player;
-mod gate;
-mod reverb;
-mod exciter;
-mod deesser;
-mod chorus;
-mod routing;
-mod signal_gen;
-mod track;
-mod bpm_detector;
-mod ndi_ffi;
-mod ndi_stream;
-mod loudness;
-mod dynamic_range;
-mod phase_correlation;
-mod stereo_width;
-mod headroom;
+// Import organized modules
+mod effects;
+mod meters;
+mod io;
+mod processing;
+mod engine;
+mod ipc;
 
-use audio_io::{AudioIO, ChannelSelection, DeviceInfo};
-use routing::{Router, InsertEffectData};
-use signal_gen::WaveformType;
-use ndi_stream::{NdiStream, NdiSource};
-use equalizer::FilterData;
+use io::{AudioIO, ChannelSelection, DeviceInfo};
+use processing::{Router, InsertEffectData, WaveformType};
+use io::{NdiStream, NdiSource};
+use effects::tone::FilterData;
+
+// Module aliases for backward compatibility (until full refactoring)
+use processing::routing;
+use processing::track;
+use processing::file_player;
+use processing::signal_gen;
+use processing::bpm_detector;
+use io::ndi_stream;
+use effects::dynamics::{compressor, limiter, gate, deesser};
+use effects::spatial::{delay, reverb, chorus};
+use effects::tone::{equalizer, exciter};
+use meters::{loudness, dynamic_range, phase_correlation, stereo_width, headroom};
+use io::audio_io;
 
 /// Parametric filter specification from frontend
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -6021,7 +6017,7 @@ fn main() -> Result<()> {
         }
     }
     
-    let stdin = io::stdin();
+    let stdin = stdio::stdin();
     let mut lines = stdin.lock().lines();
 
     // Loop: read commands from stdin
