@@ -80,13 +80,14 @@
                 :track-number="trackNumber"
                 :insert-id="element.id"
                 :enabled="element.enabled"
-                :parameters="element.parameters"
+                :parameters="localParametersCache.get(element.id) ?? element.parameters"
                 :track-level-l="trackLevelL"
                 :track-level-r="trackLevelR"
                 :phase-correlation="phaseCorrelation"
                 :compressor-input-db="compressorInputDb"
                 @toggle="toggleEffect(element.id)"
                 @remove="removeEffect(element.id)"
+                @update:parameters="updateCachedParameters(element.id, $event)"
               />
             </div>
           </template>
@@ -97,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import draggable from 'vuedraggable'
 import InsertGate from './InsertGate.vue'
 import InsertCompressor from './InsertCompressor.vue'
@@ -173,6 +174,29 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
+
+// Local cache of parameters per insert id — updated immediately when user changes a value.
+// This survives v-if re-mounts so the component always restores the latest user values.
+const localParametersCache = ref(new Map<number, any>())
+
+// Seed/update cache whenever the parent's inserts prop changes (e.g. engine broadcast
+// or a new insert is added). Parent values only override if not already cached.
+watch(() => props.inserts, (newInserts) => {
+  newInserts.forEach(insert => {
+    if (insert.parameters !== undefined) {
+      localParametersCache.value.set(insert.id, { ...insert.parameters })
+    }
+  })
+  // Remove cache entries for inserts that no longer exist
+  const ids = new Set(newInserts.map(i => i.id))
+  for (const id of localParametersCache.value.keys()) {
+    if (!ids.has(id)) localParametersCache.value.delete(id)
+  }
+}, { immediate: true, deep: true })
+
+function updateCachedParameters(insertId: number, params: any) {
+  localParametersCache.value.set(insertId, { ...params })
+}
 
 // Local copy for drag & drop
 const localInserts = computed({

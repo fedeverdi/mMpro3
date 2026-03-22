@@ -83,6 +83,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   toggle: []
   remove: []
+  'update:parameters': [params: any]
 }>()
 
 const audioEngine = inject('audioEngine') as any
@@ -126,7 +127,13 @@ watch([threshold, ratio, attack, release], () => {
       release.value / 1000
     )
   }
-  
+  // Immediately notify parent so the cache stays fresh for v-if remounts
+  emit('update:parameters', {
+    threshold: threshold.value,
+    ratio: ratio.value,
+    attack: attack.value / 1000,
+    release: release.value / 1000,
+  })
   if (showModal.value) {
     nextTick(() => {
       drawCompressionCurve()
