@@ -192,15 +192,14 @@ contextBridge.exposeInMainWorld('audioEngine', {
   getHeadroom: () => ipcRenderer.invoke('audio-engine:get-headroom'),
   resetHeadroom: () => ipcRenderer.invoke('audio-engine:reset-headroom'),
   
-  // Master Tap (Recording) - Rust saves WAV file directly
-  enableMasterTap: (filePath: string, settings: {
+  // Master Tap (Recording) - Rust generates path and saves WAV file automatically
+  enableMasterTap: (settings: {
     format: 'wav' | 'mp3' | 'opus'
     sampleRate: number
     bitDepth: number
     bitrate: number
-  }) => ipcRenderer.invoke('audio-engine:enable-master-tap', filePath, settings),
+  }) => ipcRenderer.invoke('audio-engine:enable-master-tap', settings),
   disableMasterTap: () => ipcRenderer.invoke('audio-engine:disable-master-tap'),
-  generateRecordingPath: () => ipcRenderer.invoke('audio-engine:generate-recording-path'),
   getRecordingFileInfo: (filePath: string) => ipcRenderer.invoke('audio-engine:get-recording-file-info', filePath),
   showRecordingInFolder: (filePath: string) => ipcRenderer.invoke('audio-engine:show-recording-in-folder', filePath),
   deleteRecordingFile: (filePath: string) => ipcRenderer.invoke('audio-engine:delete-recording-file', filePath),
@@ -229,11 +228,14 @@ contextBridge.exposeInMainWorld('audioEngine', {
   getPlaylist: (playlistId: string) => ipcRenderer.invoke('audio-engine:get-playlist', playlistId),
   deletePlaylist: (playlistId: string) => ipcRenderer.invoke('audio-engine:delete-playlist', playlistId),
   
-  // Scenes
-  saveScene: (scene: any) => ipcRenderer.invoke('audio-engine:save-scene', scene),
+  // Scenes (Rust engine snapshots - simplified API)
+  saveScene: (name: string) => ipcRenderer.invoke('audio-engine:save-scene', name),
   listScenes: () => ipcRenderer.invoke('audio-engine:list-scenes'),
-  getScene: (sceneId: string) => ipcRenderer.invoke('audio-engine:get-scene', sceneId),
-  deleteScene: (sceneId: string) => ipcRenderer.invoke('audio-engine:delete-scene', sceneId),
+  getScene: (name: string) => ipcRenderer.invoke('audio-engine:get-scene', name),
+  loadScene: (name: string) => ipcRenderer.invoke('audio-engine:load-scene', name),
+  deleteScene: (name: string) => ipcRenderer.invoke('audio-engine:delete-scene', name),
+  renameScene: (oldName: string, newName: string) => ipcRenderer.invoke('audio-engine:rename-scene', oldName, newName),
+  pinScene: (name: string) => ipcRenderer.invoke('audio-engine:pin-scene', name),
   
   // Response listener
   onResponse: (callback: (response: any) => void) => {

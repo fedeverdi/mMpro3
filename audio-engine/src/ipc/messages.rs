@@ -262,7 +262,6 @@ pub enum Command {
     // Master tap (for recording)
     #[serde(rename = "enable_master_tap")]
     EnableMasterTap {
-        file_path: String,
         sample_rate: Option<u32>,
         bit_depth: Option<u32>,
         format: Option<String>,
@@ -513,6 +512,35 @@ pub enum Command {
     ApplyEQPreset {
         preset_name: String,
     },
+    
+    // Scene Snapshots (all state managed by Rust)
+    #[serde(rename = "save_snapshot")]
+    SaveSnapshot {
+        name: String,
+    },
+    #[serde(rename = "load_snapshot")]
+    LoadSnapshot {
+        name: String,
+    },
+    #[serde(rename = "list_snapshots")]
+    ListSnapshots,
+    #[serde(rename = "get_snapshot")]
+    GetSnapshot {
+        name: String,
+    },
+    #[serde(rename = "delete_snapshot")]
+    DeleteSnapshot {
+        name: String,
+    },
+    #[serde(rename = "rename_snapshot")]
+    RenameSnapshot {
+        old_name: String,
+        new_name: String,
+    },
+    #[serde(rename = "pin_snapshot")]
+    PinSnapshot {
+        name: String,
+    },
 }
 
 /// Risposta inviata a Electron via stdout
@@ -646,6 +674,16 @@ pub enum Response {
     #[serde(rename = "eq_presets")]
     EQPresets {
         presets: Vec<EQPresetData>,
+    },
+    
+    // Scene Snapshots
+    #[serde(rename = "snapshots_list")]
+    SnapshotsList {
+        snapshots: Vec<SnapshotInfo>,
+    },
+    #[serde(rename = "snapshot_data")]
+    SnapshotData {
+        snapshot: crate::engine::snapshot::EngineSnapshot,
     },
 }
 
@@ -901,4 +939,13 @@ pub struct StereoWidthDataStruct {
     pub mid_rms: f32,
     pub side_rms: f32,
     pub balance: f32,
+}
+
+/// Snapshot info for listing
+#[derive(Debug, Serialize, Clone)]
+pub struct SnapshotInfo {
+    pub name: String,
+    pub timestamp: u64,
+    pub size_bytes: u64,
+    pub pinned: bool,
 }

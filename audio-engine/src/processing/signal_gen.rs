@@ -11,9 +11,23 @@ pub enum WaveformType {
     PinkNoise,
 }
 
+impl WaveformType {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "Sine" | "sine" => WaveformType::Sine,
+            "Square" | "square" => WaveformType::Square,
+            "Sawtooth" | "sawtooth" => WaveformType::Sawtooth,
+            "Triangle" | "triangle" => WaveformType::Triangle,
+            "WhiteNoise" | "whitenoise" => WaveformType::WhiteNoise,
+            "PinkNoise" | "pinknoise" => WaveformType::PinkNoise,
+            _ => WaveformType::Sine, // Default
+        }
+    }
+}
+
 pub struct SignalGenerator {
-    waveform: WaveformType,
-    frequency: f32,
+    pub(crate) waveform: WaveformType,
+    pub(crate) frequency: f32,
     phase: f32,
     sample_rate: f32,
     // Noise generation seed

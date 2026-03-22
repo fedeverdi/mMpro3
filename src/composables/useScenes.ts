@@ -1,110 +1,31 @@
 import { ref } from 'vue'
 
-export interface SceneTrack {
-  // Audio source
-  audioFile?: {
-    id: string
-    fileName: string
-  }
-  
-  // Basic controls
-  gain: number
-  volume: number
-  pan: number
-  mute: boolean
-  solo: boolean
-  phaseInvert: boolean
-  padEnabled: boolean
-  hpfEnabled: boolean
-  
-  // Routing
-  routeToMaster: boolean
-  routedSubgroups: number[]
-  
-  // Effects enabled state (detailed params stored in Rust or child components)
-  gateEnabled: boolean
-  compressorEnabled: boolean
-  
-  // EQ (4-band)
-  eqEnabled: boolean
-  eqLow: number
-  eqLowMid: number
-  eqHighMid: number
-  eqHigh: number
-  
-  // Parametric EQ
-  parametricEQFilters: any[]
-}
-
+// Simplified scene interface - Rust engine handles all state
 export interface Scene {
-  id: string
   name: string
   timestamp: number
+  version: number
   pinned: boolean
-  tracks: SceneTrack[]
-  // Master settings
-  master?: {
-    leftVolume: number
-    rightVolume: number
-    headphonesVolume: number
-    isLinked: boolean
-    masterMuted: boolean
-    selectedMasterOutput: string | null
-    selectedHeadphonesOutput: string | null
-  }
-  // Master EQ Parametric Filters
-  masterEQFilters?: any[]
-  // Master FX Chain
-  masterFX?: any
-  // Subgroups
-  subgroups?: Array<{
-    id: number
-    name: string
-    volume: number
-    routeToMaster: boolean
-    selectedOutput: string | null
-  }>
-  // Aux Buses (with routing information)
-  auxBuses?: {
-    buses: Array<{
-      id: string
-      name: string
-      volume: number
-      muted?: boolean
-      routeToMaster?: boolean
-      selectedOutputDevice?: string | null
-      reverbEnabled?: boolean
-      reverbParams?: any
-      delayEnabled?: boolean
-      delayParams?: any
-    }>
-    routing: Record<number, { toMaster: boolean, toSubgroups: number[] }>
-  }
 }
 
 // Shared state (singleton pattern)
 const scenes = ref<Scene[]>([])
-const currentSceneId = ref<string | null>(null)
+const currentSceneName = ref<string | null>(null)
 
 export function useScenes() {
   
   /**
-   * Save a scene to filesystem
+   * Save current engine state as a scene snapshot
    */
-  async function saveScene(scene: Scene): Promise<void> {
+  async function saveScene(name: string): Promise<void> {
     try {
-      // Serialize scene to ensure it's IPC-compatible (no Vue refs, circular refs, etc.)
-      const serializedScene = JSON.parse(JSON.stringify(scene))
+      // Rust engine saves complete state automatically
+      await window.audioEngine.saveScene(name)
       
-      await window.audioEngine.saveScene(serializedScene)
+      // Reload list to update UI
+      await loadAllScenes()
       
-      // Update local list
-      const existingIndex = scenes.value.findIndex(s => s.id === scene.id)
-      if (existingIndex >= 0) {
-        scenes.value[existingIndex] = scene
-      } else {
-        scenes.value.push(scene)
-      }
+      console.log('[useScenes] Scene saved:', name)
     } catch (error) {
       console.error('[useScenes] Error saving scene:', error)
       throw error
@@ -112,24 +33,26 @@ export function useScenes() {
   }
   
   /**
-   * Load all scenes from filesystem
+   * Load all scenes from Rust engine
    */
   async function loadAllScenes(): Promise<void> {
     try {
       const loadedScenes = await window.audioEngine.listScenes()
       scenes.value = loadedScenes || []
+      
+      console.log('[useScenes] Loaded', scenes.value.length, 'scenes')
     } catch (error) {
       console.error('[useScenes] Error loading scenes:', error)
-      scenes.value = []
     }
   }
   
   /**
-   * Get a specific scene by ID
+   * Get a specific scene by name
    */
-  async function getScene(sceneId: string): Promise<Scene | null> {
+  async function getScene(name: string): Promise<any> {
     try {
-      return await window.audioEngine.getScene(sceneId)
+      const scene = await window.audioEngine.getScene(name)
+      return scene
     } catch (error) {
       console.error('[useScenes] Error getting scene:', error)
       return null
@@ -137,16 +60,35 @@ export function useScenes() {
   }
   
   /**
+   * Load a scene (applies all state to engine automatically)
+   */
+  async function loadScene(name: string): Promise<void> {
+    try {
+      await window.audioEngine.loadScene(name)
+      currentSceneName.value = name
+      
+      console.log('[useScenes] Scene loaded:', name)
+    } catch (error) {
+      console.error('[useScenes] Error loading scene:', error)
+      throw error
+    }
+  }
+  
+  /**
    * Delete a scene
    */
-  async function deleteScene(sceneId: string): Promise<void> {
+  async function deleteScene(name: string): Promise<void> {
     try {
-      await window.audioEngine.deleteScene(sceneId)
-      scenes.value = scenes.value.filter(s => s.id !== sceneId)
+      await window.audioEngine.deleteScene(name)
       
-      if (currentSceneId.value === sceneId) {
-        currentSceneId.value = null
+      // Update local list
+      scenes.value = scenes.value.filter(s => s.name !== name)
+      
+      if (currentSceneName.value === name) {
+        currentSceneName.value = null
       }
+      
+      console.log('[useScenes] Scene deleted:', name)
     } catch (error) {
       console.error('[useScenes] Error deleting scene:', error)
       throw error
@@ -154,110 +96,42 @@ export function useScenes() {
   }
   
   /**
-   * Update an existing scene with current state
+   * Rename a scene
    */
-  async function updateScene(
-    sceneId: string, 
-    tracksData: SceneTrack[],
-    master?: any,
-    masterEQFilters?: any[],
-    masterFX?: any,
-    subgroups?: any[],
-    auxBuses?: any[]
-  ): Promise<void> {
+  async function renameScene(oldName: string, newName: string): Promise<void> {
     try {
-      const existingScene = scenes.value.find(s => s.id === sceneId)
-      if (!existingScene) {
-        throw new Error(`Scene not found: ${sceneId}`)
+      await window.audioEngine.renameScene(oldName, newName)
+      
+      // Update local list
+      const scene = scenes.value.find(s => s.name === oldName)
+      if (scene) {
+        scene.name = newName
       }
       
-      // Create updated scene with same ID, name, pinned state, new timestamp
-      const updatedScene: Scene = {
-        id: sceneId,
-        name: existingScene.name,
-        timestamp: Date.now(),
-        pinned: existingScene.pinned || false,
-        tracks: tracksData,
-        master,
-        masterEQFilters,
-        masterFX,
-        subgroups,
-        auxBuses
+      if (currentSceneName.value === oldName) {
+        currentSceneName.value = newName
       }
       
-      await saveScene(updatedScene)
-      console.log(`[useScenes] Updated scene: ${existingScene.name}`)
+      console.log('[useScenes] Scene renamed:', oldName, '->', newName)
     } catch (error) {
-      console.error('[useScenes] Error updating scene:', error)
+      console.error('[useScenes] Error renaming scene:', error)
       throw error
     }
   }
-  
-  /**
-   * Toggle pin state for a scene
-   */
-  async function togglePinScene(sceneId: string): Promise<void> {
-    try {
-      const scene = scenes.value.find(s => s.id === sceneId)
-      if (!scene) {
-        throw new Error(`Scene not found: ${sceneId}`)
-      }
-      
-      // Toggle pinned state
-      scene.pinned = !scene.pinned
-      
-      // Save updated scene
-      await saveScene(scene)
-      console.log(`[useScenes] Toggled pin for scene: ${scene.name} (pinned: ${scene.pinned})`)
-    } catch (error) {
-      console.error('[useScenes] Error toggling pin:', error)
-      throw error
-    }
-  }
-  
-  /**
-   * Create a new scene from current state
-   */
-  function createNewScene(
-    name: string, 
-    tracksData: SceneTrack[], 
-    master?: any,
-    masterEQFilters?: any[],
-    masterFX?: any,
-    subgroups?: any[],
-    auxBuses?: any[]
-  ): Scene {
-    return {
-      id: `scene_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      name,
-      timestamp: Date.now(),
-      pinned: false,
-      tracks: tracksData,
-      master,
-      masterEQFilters,
-      masterFX,
-      subgroups,
-      auxBuses
-    }
-  }
-  
-  /**
-   * Set the current active scene ID
-   */
-  function setCurrentSceneId(sceneId: string | null): void {
-    currentSceneId.value = sceneId
-  }
-  
+
   return {
     scenes,
-    currentSceneId,
+    currentSceneName,
     saveScene,
-    updateScene,
     loadAllScenes,
     getScene,
+    loadScene,
     deleteScene,
-    togglePinScene,
-    createNewScene,
-    setCurrentSceneId
+    renameScene,
+    pinScene: async (name: string) => {
+      await window.audioEngine.pinScene(name)
+      // Refresh list so pinned flag is updated
+      await loadAllScenes()
+    },
   }
 }

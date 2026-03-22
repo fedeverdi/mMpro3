@@ -6,7 +6,7 @@ pub struct Limiter {
     /// Release time in milliseconds (how fast limiting disengages)
     release_ms: f32,
     /// Whether the limiter is enabled
-    enabled: bool,
+    pub(crate) enabled: bool,
     /// Sample rate for time constant calculations
     sample_rate: f32,
     

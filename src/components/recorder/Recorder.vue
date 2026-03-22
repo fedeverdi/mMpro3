@@ -255,12 +255,8 @@ async function startRecording() {
   }
 
   try {
-    // Generate file path via IPC (main process has access to Node APIs)
-    const filePath = await window.audioEngine.generateRecordingPath()
-    currentRecordingPath.value = filePath
-    
-    // Start recording in Rust with settings (convert strings to numbers)
-    await window.audioEngine.enableMasterTap(filePath, {
+    // Rust engine generates the file path automatically in Application Support
+    await window.audioEngine.enableMasterTap({
       format: recordingSettings.value.format,
       sampleRate: Number(recordingSettings.value.sampleRate),
       bitDepth: Number(recordingSettings.value.bitDepth),

@@ -887,16 +887,16 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
   // Recording Handlers
   // ============================================================================
 
-  ipcMain.handle('audio-engine:enable-master-tap', async (_event, filePath: string, settings: {
+  ipcMain.handle('audio-engine:enable-master-tap', async (_event, settings: {
     format: 'wav' | 'mp3' | 'opus'
     sampleRate: number
     bitDepth: number
     bitrate: number
   }) => {
     console.log('[Main] Enabling master tap with settings:', settings)
+    // Rust engine generates the file path automatically in Application Support
     await sendCommandToEngine({ 
       type: 'enable_master_tap', 
-      file_path: filePath,
       sample_rate: settings.sampleRate,
       bit_depth: settings.bitDepth,
       format: settings.format
@@ -905,20 +905,6 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
 
   ipcMain.handle('audio-engine:disable-master-tap', async () => {
     await sendCommandToEngine({ type: 'disable_master_tap' })
-  })
-
-  ipcMain.handle('audio-engine:generate-recording-path', async () => {
-    const recordingsDir = path.join(app.getPath('userData'), 'Recordings')
-    
-    if (!fs.existsSync(recordingsDir)) {
-      fs.mkdirSync(recordingsDir, { recursive: true })
-    }
-    
-    const now = new Date()
-    const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5)
-    const fileName = `Recording_${timestamp}.wav`
-    
-    return path.join(recordingsDir, fileName)
   })
 
   ipcMain.handle('audio-engine:get-recording-file-info', async (_event, filePath: string) => {
@@ -1239,86 +1225,92 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
   })
 
   // ============================================================================
-  // Scenes Handlers
+  // Scenes Handlers (using Rust engine snapshots)
   // ============================================================================
 
-  ipcMain.handle('audio-engine:save-scene', async (_event, scene: any) => {
+  ipcMain.handle('audio-engine:save-scene', async (_event, sceneName: string) => {
     try {
-      const scenesDir = path.join(app.getPath('userData'), 'Scenes')
-      
-      if (!fs.existsSync(scenesDir)) {
-        fs.mkdirSync(scenesDir, { recursive: true })
-      }
-      
-      const scenePath = path.join(scenesDir, `${scene.id}.json`)
-      fs.writeFileSync(scenePath, JSON.stringify(scene, null, 2))
-      
-      console.log('[Main] Scene saved:', scenePath)
+      // Call Rust engine to save current state as snapshot
+      sendCommandToEngine({ type: 'save_snapshot', name: sceneName })
+      console.log('[Main] Snapshot saved via Rust engine:', sceneName)
     } catch (error) {
-      console.error('[Main] Error saving scene:', error)
+      console.error('[Main] Error saving snapshot:', error)
       throw error
     }
   })
 
   ipcMain.handle('audio-engine:list-scenes', async () => {
     try {
-      const scenesDir = path.join(app.getPath('userData'), 'Scenes')
+      // Request list from Rust engine
+      const response = await sendCommandAndWaitForResponse({ type: 'list_snapshots' }, 'snapshots_list')
       
-      if (!fs.existsSync(scenesDir)) {
-        fs.mkdirSync(scenesDir, { recursive: true })
-        return []
+      if (response && response.snapshots) {
+        return response.snapshots
       }
       
-      const files = fs.readdirSync(scenesDir)
-        .filter(file => file.endsWith('.json'))
-        .map(file => {
-          const filePath = path.join(scenesDir, file)
-          try {
-            const content = fs.readFileSync(filePath, 'utf-8')
-            return JSON.parse(content)
-          } catch (error) {
-            console.error('[Main] Error parsing scene:', file, error)
-            return null
-          }
-        })
-        .filter(scene => scene !== null)
-        .sort((a, b) => b.timestamp - a.timestamp)
-      
-      return files
+      return []
     } catch (error) {
-      console.error('[Main] Error listing scenes:', error)
+      console.error('[Main] Error listing snapshots:', error)
       return []
     }
   })
 
-  ipcMain.handle('audio-engine:get-scene', async (_event, sceneId: string) => {
+  ipcMain.handle('audio-engine:get-scene', async (_event, sceneName: string) => {
     try {
-      const scenesDir = path.join(app.getPath('userData'), 'Scenes')
-      const scenePath = path.join(scenesDir, `${sceneId}.json`)
+      // Request specific snapshot data from Rust engine
+      const response = await sendCommandAndWaitForResponse({ type: 'get_snapshot', name: sceneName }, 'snapshot_data')
       
-      if (!fs.existsSync(scenePath)) {
-        return null
+      if (response && response.snapshot) {
+        return response.snapshot
       }
       
-      const content = fs.readFileSync(scenePath, 'utf-8')
-      return JSON.parse(content)
+      return null
     } catch (error) {
-      console.error('[Main] Error getting scene:', error)
+      console.error('[Main] Error getting snapshot:', error)
       return null
     }
   })
 
-  ipcMain.handle('audio-engine:delete-scene', async (_event, sceneId: string) => {
+  ipcMain.handle('audio-engine:load-scene', async (_event, sceneName: string) => {
     try {
-      const scenesDir = path.join(app.getPath('userData'), 'Scenes')
-      const scenePath = path.join(scenesDir, `${sceneId}.json`)
-      
-      if (fs.existsSync(scenePath)) {
-        fs.unlinkSync(scenePath)
-        console.log('[Main] Scene deleted:', sceneId)
-      }
+      // Call Rust engine to load snapshot (applies all state automatically)
+      sendCommandToEngine({ type: 'load_snapshot', name: sceneName })
+      console.log('[Main] Snapshot loaded via Rust engine:', sceneName)
     } catch (error) {
-      console.error('[Main] Error deleting scene:', error)
+      console.error('[Main] Error loading snapshot:', error)
+      throw error
+    }
+  })
+
+  ipcMain.handle('audio-engine:delete-scene', async (_event, sceneName: string) => {
+    try {
+      // Call Rust engine to delete snapshot
+      sendCommandToEngine({ type: 'delete_snapshot', name: sceneName })
+      console.log('[Main] Snapshot deleted via Rust engine:', sceneName)
+    } catch (error) {
+      console.error('[Main] Error deleting snapshot:', error)
+      throw error
+    }
+  })
+
+  ipcMain.handle('audio-engine:rename-scene', async (_event, oldName: string, newName: string) => {
+    try {
+      // Call Rust engine to rename snapshot
+      sendCommandToEngine({ type: 'rename_snapshot', old_name: oldName, new_name: newName })
+      console.log('[Main] Snapshot renamed via Rust engine:', oldName, '->', newName)
+    } catch (error) {
+      console.error('[Main] Error renaming snapshot:', error)
+      throw error
+    }
+  })
+
+  ipcMain.handle('audio-engine:pin-scene', async (_event, sceneName: string) => {
+    try {
+      // Rust toggles the pinned field in the JSON file
+      sendCommandToEngine({ type: 'pin_snapshot', name: sceneName })
+      console.log('[Main] Snapshot pin toggled via Rust engine:', sceneName)
+    } catch (error) {
+      console.error('[Main] Error pinning snapshot:', error)
       throw error
     }
   })

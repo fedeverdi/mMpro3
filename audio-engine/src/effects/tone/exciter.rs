@@ -10,9 +10,9 @@ pub struct Exciter {
     enabled: bool,
     
     // Parameters
-    amount: f32,      // 0.0 - 1.0, intensity of effect
-    frequency: f32,   // Crossover frequency in Hz (where effect starts)
-    mix: f32,         // 0.0 - 1.0, wet/dry mix
+    pub(crate) amount: f32,      // 0.0 - 1.0, intensity of effect
+    pub(crate) frequency: f32,   // Crossover frequency in Hz (where effect starts)
+    pub(crate) mix: f32,         // 0.0 - 1.0, wet/dry mix
     
     // High-pass filter for isolating high frequencies
     hp_state_l: [f32; 2], // x[n-1], x[n-2] for left

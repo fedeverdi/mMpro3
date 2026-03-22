@@ -10,7 +10,7 @@ pub struct Compressor {
     /// Release time in milliseconds (how fast compression disengages)
     release_ms: f32,
     /// Whether the compressor is enabled
-    enabled: bool,
+    pub(crate) enabled: bool,
     /// Sample rate for time constant calculations
     sample_rate: f32,
     

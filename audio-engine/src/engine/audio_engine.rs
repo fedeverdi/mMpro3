@@ -862,7 +862,6 @@ impl AudioEngine {
             match crate::engine::recording::StreamingWavWriter::new(&path, self.sample_rate, bit_depth) {
                 Ok(w) => {
                     *writer = Some(w);
-                    eprintln!("[Engine] ✓ Recording started: {:?} ({}kHz, {}-bit)", path, self.sample_rate / 1000, bit_depth);
                 },
                 Err(e) => {
                     eprintln!("[Engine] ✗ Failed to create recording file: {}", e);
@@ -992,6 +991,9 @@ impl AudioEngine {
         // This operation can take 100-500ms for large files
         let mut player = file_player::AudioFilePlayer::new();
         player.load_file(file_path)?;
+        // Store the full absolute path so snapshots can restore the file correctly.
+        // load_file() only keeps the basename, which breaks snapshot reloads.
+        player.file_name = file_path.to_string();
         player.set_output_sample_rate(self.sample_rate);
         
         // Set metadata if provided
@@ -1444,6 +1446,79 @@ impl AudioEngine {
             Command::SetAuxBusOutputChannels { .. } | Command::SetAuxBusRouteToSubgroup { .. } |
             Command::SetAuxBusSelectedOutput { .. } => {
                 self.handle_aux_buses_command(command)
+            }
+            
+            // ===== Scene Snapshots commands =====
+            Command::SaveSnapshot { name } => {
+                if let Err(e) = crate::engine::snapshot_control::save_snapshot_impl(&self.router, &name) {
+                    eprintln!("[Engine] Error saving snapshot: {}", e);
+                }
+                None
+            }
+            Command::LoadSnapshot { name } => {
+                match crate::engine::snapshot_control::load_snapshot_impl(&self.router, &name) {
+                    Err(e) => {
+                        eprintln!("[Engine] Error loading snapshot: {}", e);
+                        return None;
+                    }
+                    Ok(files_to_load) => {
+                        // Reload actual audio files (requires AudioEngine, not just Router)
+                        for item in files_to_load {
+                            let (track, file_path, artist, title): (usize, String, Option<String>, Option<String>) = item;
+
+                            // Legacy snapshots may store only the basename.  Resolve such paths
+                            // against the Library directory ({userData}/Library on macOS) so that
+                            // files imported via the library panel can still be found.
+                            let resolved_path = if std::path::Path::new(&file_path).is_absolute() {
+                                file_path.clone()
+                            } else {
+                                // Reconstruct full path: ~/Library/Application Support/mMpro3/Library/<file>
+                                dirs::data_local_dir()
+                                    .unwrap_or_else(|| std::path::PathBuf::from("."))
+                                    .join("mMpro3")
+                                    .join("Library")
+                                    .join(&file_path)
+                                    .to_string_lossy()
+                                    .to_string()
+                            };
+
+                            if let Err(e) = self.set_track_source_file(
+                                track, &resolved_path,
+                                artist.as_deref(), title.as_deref(),
+                                None, None, None
+                            ) {
+                                eprintln!("[Engine] Warning: could not reload file for track {}: {}", track, e);
+                            }
+                        }
+                    }
+                }
+                // Broadcast full state so frontend updates all UI elements
+                Some(crate::engine::snapshot_control::build_full_parameters_changed(&self.router))
+            }
+            Command::ListSnapshots => {
+                crate::engine::snapshot_control::list_snapshots_impl()
+            }
+            Command::GetSnapshot { name } => {
+                crate::engine::snapshot_control::get_snapshot_impl(&name)
+            }
+            Command::DeleteSnapshot { name } => {
+                if let Err(e) = crate::engine::snapshot_control::delete_snapshot_impl(&name) {
+                    eprintln!("[Engine] Error deleting snapshot: {}", e);
+                }
+                None
+            }
+            Command::RenameSnapshot { old_name, new_name } => {
+                if let Err(e) = crate::engine::snapshot_control::rename_snapshot_impl(&old_name, &new_name) {
+                    eprintln!("[Engine] Error renaming snapshot: {}", e);
+                }
+                None
+            }
+            Command::PinSnapshot { name } => {
+                match crate::engine::snapshot_control::pin_snapshot_impl(&name) {
+                    Ok(_) => {},
+                    Err(e) => eprintln!("[Engine] Error pinning snapshot: {}", e),
+                }
+                None
             }
         }
     }

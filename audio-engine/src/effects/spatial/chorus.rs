@@ -10,9 +10,9 @@ pub struct Chorus {
     enabled: bool,
     
     // Parameters
-    rate: f32,        // LFO rate in Hz (0.1 - 5.0)
-    depth: f32,       // Modulation depth (0.0 - 1.0)
-    mix: f32,         // Wet/dry mix (0.0 - 1.0)
+    pub(crate) rate: f32,        // LFO rate in Hz (0.1 - 5.0)
+    pub(crate) depth: f32,       // Modulation depth (0.0 - 1.0)
+    pub(crate) mix: f32,         // Wet/dry mix (0.0 - 1.0)
     
     // Delay buffers
     delay_buffer_l: Vec<f32>,

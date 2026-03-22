@@ -9,10 +9,10 @@
 
 pub struct NoiseGate {
     enabled: bool,
-    threshold_db: f32,    // Signal below this gets attenuated
-    range_db: f32,        // How much to attenuate when below threshold (typically -80dB)
-    attack_ms: f32,       // How fast gate opens (signal goes above threshold)
-    release_ms: f32,      // How fast gate closes (signal goes below threshold)
+    pub(crate) threshold_db: f32,    // Signal below this gets attenuated
+    pub(crate) range_db: f32,        // How much to attenuate when below threshold (typically -80dB)
+    pub(crate) attack_ms: f32,       // How fast gate opens (signal goes above threshold)
+    pub(crate) release_ms: f32,      // How fast gate closes (signal goes below threshold)
     
     // Internal state
     sample_rate: f32,

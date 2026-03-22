@@ -2,7 +2,7 @@
 /// Classic tape-style delay effect with independent left/right delay times
 pub struct Delay {
     /// Whether the delay is enabled
-    enabled: bool,
+    pub(crate) enabled: bool,
     /// Delay time for left channel in milliseconds
     delay_time_l_ms: f32,
     /// Delay time for right channel in milliseconds

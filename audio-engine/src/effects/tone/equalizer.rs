@@ -20,6 +20,17 @@ impl FilterType {
             FilterType::HighPass => "highpass".to_string(),
         }
     }
+    
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "LowShelf" | "lowshelf" => FilterType::LowShelf,
+            "Peaking" | "peaking" => FilterType::Peaking,
+            "HighShelf" | "highshelf" => FilterType::HighShelf,
+            "LowPass" | "lowpass" => FilterType::LowPass,
+            "HighPass" | "highpass" => FilterType::HighPass,
+            _ => FilterType::Peaking, // Default
+        }
+    }
 }
 
 /// Exported filter data for serialization
@@ -97,11 +108,11 @@ impl BiquadState {
 /// Single EQ band with biquad filter
 #[derive(Debug, Clone)]
 pub struct EQBand {
-    filter_type: FilterType,
+    pub(crate) filter_type: FilterType,
     // Target parameters (set by user)
-    target_frequency: f32,
-    target_gain_db: f32,
-    target_q: f32,
+    pub(crate) target_frequency: f32,
+    pub(crate) target_gain_db: f32,
+    pub(crate) target_q: f32,
     // Current parameters (smoothed)
     current_frequency: f32,
     current_gain_db: f32,
@@ -372,7 +383,7 @@ impl Equalizer {
 /// Dynamic parametric equalizer with unlimited bands
 #[derive(Debug, Clone)]
 pub struct ParametricEqualizer {
-    bands: Vec<EQBand>,
+    pub(crate) bands: Vec<EQBand>,
     sample_rate: f32,
     pub enabled: bool,
     pub current_preset_name: Option<String>,

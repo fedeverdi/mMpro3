@@ -21,16 +21,26 @@ impl AudioEngine {
                     }),
                 }
             }
-            Command::EnableMasterTap { file_path, sample_rate, bit_depth, format } => {
-                self.enable_master_tap(
-                    file_path,
-                    sample_rate.unwrap_or(48000),
-                    bit_depth.unwrap_or(16),
-                    format.as_deref().unwrap_or("wav")
-                );
-                Some(Response::Ok {
-                    message: "Recording started".to_string(),
-                })
+            Command::EnableMasterTap { sample_rate, bit_depth, format } => {
+                // Generate recording path automatically (Rust manages the file location)
+                match crate::engine::recording::generate_recording_path() {
+                    Ok(file_path) => {
+                        self.enable_master_tap(
+                            file_path.to_string_lossy().to_string(),
+                            sample_rate.unwrap_or(48000),
+                            bit_depth.unwrap_or(16),
+                            format.as_deref().unwrap_or("wav")
+                        );
+                        Some(Response::Ok {
+                            message: format!("Recording started: {}", file_path.display()),
+                        })
+                    },
+                    Err(e) => {
+                        Some(Response::Error {
+                            message: format!("Failed to create recording path: {}", e),
+                        })
+                    }
+                }
             }
             Command::DisableMasterTap => {
                 self.disable_master_tap();

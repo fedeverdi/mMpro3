@@ -10,12 +10,12 @@
 /// - High density late reverb
 
 pub struct Reverb {
-    enabled: bool,
+    pub(crate) enabled: bool,
     sample_rate: f32,
     
     // Parameters
     decay_time: f32,     // 0.1 - 20.0 seconds
-    pre_delay: f32,      // 0.0 - 0.5 seconds
+    pub(crate) pre_delay: f32,      // 0.0 - 0.5 seconds
     diffusion: f32,      // 0.0 - 1.0 (diffusion amount)
     damping: f32,        // 0.0 - 1.0 (high frequency damping)
     wet: f32,            // 0.0 - 1.0 (wet/dry mix)

@@ -54,15 +54,14 @@ interface AudioEngine {
   listAudioInputs: () => Promise<RustAudioDevice[]>
   onResponse: (callback: (response: any) => void) => void
   
-  // Master Tap (Recording) - Rust saves WAV file directly
-  enableMasterTap: (filePath: string, settings: {
+  // Master Tap (Recording) - Rust generates path and saves WAV file automatically
+  enableMasterTap: (settings: {
     format: 'wav' | 'mp3' | 'opus'
     sampleRate: number
     bitDepth: number
     bitrate: number
   }) => Promise<void>
   disableMasterTap: () => Promise<void>
-  generateRecordingPath: () => Promise<string>
   getRecordingFileInfo: (filePath: string) => Promise<{ name: string, size: string }>
   showRecordingInFolder: (filePath: string) => Promise<void>
   deleteRecordingFile: (filePath: string) => Promise<void>
@@ -151,11 +150,14 @@ interface AudioEngine {
   getPlaylist: (playlistId: string) => Promise<any>
   deletePlaylist: (playlistId: string) => Promise<void>
   
-  // Scenes
-  saveScene: (scene: any) => Promise<void>
-  listScenes: () => Promise<Array<any>>
-  getScene: (sceneId: string) => Promise<any>
-  deleteScene: (sceneId: string) => Promise<void>
+  // Scenes (Rust engine snapshots - simplified API)
+  saveScene: (name: string) => Promise<void>
+  listScenes: () => Promise<Array<{ name: string; timestamp: number; version: number; pinned: boolean }>>
+  getScene: (name: string) => Promise<any>
+  loadScene: (name: string) => Promise<void>
+  deleteScene: (name: string) => Promise<void>
+  renameScene: (oldName: string, newName: string) => Promise<void>
+  pinScene: (name: string) => Promise<void>
   
   // File dialog
   showOpenFileDialog: () => Promise<Array<{ name: string; path: string }> | null>

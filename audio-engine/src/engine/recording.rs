@@ -3,6 +3,34 @@ use std::fs::File;
 use std::io::{Write, Seek, SeekFrom};
 use std::path::PathBuf;
 
+/// Get recordings directory path (same pattern as scenes)
+pub fn get_recordings_dir() -> PathBuf {
+    let data_dir = if cfg!(target_os = "macos") {
+        dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."))
+    } else if cfg!(target_os = "windows") {
+        dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."))
+    } else {
+        dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."))
+    };
+    
+    data_dir.join("mMpro3").join("Recordings")
+}
+
+/// Generate a recording file path with timestamp
+pub fn generate_recording_path() -> Result<PathBuf> {
+    let recordings_dir = get_recordings_dir();
+    
+    // Create directory if it doesn't exist
+    std::fs::create_dir_all(&recordings_dir)?;
+    
+    // Generate filename with timestamp
+    let now = chrono::Local::now();
+    let timestamp = now.format("%Y-%m-%d_%H-%M-%S").to_string();
+    let filename = format!("Recording_{}.wav", timestamp);
+    
+    Ok(recordings_dir.join(filename))
+}
+
 /// Streaming WAV writer that writes samples incrementally to disk
 /// Prevents memory overflow on long recordings by writing directly to file
 pub struct StreamingWavWriter {

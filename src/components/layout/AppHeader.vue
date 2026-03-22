@@ -200,7 +200,7 @@ const emit = defineEmits<{
   'add-subgroup': []
   'remove-track': []
   'remove-subgroup': []
-  'load-scene': [sceneId: number]
+  'load-scene': [sceneName: string]
 }>()
 
 // Check if in remote mode
@@ -268,8 +268,8 @@ const handleRemoveSubgroup = () => {
   showRemoveMenu.value = false
 }
 
-const handleLoadScene = (sceneId: number) => {
-  emit('load-scene', sceneId)
+const handleLoadScene = (sceneName: string) => {
+  emit('load-scene', sceneName)
 }
 
 const toggleFullscreen = async () => {

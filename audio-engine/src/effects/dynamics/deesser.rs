@@ -10,9 +10,9 @@ pub struct DeEsser {
     enabled: bool,
     
     // Parameters
-    threshold: f32,   // dB, level where de-essing starts (-60 to 0)
-    frequency: f32,   // Center frequency for sibilance detection (3000-8000 Hz)
-    range: f32,       // dB, maximum reduction (0-20)
+    pub(crate) threshold: f32,   // dB, level where de-essing starts (-60 to 0)
+    pub(crate) frequency: f32,   // Center frequency for sibilance detection (3000-8000 Hz)
+    pub(crate) range: f32,       // dB, maximum reduction (0-20)
     
     // Band-pass filter for sibilance detection
     bp_state_l: [f32; 4], // Biquad filter state

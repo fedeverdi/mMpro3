@@ -157,7 +157,7 @@ app.whenReady().then(() => {
       console.log('[Main] Audio engine stopped callback')
     },
     onError: (error: string) => {
-      console.error('[Main] Audio engine error:', error)
+      
     }
   }
   initAudioEngine(audioEngineCallbacks)
