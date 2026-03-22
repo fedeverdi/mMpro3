@@ -125,13 +125,6 @@ impl HeadroomMeter {
             0.0
         }
     }
-    
-    /// Update sample rate
-    pub fn set_sample_rate(&mut self, sample_rate: f32) {
-        self.sample_rate = sample_rate;
-        self.hold_duration = (sample_rate * 1.0) as usize;
-        self.decay_rate = 24.0 / sample_rate;
-    }
 }
 
 #[cfg(test)]

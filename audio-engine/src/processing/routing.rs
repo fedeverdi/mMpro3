@@ -569,7 +569,7 @@ impl Track {
                     let sample = generator.next_sample();
                     // Debug first few samples
                     static SAMPLE_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-                    let count = SAMPLE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let _count = SAMPLE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     (sample, sample)
                 } else {
                     (0.0, 0.0)
@@ -1044,12 +1044,6 @@ impl AuxBus {
         self.level_r = self.level_r.max(r.abs());
 
         (l, r)
-    }
-
-    /// Reset peak levels for metering
-    pub fn reset_levels(&mut self) {
-        self.level_l = 0.0;
-        self.level_r = 0.0;
     }
 
     /// Set sample rate for all effects

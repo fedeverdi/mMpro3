@@ -62,38 +62,6 @@ pub fn get_waveform_data_impl(router: &Arc<Mutex<Router>>, track: usize, num_poi
     Err(anyhow::anyhow!("Track {} has no file loaded", track))
 }
 
-pub fn set_compressor_impl(router: &Arc<Mutex<Router>>, track: usize, enabled: bool, threshold: f32, ratio: f32, attack: f32, release: f32) {
-    let mut router = router.lock().unwrap();
-    if let Some(t) = router.tracks.get_mut(track) {
-        for slot in t.inserts.iter_mut() {
-            if let InsertEffectData::Compressor(ref mut comp) = slot.effect {
-                comp.set_enabled(enabled);
-                comp.set_threshold(threshold);
-                comp.set_ratio(ratio);
-                comp.set_attack(attack);
-                comp.set_release(release);
-                break;
-            }
-        }
-    }
-}
-
-pub fn set_gate_impl(router: &Arc<Mutex<Router>>, track: usize, enabled: bool, threshold: f32, range: f32, attack: f32, release: f32) {
-    let mut router = router.lock().unwrap();
-    if let Some(t) = router.tracks.get_mut(track) {
-        for slot in t.inserts.iter_mut() {
-            if let InsertEffectData::Gate(ref mut gate) = slot.effect {
-                gate.set_enabled(enabled);
-                gate.set_threshold(threshold);
-                gate.set_range(range);
-                gate.set_attack(attack);
-                gate.set_release(release);
-                break;
-            }
-        }
-    }
-}
-
 pub fn set_parametric_eq_filters_impl(router: &Arc<Mutex<Router>>, track: usize, filters: &[ParametricFilter]) {
     use equalizer::FilterType;
     

@@ -99,11 +99,6 @@ impl PhaseCorrelationMeter {
         self.correlation = correlation.clamp(-1.0, 1.0) as f32;
     }
     
-    /// Get current phase correlation value
-    pub fn get_correlation(&self) -> f32 {
-        self.correlation
-    }
-    
     /// Check if signal is mono compatible (correlation >= 0.0)
     pub fn is_mono_compatible(&self) -> bool {
         self.correlation >= 0.0

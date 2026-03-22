@@ -279,12 +279,6 @@ impl BPMDetector {
         }
     }
     
-    /// Get confidence level (0.0 to 1.0)
-    pub fn get_confidence(&self) -> f32 {
-        let valid_count = self.bpm_history.iter().filter(|&&v| v > 0.0).count();
-        (valid_count as f32 / self.bpm_history.len() as f32).clamp(0.0, 1.0)
-    }
-    
     /// Reset the detector
     pub fn reset(&mut self) {
         self.energy_envelope.fill(0.0);

@@ -159,27 +159,6 @@ impl NoiseGate {
         self.attenuation_db = 0.0;
         self.input_level_db = -90.0;
     }
-
-    // Getter methods for state export
-    pub fn is_enabled(&self) -> bool {
-        self.enabled
-    }
-
-    pub fn get_threshold_db(&self) -> f32 {
-        self.threshold_db
-    }
-
-    pub fn get_range_db(&self) -> f32 {
-        self.range_db
-    }
-
-    pub fn get_attack_ms(&self) -> f32 {
-        self.attack_ms
-    }
-
-    pub fn get_release_ms(&self) -> f32 {
-        self.release_ms
-    }
 }
 
 #[cfg(test)]

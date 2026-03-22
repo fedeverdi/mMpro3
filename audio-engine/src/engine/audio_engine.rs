@@ -326,7 +326,7 @@ impl AudioEngine {
         // Update NDI stream sample rate
         let _ = self.ndi_stream.set_sample_rate(self.sample_rate);
 
-        let input_channels = 2; // Default stereo (not used since input is disabled)
+        let _input_channels = 2; // Default stereo (not used since input is disabled)
 
         let err_fn = |err| eprintln!("[Engine] Stream error: {}", err);
 
@@ -380,7 +380,7 @@ impl AudioEngine {
         let ndi_stream = Arc::clone(&self.ndi_stream);
         
         // Clone Arc for selected output (thread-safe shared access)
-        let selected_master_output = Arc::clone(&self.selected_master_output);
+        let _selected_master_output = Arc::clone(&self.selected_master_output);
         
         // Clone available output devices for thread-safe access in closure
         let available_output_devices = self.available_output_devices.clone();
@@ -472,9 +472,6 @@ impl AudioEngine {
                         // Send audio to NDI stream (if active)
                         // Get the selected source audio
                         if ndi_stream.is_active() {
-                            use std::sync::atomic::{AtomicBool, AtomicU64};
-                            static NDI_FIRST_SAMPLE: AtomicBool = AtomicBool::new(true);
-                            static NDI_SAMPLE_COUNT: AtomicU64 = AtomicU64::new(0);
                             let ndi_source = ndi_stream.get_source();
                             let (ndi_l, ndi_r) = match ndi_source {
                                 ndi_stream::NdiSource::Master => {
@@ -617,7 +614,7 @@ impl AudioEngine {
                 // Calculate buffer duration (theoretical time available for processing)
                 let buffer_duration_us = (frames as u128 * 1_000_000) / (sample_rate_for_perf as u128);
                 let buffer_latency_ms = (frames as f32 / sample_rate_for_perf as f32) * 1000.0;
-                let cpu_usage = (process_time_us as f32 / buffer_duration_us as f32) * 100.0;
+                let _cpu_usage = (process_time_us as f32 / buffer_duration_us as f32) * 100.0;
                 
                 // Record performance stats
                 let mut stats = perf_stats_clone.lock().unwrap();

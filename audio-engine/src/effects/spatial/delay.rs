@@ -55,13 +55,6 @@ impl Delay {
         self.delay_time_r_ms = time_ms.clamp(1.0, 2000.0);
     }
     
-    /// Set delay time for both channels (synchronized)
-    pub fn set_delay_time(&mut self, time_ms: f32) {
-        let clamped = time_ms.clamp(1.0, 2000.0);
-        self.delay_time_l_ms = clamped;
-        self.delay_time_r_ms = clamped;
-    }
-    
     /// Set feedback amount (0.0 to 1.0)
     pub fn set_feedback(&mut self, feedback: f32) {
         self.feedback = feedback.clamp(0.0, 0.95); // Max 95% to prevent runaway

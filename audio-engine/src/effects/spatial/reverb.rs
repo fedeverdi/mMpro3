@@ -397,16 +397,8 @@ impl Reverb {
         self.enabled = enabled;
     }
     
-    pub fn set_decay_time(&mut self, decay_time: f32) {
-        self.decay_time = decay_time.clamp(0.1, 20.0);
-    }
-    
     pub fn set_pre_delay(&mut self, pre_delay: f32) {
         self.pre_delay = pre_delay.clamp(0.0, 0.5);
-    }
-    
-    pub fn set_diffusion(&mut self, diffusion: f32) {
-        self.diffusion = diffusion.clamp(0.0, 1.0);
     }
     
     pub fn set_room_size(&mut self, room_size: f32) {
@@ -654,14 +646,6 @@ impl Reverb {
 }
 
 // ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-// Scale tuning values based on sample rate (44100 is reference)
-fn scale_tuning(tuning: usize, sample_rate: f32) -> usize {
-    ((tuning as f32 * sample_rate) / 44100.0) as usize
-}
-
 // ============================================================================
 // TESTS
 // ============================================================================

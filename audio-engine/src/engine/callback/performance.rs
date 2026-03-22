@@ -44,9 +44,3 @@ impl PerformanceStats {
         self.last_log_time = Instant::now();
     }
 }
-
-/// Calculate CPU usage percentage
-#[inline]
-pub fn calculate_cpu_usage(process_time_us: u128, buffer_duration_us: u128) -> f32 {
-    (process_time_us as f32 / buffer_duration_us as f32) * 100.0
-}

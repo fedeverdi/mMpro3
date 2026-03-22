@@ -146,11 +146,6 @@ impl StereoWidthMeter {
         }
     }
     
-    /// Get current stereo width percentage
-    pub fn get_width_percent(&self) -> f32 {
-        self.width_percent
-    }
-    
     /// Get full measurement
     pub fn get_measurement(&self) -> StereoWidthMeasurement {
         StereoWidthMeasurement {

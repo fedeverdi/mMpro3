@@ -137,16 +137,6 @@ impl SignalGenerator {
     pub fn set_frequency(&mut self, frequency: f32) {
         self.frequency = frequency.max(20.0).min(20000.0); // Clamp to audible range
     }
-
-    /// Get current waveform type
-    pub fn waveform(&self) -> WaveformType {
-        self.waveform
-    }
-
-    /// Get current frequency
-    pub fn frequency(&self) -> f32 {
-        self.frequency
-    }
 }
 
 #[cfg(test)]

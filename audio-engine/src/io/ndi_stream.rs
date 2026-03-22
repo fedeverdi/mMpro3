@@ -29,13 +29,6 @@ impl NdiSource {
         
         None
     }
-
-    pub fn as_str(&self) -> String {
-        match self {
-            NdiSource::Master => "master".to_string(),
-            NdiSource::Subgroup(id) => format!("subgroup{}", id),
-        }
-    }
 }
 
 /// Audio frame to send to NDI thread
@@ -266,7 +259,7 @@ impl NdiStream {
                             .map(|sr| *sr)
                             .unwrap_or(48000);
                         
-                        let max_sample = buffer.iter().map(|&s| s.abs()).fold(0.0f32, f32::max);
+                        let _max_sample = buffer.iter().map(|&s| s.abs()).fold(0.0f32, f32::max);
                         
                         let frame = AudioFrame {
                             samples: buffer.clone(),
@@ -285,8 +278,7 @@ impl NdiStream {
         Ok(())
     }
 
-    /// Get current configuration as debug string
-    pub fn get_config(&self) -> String {
+    fn get_config(&self) -> String {
         let active = self.is_active();
         let name = self.stream_name.lock()
             .map(|n| n.clone())
@@ -451,7 +443,7 @@ fn ndi_sender_thread(stream_name: String, rx: Receiver<AudioFrame>, video_text: 
     }
     
     // Send 5 frames (200ms total)
-    for i in 0..5 {
+    for _i in 0..5 {
         sender.send_audio(&init_audio, 48000, 2);
         std::thread::sleep(std::time::Duration::from_millis(40));
     }

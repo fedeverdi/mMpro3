@@ -358,26 +358,6 @@ impl Equalizer {
         self.high_shelf.set_gain(gain_db);
     }
 
-    pub fn get_low_shelf(&self) -> f32 {
-        self.low_shelf.target_gain_db
-    }
-
-    pub fn get_low_mid(&self) -> f32 {
-        self.low_mid.target_gain_db
-    }
-
-    pub fn get_high_mid(&self) -> f32 {
-        self.high_mid.target_gain_db
-    }
-
-    pub fn get_high_shelf(&self) -> f32 {
-        self.high_shelf.target_gain_db
-    }
-
-    pub fn is_enabled(&self) -> bool {
-        self.enabled
-    }
-
     pub fn process(&mut self, left: f32, right: f32) -> (f32, f32) {
         if !self.enabled {
             return (left, right);

@@ -140,7 +140,7 @@ impl AudioFilePlayer {
             .map(|s| s.abs())
             .fold(0.0_f32, |max, val| max.max(val));
         
-        let peak_db = if peak > 0.0 {
+        let _peak_db = if peak > 0.0 {
             20.0 * peak.log10()
         } else {
             -90.0
@@ -252,18 +252,6 @@ impl AudioFilePlayer {
         
         // Clear file_ended flag when seeking
         self.file_ended = false;
-    }
-    
-    /// Get current playback position in seconds
-    pub fn get_position(&self) -> f32 {
-        if self.sample_rate == 0 {
-            return 0.0;
-        }
-        
-        let frames_count = self.samples.len() / self.channels as usize;
-        let current_frame = self.resample_position.min(frames_count as f64);
-        
-        (current_frame / self.sample_rate as f64) as f32
     }
     
     /// Get total duration in seconds

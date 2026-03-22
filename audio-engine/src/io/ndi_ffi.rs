@@ -76,8 +76,6 @@ type NDIlib_send_create_fn = unsafe extern "C" fn(*const NDIlib_send_create_t) -
 type NDIlib_send_destroy_fn = unsafe extern "C" fn(*mut c_void);
 type NDIlib_send_send_audio_v2_fn = unsafe extern "C" fn(*mut c_void, *const NDIlib_audio_frame_v2_t);
 type NDIlib_send_send_video_v2_fn = unsafe extern "C" fn(*mut c_void, *const NDIlib_video_frame_v2_t);
-type NDIlib_send_get_no_connections_fn = unsafe extern "C" fn(*mut c_void, u32) -> c_int;
-type NDIlib_util_send_send_audio_interleaved_32f_fn = unsafe extern "C" fn(*mut c_void, c_int, c_int, *const c_float);
 
 /// Try to load NDI library at runtime
 fn load_ndi_lib() -> Option<&'static Library> {
@@ -179,11 +177,10 @@ impl NdiSender {
     pub fn send_audio(&self, samples: &[f32], sample_rate: i32, num_channels: i32) {
         use std::sync::atomic::{AtomicBool, Ordering};
         static FIRST_CALL: AtomicBool = AtomicBool::new(true);
-        
         unsafe {
             if let Some(lib) = load_ndi_lib() {
                 let num_samples_per_ch = samples.len() as i32 / num_channels;
-                let max_sample = samples.iter().map(|&s| s.abs()).fold(0.0f32, f32::max);
+                let _max_sample = samples.iter().map(|&s| s.abs()).fold(0.0f32, f32::max);
                 
                 // Convert interleaved to planar format (NDI might prefer this)
                 // Interleaved: L R L R L R ... -> Planar: L L L ... R R R ...
@@ -252,18 +249,6 @@ impl NdiSender {
                 }
             }
         }
-    }
-    
-    /// Get number of connected receivers
-    pub fn get_no_connections(&self) -> i32 {
-        unsafe {
-            if let Some(lib) = load_ndi_lib() {
-                if let Ok(get_connections) = lib.get::<NDIlib_send_get_no_connections_fn>(b"NDIlib_send_get_no_connections\0") {
-                    return get_connections(self.ptr, 0);
-                }
-            }
-        }
-        0
     }
 }
 

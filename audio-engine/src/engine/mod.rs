@@ -10,7 +10,6 @@ pub(crate) mod track_control; // Track control trait and methods
 pub(crate) mod master_control; // Master bus control methods
 pub(crate) mod master_fx_control; // Master FX control methods
 pub(crate) mod aux_control; // Aux bus control methods
-mod audio_engine_traits;  // Trait definitions for splitting impl blocks
 
 pub use config::*;
 pub use license::*;

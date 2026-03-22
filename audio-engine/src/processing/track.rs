@@ -64,7 +64,7 @@ pub fn set_source_signal(
 }
 
 /// Set track source to file player
-pub fn set_source_file(
+fn set_source_file(
     router: &mut Router,
     track: usize,
     file_path: &str,
@@ -84,7 +84,7 @@ pub fn set_source_file(
                 // Debug: log loaded samples info
                 let sample_count = player.samples.len();
                 let duration_frames = sample_count / player.channels as usize;
-                let duration_sec = duration_frames as f32 / player.sample_rate as f32;
+                let _duration_sec = duration_frames as f32 / player.sample_rate as f32;
                 
                 t.set_file_player(player);
                 Ok(())
@@ -170,7 +170,7 @@ pub fn get_waveform_data(router: &Router, track: usize, num_points: usize) -> Re
 pub fn set_gain(router: &mut Router, track: usize, gain: f32) {
     if let Some(t) = router.get_track_mut(track) {
         t.gain = gain.max(0.0); // No upper limit, but can't be negative
-        let gain_db = if gain > 0.0 { 20.0 * gain.log10() } else { -90.0 };
+        let _gain_db = if gain > 0.0 { 20.0 * gain.log10() } else { -90.0 };
     }
 }
 
@@ -178,7 +178,7 @@ pub fn set_gain(router: &mut Router, track: usize, gain: f32) {
 pub fn set_volume(router: &mut Router, track: usize, volume: f32) {
     if let Some(t) = router.get_track_mut(track) {
         t.volume = volume.max(0.0); // No upper limit, but can't be negative
-        let volume_db = if volume > 0.0 { 20.0 * volume.log10() } else { -90.0 };
+        let _volume_db = if volume > 0.0 { 20.0 * volume.log10() } else { -90.0 };
     }
 }
 
