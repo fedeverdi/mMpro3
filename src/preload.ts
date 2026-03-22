@@ -235,6 +235,7 @@ contextBridge.exposeInMainWorld('audioEngine', {
   deleteScene: (name: string) => ipcRenderer.invoke('audio-engine:delete-scene', name),
   renameScene: (oldName: string, newName: string) => ipcRenderer.invoke('audio-engine:rename-scene', oldName, newName),
   pinScene: (name: string) => ipcRenderer.invoke('audio-engine:pin-scene', name),
+  setActiveTracksInfo: (tracks: Array<{id: number, trackType: string}>) => ipcRenderer.invoke('audio-engine:set-active-tracks-info', tracks),
   
   // Response listener
   onResponse: (callback: (response: any) => void) => {

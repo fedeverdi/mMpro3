@@ -1449,6 +1449,12 @@ impl AudioEngine {
             }
             
             // ===== Scene Snapshots commands =====
+            Command::SetActiveTracksInfo { tracks } => {
+                let mut router = self.router.lock().unwrap();
+                router.active_track_ids = tracks.iter().map(|t| t.id).collect();
+                router.active_track_types = tracks.iter().map(|t| t.track_type.clone()).collect();
+                None
+            }
             Command::SaveSnapshot { name } => {
                 if let Err(e) = crate::engine::snapshot_control::save_snapshot_impl(&self.router, &name) {
                     eprintln!("[Engine] Error saving snapshot: {}", e);

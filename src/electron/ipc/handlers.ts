@@ -1298,4 +1298,15 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
       throw error
     }
   })
+
+  ipcMain.handle('audio-engine:set-active-tracks-info', async (_event, tracks: Array<{id: number, trackType: string}>) => {
+    try {
+      sendCommandToEngine({
+        type: 'set_active_tracks_info',
+        tracks: tracks.map(t => ({ id: t.id, track_type: t.trackType }))
+      })
+    } catch (error) {
+      console.error('[Main] Error setting active tracks info:', error)
+    }
+  })
 }

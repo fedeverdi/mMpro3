@@ -1834,6 +1834,10 @@ export const useAudioEngine = () => {
     getHeadroom,
     resetHeadroom,
     saveLicense,
-    getLicense
+    getLicense,
+    setActiveTracksInfo: (trackInfos: Array<{id: number, trackType: string}>) => {
+      if (!window.audioEngine) return
+      window.audioEngine.setActiveTracksInfo(trackInfos)
+    }
   }
 }

@@ -1069,6 +1069,9 @@ pub struct Router {
     track_outputs_buffer: Vec<(f32, f32)>,
     aux_outputs_buffer: Vec<(f32, f32)>,
     subgroup_outputs_buffer: Vec<(f32, f32)>,
+    // Active frontend track layout (set by SetActiveTracksInfo command)
+    pub active_track_ids: Vec<usize>,   // 1-based frontend track IDs
+    pub active_track_types: Vec<String>, // "audio" or "signal" for each active track
 }
 
 impl Router {
@@ -1101,6 +1104,8 @@ impl Router {
             track_outputs_buffer: Vec::with_capacity(num_tracks),
             aux_outputs_buffer: Vec::with_capacity(num_aux_buses),
             subgroup_outputs_buffer: Vec::with_capacity(8), // Start with capacity for 8 subgroups
+            active_track_ids: Vec::new(),
+            active_track_types: Vec::new(),
         }
     }
 

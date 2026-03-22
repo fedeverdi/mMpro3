@@ -152,11 +152,12 @@ interface AudioEngine {
   
   // Scenes (Rust engine snapshots - simplified API)
   saveScene: (name: string) => Promise<void>
-  listScenes: () => Promise<Array<{ name: string; timestamp: number; version: number; pinned: boolean }>>
+  listScenes: () => Promise<Array<{ name: string; timestamp: number; version: number; pinned: boolean; track_count: number; track_ids: number[]; track_types: string[] }>>
   loadScene: (name: string) => Promise<void>
   deleteScene: (name: string) => Promise<void>
   renameScene: (oldName: string, newName: string) => Promise<void>
   pinScene: (name: string) => Promise<void>
+  setActiveTracksInfo: (tracks: Array<{id: number, trackType: string}>) => Promise<void>
   
   // File dialog
   showOpenFileDialog: () => Promise<Array<{ name: string; path: string }> | null>

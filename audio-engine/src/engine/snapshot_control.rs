@@ -30,8 +30,30 @@ pub fn get_snapshots_dir() -> std::path::PathBuf {
 pub fn create_snapshot(router: &Arc<Mutex<Router>>, name: String) -> Result<crate::engine::snapshot::EngineSnapshot> {
     let router = router.lock().unwrap();
     
-    // Extract all tracks
-    let tracks: Vec<crate::engine::snapshot::TrackSnapshot> = router.tracks.iter().map(|track| {
+    // Determine which engine track indices (0-based) to include in the snapshot.
+    // If the frontend has told us which tracks exist via SetActiveTracksInfo, use that
+    // list; otherwise fall back to saving every slot (backward-compatibility).
+    let track_engine_indices: Vec<usize> = if !router.active_track_ids.is_empty() {
+        router.active_track_ids.iter().filter_map(|&id| {
+            let engine_idx = id.saturating_sub(1); // 1-based frontend ID → 0-based engine index
+            if engine_idx < router.tracks.len() { Some(engine_idx) } else { None }
+        }).collect()
+    } else {
+        (0..router.tracks.len()).collect()
+    };
+
+    // Build track_layout from the active track list (preserves 1-based IDs and types)
+    let track_layout: Vec<crate::engine::snapshot::TrackLayoutEntry> =
+        router.active_track_ids.iter().zip(router.active_track_types.iter())
+            .map(|(&id, tp)| crate::engine::snapshot::TrackLayoutEntry {
+                id,
+                track_type: tp.clone(),
+            })
+            .collect();
+    
+    // Snapshot only the chosen tracks
+    let tracks: Vec<crate::engine::snapshot::TrackSnapshot> = track_engine_indices.iter().filter_map(|&engine_idx| {
+        router.tracks.get(engine_idx).map(|track| {
         // Determine source type and data
         let (source_type, signal_waveform, signal_frequency, file_path, file_artist, file_title, input_device, input_left_channel, input_right_channel) = match &track.source {
             crate::processing::routing::TrackSource::None => ("none".to_string(), None, None, None, None, None, None, None, None),
@@ -218,6 +240,7 @@ pub fn create_snapshot(router: &Arc<Mutex<Router>>, name: String) -> Result<crat
             insert_effects,
             aux_sends,
         }
+        })
     }).collect();
     
     // Extract master parametric EQ filters
@@ -329,6 +352,7 @@ pub fn create_snapshot(router: &Arc<Mutex<Router>>, name: String) -> Result<crat
             .as_secs(),
         name,
         pinned: false,
+        track_layout,
         tracks,
         master: crate::engine::snapshot::MasterSnapshot {
             gain_left: router.master.gain_left,
@@ -660,6 +684,19 @@ pub fn load_snapshot_impl(router: &Arc<Mutex<Router>>, name: &str) -> Result<Vec
     }
     
     eprintln!("[Engine] ✓ Snapshot loaded: {}", name);
+
+    // Restore active track layout so the next save reflects the loaded scene's track list
+    if !snapshot.track_layout.is_empty() {
+        router.active_track_ids = snapshot.track_layout.iter().map(|e| e.id).collect();
+        router.active_track_types = snapshot.track_layout.iter().map(|e| e.track_type.clone()).collect();
+    } else {
+        // Old snapshot without track_layout: infer from saved tracks
+        router.active_track_ids = snapshot.tracks.iter().map(|t| t.track_number + 1).collect();
+        router.active_track_types = snapshot.tracks.iter()
+            .map(|t| if t.source_type == "signal" { "signal".to_string() } else { "audio".to_string() })
+            .collect();
+    }
+
     Ok(files_to_load)
 }
 
@@ -868,12 +905,29 @@ pub fn list_snapshots_impl() -> Option<Response> {
         if path.extension().and_then(|s| s.to_str()) == Some("json") {
             if let Ok(metadata) = std::fs::metadata(&path) {
                 if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
-                    // Read pinned field from the snapshot JSON
-                    let pinned = std::fs::read_to_string(&path)
+                    // Read pinned field and track layout from the snapshot JSON
+                    let snapshot_opt = std::fs::read_to_string(&path)
                         .ok()
-                        .and_then(|json| serde_json::from_str::<crate::engine::snapshot::EngineSnapshot>(&json).ok())
-                        .map(|s| s.pinned)
-                        .unwrap_or(false);
+                        .and_then(|json| serde_json::from_str::<crate::engine::snapshot::EngineSnapshot>(&json).ok());
+                    let pinned = snapshot_opt.as_ref().map(|s| s.pinned).unwrap_or(false);
+                    // Derive track_ids / track_types from track_layout (new) or raw tracks (old snapshots)
+                    let (track_ids, track_types) = if let Some(ref snap) = snapshot_opt {
+                        if !snap.track_layout.is_empty() {
+                            (
+                                snap.track_layout.iter().map(|e| e.id).collect::<Vec<_>>(),
+                                snap.track_layout.iter().map(|e| e.track_type.clone()).collect::<Vec<_>>(),
+                            )
+                        } else {
+                            // Old snapshot without track_layout: infer from saved tracks
+                            let ids: Vec<usize> = snap.tracks.iter().map(|t| t.track_number + 1).collect();
+                            let types: Vec<String> = snap.tracks.iter()
+                                .map(|t| if t.source_type == "signal" { "signal".to_string() } else { "audio".to_string() })
+                                .collect();
+                            (ids, types)
+                        }
+                    } else {
+                        (Vec::new(), Vec::new())
+                    };
                     snapshots.push(SnapshotInfo {
                         name: name.to_string(),
                         timestamp: metadata.modified()
@@ -883,6 +937,9 @@ pub fn list_snapshots_impl() -> Option<Response> {
                             .as_secs(),
                         size_bytes: metadata.len(),
                         pinned,
+                        track_count: track_ids.len(),
+                        track_ids,
+                        track_types,
                     });
                 }
             }

@@ -541,6 +541,17 @@ pub enum Command {
     PinSnapshot {
         name: String,
     },
+    #[serde(rename = "set_active_tracks_info")]
+    SetActiveTracksInfo {
+        tracks: Vec<FrontendTrackEntry>,
+    },
+}
+
+/// Frontend track entry for communicating active track list to the engine
+#[derive(Debug, Deserialize, Clone)]
+pub struct FrontendTrackEntry {
+    pub id: usize,          // 1-based frontend track ID
+    pub track_type: String, // "audio" or "signal"
 }
 
 /// Risposta inviata a Electron via stdout
@@ -950,4 +961,10 @@ pub struct SnapshotInfo {
     pub timestamp: u64,
     pub size_bytes: u64,
     pub pinned: bool,
+    #[serde(default)]
+    pub track_count: usize,
+    #[serde(default)]
+    pub track_ids: Vec<usize>,
+    #[serde(default)]
+    pub track_types: Vec<String>,
 }

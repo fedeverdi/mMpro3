@@ -6,6 +6,9 @@ export interface Scene {
   timestamp: number
   version: number
   pinned: boolean
+  track_count: number
+  track_ids: number[]
+  track_types: string[]
 }
 
 // Shared state (singleton pattern)

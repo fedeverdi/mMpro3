@@ -9,10 +9,21 @@ pub struct EngineSnapshot {
     pub name: String,
     #[serde(default)]
     pub pinned: bool,
+    /// Frontend track layout: which tracks exist and their types.
+    /// Used to restore `active_track_ids/types` in the Router on load.
+    #[serde(default)]
+    pub track_layout: Vec<TrackLayoutEntry>,
     pub tracks: Vec<TrackSnapshot>,
     pub master: MasterSnapshot,
     pub subgroups: Vec<SubgroupSnapshot>,
     pub auxes: Vec<AuxSnapshot>,
+}
+
+/// One entry in `EngineSnapshot.track_layout`
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TrackLayoutEntry {
+    pub id: usize,          // 1-based frontend track ID
+    pub track_type: String, // "audio" or "signal"
 }
 
 /// Track state snapshot

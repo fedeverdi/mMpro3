@@ -190,6 +190,7 @@ import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioEngine } from '~/composables/useAudioEngine'
 import { useNotifications } from '~/composables/useNotifications'
 import { useScenes } from '~/composables/useScenes'
+const { scenes: savedScenes } = useScenes()
 import { getBuildLimits, canAddTrack, getTrackCounts, getBuildMode } from '~/config/buildLimits'
 import { channel } from 'diagnostics_channel'
 import Recorder from './components/recorder/Recorder.vue'
@@ -504,6 +505,12 @@ function initializeTracks(): Track[] {
 
 const tracks = ref<Track[]>(initializeTracks())
 
+// Keep the Rust engine informed of which tracks are active.
+// This ensures snapshots only save the visible tracks.
+watch(tracks, (newTracks) => {
+  audioEngine.setActiveTracksInfo(newTracks.map(t => ({ id: t.id, trackType: t.type })))
+}, { deep: true, immediate: true })
+
 // Computed per ordinare le tracce per order
 const sortedTracks = computed(() => {
   return [...tracks.value].sort((a, b) => a.order - b.order)
@@ -697,11 +704,17 @@ function setTrackRef(trackId: number, el: any | null) {
 
 async function handleLoadScene(sceneName: string) {
   try {
-    // Rust engine handles complete state load automatically
-    // No need for manual reset or state application!
-    console.log('[Scene] Loading scene:', sceneName)
-    // Scene is already loaded by the modal, nothing to do here
-    // The frontend will update automatically via parameter broadcasts
+    // Rust engine handles complete state load automatically.
+    // Restore the frontend track list to match the saved scene layout.
+    const scene = savedScenes.value.find(s => s.name === sceneName)
+    if (scene && scene.track_ids && scene.track_ids.length > 0) {
+      tracks.value = scene.track_ids.map((id, idx) => ({
+        id,
+        type: (scene.track_types[idx] ?? 'audio') as 'audio' | 'signal',
+        order: idx + 1
+      }))
+      console.log('[Scene] Restored track layout:', tracks.value.length, 'tracks')
+    }
   } catch (error) {
     console.error('[Scene] Error in scene load handler:', error)
   }
