@@ -302,10 +302,12 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
 
   ipcMain.handle('audio-engine:get-waveform-data', async (_, track: number, numPoints: number) => {
     const { sendCommandAndWaitForResponse } = await import('../audio-engine/process')
+    // Use a per-track key so concurrent requests from different tracks don't stomp each other
     return await sendCommandAndWaitForResponse(
       { type: 'get_waveform_data', track, num_points: numPoints },
       'waveform_data',
-      10000 // 10 second timeout for large files
+      30000, // 30 second timeout – large files hold the Router lock during full sample scan
+      `waveform_data_${track}`
     )
   })
 

@@ -41,9 +41,7 @@ export function useScenes() {
   async function loadAllScenes(): Promise<void> {
     try {
       const loadedScenes = await window.audioEngine.listScenes()
-      scenes.value = loadedScenes || []
-      
-      console.log('[useScenes] Loaded', scenes.value.length, 'scenes')
+      scenes.value = loadedScenes || []      
     } catch (error) {
       console.error('[useScenes] Error loading scenes:', error)
     }

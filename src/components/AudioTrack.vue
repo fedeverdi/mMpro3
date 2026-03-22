@@ -296,6 +296,8 @@ const selectedAudioInput = ref<string>('')
 const audioBuffer = ref<AudioBuffer | null>(null)
 const currentTime = ref(0)
 const audioDuration = ref(0)
+// Tracks the last file path for which the waveform was loaded; avoids redundant requests
+const lastLoadedWaveformFile = ref<string>('')
 
 // Playlist state
 const playlistFiles = ref<any[]>([])
@@ -507,6 +509,7 @@ function handleInputSelect(deviceId: string | null) {
   selectedAudioInput.value = deviceId || ''
   selectedAudioFile.value = null
   selectedFileName.value = null
+  lastLoadedWaveformFile.value = ''
 
   if (audioEngine?.state.value.isRunning) {
     if (deviceId) {
@@ -638,6 +641,9 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
 
       audioEngine.setTrackSourceFile(props.trackNumber - 1, fileData.filePath, fileData.artist, fileData.title, playlistId, playlistName, playlistIndex)
 
+      // Track which file we're loading so the parameters watcher doesn't double-request
+      lastLoadedWaveformFile.value = fileData.filePath
+
       // Load waveform data from Rust backend
       await loadWaveformFromBackend()
 
@@ -657,26 +663,16 @@ async function loadFileFromLibrary(fileIdOrObject: string | any, autoPlay = fals
   }
 }
 
-// Load waveform data from Rust backend
-async function loadWaveformFromBackend() {
+// Load waveform data from Rust backend (retries once on timeout)
+async function loadWaveformFromBackend(retryCount = 0) {
   try {
-    console.log(`[Track ${props.trackNumber}] Requesting waveform data from backend...`)
-
     // Request 2000 points for smooth visualization
     const result = await audioEngine.getWaveformData(props.trackNumber - 1, 2000)
 
     if (result && result.data) {
-      console.log(`[Track ${props.trackNumber}] Waveform data received:`, {
-        points: result.data.length,
-        duration: result.duration,
-        sampleRate: result.sample_rate
-      })
-
       // Use a valid sample rate (8000 Hz is the lowest common rate that's safe)
       const useSampleRate = 8000
       const numFrames = Math.floor(result.duration * useSampleRate)
-
-      console.log(`[Track ${props.trackNumber}] Creating buffer: ${numFrames} frames at ${useSampleRate} Hz for ${result.duration}s`)
 
       // Create AudioBuffer with proper sample rate
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -710,12 +706,17 @@ async function loadWaveformFromBackend() {
       }
 
       audioDuration.value = result.duration
-
-      console.log(`[Track ${props.trackNumber}] Waveform buffer created: ${numFrames} frames, peak=${maxAbs.toFixed(3)}, normalized=${normalizeFactor.toFixed(2)}x`)
     } else {
       throw new Error('No waveform data received from backend')
     }
   } catch (error: any) {
+    // Retry once on timeout (engine may have been busy with another track's large file scan)
+    if (retryCount === 0 && error?.message?.includes('Timeout')) {
+      const retryDelay = 3000 + (props.trackNumber - 1) * 500
+      console.warn(`[Track ${props.trackNumber}] Waveform timeout – retrying in ${retryDelay}ms`)
+      setTimeout(() => loadWaveformFromBackend(1), retryDelay)
+      return
+    }
     console.error(`[Track ${props.trackNumber}] Error loading waveform from backend:`, error)
     audioBuffer.value = null
     audioDuration.value = 0
@@ -1378,6 +1379,17 @@ onMounted(async () => {
       if (displayName) {
         selectedFileName.value = displayName
         audioSourceType.value = 'file'
+
+        // If the backend file changed (e.g. scene loaded) and we don't have a waveform yet,
+        // request it now. We compare against params.fileName (the raw path) as a stable key.
+        // Stagger by track number so concurrent scene restores don't all hit the engine at once
+        // (the Router mutex is held during the full waveform scan, so serialize the requests).
+        const newFilePath = params.fileName?.trim() ?? ''
+        if (newFilePath && newFilePath !== lastLoadedWaveformFile.value) {
+          lastLoadedWaveformFile.value = newFilePath
+          const staggerMs = 400 + (props.trackNumber - 1) * 600
+          setTimeout(() => loadWaveformFromBackend(), staggerMs)
+        }
       }
     }
 

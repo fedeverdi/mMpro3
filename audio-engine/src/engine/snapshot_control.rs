@@ -683,8 +683,6 @@ pub fn load_snapshot_impl(router: &Arc<Mutex<Router>>, name: &str) -> Result<Vec
         }
     }
     
-    eprintln!("[Engine] ✓ Snapshot loaded: {}", name);
-
     // Restore active track layout so the next save reflects the loaded scene's track list
     if !snapshot.track_layout.is_empty() {
         router.active_track_ids = snapshot.track_layout.iter().map(|e| e.id).collect();

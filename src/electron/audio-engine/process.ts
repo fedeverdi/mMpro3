@@ -80,10 +80,18 @@ const startAudioEngineInternal = (): void => {
       try {
         const response = JSON.parse(line)
         
-        // Check if there's a pending handler for this response type
+        // Check if there's a pending handler for this response type.
+        // For waveform_data we also check a per-track key so concurrent
+        // requests for different tracks don't overwrite each other.
         const responseType = response.type
-        if (responseType && responseHandlers.has(responseType)) {
-          const handler = responseHandlers.get(responseType)
+        const trackSpecificKey = responseType === 'waveform_data' && response.track !== undefined
+          ? `waveform_data_${response.track}`
+          : null
+        const handlerKey = trackSpecificKey && responseHandlers.has(trackSpecificKey)
+          ? trackSpecificKey
+          : responseType
+        if (handlerKey && responseHandlers.has(handlerKey)) {
+          const handler = responseHandlers.get(handlerKey)
           if (handler) {
             handler(response)
           }
@@ -169,9 +177,11 @@ export const sendCommandToEngine = (command: any): Promise<void> => {
 }
 
 /**
- * Send command and wait for specific response type
+ * Send command and wait for specific response type.
+ * `handlerKey` overrides the map key (useful for per-track disambiguation).
  */
-export const sendCommandAndWaitForResponse = (command: any, responseType: string, timeout = 5000): Promise<any> => {
+export const sendCommandAndWaitForResponse = (command: any, responseType: string, timeout = 5000, handlerKey?: string): Promise<any> => {
+  const key = handlerKey ?? responseType
   return new Promise((resolve, reject) => {
     if (!audioEngineProcess || !audioEngineProcess.stdin) {
       reject(new Error('Audio engine not running'))
@@ -179,14 +189,14 @@ export const sendCommandAndWaitForResponse = (command: any, responseType: string
     }
 
     const timeoutId = setTimeout(() => {
-      responseHandlers.delete(responseType)
+      responseHandlers.delete(key)
       reject(new Error(`Timeout waiting for ${responseType} response`))
     }, timeout)
 
     // Register response handler
-    responseHandlers.set(responseType, (response: any) => {
+    responseHandlers.set(key, (response: any) => {
       clearTimeout(timeoutId)
-      responseHandlers.delete(responseType)
+      responseHandlers.delete(key)
       resolve(response)
     })
 
@@ -194,7 +204,7 @@ export const sendCommandAndWaitForResponse = (command: any, responseType: string
       audioEngineProcess.stdin.write(JSON.stringify(command) + '\n')
     } catch (err) {
       clearTimeout(timeoutId)
-      responseHandlers.delete(responseType)
+      responseHandlers.delete(key)
       reject(err)
     }
   })

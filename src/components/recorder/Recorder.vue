@@ -343,7 +343,6 @@ async function loadRecordings() {
       filePath: file.path,
       timestamp: new Date(file.created).getTime()
     }))
-    console.log('[Recorder] Loaded recordings:', recordings.value.length)
   } catch (error) {
     console.error('[Recorder] Error loading recordings:', error)
   }
