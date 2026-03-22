@@ -65,7 +65,15 @@ pub struct TrackSnapshot {
     pub insert_effects: Vec<InsertEffectSnapshot>,
     
     // Aux sends
-    pub aux_sends: HashMap<usize, f32>, // aux_id -> send_level
+    pub aux_sends: HashMap<usize, AuxSendSnapshot>, // aux_id -> send state
+}
+
+/// Aux send state snapshot
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AuxSendSnapshot {
+    pub level: f32,
+    pub pre_fader: bool,
+    pub muted: bool,
 }
 
 /// Parametric EQ filter snapshot

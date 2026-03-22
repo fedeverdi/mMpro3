@@ -174,11 +174,14 @@ pub fn create_snapshot(router: &Arc<Mutex<Router>>, name: String) -> Result<crat
                 }
             }).collect();
         
-        // Extract aux sends
-        let aux_sends: std::collections::HashMap<usize, f32> = track.aux_sends.iter()
+        // Extract aux sends (all of them, preserving pre_fader and muted state)
+        let aux_sends: std::collections::HashMap<usize, crate::engine::snapshot::AuxSendSnapshot> = track.aux_sends.iter()
             .enumerate()
-            .filter(|(_, send)| send.level > 0.0 || !send.muted)
-            .map(|(i, send)| (i, send.level))
+            .map(|(i, send)| (i, crate::engine::snapshot::AuxSendSnapshot {
+                level: send.level,
+                pre_fader: send.pre_fader,
+                muted: send.muted,
+            }))
             .collect();
         
         crate::engine::snapshot::TrackSnapshot {
@@ -552,10 +555,11 @@ pub fn load_snapshot_impl(router: &Arc<Mutex<Router>>, name: &str) -> Result<Vec
             }
             
             // Apply aux sends
-            for (aux_index, level) in track_snap.aux_sends.iter() {
+            for (aux_index, aux_snap) in track_snap.aux_sends.iter() {
                 if let Some(send) = track.aux_sends.get_mut(*aux_index) {
-                    send.level = *level;
-                    send.muted = false;
+                    send.level = aux_snap.level;
+                    send.pre_fader = aux_snap.pre_fader;
+                    send.muted = aux_snap.muted;
                 }
             }
         }
