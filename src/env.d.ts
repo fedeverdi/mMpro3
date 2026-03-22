@@ -89,6 +89,7 @@ interface AudioEngine {
   setTrackPad: (track: number, enabled: boolean) => Promise<void>
   setTrackHPF: (track: number, enabled: boolean) => Promise<void>
   setTrackPhaseInvert: (track: number, enabled: boolean) => Promise<void>
+  setTrackPFL: (track: number, enabled: boolean) => Promise<void>
   
   // Master Section Controls
   setMasterGain: (gain: number) => Promise<void>
