@@ -153,7 +153,6 @@ interface AudioEngine {
   // Scenes (Rust engine snapshots - simplified API)
   saveScene: (name: string) => Promise<void>
   listScenes: () => Promise<Array<{ name: string; timestamp: number; version: number; pinned: boolean }>>
-  getScene: (name: string) => Promise<any>
   loadScene: (name: string) => Promise<void>
   deleteScene: (name: string) => Promise<void>
   renameScene: (oldName: string, newName: string) => Promise<void>

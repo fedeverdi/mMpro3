@@ -61,7 +61,6 @@
           :master-fx-output-node="masterFxOutputNode" :aux-buses="auxBuses" :subgroups="subgroups"
           :master-eq-filters="masterEqFiltersData" :master-fx-effects="masterFxEffectsData"
           @master-fx-output-node="handleMasterFxOutputNode"
-          @master-fx-component="handleMasterFxComponent"
           @update:master-eq-filters="handleMasterEQFiltersUpdate"
           @add-aux="addAux" @remove-aux="removeAux" @update-aux="updateAux" />
 
@@ -83,7 +82,7 @@
         <!-- Master Section -->
         <div class="flex-shrink-0 h-full mixer-fade-in">
           <MasterSection ref="masterSectionRef" :master-fx-output-node="masterFxOutputNode"
-            :master-fx-component="masterFxComponent" :is-recording="isRecording" 
+            :is-recording="isRecording" 
             @open-recorder="showRecorder = true"
             @open-ndi="showNDIModal = true" />
         </div>
@@ -637,12 +636,11 @@ function handleTrackDragEnd() {
 
 // Track refs management (only for tracks, not for master components)
 const trackRefs = ref<Map<number, any>>(new Map())
-const masterSectionRef = ref<any>(null) // Keep only for getSnapshot/restoreSnapshot
+const masterSectionRef = ref<any>(null)
 const rightSectionRef = ref<any>(null) // Ref to RightSection component
 
 // Audio nodes received from components via emit
 const masterFxOutputNode = ref<any>(null)
-const masterFxComponent = ref<any>(null) // For getSnapshot only
 
 // Master EQ state (source of truth)
 const masterEqFiltersData = ref<any[]>([])
@@ -654,11 +652,6 @@ const isDraggingMasterEQ = ref(false)
 // Handlers for output node updates
 function handleMasterFxOutputNode(node: any) {
   masterFxOutputNode.value = node
-}
-
-function handleMasterFxComponent(component: any) {
-  masterFxComponent.value = component
-  // Backend handles effects synchronization automatically
 }
 
 // Handle master EQ filters update from RightSection
@@ -699,68 +692,6 @@ function setTrackRef(trackId: number, el: any | null) {
   } else {
     // Remove ref when component is unmounted
     trackRefs.value.delete(trackId)
-  }
-}
-
-// Scene management
-function getTrackState(trackId: number): any {
-  const trackRef = trackRefs.value.get(trackId)
-  if (!trackRef || !trackRef.getState) {
-    console.warn('[Scene] Track ref not found or no getState method:', trackId)
-    return null
-  }
-  return trackRef.getState()
-}
-
-function getMasterState(): any {
-  if (masterSectionRef.value && masterSectionRef.value.getState) {
-    return masterSectionRef.value.getState()
-  }
-  return null
-}
-
-function getMasterEqFilters(): any[] {
-  return masterEqFiltersData.value || []
-}
-
-function getMasterFx(): any {
-  if (masterFxComponent.value && masterFxComponent.value.getSnapshot) {
-    return masterFxComponent.value.getSnapshot()
-  }
-  return null
-}
-
-function getSubgroupsState(): any[] {
-  return subgroups.value.map(subgroup => ({
-    id: subgroup.id,
-    name: subgroup.name,
-    volume: subgroup.volume,
-    routeToMaster: subgroup.routeToMaster,
-    selectedOutput: subgroup.selectedOutput
-  }))
-}
-
-function getAuxBusesState(): any {
-  // Get basic aux bus state
-  const auxState = auxBuses.value.map(aux => ({
-    id: aux.id,
-    name: aux.name,
-    volume: aux.volume,
-    muted: aux.muted,
-    routeToMaster: aux.routeToMaster,
-    selectedOutputDevice: aux.selectedOutputDevice,
-    reverbEnabled: aux.reverbEnabled,
-    reverbParams: aux.reverbParams,
-    delayEnabled: aux.delayEnabled,
-    delayParams: aux.delayParams
-  }))
-
-  // Get routing state from AuxMaster component
-  const routingState = rightSectionRef.value?.auxMasterRef?.getRoutingState?.()
-
-  return {
-    buses: auxState,
-    routing: routingState || {}
   }
 }
 

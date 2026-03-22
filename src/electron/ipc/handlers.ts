@@ -1255,22 +1255,6 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
     }
   })
 
-  ipcMain.handle('audio-engine:get-scene', async (_event, sceneName: string) => {
-    try {
-      // Request specific snapshot data from Rust engine
-      const response = await sendCommandAndWaitForResponse({ type: 'get_snapshot', name: sceneName }, 'snapshot_data')
-      
-      if (response && response.snapshot) {
-        return response.snapshot
-      }
-      
-      return null
-    } catch (error) {
-      console.error('[Main] Error getting snapshot:', error)
-      return null
-    }
-  })
-
   ipcMain.handle('audio-engine:load-scene', async (_event, sceneName: string) => {
     try {
       // Call Rust engine to load snapshot (applies all state automatically)

@@ -47,19 +47,6 @@ export function useScenes() {
   }
   
   /**
-   * Get a specific scene by name
-   */
-  async function getScene(name: string): Promise<any> {
-    try {
-      const scene = await window.audioEngine.getScene(name)
-      return scene
-    } catch (error) {
-      console.error('[useScenes] Error getting scene:', error)
-      return null
-    }
-  }
-  
-  /**
    * Load a scene (applies all state to engine automatically)
    */
   async function loadScene(name: string): Promise<void> {
@@ -124,7 +111,6 @@ export function useScenes() {
     currentSceneName,
     saveScene,
     loadAllScenes,
-    getScene,
     loadScene,
     deleteScene,
     renameScene,

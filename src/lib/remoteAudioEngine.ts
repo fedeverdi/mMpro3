@@ -835,10 +835,6 @@ export class RemoteAudioEngine {
     return []
   }
 
-  async getScene(sceneId: string): Promise<any> {
-    throw new Error('Scene operations not supported in remote mode')
-  }
-
   async deleteScene(sceneId: string): Promise<void> {
     throw new Error('Scene operations not supported in remote mode')
   }

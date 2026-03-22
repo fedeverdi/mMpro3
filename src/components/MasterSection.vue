@@ -93,7 +93,6 @@ import type { AudioDevice } from '../composables/useAudioEngine'
 // Props
 interface Props {
   masterFxOutputNode?: any
-  masterFxComponent?: any
   isRecording?: boolean
 }
 
@@ -391,24 +390,6 @@ defineExpose({
   rightLevel,
   getMeterValues,
   getPreLimiterValues,
-  getState: () => ({
-    leftVolume: leftVolume.value,
-    rightVolume: rightVolume.value,
-    headphonesVolume: headphonesVolume.value,
-    isLinked: isLinked.value,
-    masterMuted: masterMuted.value,
-    selectedMasterOutput: selectedMasterOutput.value,
-    selectedHeadphonesOutput: selectedHeadphonesOutput.value
-  }),
-  setState: async (state: any) => {
-    leftVolume.value = state.leftVolume ?? 0
-    rightVolume.value = state.rightVolume ?? 0
-    headphonesVolume.value = state.headphonesVolume ?? -60
-    isLinked.value = state.isLinked ?? true
-    masterMuted.value = state.masterMuted ?? false
-    // selectedMasterOutput is computed from engine state
-    selectedHeadphonesOutput.value = state.selectedHeadphonesOutput ?? null
-  }
 })
 </script>
 

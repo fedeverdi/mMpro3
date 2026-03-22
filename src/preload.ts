@@ -231,7 +231,6 @@ contextBridge.exposeInMainWorld('audioEngine', {
   // Scenes (Rust engine snapshots - simplified API)
   saveScene: (name: string) => ipcRenderer.invoke('audio-engine:save-scene', name),
   listScenes: () => ipcRenderer.invoke('audio-engine:list-scenes'),
-  getScene: (name: string) => ipcRenderer.invoke('audio-engine:get-scene', name),
   loadScene: (name: string) => ipcRenderer.invoke('audio-engine:load-scene', name),
   deleteScene: (name: string) => ipcRenderer.invoke('audio-engine:delete-scene', name),
   renameScene: (oldName: string, newName: string) => ipcRenderer.invoke('audio-engine:rename-scene', oldName, newName),
