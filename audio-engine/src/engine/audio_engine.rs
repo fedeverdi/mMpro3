@@ -35,7 +35,7 @@ pub struct AudioEngine {
     input_channels: Arc<AtomicUsize>,
     input_users: HashSet<usize>, // Track IDs that are using audio input
     current_input_device: Option<String>, // Currently open input device name
-    master_tap_buffer: Arc<Mutex<Vec<f32>>>, // Master output tap for recording (stereo interleaved)
+    recording_writer: Arc<Mutex<Option<crate::engine::recording::StreamingWavWriter>>>, // Streaming WAV writer for recording
     master_tap_enabled: Arc<AtomicBool>, // Enable/disable master tap
     recording_path: Arc<Mutex<Option<PathBuf>>>, // Path where to save the recording
     recording_start_time: Arc<Mutex<Option<Instant>>>, // Recording start time for elapsed calculation
@@ -77,7 +77,7 @@ impl AudioEngine {
         let updates_suspended = Arc::new(AtomicBool::new(false));
         let input_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
         let input_channels = Arc::new(AtomicUsize::new(2)); // Default stereo
-        let master_tap_buffer = Arc::new(Mutex::new(Vec::<f32>::with_capacity(4800000))); // ~100 sec @ 48kHz stereo
+        let recording_writer = Arc::new(Mutex::new(None)); // Streaming WAV writer (created on recording start)
         let master_tap_enabled = Arc::new(AtomicBool::new(false));
         let recording_path = Arc::new(Mutex::new(None));
         let recording_start_time = Arc::new(Mutex::new(None));
@@ -116,7 +116,7 @@ impl AudioEngine {
             input_channels,
             input_users: HashSet::new(),
             current_input_device: None,
-            master_tap_buffer,
+            recording_writer,
             master_tap_enabled,
             recording_path,
             recording_start_time,
@@ -175,8 +175,11 @@ impl AudioEngine {
         if let Ok(mut buffer) = self.input_buffer.lock() {
             buffer.clear();
         }
-        if let Ok(mut buffer) = self.master_tap_buffer.lock() {
-            buffer.clear();
+        // Finalize any active recording
+        if let Ok(mut writer) = self.recording_writer.lock() {
+            if let Some(w) = writer.take() {
+                let _ = w.finalize(); // Ignore errors during cleanup
+            }
         }
         
         // Wait for OS to release audio hardware
@@ -371,7 +374,7 @@ impl AudioEngine {
         // Share input buffer with output callback
         let input_buffer = Arc::clone(&self.input_buffer);
         let input_channels = Arc::clone(&self.input_channels);
-        let master_tap_buffer = Arc::clone(&self.master_tap_buffer);
+        let recording_writer = Arc::clone(&self.recording_writer);
         let master_tap_enabled = Arc::clone(&self.master_tap_enabled);
         let recording_start_time = Arc::clone(&self.recording_start_time);
         let recording_last_stats_time = Arc::clone(&self.recording_last_stats_time);
@@ -458,13 +461,13 @@ impl AudioEngine {
                         // Process master audio through headroom meter
                         router.headroom_meter.process(master_l, master_r);
 
-                        // Record master output for this frame (if recording enabled)
+                        // Write master output to file (if recording enabled)
                         if master_tap_enabled.load(Ordering::Relaxed) {
-                            if let Ok(mut tap_buffer) = master_tap_buffer.try_lock() {
-                                let max_samples = sample_rate_for_perf as usize * 2 * 600; // 10 min stereo
-                                if tap_buffer.len() < max_samples {
-                                    tap_buffer.push(master_left.clamp(-1.0, 1.0));
-                                    tap_buffer.push(master_right.clamp(-1.0, 1.0));
+                            if let Ok(mut writer_opt) = recording_writer.try_lock() {
+                                if let Some(writer) = writer_opt.as_mut() {
+                                    // Write stereo pair directly to disk (streaming)
+                                    let frame = [master_left.clamp(-1.0, 1.0), master_right.clamp(-1.0, 1.0)];
+                                    let _ = writer.write_samples(&frame); // Ignore errors in real-time callback
                                 }
                             }
                         }
@@ -660,7 +663,7 @@ impl AudioEngine {
                     &master_tap_enabled,
                     &recording_start_time,
                     &recording_last_stats_time,
-                    &master_tap_buffer,
+                    &recording_writer,
                     &recording_bit_depth,
                     &recording_path,
                 ) {
@@ -733,8 +736,11 @@ impl AudioEngine {
         if let Ok(mut buffer) = self.input_buffer.lock() {
             buffer.clear();
         }
-        if let Ok(mut buffer) = self.master_tap_buffer.lock() {
-            buffer.clear();
+        // Finalize any active recording
+        if let Ok(mut writer) = self.recording_writer.lock() {
+            if let Some(w) = writer.take() {
+                let _ = w.finalize(); // Ignore errors during cleanup
+            }
         }
         
         Ok(())
@@ -840,18 +846,37 @@ impl AudioEngine {
 
     // Master tap controls
     pub(crate) fn enable_master_tap(&self, file_path: String, _sample_rate: u32, bit_depth: u32, format: &str) {
-        // Clear previous buffer
-        if let Ok(mut buffer) = self.master_tap_buffer.lock() {
-            buffer.clear();
+        // Create streaming WAV writer and write header immediately
+        let path = PathBuf::from(file_path);
+        
+        // Close any existing writer first
+        if let Ok(mut writer) = self.recording_writer.lock() {
+            if let Some(w) = writer.take() {
+                let _ = w.finalize(); // Finalize previous recording
+            }
+            
+            // Create new streaming writer
+            // Note: We always record at the audio device's sample rate (self.sample_rate)
+            // because we capture samples directly from the audio callback.
+            // The requested sample_rate is ignored to avoid quality loss from resampling.
+            match crate::engine::recording::StreamingWavWriter::new(&path, self.sample_rate, bit_depth) {
+                Ok(w) => {
+                    *writer = Some(w);
+                    eprintln!("[Engine] ✓ Recording started: {:?} ({}kHz, {}-bit)", path, self.sample_rate / 1000, bit_depth);
+                },
+                Err(e) => {
+                    eprintln!("[Engine] ✗ Failed to create recording file: {}", e);
+                    return;
+                }
+            }
         }
-        // Set recording path
-        if let Ok(mut path) = self.recording_path.lock() {
-            *path = Some(PathBuf::from(file_path));
+        
+        // Set recording path for stats reporting
+        if let Ok(mut rec_path) = self.recording_path.lock() {
+            *rec_path = Some(path);
         }
+        
         // Set recording parameters
-        // Note: We always record at the audio device's sample rate (self.sample_rate)
-        // because we capture samples directly from the audio callback.
-        // The requested sample_rate is ignored to avoid quality loss from resampling.
         if let Ok(mut sr) = self.recording_sample_rate.lock() {
             *sr = self.sample_rate; // Use device sample rate, not requested rate
         }
@@ -861,6 +886,7 @@ impl AudioEngine {
         if let Ok(mut fmt) = self.recording_format.lock() {
             *fmt = format.to_string();
         }
+        
         // Set start time
         let now = Instant::now();
         if let Ok(mut start_time) = self.recording_start_time.lock() {
@@ -869,10 +895,13 @@ impl AudioEngine {
         if let Ok(mut last_stats_time) = self.recording_last_stats_time.lock() {
             *last_stats_time = Some(now);
         }
+        
+        // Enable recording (audio callback will start writing samples)
         self.master_tap_enabled.store(true, Ordering::Relaxed);
     }
 
     pub(crate) fn disable_master_tap(&self) {
+        // Disable recording flag first (stops audio callback from writing)
         self.master_tap_enabled.store(false, Ordering::Relaxed);
         
         // Clear recording times
@@ -883,42 +912,26 @@ impl AudioEngine {
             *last_stats_time = None;
         }
         
-        // Get samples and path
-        let samples = if let Ok(mut buffer) = self.master_tap_buffer.lock() {
-            let s = buffer.clone();
-            buffer.clear();
-            s
-        } else {
-            Vec::new()
-        };
-
+        // Finalize the WAV file (updates header and closes file)
         let path = if let Ok(mut p) = self.recording_path.lock() {
             p.take()
         } else {
             None
         };
-
-        // Get recording parameters
-        let sample_rate = if let Ok(sr) = self.recording_sample_rate.lock() {
-            *sr
-        } else {
-            48000
-        };
-        let bit_depth = if let Ok(bd) = self.recording_bit_depth.lock() {
-            *bd
-        } else {
-            16
-        };
-
-        // Save WAV file if we have samples and path
-        if !samples.is_empty() && path.is_some() {
-            let file_path = path.unwrap();
-            match crate::engine::recording::write_wav_file(&file_path, &samples, sample_rate, bit_depth) {
-                Ok(_) => {},
-                Err(e) => eprintln!("[Engine] ✗ Failed to save recording: {}", e),
+        
+        if let Ok(mut writer) = self.recording_writer.lock() {
+            if let Some(w) = writer.take() {
+                match w.finalize() {
+                    Ok(_) => {
+                        if let Some(file_path) = path {
+                            eprintln!("[Engine] ✓ Recording saved: {:?}", file_path);
+                        }
+                    },
+                    Err(e) => eprintln!("[Engine] ✗ Failed to finalize recording: {}", e),
+                }
+            } else {
+                eprintln!("[Engine] ✓ Master tap disabled (no active recording)");
             }
-        } else {
-            eprintln!("[Engine] ✓ Master tap disabled (no recording to save)");
         }
     }
 

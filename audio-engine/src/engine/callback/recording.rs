@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::path::PathBuf;
 use crate::engine::get_available_disk_space_gb;
+use crate::engine::recording::StreamingWavWriter;
 
 /// Check if recording stats should be sent (every 1 second)
 /// Returns (elapsed_seconds, file_size_bytes, available_space_gb) if ready
@@ -10,7 +11,7 @@ pub fn check_recording_stats(
     master_tap_enabled: &Arc<AtomicBool>,
     recording_start_time: &Arc<Mutex<Option<Instant>>>,
     recording_last_stats_time: &Arc<Mutex<Option<Instant>>>,
-    master_tap_buffer: &Arc<Mutex<Vec<f32>>>,
+    recording_writer: &Arc<Mutex<Option<StreamingWavWriter>>>,
     recording_bit_depth: &Arc<Mutex<u32>>,
     recording_path: &Arc<Mutex<Option<PathBuf>>>,
 ) -> Option<(u64, u64, f32)> {
@@ -31,9 +32,13 @@ pub fn check_recording_stats(
             if elapsed_since_last.as_secs() >= 1 {
                 let elapsed_seconds = now.duration_since(start).as_secs();
                 
-                // Calculate file size (stereo interleaved samples)
-                let num_samples = if let Ok(buffer) = master_tap_buffer.try_lock() {
-                    buffer.len() as u64
+                // Get number of samples written from streaming writer
+                let num_samples = if let Ok(writer_opt) = recording_writer.try_lock() {
+                    if let Some(writer) = writer_opt.as_ref() {
+                        writer.get_samples_written()
+                    } else {
+                        0
+                    }
                 } else {
                     0
                 };
