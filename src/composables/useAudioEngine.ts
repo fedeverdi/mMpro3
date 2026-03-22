@@ -641,6 +641,11 @@ export const useAudioEngine = () => {
             state.value.masterLevels.left = response.master_l > 0 ? 20 * Math.log10(response.master_l) : -60
             state.value.masterLevels.right = response.master_r > 0 ? 20 * Math.log10(response.master_r) : -60
           }
+          if (response.master_gain !== undefined) state.value.masterLevels.gain = response.master_gain
+          if (response.master_gain_left !== undefined) state.value.masterLevels.gainLeft = response.master_gain_left
+          if (response.master_gain_right !== undefined) state.value.masterLevels.gainRight = response.master_gain_right
+          if (response.master_linked !== undefined) state.value.masterLevels.linked = response.master_linked
+          if (response.master_mute !== undefined) state.value.masterLevels.mute = response.master_mute
 
           if (response.loudness) {
             state.value.loudnessData = {

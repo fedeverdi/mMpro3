@@ -527,6 +527,18 @@ export class RemoteAudioEngine {
     return this.throttleSend('master_gain', { type: 'set_master_gain', gain })
   }
 
+  async setMasterGainLeft(gain: number): Promise<void> {
+    return this.throttleSend('master_gain_left', { type: 'set_master_gain_left', gain })
+  }
+
+  async setMasterGainRight(gain: number): Promise<void> {
+    return this.throttleSend('master_gain_right', { type: 'set_master_gain_right', gain })
+  }
+
+  async setMasterLinked(linked: boolean): Promise<void> {
+    return this.send({ type: 'set_master_linked', linked })
+  }
+
   async setMasterMute(mute: boolean): Promise<void> {
     return this.send({ type: 'set_master_mute', mute })
   }
@@ -877,6 +889,10 @@ export class RemoteAudioEngine {
         is_valid: true
       }
     }
+  }
+
+  async setActiveTracksInfo(_tracks: Array<{id: number, trackType: string}>): Promise<void> {
+    // No-op in remote browser context; track layout is managed by the Electron host
   }
 
   async saveLicense(key: string, licenseType: string, expiresAt: string | null): Promise<boolean> {

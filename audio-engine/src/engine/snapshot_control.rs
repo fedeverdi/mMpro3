@@ -838,7 +838,7 @@ pub fn build_full_parameters_changed(router: &Arc<Mutex<Router>>) -> Response {
     }).collect();
 
     let master = MasterParameters {
-        gain: None,
+        gain: Some(router.master.gain),
         gain_left: Some(router.master.gain_left),
         gain_right: Some(router.master.gain_right),
         mute: Some(router.master.mute),

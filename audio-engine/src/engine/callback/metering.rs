@@ -8,6 +8,11 @@ pub type MeterData = (
     Vec<AuxMeters>,
     f32, // master_l
     f32, // master_r
+    f32, // master_gain
+    f32, // master_gain_left
+    f32, // master_gain_right
+    bool, // master_linked
+    bool, // master_mute
     crate::meters::headroom::HeadroomMeasurement,
     LoudnessDataStruct,
     DynamicRangeDataStruct,
@@ -92,6 +97,11 @@ pub fn collect_meter_data(router: &mut Router) -> MeterData {
     
     let master_l = router.master.level_l;
     let master_r = router.master.level_r;
+    let master_gain = router.master.gain;
+    let master_gain_left = router.master.gain_left;
+    let master_gain_right = router.master.gain_right;
+    let master_linked = router.master.linked;
+    let master_mute = router.master.mute;
     
     // Collect headroom data
     let headroom_data = router.headroom_meter.get_measurement();
@@ -148,6 +158,11 @@ pub fn collect_meter_data(router: &mut Router) -> MeterData {
         aux_meters,
         master_l,
         master_r,
+        master_gain,
+        master_gain_left,
+        master_gain_right,
+        master_linked,
+        master_mute,
         headroom_data,
         loudness_data,
         dynamic_range_data,

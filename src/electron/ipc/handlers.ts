@@ -809,15 +809,26 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
   })
 
   ipcMain.handle('audio-engine:get-license', async () => {
+    // Read directly from license.json on disk — no need to ask Rust and risk timing out
+    // during engine initialization (NDI + audio device enumeration can take >2s).
+    const licensePath = path.join(app.getPath('userData'), 'license.json')
+    if (fs.existsSync(licensePath)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(licensePath, 'utf-8'))
+        return data
+      } catch (err) {
+        console.warn('[Main.ts] Failed to read license.json directly, falling back to Rust:', err)
+      }
+    }
+
+    // Fallback: ask Rust (engine may not be running yet on first launch before file exists)
     const process = getAudioEngineProcess()
     if (!process || !process.stdin) {
       return { key: 'DEMO', license_type: 'demo', expires_at: null, is_valid: true }
     }
-    
     try {
-      const command = { type: 'get_license' }    
-      const response = await sendCommandAndWaitForResponse(command, 'license', 2000)
-      
+      const command = { type: 'get_license' }
+      const response = await sendCommandAndWaitForResponse(command, 'license', 5000)
       return response
     } catch (error) {
       console.warn('[Main.ts] Timeout or error getting license from Rust:', error)
