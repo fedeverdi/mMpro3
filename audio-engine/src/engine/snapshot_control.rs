@@ -491,6 +491,7 @@ pub fn load_snapshot_impl(router: &Arc<Mutex<Router>>, name: &str) -> Result<Vec
                         comp.set_ratio(*ratio);
                         comp.set_attack(*attack);
                         comp.set_release(*release);
+                        comp.set_enabled(effect_snap.enabled);
                         crate::processing::routing::InsertEffectData::Compressor(comp)
                     },
                     crate::engine::snapshot::InsertEffectParameters::Gate { threshold, range, attack, release } => {
@@ -499,6 +500,7 @@ pub fn load_snapshot_impl(router: &Arc<Mutex<Router>>, name: &str) -> Result<Vec
                         gate.set_range(*range);
                         gate.set_attack(*attack);
                         gate.set_release(*release);
+                        gate.set_enabled(effect_snap.enabled);
                         crate::processing::routing::InsertEffectData::Gate(gate)
                     },
                     crate::engine::snapshot::InsertEffectParameters::Reverb { room_size, damping, wet, width, pre_delay } => {
@@ -682,10 +684,26 @@ pub fn build_full_parameters_changed(router: &Arc<Mutex<Router>>) -> Response {
 
         // Build insert effects list
         let inserts: Vec<crate::ipc::messages::InsertEffectInfo> = track.inserts.iter().map(|slot| {
+            let parameters = match &slot.effect {
+                crate::processing::routing::InsertEffectData::Compressor(comp) => Some(serde_json::json!({
+                    "threshold": comp.get_threshold(),
+                    "ratio": comp.get_ratio(),
+                    "attack": comp.get_attack(),
+                    "release": comp.get_release(),
+                })),
+                crate::processing::routing::InsertEffectData::Gate(gate) => Some(serde_json::json!({
+                    "threshold": gate.threshold_db,
+                    "range": gate.range_db,
+                    "attack": gate.attack_ms,
+                    "release": gate.release_ms,
+                })),
+                _ => None,
+            };
             crate::ipc::messages::InsertEffectInfo {
                 id: slot.id,
                 effect_type: slot.effect_type.clone(),
                 enabled: slot.enabled,
+                parameters,
             }
         }).collect();
 

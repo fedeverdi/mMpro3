@@ -80,6 +80,7 @@
                 :track-number="trackNumber"
                 :insert-id="element.id"
                 :enabled="element.enabled"
+                :parameters="element.parameters"
                 :track-level-l="trackLevelL"
                 :track-level-r="trackLevelR"
                 :phase-correlation="phaseCorrelation"
@@ -110,6 +111,7 @@ interface InsertEffect {
   id: number
   effect_type: string
   enabled: boolean
+  parameters?: any
 }
 
 const props = defineProps<{

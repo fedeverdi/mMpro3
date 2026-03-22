@@ -1466,7 +1466,8 @@ onMounted(async () => {
       inserts.value = params.inserts.map((insert: any) => ({
         id: insert.id,
         effect_type: insert.effect_type,
-        enabled: insert.enabled
+        enabled: insert.enabled,
+        parameters: insert.parameters
       }))
     }
 

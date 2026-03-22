@@ -47,6 +47,7 @@ impl AudioEngine {
                             id: slot.id,
                             effect_type: slot.effect_type.clone(),
                             enabled: slot.enabled,
+                            parameters: None,
                         }
                     }).collect();
                     
@@ -115,6 +116,7 @@ impl AudioEngine {
                                 id: slot.id,
                                 effect_type: slot.effect_type.clone(),
                                 enabled: slot.enabled,
+                                parameters: None,
                             }
                         }).collect();
                         
@@ -191,6 +193,7 @@ impl AudioEngine {
                                     id: slot.id,
                                     effect_type: slot.effect_type.clone(),
                                     enabled: slot.enabled,
+                                    parameters: None,
                                 }
                             }).collect();
                             
@@ -280,7 +283,8 @@ impl AudioEngine {
                                 id: slot.id,
                                 effect_type: slot.effect_type.clone(),
                                 enabled: slot.enabled,
-                            }
+                            parameters: None,
+}
                         }).collect();
                         
                         drop(router);

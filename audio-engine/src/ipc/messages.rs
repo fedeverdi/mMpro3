@@ -800,6 +800,8 @@ pub struct InsertEffectInfo {
     pub id: usize,
     pub effect_type: String,
     pub enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Clone)]

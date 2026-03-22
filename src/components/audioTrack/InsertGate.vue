@@ -89,13 +89,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, watch, onUnmounted } from 'vue'
+import { ref, inject, watch, watchEffect, onUnmounted } from 'vue'
 import Knob from '../core/Knob.vue'
 
 const props = defineProps<{
   trackNumber: number
   insertId: number
   enabled: boolean
+  parameters?: any
   trackLevelL: number
   trackLevelR: number
   phaseCorrelation: number
@@ -115,6 +116,15 @@ const threshold = ref(-40)
 const range = ref(-80)
 const attack = ref(1)
 const release = ref(100)
+
+// Sync local refs when engine broadcasts updated parameters (e.g. after scene load)
+watchEffect(() => {
+  if (!props.parameters) return
+  if (props.parameters.threshold !== undefined) threshold.value = props.parameters.threshold
+  if (props.parameters.range !== undefined) range.value = props.parameters.range
+  if (props.parameters.attack !== undefined) attack.value = Math.round(props.parameters.attack * 1000)
+  if (props.parameters.release !== undefined) release.value = Math.round(props.parameters.release * 1000)
+})
 
 // Visual feedback
 const currentLevel = ref(-80)
