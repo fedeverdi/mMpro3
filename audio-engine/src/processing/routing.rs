@@ -185,14 +185,14 @@ impl FFTAnalyzer {
         let window: Vec<f32> = (0..FFT_SIZE)
             .map(|i| {
                 let n = i as f32;
-                let N = (FFT_SIZE - 1) as f32;
+                let n_max = (FFT_SIZE - 1) as f32;
                 let a0 = 0.35875;
                 let a1 = 0.48829;
                 let a2 = 0.14128;
                 let a3 = 0.01168;
-                a0 - a1 * f32::cos(2.0 * std::f32::consts::PI * n / N)
-                   + a2 * f32::cos(4.0 * std::f32::consts::PI * n / N)
-                   - a3 * f32::cos(6.0 * std::f32::consts::PI * n / N)
+                a0 - a1 * f32::cos(2.0 * std::f32::consts::PI * n / n_max)
+                   + a2 * f32::cos(4.0 * std::f32::consts::PI * n / n_max)
+                   - a3 * f32::cos(6.0 * std::f32::consts::PI * n / n_max)
             })
             .collect();
         
@@ -222,14 +222,6 @@ impl FFTAnalyzer {
             self.position = 0;
             self.fft_ready = true;
         }
-    }
-
-    /// Reset the FFT buffer (useful when switching signal sources)
-    pub fn reset(&mut self) {
-        self.buffer_left.fill(0.0);
-        self.buffer_right.fill(0.0);
-        self.position = 0;
-        self.fft_ready = false;
     }
 
     /// Perform FFT analysis and return magnitude spectrum (half of FFT_SIZE due to symmetry)

@@ -2,7 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 use crate::io::DeviceInfo;
-use std::time::Instant;
 
 /// Parametric filter specification from frontend
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -366,7 +365,7 @@ pub enum Command {
 
     // Input stream management
     #[serde(rename = "open_audio_input")]
-    OpenAudioInput { device_name: Option<String> },
+    OpenAudioInput,
     #[serde(rename = "close_audio_input")]
     CloseAudioInput,
 
@@ -902,78 +901,4 @@ pub struct StereoWidthDataStruct {
     pub mid_rms: f32,
     pub side_rms: f32,
     pub balance: f32,
-}
-
-/// Performance statistics for audio processing
-#[derive(Debug, Clone)]
-pub struct PerformanceStats {
-    pub buffer_count: usize,
-    pub total_process_time_us: u128,
-    pub min_process_time_us: u128,
-    pub max_process_time_us: u128,
-    pub last_log_time: Option<Instant>,
-}
-
-impl PerformanceStats {
-    pub fn new() -> Self {
-        Self {
-            buffer_count: 0,
-            total_process_time_us: 0,
-            min_process_time_us: u128::MAX,
-            max_process_time_us: 0,
-            last_log_time: None,
-        }
-    }
-
-    pub fn record_buffer(&mut self, process_time_us: u128) {
-        self.buffer_count += 1;
-        self.total_process_time_us += process_time_us;
-        self.min_process_time_us = self.min_process_time_us.min(process_time_us);
-        self.max_process_time_us = self.max_process_time_us.max(process_time_us);
-    }
-    
-    // Alias for backward compatibility
-    pub fn record(&mut self, duration_us: u128) {
-        self.record_buffer(duration_us);
-    }
-    
-    pub fn should_log(&mut self) -> bool {
-        let now = Instant::now();
-        if let Some(last) = self.last_log_time {
-            if now.duration_since(last).as_secs() >= 2 {
-                self.last_log_time = Some(now);
-                true
-            } else {
-                false
-            }
-        } else {
-            self.last_log_time = Some(now);
-            false
-        }
-    }
-
-    pub fn get_average_ms(&self) -> f32 {
-        if self.buffer_count == 0 {
-            return 0.0;
-        }
-        (self.total_process_time_us as f64 / self.buffer_count as f64 / 1000.0) as f32
-    }
-
-    pub fn get_min_ms(&self) -> f32 {
-        if self.min_process_time_us == u128::MAX {
-            return 0.0;
-        }
-        (self.min_process_time_us as f64 / 1000.0) as f32
-    }
-
-    pub fn get_max_ms(&self) -> f32 {
-        (self.max_process_time_us as f64 / 1000.0) as f32
-    }
-
-    pub fn reset(&mut self) {
-        self.buffer_count = 0;
-        self.total_process_time_us = 0;
-        self.min_process_time_us = u128::MAX;
-        self.max_process_time_us = 0;
-    }
 }

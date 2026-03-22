@@ -1,7 +1,6 @@
 /// Track source management utilities
 use anyhow::{anyhow, Result};
 use crate::io::ChannelSelection;
-use crate::processing::file_player::AudioFilePlayer;
 use crate::processing::routing::{Router, TrackSource};
 use crate::processing::signal_gen::WaveformType;
 
@@ -59,43 +58,6 @@ pub fn set_source_signal(
         t.set_signal_generator(wave, frequency, sample_rate as f32);
         Ok(())
     } else {
-        Err(anyhow!("Track {} not found", track))
-    }
-}
-
-/// Set track source to file player
-fn set_source_file(
-    router: &mut Router,
-    track: usize,
-    file_path: &str,
-    sample_rate: u32,
-) -> Result<()> {
-    
-    if let Some(t) = router.get_track_mut(track) {
-        let mut player = AudioFilePlayer::new();
-        
-        // CRITICAL: Load file FIRST to get its native sample rate
-        // BEFORE setting output sample rate (otherwise ratio calculation is wrong)
-        match player.load_file(file_path) {
-            Ok(_) => {
-                // Now set output sample rate (after file is loaded and has correct sample_rate)
-                player.set_output_sample_rate(sample_rate);
-                
-                // Debug: log loaded samples info
-                let sample_count = player.samples.len();
-                let duration_frames = sample_count / player.channels as usize;
-                let _duration_sec = duration_frames as f32 / player.sample_rate as f32;
-                
-                t.set_file_player(player);
-                Ok(())
-            }
-            Err(e) => {
-                eprintln!("[Track {}] ERROR loading file: {}", track, e);
-                Err(e)
-            }
-        }
-    } else {
-        eprintln!("[Track {}] ERROR: track not found (router has {} tracks)", track, router.tracks.len());
         Err(anyhow!("Track {} not found", track))
     }
 }

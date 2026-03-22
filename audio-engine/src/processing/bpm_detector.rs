@@ -8,7 +8,7 @@ const ENERGY_HOP_SIZE: usize = 512; // Decimate energy for efficiency
 
 /// Fold BPM to the most musically sensible range (70-140 BPM preferred)
 /// Corrects for harmonic detection errors (2x, 3x, 4x) and subdivisions (0.5x, 0.25x)
-fn fold_to_musical_bpm(mut bpm: f32) -> f32 {
+fn fold_to_musical_bpm(bpm: f32) -> f32 {
     // Target range: preferably 70-140 BPM (most common for modern music)
     const PREFERRED_MIN: f32 = 70.0;
     const PREFERRED_MAX: f32 = 140.0;

@@ -123,7 +123,7 @@ impl KWeightFilter {
 /// Block power measurement with gating
 struct BlockPower {
     power: f64,
-    timestamp: f64,
+    _timestamp: f64,
 }
 
 /// EBU R128 Loudness Meter
@@ -224,7 +224,7 @@ impl LoudnessMeter {
         
         let timestamp = self.samples_processed as f64 / self.sample_rate;
         
-        self.block_history.push_back(BlockPower { power: block_power, timestamp });
+        self.block_history.push_back(BlockPower { power: block_power, _timestamp: timestamp });
         
         // Keep history for short-term window (longest window needed)
         while self.block_history.len() > self.short_term_blocks * 2 {

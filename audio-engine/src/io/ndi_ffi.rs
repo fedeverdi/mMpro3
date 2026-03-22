@@ -30,6 +30,7 @@ pub struct NDIlib_audio_frame_v2_t {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum NDIlib_frame_format_type_e {
     Progressive = 1,
     Interleaved = 0,
@@ -39,6 +40,7 @@ pub enum NDIlib_frame_format_type_e {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum NDIlib_FourCC_video_type_e {
     UYVY = 0x59565955, // YUV 4:2:2
     UYVA = 0x41565955,
@@ -69,12 +71,18 @@ pub struct NDIlib_video_frame_v2_t {
     pub timestamp: i64,               // Timestamp
 }
 
-// Function type definitions
+// Function type definitions (keep NDI SDK naming convention)
+#[allow(non_camel_case_types)]
 type NDIlib_initialize_fn = unsafe extern "C" fn() -> bool;
+#[allow(non_camel_case_types)]
 type NDIlib_destroy_fn = unsafe extern "C" fn();
+#[allow(non_camel_case_types)]
 type NDIlib_send_create_fn = unsafe extern "C" fn(*const NDIlib_send_create_t) -> *mut c_void;
+#[allow(non_camel_case_types)]
 type NDIlib_send_destroy_fn = unsafe extern "C" fn(*mut c_void);
+#[allow(non_camel_case_types)]
 type NDIlib_send_send_audio_v2_fn = unsafe extern "C" fn(*mut c_void, *const NDIlib_audio_frame_v2_t);
+#[allow(non_camel_case_types)]
 type NDIlib_send_send_video_v2_fn = unsafe extern "C" fn(*mut c_void, *const NDIlib_video_frame_v2_t);
 
 /// Try to load NDI library at runtime

@@ -169,10 +169,4 @@ impl StereoWidthMeter {
         self.side_rms = -90.0;
         self.balance = 0.0;
     }
-    
-    /// Set sample rate and resize buffers
-    pub fn set_sample_rate(&mut self, sample_rate: f64) {
-        self.window_samples = ((sample_rate * WINDOW_SIZE_MS) / 1000.0) as usize;
-        self.reset();
-    }
 }

@@ -18,7 +18,7 @@ pub struct DynamicRangeMeasurements {
 }
 
 pub struct DynamicRangeMeter {
-    sample_rate: f64,
+    _sample_rate: f64,
     window_samples: usize,
     
     // Peak tracking (since last reset)
@@ -40,7 +40,7 @@ impl DynamicRangeMeter {
         let window_samples = ((sample_rate * WINDOW_SIZE_MS) / 1000.0) as usize;
         
         Self {
-            sample_rate,
+            _sample_rate: sample_rate,
             window_samples,
             peak_left: 0.0,
             peak_right: 0.0,

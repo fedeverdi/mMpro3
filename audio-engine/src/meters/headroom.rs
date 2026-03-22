@@ -28,11 +28,10 @@ pub struct HeadroomMeter {
     // Decay rate for peak following
     decay_rate: f32, // dB/sample decay after hold
     
-    sample_rate: f32,
+    _sample_rate: f32,
 }
 
 impl HeadroomMeter {
-    /// Create new headroom meter
     pub fn new(sample_rate: f32) -> Self {
         let hold_duration = (sample_rate * 0.2) as usize; // 200ms hold - fast response
         Self {
@@ -43,7 +42,7 @@ impl HeadroomMeter {
             hold_counter: 0,
             hold_duration,
             decay_rate: 48.0 / sample_rate, // 48 dB/sec decay rate - fast decay
-            sample_rate,
+            _sample_rate: sample_rate,
         }
     }
     

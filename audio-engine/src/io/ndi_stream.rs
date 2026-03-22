@@ -277,22 +277,6 @@ impl NdiStream {
         
         Ok(())
     }
-
-    fn get_config(&self) -> String {
-        let active = self.is_active();
-        let name = self.stream_name.lock()
-            .map(|n| n.clone())
-            .unwrap_or_else(|_| "Unknown".to_string());
-        let source = self.get_source();
-        let sr = self.sample_rate.lock()
-            .map(|s| *s)
-            .unwrap_or(0);
-        
-        format!(
-            "NDI Stream: {} | Source: {:?} | {}Hz | Active: {}",
-            name, source, sr, active
-        )
-    }
 }
 
 impl Drop for NdiStream {

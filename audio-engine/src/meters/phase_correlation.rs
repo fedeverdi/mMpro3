@@ -13,7 +13,7 @@ pub struct PhaseCorrelationMeasurement {
 }
 
 pub struct PhaseCorrelationMeter {
-    sample_rate: f64,
+    _sample_rate: f64,
     window_samples: usize,
     
     // Sliding window buffers
@@ -34,7 +34,7 @@ impl PhaseCorrelationMeter {
         let window_samples = ((sample_rate * WINDOW_SIZE_MS) / 1000.0) as usize;
         
         Self {
-            sample_rate,
+            _sample_rate: sample_rate,
             window_samples,
             buffer_left: VecDeque::with_capacity(window_samples),
             buffer_right: VecDeque::with_capacity(window_samples),
@@ -120,12 +120,5 @@ impl PhaseCorrelationMeter {
         self.sum_l2 = 0.0;
         self.sum_r2 = 0.0;
         self.correlation = 1.0;
-    }
-    
-    /// Set sample rate and resize buffers
-    pub fn set_sample_rate(&mut self, sample_rate: f64) {
-        self.sample_rate = sample_rate;
-        self.window_samples = ((sample_rate * WINDOW_SIZE_MS) / 1000.0) as usize;
-        self.reset();
     }
 }

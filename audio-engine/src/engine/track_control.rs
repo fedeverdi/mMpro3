@@ -2,7 +2,7 @@
 /// These functions provide the implementation for track management operations
 
 use anyhow::Result;
-use crate::processing::{Router, WaveformType, InsertEffectData};
+use crate::processing::{Router, WaveformType};
 use crate::ipc::ParametricFilter;
 use crate::processing::track;
 use crate::effects::tone::equalizer;

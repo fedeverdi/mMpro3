@@ -154,18 +154,8 @@ impl EQBand {
         self.target_gain_db = gain_db.clamp(-24.0, 24.0);
     }
 
-    pub fn set_frequency(&mut self, frequency: f32) {
-        self.target_frequency = frequency.clamp(20.0, 20000.0);
-    }
-
     pub fn set_q(&mut self, q: f32) {
         self.target_q = q.clamp(0.1, 10.0);
-    }
-
-    pub fn set_type(&mut self, filter_type: FilterType) {
-        self.filter_type = filter_type;
-        // Force recalculation of coefficients with current parameters
-        self.update_coefficients();
     }
 
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
@@ -405,10 +395,6 @@ impl ParametricEqualizer {
         }
     }
 
-    pub fn is_enabled(&self) -> bool {
-        self.enabled
-    }
-
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
         for band in &mut self.bands {
@@ -431,26 +417,8 @@ impl ParametricEqualizer {
         self.bands.push(band);
     }
 
-    /// Update a specific band
-    pub fn update_band(&mut self, index: usize, filter_type: FilterType, frequency: f32, gain_db: f32, q: f32) {
-        if let Some(band) = self.bands.get_mut(index) {
-            band.set_type(filter_type);
-            band.set_frequency(frequency);
-            band.set_gain(gain_db);
-            band.set_q(q);
-            // Reset preset name when manually modifying filters
-            self.current_preset_name = None;
-        }
-    }
-
-    /// Remove a band by index
-    pub fn remove_band(&mut self, index: usize) {
-        if index < self.bands.len() {
-            self.bands.remove(index);
-        }
-    }
-
-    /// Get the number of bands
+    /// Get the number of bands (used in tests)
+    #[cfg(test)]
     pub fn band_count(&self) -> usize {
         self.bands.len()
     }
@@ -479,11 +447,6 @@ impl ParametricEqualizer {
     /// Export all filter data for serialization
     pub fn export_filters(&self) -> Vec<FilterData> {
         self.bands.iter().map(|band| band.export_data()).collect()
-    }
-
-    /// Get the current preset name (if any)
-    pub fn get_current_preset_name(&self) -> Option<String> {
-        self.current_preset_name.clone()
     }
 }
 
