@@ -188,7 +188,10 @@ export class RemoteAudioEngine {
   private send(command: any): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        reject(new Error('WebSocket not connected'))
+        // Silently resolve — fire-and-forget commands should not throw unhandled
+        // rejections when the WebSocket is temporarily disconnected (e.g. component
+        // unmounting, reconnecting, page navigation).
+        resolve()
         return
       }
 
@@ -520,7 +523,38 @@ export class RemoteAudioEngine {
   }
 
   async getWaveformData(track: number, numPoints: number): Promise<any> {
-    return this.send({ type: 'get_waveform_data', track, num_points: numPoints })
+    return new Promise((resolve, reject) => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        reject(new Error('WebSocket not connected'))
+        return
+      }
+
+      const timeoutId = setTimeout(() => {
+        const index = this.responseListeners.indexOf(listener)
+        if (index > -1) this.responseListeners.splice(index, 1)
+        reject(new Error(`Timeout waiting for waveform_data response for track ${track}`))
+      }, 30000)
+
+      const listener = (response: any) => {
+        if (response.type === 'waveform_data' && response.track === track) {
+          clearTimeout(timeoutId)
+          const index = this.responseListeners.indexOf(listener)
+          if (index > -1) this.responseListeners.splice(index, 1)
+          resolve(response)
+        }
+      }
+
+      this.responseListeners.push(listener)
+
+      try {
+        this.ws.send(JSON.stringify({ type: 'get_waveform_data', track, num_points: numPoints }))
+      } catch (error) {
+        clearTimeout(timeoutId)
+        const index = this.responseListeners.indexOf(listener)
+        if (index > -1) this.responseListeners.splice(index, 1)
+        reject(error)
+      }
+    })
   }
 
   async setMasterGain(gain: number): Promise<void> {
