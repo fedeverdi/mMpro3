@@ -83,7 +83,9 @@ const broadcastToWebSocketClientsWrapper = (response: any) => {
   // Update cached state for new detached windows
   if (response.type === 'parameters' || response.type === 'levels' || response.type === 'parameters_changed') {
     if (response.master) {
-      lastKnownState.masterParameters = response.master
+      // Merge instead of overwrite so partial updates (e.g. SetMasterGain only sends gain)
+      // don't wipe out other fields like gain_left, gain_right, linked, mute, etc.
+      lastKnownState.masterParameters = { ...lastKnownState.masterParameters, ...response.master }
     }
     if (response.auxes) {
       lastKnownState.auxParameters = response.auxes

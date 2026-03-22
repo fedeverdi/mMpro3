@@ -389,11 +389,9 @@ const applyPendingParameterUpdates = () => {
     if (master.selected_output !== undefined) state.value.masterLevels.selectedMasterOutput = master.selected_output
     if (master.eq_filters !== undefined && master.eq_filters !== null) state.value.masterEQFilters = master.eq_filters
     if (master.current_eq_preset !== undefined && master.current_eq_preset !== null) {
-      console.log('[useAudioEngine] Updating masterCurrentEQPreset:', master.current_eq_preset)
       state.value.masterCurrentEQPreset = master.current_eq_preset
     }
     if (master.fx_effects !== undefined && master.fx_effects !== null) {
-      console.log('[useAudioEngine] Updating masterFxEffects:', master.fx_effects)
       state.value.masterFxEffects = master.fx_effects
     }
     if (master.available_output_devices !== undefined && master.available_output_devices !== null) state.value.availableOutputDevices = master.available_output_devices
@@ -641,7 +639,10 @@ export const useAudioEngine = () => {
             state.value.masterLevels.left = response.master_l > 0 ? 20 * Math.log10(response.master_l) : -60
             state.value.masterLevels.right = response.master_r > 0 ? 20 * Math.log10(response.master_r) : -60
           }
-          if (response.master_gain !== undefined) state.value.masterLevels.gain = response.master_gain
+          if (response.master_gain !== undefined) {
+            if (Math.abs(response.master_gain - state.value.masterLevels.gain) > 0.0001)
+            state.value.masterLevels.gain = response.master_gain
+          }
           if (response.master_gain_left !== undefined) state.value.masterLevels.gainLeft = response.master_gain_left
           if (response.master_gain_right !== undefined) state.value.masterLevels.gainRight = response.master_gain_right
           if (response.master_linked !== undefined) state.value.masterLevels.linked = response.master_linked

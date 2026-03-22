@@ -301,7 +301,7 @@ watch(
   }
 )
 
-// Fader / link / mute sync — only fires when these specific primitives change
+// Fader / link / mute sync — fires immediately on mount AND on every subsequent change
 watch(
   [
     () => audioEngine?.state.value.masterLevels.gain,
@@ -328,7 +328,8 @@ watch(
     }
 
     masterMuted.value = mute
-  }
+  },
+  { immediate: true }  // run on mount even if value already correct (avoids stale display when state was set before component mounted)
 )
 
 // Initialize

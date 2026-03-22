@@ -79,6 +79,15 @@ export const startWebSocketServer = (deps: WebSocketServerDependencies): void =>
             return
           }
           
+          // If the remote sends 'start' but the engine is already running, skip the
+          // forward to Rust (which would cause an unwanted restart/audio interruption)
+          // and just confirm the running state directly.
+          if (message.type === 'start' && deps.getIsAudioEngineStarted()) {
+            console.log('[WebSocket] Client sent start but engine already running — confirming state')
+            ws.send(JSON.stringify({ type: 'started' }))
+            return
+          }
+
           // Forward audio engine commands to Rust
           const audioEngineProcess = deps.getAudioEngineProcess()
           if (audioEngineProcess && audioEngineProcess.stdin) {
@@ -241,10 +250,36 @@ function handleRemoteControlStarted(ws: WebSocket, deps: WebSocketServerDependen
   if (!activeRemoteClients.has(ws)) {
     activeRemoteClients.add(ws)
     activeRemoteClientsCount++
-    console.log(`[WebSocket] Remote client started control (active: ${activeRemoteClientsCount})`)
     deps.broadcastRemoteControlState()
-    
-    // Send confirmation that control was accepted
+
+    // Send current engine running state so the remote doesn't need to restart it
+    const isAudioEngineStarted = deps.getIsAudioEngineStarted()
+    if (isAudioEngineStarted) {
+      ws.send(JSON.stringify({ type: 'started' }))
+    } else {
+      ws.send(JSON.stringify({ type: 'stopped' }))
+    }
+
+    // Send cached parameter state so faders/gains sync immediately
+    const lastKnownState = deps.getLastKnownState()
+    if (Object.keys(lastKnownState).length > 0) {
+      ws.send(JSON.stringify({
+        type: 'parameters_changed',
+        master: lastKnownState.masterParameters,
+        auxes: lastKnownState.auxParameters,
+        subgroups: lastKnownState.subgroupParameters
+      }))
+      if (lastKnownState.auxBuses) {
+        ws.send(JSON.stringify({
+          type: 'aux_buses_state',
+          auxBuses: lastKnownState.auxBuses
+        }))
+      }
+      console.log('[WebSocket] Sent cached state to new remote client')
+    }
+
+    // Send confirmation that control was accepted LAST so the remote shows the UI
+    // only after it has already received the state above
     ws.send(JSON.stringify({ 
       type: 'remote-control-accepted', 
       message: 'Control accepted' 
