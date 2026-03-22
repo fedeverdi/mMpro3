@@ -55,6 +55,20 @@
           Exit
         </button>
 
+        <!-- DJ Mode Button -->
+        <button @click="$emit('toggle-dj-mode')"
+          class="px-3 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5"
+          :class="isDjMode
+            ? 'bg-purple-600/30 text-purple-300 border border-purple-600/50 shadow-[0_0_8px_rgba(147,51,234,0.25)]'
+            : 'hover:bg-purple-500/10 text-gray-300 hover:text-purple-400 border border-transparent'">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+            <circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="0.8" stroke-dasharray="1.5 1.5"/>
+          </svg>
+          DJ Mode
+        </button>
+
         <div class="w-px h-6 bg-gray-600"></div>
 
         <div class="relative -mt-[3px]">
@@ -181,6 +195,7 @@ import QuickScenes from './QuickScenes.vue'
 
 interface Props {
   isLocked: boolean
+  isDjMode: boolean
   buildLimits: {
     maxTracks: number
     maxSubgroups: number
@@ -196,6 +211,7 @@ const emit = defineEmits<{
   'show-scenes': []
   'show-file-manager': []
   'lock-toggle': []
+  'toggle-dj-mode': []
   'add-track': [type: 'audio' | 'signal']
   'add-subgroup': []
   'remove-track': []

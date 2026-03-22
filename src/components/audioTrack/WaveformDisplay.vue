@@ -66,6 +66,7 @@ interface Props {
   showModeButtons?: boolean // Show mode toggle buttons
   isActive?: boolean // Whether to draw (play or input active)
   duration?: number // Track duration in seconds
+  waveformColor?: string // Color for the waveform
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -75,11 +76,13 @@ const props = withDefaults(defineProps<Props>(), {
   mode: 'signal',
   showModeButtons: true,
   isActive: false,
-  duration: 0
+  duration: 0,
+  waveformColor: '#3b82f6' // blue-500 default
 })
 
 const emit = defineEmits<{
   seek: [time: number]
+  'seek-release': []
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -161,6 +164,7 @@ function handleMouseMove(event: MouseEvent) {
 function handleMouseUp(event: MouseEvent) {
   if (isDragging.value) {
     isDragging.value = false
+    emit('seek-release') // Notify parent that seek ended
     // Keep tooltip visible briefly after release
     setTimeout(() => {
       if (!isDragging.value) {
@@ -171,6 +175,9 @@ function handleMouseUp(event: MouseEvent) {
 }
 
 function handleMouseLeave() {
+  if (isDragging.value) {
+    emit('seek-release') // Notify parent that seek ended
+  }
   isDragging.value = false
   showTimeTooltip.value = false
   tooltipTime.value = null
@@ -349,7 +356,7 @@ function drawFullWaveform() {
   const step = Math.max(1, Math.ceil(channelData.length / width))
   const amp = height / 2
 
-  ctx.strokeStyle = '#3b82f6' // blue-500
+  ctx.strokeStyle = props.waveformColor || '#3b82f6' // Use prop or default to blue-500
   ctx.lineWidth = 1
 
   for (let i = 0; i < width; i++) {

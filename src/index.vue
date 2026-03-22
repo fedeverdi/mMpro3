@@ -14,12 +14,14 @@
     <!-- Header -->
     <AppHeader 
       :is-locked="isLocked"
+      :is-dj-mode="isDjMode"
       :build-limits="buildLimits"
       :tracks-count="tracks.length"
       :subgroups-count="subgroups.length"
       @show-scenes="showScenesModal = true"
       @show-file-manager="showFileManager = true"
       @lock-toggle="handleLockToggle"
+      @toggle-dj-mode="isDjMode = !isDjMode"
       @add-track="addTrackOfType"
       @add-subgroup="addSubgroup"
       @remove-track="handleRemoveLastTrack"
@@ -31,7 +33,15 @@
     <main class="flex-1 flex gap-2 p-2 overflow-hidden relative z-[999]">
       <!-- Audio Tracks Section (flexible) -->
       <div ref="tracksContainerRef" class="tracks-scroll-wrap flex-1 overflow-hidden min-w-0 pb-[2px]">
-        <div class="tracks-scroll overflow-x-auto overflow-y-hidden h-full">
+        <!-- DJ Mode view -->
+        <DJMode v-if="isDjMode"
+          :deck-a-track="djDeckTracks[0] ?? null"
+          :deck-b-track="djDeckTracks[1] ?? null"
+          @open-library="handleOpenLibrary"
+        />
+
+        <!-- Normal mixer view -->
+        <div v-else class="tracks-scroll overflow-x-auto overflow-y-hidden h-full">
           <div class="flex gap-2 h-full min-w-max">
             <!-- Audio Tracks -->
             <div v-for="track in sortedTracks" :key="track.id" class="w-[8.5rem] h-full mixer-fade-in track-wrapper"
@@ -185,6 +195,7 @@ import NotificationToast from './components/core/NotificationToast.vue'
 import RemoteControlOverlay from './components/core/RemoteControlOverlay.vue'
 import CustomTitleBar from './components/layout/CustomTitleBar.vue'
 import AppHeader from './components/layout/AppHeader.vue'
+import DJMode from './components/DJMode.vue'
 import RemoteModeBanner from './components/layout/RemoteModeBanner.vue'
 import { useAudioDevices } from '~/composables/useAudioDevices'
 import { useAudioEngine } from '~/composables/useAudioEngine'
@@ -418,7 +429,7 @@ function handleOpenLibrary(trackId: number) {
   showFileManager.value = true
 }
 
-function handleFileManagerSelect(file: any) {
+async function handleFileManagerSelect(file: any) {
   let targetTrackId = fileManagerTargetTrackId.value
 
   // If no specific track was selected (opened from top bar), find first free audio track
@@ -431,9 +442,44 @@ function handleFileManagerSelect(file: any) {
     }
   }
 
-  const trackRef = trackRefs.value.get(targetTrackId)
-  if (trackRef && trackRef.loadFileFromLibrary) {
-    trackRef.loadFileFromLibrary(file)
+  // In DJ mode, load file directly using audioEngine (trackRefs don't exist in DJ mode)
+  if (isDjMode.value) {
+    try {
+      let fileData = file
+      
+      // If string ID is passed, fetch file data from library
+      if (typeof file === 'string') {
+        fileData = await window.audioEngine.getLibraryFile(file)
+        if (!fileData) {
+          notify.error(`File not found in library`)
+          showFileManager.value = false
+          return
+        }
+      }
+
+      // Load file directly on the track using audioEngine
+      if (audioEngine.state.value.isRunning && fileData.filePath) {
+        audioEngine.setTrackSourceFile(
+          targetTrackId - 1, // Convert to 0-based index
+          fileData.filePath,
+          fileData.artist,
+          fileData.title,
+          null, // playlistId
+          null, // playlistName
+          null  // playlistIndex
+        )
+        notify.success(`Loaded ${fileData.title || fileData.fileName} on Deck ${targetTrackId === 1 ? 'A' : 'B'}`)
+      }
+    } catch (error) {
+      console.error('Failed to load file in DJ mode:', error)
+      notify.error('Failed to load file')
+    }
+  } else {
+    // Normal mode: use trackRef
+    const trackRef = trackRefs.value.get(targetTrackId)
+    if (trackRef && trackRef.loadFileFromLibrary) {
+      trackRef.loadFileFromLibrary(file)
+    }
   }
 
   fileManagerTargetTrackId.value = null
@@ -504,6 +550,8 @@ function initializeTracks(): Track[] {
 }
 
 const tracks = ref<Track[]>(initializeTracks())
+const isDjMode = ref(false)
+const djDeckTracks = computed(() => sortedTracks.value.slice(0, 2))
 
 // Keep the Rust engine informed of which tracks are active.
 // This ensures snapshots only save the visible tracks.
