@@ -60,12 +60,14 @@ const startAudioEngineInternal = (): void => {
   
   const licensePath = app.getPath('userData')
   console.log('[AudioEngine] Starting audio engine with LICENSE_PATH:', licensePath)
+  console.log('[AudioEngine] Starting audio engine with CONFIG_PATH:', licensePath)
   
   audioEngineProcess = spawn(enginePath, [], {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       ...process.env,
-      LICENSE_PATH: licensePath // Rust will save license.json here
+      LICENSE_PATH: licensePath, // Rust will save license.json here
+      CONFIG_PATH: licensePath   // Rust will save audio_config.json here
     }
   })
 
