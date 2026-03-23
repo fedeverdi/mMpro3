@@ -191,7 +191,7 @@ impl AudioFilePlayer {
         // Get interpolated sample
         let source_position = self.resample_position;
         let source_index = source_position.floor() as usize;
-        let fraction = source_position - source_position.floor();
+        let fraction = (source_position - source_position.floor()) as f32;
         
         if source_index >= frames_count {
             if self.looping {
@@ -206,18 +206,11 @@ impl AudioFilePlayer {
             }
         }
         
-        // Linear interpolation between samples
-        let frame_offset = source_index * self.channels as usize;
-        let next_frame_offset = ((source_index + 1).min(frames_count - 1)) * self.channels as usize;
-        
-        let left1 = self.samples.get(frame_offset).copied().unwrap_or(0.0);
-        let left2 = self.samples.get(next_frame_offset).copied().unwrap_or(0.0);
-        let left = left1 + (left2 - left1) * fraction as f32;
-        
+        // 4-point Hermite interpolation for better timing precision on transients
+        // This significantly improves accuracy on tight beats (1/16 notes, etc.)
+        let left = self.interpolate_hermite(source_index, fraction, 0);
         let right = if self.channels > 1 {
-            let right1 = self.samples.get(frame_offset + 1).copied().unwrap_or(0.0);
-            let right2 = self.samples.get(next_frame_offset + 1).copied().unwrap_or(0.0);
-            right1 + (right2 - right1) * fraction as f32
+            self.interpolate_hermite(source_index, fraction, 1)
         } else {
             left // Mono to stereo
         };
@@ -226,6 +219,35 @@ impl AudioFilePlayer {
         self.resample_position += ratio;
 
         (left, right)
+    }
+    
+    /// 4-point Hermite cubic interpolation - superior timing precision
+    /// channel_offset: 0 for left, 1 for right
+    #[inline]
+    fn interpolate_hermite(&self, index: usize, frac: f32, channel_offset: usize) -> f32 {
+        let frames_count = self.samples.len() / self.channels as usize;
+        let ch = self.channels as usize;
+        
+        // Get 4 points for cubic interpolation (x0, x1, x2, x3)
+        // x1 is the current sample, x2 is the next
+        let idx0 = if index > 0 { (index - 1) * ch + channel_offset } else { index * ch + channel_offset };
+        let idx1 = index * ch + channel_offset;
+        let idx2 = ((index + 1).min(frames_count - 1)) * ch + channel_offset;
+        let idx3 = ((index + 2).min(frames_count - 1)) * ch + channel_offset;
+        
+        let x0 = self.samples.get(idx0).copied().unwrap_or(0.0);
+        let x1 = self.samples.get(idx1).copied().unwrap_or(0.0);
+        let x2 = self.samples.get(idx2).copied().unwrap_or(0.0);
+        let x3 = self.samples.get(idx3).copied().unwrap_or(0.0);
+        
+        // Hermite cubic interpolation formula
+        // Provides smooth curve with proper derivatives at boundaries
+        let c0 = x1;
+        let c1 = 0.5 * (x2 - x0);
+        let c2 = x0 - 2.5 * x1 + 2.0 * x2 - 0.5 * x3;
+        let c3 = 0.5 * (x3 - x0) + 1.5 * (x1 - x2);
+        
+        ((c3 * frac + c2) * frac + c1) * frac + c0
     }
 
     /// Set output sample rate for resampling
