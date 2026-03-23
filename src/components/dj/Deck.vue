@@ -245,34 +245,74 @@
     <!-- Transport controls panel -->
     <div class="flex-shrink-0 mx-2 mb-2">
       <div class="bg-black/40 border border-gray-800 rounded-lg p-3">
-        <div class="flex gap-3 justify-end items-center">
-          <!-- CUE button (left, rounded) -->
-          <button @mousedown="emit('cue-press')" 
-                  @mouseup="emit('cue-release')" 
-                  @mouseleave="emit('cue-release')"
-                  class="w-14 h-14 rounded-full text-[11px] font-bold transition-all tracking-wider border-2 cursor-pointer flex items-center justify-center shadow-lg"
-                  :class="cuePoint > 0 
-                    ? 'bg-gray-800 hover:bg-gray-700 text-orange-500 border-orange-500 cue-blink' 
-                    : 'bg-gray-800 hover:bg-gray-700 text-orange-500 border-gray-700 hover:border-gray-500'">
-            CUE
-          </button>
+        <div class="flex gap-3 justify-between items-center">
           
-          <!-- Play/Pause button (right) -->
-          <button @click="emit('play-pause')"
-                  :disabled="!hasFile"
-                  class="w-14 h-14 rounded-full font-bold transition-all flex items-center justify-center shadow-lg border-2"
-                  :class="!hasFile
-                    ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
-                    : isPlaying
-                      ? 'bg-gray-800 text-green-500 hover:bg-gray-700 border-green-500 play-glow'
-                      : 'bg-gray-800 text-green-500 border-green-500 hover:border-green-400'">
-            <svg v-if="!isPlaying" class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z"/>
-            </svg>
-            <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-            </svg>
-          </button>
+          <!-- Loop Sample buttons (left) -->
+          <div class="flex gap-1.5">
+            <button @click="emit('loop-sample', 1/2)"
+                    :disabled="!hasFile"
+                    class="w-11 h-11 rounded text-[9px] font-bold transition-all border cursor-pointer flex items-center justify-center shadow"
+                    :class="!hasFile
+                      ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
+                      : 'bg-gray-800 hover:bg-gray-700 text-purple-400 border-purple-700 hover:border-purple-500'">
+              1/2
+            </button>
+            <button @click="emit('loop-sample', 1/4)"
+                    :disabled="!hasFile"
+                    class="w-11 h-11 rounded text-[9px] font-bold transition-all border cursor-pointer flex items-center justify-center shadow"
+                    :class="!hasFile
+                      ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
+                      : 'bg-gray-800 hover:bg-gray-700 text-purple-400 border-purple-700 hover:border-purple-500'">
+              1/4
+            </button>
+            <button @click="emit('loop-sample', 1/8)"
+                    :disabled="!hasFile"
+                    class="w-11 h-11 rounded text-[9px] font-bold transition-all border cursor-pointer flex items-center justify-center shadow"
+                    :class="!hasFile
+                      ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
+                      : 'bg-gray-800 hover:bg-gray-700 text-purple-400 border-purple-700 hover:border-purple-500'">
+              1/8
+            </button>
+            <button @click="emit('loop-sample', 1/16)"
+                    :disabled="!hasFile"
+                    class="w-11 h-11 rounded text-[9px] font-bold transition-all border cursor-pointer flex items-center justify-center shadow"
+                    :class="!hasFile
+                      ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
+                      : 'bg-gray-800 hover:bg-gray-700 text-purple-400 border-purple-700 hover:border-purple-500'">
+              1/16
+            </button>
+          </div>
+          
+          <!-- CUE and Play buttons (right) -->
+          <div class="flex gap-3">
+            <!-- CUE button (rounded) -->
+            <button @mousedown="emit('cue-press')" 
+                    @mouseup="emit('cue-release')" 
+                    @mouseleave="emit('cue-release')"
+                    class="w-14 h-14 rounded-full text-[11px] font-bold transition-all tracking-wider border-2 cursor-pointer flex items-center justify-center shadow-lg"
+                    :class="cuePoint > 0 
+                      ? 'bg-gray-800 hover:bg-gray-700 text-orange-500 border-orange-500 cue-blink' 
+                      : 'bg-gray-800 hover:bg-gray-700 text-orange-500 border-gray-700 hover:border-gray-500'">
+              CUE
+            </button>
+            
+            <!-- Play/Pause button -->
+            <button @click="emit('play-pause')"
+                    :disabled="!hasFile"
+                    class="w-14 h-14 rounded-full font-bold transition-all flex items-center justify-center shadow-lg border-2"
+                    :class="!hasFile
+                      ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
+                      : isPlaying
+                        ? 'bg-gray-800 text-green-500 hover:bg-gray-700 border-green-500 play-glow'
+                        : 'bg-gray-800 text-green-500 border-green-500 hover:border-green-400'">
+              <svg v-if="!isPlaying" class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+              <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -336,6 +376,7 @@ const emit = defineEmits<{
   'seek-release': []
   'vinyl-mousedown': [event: MouseEvent]
   'tap-tempo': []
+  'loop-sample': [fraction: number]
 }>()
 
 // Computed glow intensity based on audio levels
