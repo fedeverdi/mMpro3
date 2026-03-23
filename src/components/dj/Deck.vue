@@ -1,6 +1,5 @@
 <template>
-  <div class="deck flex-1 flex flex-col gap-1.5 bg-gray-900/80 rounded-xl p-3 min-w-0 overflow-hidden"
-       :class="`border border-${themeColor}-500/20`">
+  <div class="deck flex-1 flex flex-col gap-1.5 bg-gray-900/80 rounded-xl p-3 min-w-0 overflow-hidden border-4 border-gray-950">
 
     <!-- Header -->
     <div class="flex items-center justify-between flex-shrink-0">
@@ -41,6 +40,7 @@
           mode="waveform"
           waveform-color="#ffffff"
           :cue-point="cuePoint"
+          :loop-out-point="loopOutSet ? loopEnd : 0"
           @seek="handleSeek"
           @seek-release="emit('seek-release')"
           class="h-full"
@@ -247,45 +247,67 @@
       <div class="bg-black/40 border border-gray-800 rounded-lg p-3">
         <div class="flex gap-3 justify-between items-center">
           
-          <!-- Loop Sample buttons (left) -->
+          <!-- Loop Speed buttons (left) -->
           <div class="flex gap-1.5">
-            <button @click="emit('loop-sample', 2)"
-                    :disabled="!hasFile"
-                    :class="getLoopButtonClasses(2)">
-              2
-            </button>
-            <button @click="emit('loop-sample', 1)"
-                    :disabled="!hasFile"
-                    :class="getLoopButtonClasses(1)">
+            <button @click="emit('loop-speed', 1)"
+                    :disabled="!hasFile || !loopInSet || !loopOutSet"
+                    :class="getLoopSpeedButtonClasses(1)">
               1
             </button>
-            <button @click="emit('loop-sample', 1/2)"
-                    :disabled="!hasFile"
-                    :class="getLoopButtonClasses(1/2)">
+            <button @click="emit('loop-speed', 1/2)"
+                    :disabled="!hasFile || !loopInSet || !loopOutSet"
+                    :class="getLoopSpeedButtonClasses(1/2)">
               1/2
             </button>
-            <button @click="emit('loop-sample', 1/4)"
-                    :disabled="!hasFile"
-                    :class="getLoopButtonClasses(1/4)">
+            <button @click="emit('loop-speed', 1/4)"
+                    :disabled="!hasFile || !loopInSet || !loopOutSet"
+                    :class="getLoopSpeedButtonClasses(1/4)">
               1/4
             </button>
-            <button @click="emit('loop-sample', 1/8)"
-                    :disabled="!hasFile"
-                    :class="getLoopButtonClasses(1/8)">
+            <button @click="emit('loop-speed', 1/8)"
+                    :disabled="!hasFile || !loopInSet || !loopOutSet"
+                    :class="getLoopSpeedButtonClasses(1/8)">
               1/8
             </button>
-            <button @click="emit('loop-sample', 1/16)"
-                    :disabled="!hasFile"
-                    :class="getLoopButtonClasses(1/16)">
+            <button @click="emit('loop-speed', 1/16)"
+                    :disabled="!hasFile || !loopInSet || !loopOutSet"
+                    :class="getLoopSpeedButtonClasses(1/16)">
               1/16
             </button>
-            <button @click="emit('loop-sample', 1/32)"
-                    :disabled="!hasFile"
-                    :class="getLoopButtonClasses(1/32)">
+            <button @click="emit('loop-speed', 1/32)"
+                    :disabled="!hasFile || !loopInSet || !loopOutSet"
+                    :class="getLoopSpeedButtonClasses(1/32)">
               1/32
             </button>
           </div>
           
+          <!-- Loop In/Out buttons (center) -->
+          <div class="flex gap-2">
+            <!-- Loop In button -->
+            <button @click="emit('loop-in')"
+                    :disabled="!hasFile"
+                    class="w-12 h-12 rounded text-[9px] font-bold transition-all tracking-wider border-2 cursor-pointer flex items-center justify-center shadow-lg"
+                    :class="!hasFile
+                      ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
+                      : loopInSet
+                        ? 'bg-gray-800 hover:bg-gray-700 text-yellow-500 border-yellow-500 loop-in-blink'
+                        : 'bg-gray-800 hover:bg-gray-700 text-yellow-500 border-gray-700 hover:border-yellow-500'">
+              IN
+            </button>
+            
+            <!-- Loop Out button -->
+            <button @click="emit('loop-out')"
+                    :disabled="!hasFile || !loopInSet"
+                    class="w-12 h-12 rounded text-[9px] font-bold transition-all tracking-wider border-2 cursor-pointer flex items-center justify-center shadow-lg"
+                    :class="!hasFile || !loopInSet
+                      ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
+                      : loopOutSet
+                        ? 'bg-gray-800 hover:bg-gray-700 text-yellow-500 border-yellow-500 loop-out-blink'
+                        : 'bg-gray-800 hover:bg-gray-700 text-yellow-500 border-gray-700 hover:border-yellow-500'">
+              OUT
+            </button>
+          </div>
+
           <!-- CUE and Play buttons (right) -->
           <div class="flex gap-3">
             <!-- CUE button (rounded) -->
@@ -352,6 +374,10 @@ interface Props {
   cuePoint: number
   loopActive: boolean
   loopFraction: number
+  loopInSet: boolean
+  loopOutSet: boolean
+  loopStart: number
+  loopEnd: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -369,6 +395,10 @@ const props = withDefaults(defineProps<Props>(), {
   cuePoint: 0,
   loopActive: false,
   loopFraction: 0,
+  loopInSet: false,
+  loopOutSet: false,
+  loopStart: 0,
+  loopEnd: 0,
 })
 
 const emit = defineEmits<{
@@ -383,7 +413,9 @@ const emit = defineEmits<{
   'seek-release': []
   'vinyl-mousedown': [event: MouseEvent]
   'tap-tempo': []
-  'loop-sample': [fraction: number]
+  'loop-speed': [fraction: number]
+  'loop-in': []
+  'loop-out': []
 }>()
 
 // Computed glow intensity based on audio levels
@@ -391,21 +423,21 @@ const glowIntensity = computed(() =>
   Math.max(0, Math.min(1, (Math.max(props.levelL, props.levelR) + 60) / 60))
 )
 
-// Check if a loop button should be active (blinking)
-function isLoopButtonActive(fraction: number): boolean {
+// Check if a loop speed button should be active (blinking)
+function isLoopSpeedActive(fraction: number): boolean {
   return props.loopActive && Math.abs(props.loopFraction - fraction) < 0.001
 }
 
-// Get classes for loop button
-function getLoopButtonClasses(fraction: number): string {
+// Get classes for loop speed button
+function getLoopSpeedButtonClasses(fraction: number): string {
   const baseClasses = 'w-11 h-11 rounded text-[9px] font-bold transition-all border cursor-pointer flex items-center justify-center shadow'
   
-  if (!props.hasFile) {
+  if (!props.hasFile || !props.loopInSet || !props.loopOutSet) {
     return `${baseClasses} bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50`
   }
   
   const activeClasses = 'bg-gray-800 hover:bg-gray-700 text-purple-400 border-purple-700 hover:border-purple-500'
-  const blinkClass = isLoopButtonActive(fraction) ? ' loop-active-blink' : ''
+  const blinkClass = isLoopSpeedActive(fraction) ? ' loop-active-blink' : ''
   
   return `${baseClasses} ${activeClasses}${blinkClass}`
 }
@@ -640,6 +672,38 @@ function handleVinylMouseDown(event: MouseEvent) {
 
 .loop-active-blink {
   animation: loop-blink 0.8s ease-in-out infinite;
+}
+
+/* Loop In button blink animation */
+@keyframes loop-in-blink {
+  0%, 100% { 
+    border-color: rgb(234, 179, 8); /* yellow-500 */
+    box-shadow: 0 0 8px rgba(234, 179, 8, 0.5);
+  }
+  50% { 
+    border-color: rgba(234, 179, 8, 0.5);
+    box-shadow: 0 0 4px rgba(234, 179, 8, 0.3);
+  }
+}
+
+.loop-in-blink {
+  animation: loop-in-blink 1.2s ease-in-out infinite;
+}
+
+/* Loop Out button blink animation */
+@keyframes loop-out-blink {
+  0%, 100% { 
+    border-color: rgb(234, 179, 8); /* yellow-500 */
+    box-shadow: 0 0 8px rgba(234, 179, 8, 0.5);
+  }
+  50% { 
+    border-color: rgba(234, 179, 8, 0.5);
+    box-shadow: 0 0 4px rgba(234, 179, 8, 0.3);
+  }
+}
+
+.loop-out-blink {
+  animation: loop-out-blink 1.2s ease-in-out infinite;
 }
 
 .waveform-monitor {

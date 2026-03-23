@@ -23,6 +23,10 @@
       :cue-point="deckACuePoint"
       :loop-active="deckALoopActive"
       :loop-fraction="deckALoopFraction"
+      :loop-in-set="deckALoopInSet"
+      :loop-out-set="deckALoopOutSet"
+      :loop-start="deckALoopStart"
+      :loop-end="deckALoopEnd"
       @play-pause="onPlayPauseA"
       @stop="onStopA"
       @cue-press="onCueAPress"
@@ -34,7 +38,9 @@
       @seek-release="onSeekReleaseA"
       @vinyl-mousedown="onVinylAMouseDown"
       @tap-tempo="onTapTempoA"
-      @loop-sample="onLoopSampleA"
+      @loop-speed="onLoopSpeedA"
+      @loop-in="onLoopInA"
+      @loop-out="onLoopOutA"
     />
 
     <!-- ══════════════════ CENTER STRIP ══════════════════ -->
@@ -109,6 +115,10 @@
       :cue-point="deckBCuePoint"
       :loop-active="deckBLoopActive"
       :loop-fraction="deckBLoopFraction"
+      :loop-in-set="deckBLoopInSet"
+      :loop-out-set="deckBLoopOutSet"
+      :loop-start="deckBLoopStart"
+      :loop-end="deckBLoopEnd"
       @play-pause="onPlayPauseB"
       @stop="onStopB"
       @cue-press="onCueBPress"
@@ -120,7 +130,9 @@
       @seek-release="onSeekReleaseB"
       @vinyl-mousedown="onVinylBMouseDown"
       @tap-tempo="onTapTempoB"
-      @loop-sample="onLoopSampleB"
+      @loop-speed="onLoopSpeedB"
+      @loop-in="onLoopInB"
+      @loop-out="onLoopOutB"
     />
 
   </div>
@@ -163,11 +175,17 @@ const deckBCuePoint = ref(0)
 const deckALoopActive = ref(false)
 const deckALoopStart = ref(0)
 const deckALoopEnd = ref(0)
+const deckALoopOriginalEnd = ref(0) // Salva il loop end originale per calcolare le frazioni
 const deckALoopFraction = ref(0)
+const deckALoopInSet = ref(false)
+const deckALoopOutSet = ref(false)
 const deckBLoopActive = ref(false)
 const deckBLoopStart = ref(0)
 const deckBLoopEnd = ref(0)
+const deckBLoopOriginalEnd = ref(0) // Salva il loop end originale per calcolare le frazioni
 const deckBLoopFraction = ref(0)
+const deckBLoopInSet = ref(false)
+const deckBLoopOutSet = ref(false)
 
 // Current playback time tracking (similar to AudioTrack)
 const deckACurrentTime = ref(0)
@@ -669,41 +687,118 @@ function onTapTempo(deck: 'A' | 'B') {
 const onTapTempoA = () => onTapTempo('A')
 const onTapTempoB = () => onTapTempo('B')
 
-// Loop sample handlers
-function onLoopSample(deck: 'A' | 'B', fraction: number) {
+// Loop speed handlers - cambia la velocità di riproduzione del loop manuale
+function onLoopSpeed(deck: 'A' | 'B', speedFraction: number) {
   const state = deckStates[deck]
   const hasFile = deck === 'A' ? deckAHasFile.value : deckBHasFile.value
-  const bpm = deck === 'A' ? deckABpm.value : deckBBpm.value
+  const loopInSet = deck === 'A' ? deckALoopInSet.value : deckBLoopInSet.value
+  const loopOutSet = deck === 'A' ? deckALoopOutSet.value : deckBLoopOutSet.value
+  const loopStart = deck === 'A' ? deckALoopStart.value : deckBLoopStart.value
+  const originalLoopEnd = deck === 'A' ? deckALoopOriginalEnd.value : deckBLoopOriginalEnd.value
   
-  if (!audioEngine || state.idx.value === null || !hasFile || bpm <= 0) return
+  if (!audioEngine || state.idx.value === null || !hasFile || !loopInSet || !loopOutSet) return
   
-  // Salva il punto corrente come inizio del loop
-  const loopStart = state.currentTime.value
+  // Calcola la durata originale del loop
+  const originalLoopDuration = originalLoopEnd - loopStart
   
-  // Calcola la lunghezza del loop in base al BPM e alla frazione
-  // 1 beat = 60 / BPM secondi
-  const beatDuration = 60 / bpm
-  const loopDuration = beatDuration * 4 * fraction // 4 beats per misura completa
-  const loopEnd = loopStart + loopDuration
+  // Calcola la nuova durata del loop in base alla frazione
+  const newLoopDuration = originalLoopDuration * speedFraction
+  const newLoopEnd = loopStart + newLoopDuration
   
-  // Attiva il loop
+  // Aggiorna il loop con la nuova durata
   if (deck === 'A') {
-    deckALoopActive.value = true
-    deckALoopStart.value = loopStart
-    deckALoopEnd.value = loopEnd
-    deckALoopFraction.value = fraction
-    deckACuePoint.value = loopStart // Aggiorna anche il cue point
+    deckALoopEnd.value = newLoopEnd
+    deckALoopFraction.value = speedFraction
+    deckALoopActive.value = true // Assicurati che il loop sia attivo
   } else {
-    deckBLoopActive.value = true
-    deckBLoopStart.value = loopStart
-    deckBLoopEnd.value = loopEnd
-    deckBLoopFraction.value = fraction
-    deckBCuePoint.value = loopStart // Aggiorna anche il cue point
+    deckBLoopEnd.value = newLoopEnd
+    deckBLoopFraction.value = speedFraction
+    deckBLoopActive.value = true // Assicurati che il loop sia attivo
   }
+  
+  console.log(`Deck ${deck} Loop Speed: ${speedFraction} (durata: ${newLoopDuration.toFixed(2)}s)`)
 }
 
-const onLoopSampleA = (fraction: number) => onLoopSample('A', fraction)
-const onLoopSampleB = (fraction: number) => onLoopSample('B', fraction)
+const onLoopSpeedA = (fraction: number) => onLoopSpeed('A', fraction)
+const onLoopSpeedB = (fraction: number) => onLoopSpeed('B', fraction)
+
+// Manual Loop In/Out handlers
+function onLoopIn(deck: 'A' | 'B') {
+  const state = deckStates[deck]
+  const hasFile = deck === 'A' ? deckAHasFile.value : deckBHasFile.value
+  
+  if (!audioEngine || state.idx.value === null || !hasFile) return
+  
+  // Imposta il punto di inizio del loop alla posizione corrente
+  const loopStart = state.currentTime.value
+  
+  if (deck === 'A') {
+    deckALoopStart.value = loopStart
+    deckALoopInSet.value = true
+    deckACuePoint.value = loopStart // Aggiorna anche il cue point
+    // Se era già attivo un loop, disattivalo e resetta il loop OUT
+    if (deckALoopActive.value) {
+      deckALoopActive.value = false
+      deckALoopOutSet.value = false
+      deckALoopOriginalEnd.value = 0
+      deckALoopFraction.value = 0
+    }
+  } else {
+    deckBLoopStart.value = loopStart
+    deckBLoopInSet.value = true
+    deckBCuePoint.value = loopStart // Aggiorna anche il cue point
+    // Se era già attivo un loop, disattivalo e resetta il loop OUT
+    if (deckBLoopActive.value) {
+      deckBLoopActive.value = false
+      deckBLoopOutSet.value = false
+      deckBLoopOriginalEnd.value = 0
+      deckBLoopFraction.value = 0
+    }
+  }
+  
+  console.log(`Deck ${deck} Loop IN impostato a: ${loopStart.toFixed(2)}s`)
+}
+
+function onLoopOut(deck: 'A' | 'B') {
+  const state = deckStates[deck]
+  const hasFile = deck === 'A' ? deckAHasFile.value : deckBHasFile.value
+  const loopInSet = deck === 'A' ? deckALoopInSet.value : deckBLoopInSet.value
+  const loopStart = deck === 'A' ? deckALoopStart.value : deckBLoopStart.value
+  
+  if (!audioEngine || state.idx.value === null || !hasFile || !loopInSet) return
+  
+  // Imposta il punto di fine del loop alla posizione corrente
+  const loopEnd = state.currentTime.value
+  
+  // Verifica che il punto di fine sia dopo il punto di inizio
+  if (loopEnd <= loopStart) {
+    console.warn(`Deck ${deck} Loop OUT (${loopEnd.toFixed(2)}s) deve essere dopo Loop IN (${loopStart.toFixed(2)}s)`)
+    return
+  }
+  
+  if (deck === 'A') {
+    deckALoopEnd.value = loopEnd
+    deckALoopOriginalEnd.value = loopEnd // Salva il loop end originale
+    deckALoopOutSet.value = true
+    deckALoopFraction.value = 1 // Frazione 1 = loop completo (resettato quando si usa loop speed)
+    // Attiva automaticamente il loop
+    deckALoopActive.value = true
+  } else {
+    deckBLoopEnd.value = loopEnd
+    deckBLoopOriginalEnd.value = loopEnd // Salva il loop end originale
+    deckBLoopOutSet.value = true
+    deckBLoopFraction.value = 1 // Frazione 1 = loop completo (resettato quando si usa loop speed)
+    // Attiva automaticamente il loop
+    deckBLoopActive.value = true
+  }
+  
+  console.log(`Deck ${deck} Loop OUT impostato a: ${loopEnd.toFixed(2)}s (durata: ${(loopEnd - loopStart).toFixed(2)}s) - Loop ATTIVATO`)
+}
+
+const onLoopInA = () => onLoopIn('A')
+const onLoopOutA = () => onLoopOut('A')
+const onLoopInB = () => onLoopIn('B')
+const onLoopOutB = () => onLoopOut('B')
 
 // Start tracking playback position
 function startPlaybackTracking() {
@@ -813,6 +908,9 @@ watch(() => deckAParams.value?.fileName, (newFileName, oldFileName) => {
     // Disattiva il loop
     deckALoopActive.value = false
     deckALoopFraction.value = 0
+    deckALoopInSet.value = false
+    deckALoopOutSet.value = false
+    deckALoopOriginalEnd.value = 0
     
     // Inizializza il playback rate al valore del pitch corrente
     if (newFileName && state.idx.value !== null && audioEngine) {
@@ -844,6 +942,9 @@ watch(() => deckBParams.value?.fileName, (newFileName, oldFileName) => {
     // Disattiva il loop
     deckBLoopActive.value = false
     deckBLoopFraction.value = 0
+    deckBLoopInSet.value = false
+    deckBLoopOutSet.value = false
+    deckBLoopOriginalEnd.value = 0
     
     // Inizializza il playback rate al valore del pitch corrente
     if (newFileName && state.idx.value !== null && audioEngine) {

@@ -68,6 +68,7 @@ interface Props {
   duration?: number // Track duration in seconds
   waveformColor?: string // Color for the waveform
   cuePoint?: number // Cue point position in seconds
+  loopOutPoint?: number // Loop out point position in seconds
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -79,7 +80,8 @@ const props = withDefaults(defineProps<Props>(), {
   isActive: false,
   duration: 0,
   waveformColor: '#3b82f6', // blue-500 default
-  cuePoint: 0
+  cuePoint: 0,
+  loopOutPoint: 0
 })
 
 const emit = defineEmits<{
@@ -261,6 +263,12 @@ watch(() => props.isPlaying, () => {
   }
 })
 
+watch(() => props.loopOutPoint, () => {
+  if (internalMode.value === 'waveform' && props.audioBuffer) {
+    drawFullWaveform()
+  }
+})
+
 // Real-time signal oscilloscope (using streamed data from Rust backend)
 function drawSignal() {
   if (!canvasRef.value) return
@@ -434,6 +442,34 @@ function drawFullWaveform() {
       
       // Add glow effect
       ctx.shadowColor = '#3b82f6'
+      ctx.shadowBlur = 4
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(x, marginTop)
+      ctx.lineTo(x, height - marginBottom)
+      ctx.stroke()
+      ctx.shadowBlur = 0
+    }
+  }
+  
+  // Draw loop out point (orange line) if set
+  if (props.loopOutPoint && props.loopOutPoint > 0 && duration > 0) {
+    const progress = props.loopOutPoint / duration
+    const x = progress * width
+    
+    if (x >= 0 && x <= width) {
+      const marginTop = height * 0.15
+      const marginBottom = height * 0.15
+      
+      ctx.strokeStyle = '#f97316' // orange-500 for loop out point
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(x, marginTop)
+      ctx.lineTo(x, height - marginBottom)
+      ctx.stroke()
+      
+      // Add glow effect
+      ctx.shadowColor = '#f97316'
       ctx.shadowBlur = 4
       ctx.lineWidth = 1
       ctx.beginPath()
