@@ -17,6 +17,10 @@ impl AudioEngine {
                 let _ = self.seek_file(track, time_seconds);
                 None
             }
+            Command::SetFilePlaybackRate { track, rate } => {
+                let _ = self.set_file_playback_rate(track, rate);
+                None
+            }
             Command::GetWaveformData { track, num_points } => {
                 match self.get_waveform_data(track, num_points) {
                     Ok((data, duration, sample_rate)) => {

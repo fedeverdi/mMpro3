@@ -78,6 +78,8 @@ pub enum Command {
     StopFile { track: usize },
     #[serde(rename = "seek_file")]
     SeekFile { track: usize, time_seconds: f32 },
+    #[serde(rename = "set_file_playback_rate")]
+    SetFilePlaybackRate { track: usize, rate: f32 },
     #[serde(rename = "get_waveform_data")]
     GetWaveformData { track: usize, num_points: usize },
     #[serde(rename = "stop_all_files")]

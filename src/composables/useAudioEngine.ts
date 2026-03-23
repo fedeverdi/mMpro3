@@ -1143,6 +1143,11 @@ export const useAudioEngine = () => {
     window.audioEngine.seekFile(track, timeSeconds)
   }
 
+  const setFilePlaybackRate = (track: number, rate: number) => {
+    if (!window.audioEngine || !state.value.isRunning) return
+    window.audioEngine.setFilePlaybackRate(track, rate)
+  }
+
   const getWaveformData = async (track: number, numPoints: number) => {
     if (!window.audioEngine || !state.value.isRunning) return null
     return await window.audioEngine.getWaveformData(track, numPoints)
@@ -1564,6 +1569,7 @@ export const useAudioEngine = () => {
     pauseFile,
     stopFile,
     seekFile,
+    setFilePlaybackRate,
     getWaveformData,
     getEQPresets,
     applyEQPreset,

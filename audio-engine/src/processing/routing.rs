@@ -472,6 +472,16 @@ impl Track {
         }
     }
 
+    /// Set file playback rate (1.0 = normal, 0.0 = stopped, 2.0 = double speed)
+    pub fn set_file_playback_rate(&mut self, rate: f32) -> anyhow::Result<()> {
+        if let Some(player) = &mut self.file_player {
+            player.set_playback_rate(rate);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Track {} has no file loaded", self.id))
+        }
+    }
+
     /// Get waveform data for visualization
     pub fn get_waveform_data(&self, num_points: usize) -> anyhow::Result<Vec<f32>> {
         if let Some(player) = &self.file_player {

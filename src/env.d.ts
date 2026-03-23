@@ -82,6 +82,7 @@ interface AudioEngine {
   pauseFile: (trackIndex: number) => Promise<void>
   stopFile: (trackIndex: number) => Promise<void>
   seekFile: (trackIndex: number, timeSeconds: number) => Promise<void>
+  setFilePlaybackRate: (trackIndex: number, rate: number) => Promise<void>
   getWaveformData: (trackIndex: number, numPoints: number) => Promise<{ track: number; data: number[]; duration: number; sample_rate: number }>
   
   // Track Parameters

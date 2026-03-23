@@ -1,8 +1,8 @@
 <template>
-  <div class="w-full bg-gray-900 rounded p-1 border border-gray-700">
-    <div class="flex items-center gap-1">
+  <div class="w-full h-full bg-gray-900 rounded border border-gray-700 flex items-center">
+    <div class="flex items-center gap-1 w-full h-full p-0.5">
       <div 
-        class="flex-1 px-0.5 py-0.5 relative"
+        class="flex-1 relative h-full flex items-center"
         :class="showModeButtons ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''"
         @click="handleCanvasClick"
         @mousedown="handleMouseDown"
@@ -11,7 +11,7 @@
         @mouseleave="handleMouseLeave"
         :title="showModeButtons ? (internalMode === 'signal' ? 'Click to show full waveform' : 'Click to show real-time signal') : ''"
       >
-        <canvas ref="canvasRef" class="w-full h-[30px] rounded border border-gray-700 bg-black"
+        <canvas ref="canvasRef" class="w-full h-20 rounded border border-gray-700 bg-black"
           style="image-rendering: crisp-edges;"></canvas>
         
         <!-- Time tooltip during drag/hover -->
@@ -67,6 +67,7 @@ interface Props {
   isActive?: boolean // Whether to draw (play or input active)
   duration?: number // Track duration in seconds
   waveformColor?: string // Color for the waveform
+  cuePoint?: number // Cue point position in seconds
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -77,7 +78,8 @@ const props = withDefaults(defineProps<Props>(), {
   showModeButtons: true,
   isActive: false,
   duration: 0,
-  waveformColor: '#3b82f6' // blue-500 default
+  waveformColor: '#3b82f6', // blue-500 default
+  cuePoint: 0
 })
 
 const emit = defineEmits<{
@@ -404,6 +406,34 @@ function drawFullWaveform() {
       
       // Add glow effect
       ctx.shadowColor = '#ef4444'
+      ctx.shadowBlur = 4
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(x, marginTop)
+      ctx.lineTo(x, height - marginBottom)
+      ctx.stroke()
+      ctx.shadowBlur = 0
+    }
+  }
+  
+  // Draw cue point (blue line) if set
+  if (props.cuePoint && props.cuePoint > 0 && duration > 0) {
+    const progress = props.cuePoint / duration
+    const x = progress * width
+    
+    if (x >= 0 && x <= width) {
+      const marginTop = height * 0.15
+      const marginBottom = height * 0.15
+      
+      ctx.strokeStyle = '#3b82f6' // blue-500 for cue point
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(x, marginTop)
+      ctx.lineTo(x, height - marginBottom)
+      ctx.stroke()
+      
+      // Add glow effect
+      ctx.shadowColor = '#3b82f6'
       ctx.shadowBlur = 4
       ctx.lineWidth = 1
       ctx.beginPath()

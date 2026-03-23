@@ -23,6 +23,8 @@ pub struct AudioFilePlayer {
     // Resampling state
     pub output_sample_rate: u32,
     pub resample_position: f64,
+    // Playback rate control (1.0 = normal speed, 0.0 = stopped, 2.0 = double speed)
+    pub playback_rate: f32,
 }
 
 impl AudioFilePlayer {
@@ -41,6 +43,7 @@ impl AudioFilePlayer {
             file_title: None,
             output_sample_rate: 44100,
             resample_position: 0.0,
+            playback_rate: 1.0, // Default to normal speed
         }
     }
 
@@ -181,8 +184,9 @@ impl AudioFilePlayer {
 
         let frames_count = self.samples.len() / self.channels as usize;
         
-        // Calculate resampling ratio
-        let ratio = self.sample_rate as f64 / self.output_sample_rate as f64;
+        // Calculate resampling ratio with playback rate
+        // playback_rate: 1.0 = normal, 0.0 = stopped, 2.0 = double speed
+        let ratio = (self.sample_rate as f64 / self.output_sample_rate as f64) * self.playback_rate as f64;
         
         // Get interpolated sample
         let source_position = self.resample_position;
@@ -230,6 +234,12 @@ impl AudioFilePlayer {
         // Note: resample_position is NOT reset here because it represents
         // the current position in the source file, which is independent
         // of the output sample rate. The resampling ratio adjusts automatically.
+    }
+    
+    /// Set playback rate (1.0 = normal, 0.0 = stopped, 2.0 = double speed)
+    /// For vinyl scratch effect: rate can be negative for reverse playback
+    pub fn set_playback_rate(&mut self, rate: f32) {
+        self.playback_rate = rate;
     }
     
     /// Seek to a specific time position in seconds

@@ -1059,6 +1059,11 @@ impl AudioEngine {
         track::seek_file(&mut router, track, time_seconds)
     }
 
+    pub(crate) fn set_file_playback_rate(&self, track: usize, rate: f32) -> Result<()> {
+        let mut router = self.router.lock().unwrap();
+        track::set_file_playback_rate(&mut router, track, rate)
+    }
+
     pub(crate) fn get_waveform_data(&self, track: usize, num_points: usize) -> Result<(Vec<f32>, f32, u32)> {
         crate::engine::track_control::get_waveform_data_impl(&self.router, track, num_points)
     }
@@ -1355,6 +1360,7 @@ impl AudioEngine {
             
             // ===== File playback commands =====
             Command::PauseFile { .. } | Command::StopFile { .. } | Command::SeekFile { .. } |
+            Command::SetFilePlaybackRate { .. } |
             Command::GetWaveformData { .. } | Command::StopAllFiles => {
                 self.handle_file_playback_command(command)
             }

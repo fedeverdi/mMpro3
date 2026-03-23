@@ -119,6 +119,15 @@ pub fn seek_file(router: &mut Router, track: usize, time_seconds: f32) -> Result
     }
 }
 
+/// Set file playback rate on track (1.0 = normal, 0.0 = stopped, 2.0 = double speed)
+pub fn set_file_playback_rate(router: &mut Router, track: usize, rate: f32) -> Result<()> {
+    if let Some(t) = router.get_track_mut(track) {
+        t.set_file_playback_rate(rate)
+    } else {
+        Err(anyhow!("Track {} not found", track))
+    }
+}
+
 /// Get waveform data from track for visualization
 pub fn get_waveform_data(router: &Router, track: usize, num_points: usize) -> Result<Vec<f32>> {
     if let Some(t) = router.get_track(track) {

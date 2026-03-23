@@ -522,6 +522,10 @@ export class RemoteAudioEngine {
     return this.send({ type: 'seek_file', track, time_seconds: timeSeconds })
   }
 
+  async setFilePlaybackRate(track: number, rate: number): Promise<void> {
+    return this.send({ type: 'set_file_playback_rate', track, rate })
+  }
+
   async getWaveformData(track: number, numPoints: number): Promise<any> {
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {

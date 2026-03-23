@@ -468,7 +468,6 @@ async function handleFileManagerSelect(file: any) {
           null, // playlistName
           null  // playlistIndex
         )
-        notify.success(`Loaded ${fileData.title || fileData.fileName} on Deck ${targetTrackId === 1 ? 'A' : 'B'}`)
       }
     } catch (error) {
       console.error('Failed to load file in DJ mode:', error)

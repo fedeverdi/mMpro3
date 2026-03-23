@@ -300,6 +300,10 @@ export const setupIpcHandlers = (deps: IpcHandlerDependencies): void => {
     await sendCommandToEngine({ type: 'seek_file', track, time_seconds: timeSeconds })
   })
 
+  ipcMain.handle('audio-engine:set-file-playback-rate', async (_, track: number, rate: number) => {
+    await sendCommandToEngine({ type: 'set_file_playback_rate', track, rate })
+  })
+
   ipcMain.handle('audio-engine:get-waveform-data', async (_, track: number, numPoints: number) => {
     const { sendCommandAndWaitForResponse } = await import('../audio-engine/process')
     // Use a per-track key so concurrent requests from different tracks don't stomp each other
