@@ -249,37 +249,40 @@
           
           <!-- Loop Sample buttons (left) -->
           <div class="flex gap-1.5">
+            <button @click="emit('loop-sample', 2)"
+                    :disabled="!hasFile"
+                    :class="getLoopButtonClasses(2)">
+              2
+            </button>
+            <button @click="emit('loop-sample', 1)"
+                    :disabled="!hasFile"
+                    :class="getLoopButtonClasses(1)">
+              1
+            </button>
             <button @click="emit('loop-sample', 1/2)"
                     :disabled="!hasFile"
-                    class="w-11 h-11 rounded text-[9px] font-bold transition-all border cursor-pointer flex items-center justify-center shadow"
-                    :class="!hasFile
-                      ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
-                      : 'bg-gray-800 hover:bg-gray-700 text-purple-400 border-purple-700 hover:border-purple-500'">
+                    :class="getLoopButtonClasses(1/2)">
               1/2
             </button>
             <button @click="emit('loop-sample', 1/4)"
                     :disabled="!hasFile"
-                    class="w-11 h-11 rounded text-[9px] font-bold transition-all border cursor-pointer flex items-center justify-center shadow"
-                    :class="!hasFile
-                      ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
-                      : 'bg-gray-800 hover:bg-gray-700 text-purple-400 border-purple-700 hover:border-purple-500'">
+                    :class="getLoopButtonClasses(1/4)">
               1/4
             </button>
             <button @click="emit('loop-sample', 1/8)"
                     :disabled="!hasFile"
-                    class="w-11 h-11 rounded text-[9px] font-bold transition-all border cursor-pointer flex items-center justify-center shadow"
-                    :class="!hasFile
-                      ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
-                      : 'bg-gray-800 hover:bg-gray-700 text-purple-400 border-purple-700 hover:border-purple-500'">
+                    :class="getLoopButtonClasses(1/8)">
               1/8
             </button>
             <button @click="emit('loop-sample', 1/16)"
                     :disabled="!hasFile"
-                    class="w-11 h-11 rounded text-[9px] font-bold transition-all border cursor-pointer flex items-center justify-center shadow"
-                    :class="!hasFile
-                      ? 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
-                      : 'bg-gray-800 hover:bg-gray-700 text-purple-400 border-purple-700 hover:border-purple-500'">
+                    :class="getLoopButtonClasses(1/16)">
               1/16
+            </button>
+            <button @click="emit('loop-sample', 1/32)"
+                    :disabled="!hasFile"
+                    :class="getLoopButtonClasses(1/32)">
+              1/32
             </button>
           </div>
           
@@ -347,6 +350,8 @@ interface Props {
   rotation: number
   audioBuffer: AudioBuffer | null
   cuePoint: number
+  loopActive: boolean
+  loopFraction: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -362,6 +367,8 @@ const props = withDefaults(defineProps<Props>(), {
   rotation: 0,
   audioBuffer: null,
   cuePoint: 0,
+  loopActive: false,
+  loopFraction: 0,
 })
 
 const emit = defineEmits<{
@@ -383,6 +390,25 @@ const emit = defineEmits<{
 const glowIntensity = computed(() =>
   Math.max(0, Math.min(1, (Math.max(props.levelL, props.levelR) + 60) / 60))
 )
+
+// Check if a loop button should be active (blinking)
+function isLoopButtonActive(fraction: number): boolean {
+  return props.loopActive && Math.abs(props.loopFraction - fraction) < 0.001
+}
+
+// Get classes for loop button
+function getLoopButtonClasses(fraction: number): string {
+  const baseClasses = 'w-11 h-11 rounded text-[9px] font-bold transition-all border cursor-pointer flex items-center justify-center shadow'
+  
+  if (!props.hasFile) {
+    return `${baseClasses} bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed opacity-50`
+  }
+  
+  const activeClasses = 'bg-gray-800 hover:bg-gray-700 text-purple-400 border-purple-700 hover:border-purple-500'
+  const blinkClass = isLoopButtonActive(fraction) ? ' loop-active-blink' : ''
+  
+  return `${baseClasses} ${activeClasses}${blinkClass}`
+}
 
 // Format time from seconds to MM:SS
 function formatTime(seconds: number): string {
@@ -481,9 +507,11 @@ function handleVinylMouseDown(event: MouseEvent) {
   const diskRadius = rect.width / 2
   const normalizedDistance = (distance / diskRadius) * 100 // Normalizza a viewBox 200x200 (raggio 100)
   
-  // Se il click è nella zona dell'etichetta (raggio 31), carica il file
-  if (normalizedDistance <= 31) {
+  // Se il click è nella zona centrale dell'etichetta (raggio ridotto a 25), carica il file
+  // Area più piccola per evitare interferenze con lo scratch
+  if (normalizedDistance <= 25) {
     emit('load-file')
+    event.stopPropagation() // Previeni propagazione quando si carica il file
     return
   }
   
@@ -596,6 +624,22 @@ function handleVinylMouseDown(event: MouseEvent) {
 
 .play-glow {
   animation: play-glow 1.5s ease-in-out infinite;
+}
+
+/* Loop button active blink animation */
+@keyframes loop-blink {
+  0%, 100% { 
+    border-color: rgb(126, 34, 206); /* purple-700 */
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+  }
+  50% { 
+    border-color: rgb(168, 85, 247); /* purple-500 */
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.9);
+  }
+}
+
+.loop-active-blink {
+  animation: loop-blink 0.8s ease-in-out infinite;
 }
 
 .waveform-monitor {

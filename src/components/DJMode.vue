@@ -21,6 +21,8 @@
       :rotation="vinylARotation"
       :audio-buffer="deckAAudioBuffer"
       :cue-point="deckACuePoint"
+      :loop-active="deckALoopActive"
+      :loop-fraction="deckALoopFraction"
       @play-pause="onPlayPauseA"
       @stop="onStopA"
       @cue-press="onCueAPress"
@@ -32,6 +34,7 @@
       @seek-release="onSeekReleaseA"
       @vinyl-mousedown="onVinylAMouseDown"
       @tap-tempo="onTapTempoA"
+      @loop-sample="onLoopSampleA"
     />
 
     <!-- ══════════════════ CENTER STRIP ══════════════════ -->
@@ -104,6 +107,8 @@
       :rotation="vinylBRotation"
       :audio-buffer="deckBAudioBuffer"
       :cue-point="deckBCuePoint"
+      :loop-active="deckBLoopActive"
+      :loop-fraction="deckBLoopFraction"
       @play-pause="onPlayPauseB"
       @stop="onStopB"
       @cue-press="onCueBPress"
@@ -115,6 +120,7 @@
       @seek-release="onSeekReleaseB"
       @vinyl-mousedown="onVinylBMouseDown"
       @tap-tempo="onTapTempoB"
+      @loop-sample="onLoopSampleB"
     />
 
   </div>
@@ -152,6 +158,16 @@ const crossfader = ref(0.5)
 // CUE points for each deck
 const deckACuePoint = ref(0)
 const deckBCuePoint = ref(0)
+
+// Loop state for each deck
+const deckALoopActive = ref(false)
+const deckALoopStart = ref(0)
+const deckALoopEnd = ref(0)
+const deckALoopFraction = ref(0)
+const deckBLoopActive = ref(false)
+const deckBLoopStart = ref(0)
+const deckBLoopEnd = ref(0)
+const deckBLoopFraction = ref(0)
 
 // Current playback time tracking (similar to AudioTrack)
 const deckACurrentTime = ref(0)
@@ -473,6 +489,14 @@ function onStop(deck: 'A' | 'B') {
   state.playbackOffset.value = 0
   state.playbackStartTime.value = Date.now()
   state.rotation.value = 0
+  // Disattiva il loop
+  if (deck === 'A') {
+    deckALoopActive.value = false
+    deckALoopFraction.value = 0
+  } else {
+    deckBLoopActive.value = false
+    deckBLoopFraction.value = 0
+  }
   // Ripristina il rate corretto dopo lo stop
   const rate = 1 + state.pitch.value / 100
   if (deck === 'A') deckACurrentRate = rate
@@ -485,6 +509,19 @@ function onCuePress(deck: 'A' | 'B') {
   const hasFile = deck === 'A' ? deckAHasFile.value : deckBHasFile.value
   const isPlaying = deck === 'A' ? deckAIsPlaying.value : deckBIsPlaying.value
   if (!audioEngine || state.idx.value === null || !hasFile) return
+  
+  // Se un loop è attivo, premere CUE lo disattiva
+  const loopActive = deck === 'A' ? deckALoopActive.value : deckBLoopActive.value
+  if (loopActive) {
+    if (deck === 'A') {
+      deckALoopActive.value = false
+      deckALoopFraction.value = 0
+    } else {
+      deckBLoopActive.value = false
+      deckBLoopFraction.value = 0
+    }
+    return
+  }
   
   if (isPlaying) {
     // Durante la riproduzione, salva solo il cue point SENZA fermare l'audio
@@ -632,6 +669,42 @@ function onTapTempo(deck: 'A' | 'B') {
 const onTapTempoA = () => onTapTempo('A')
 const onTapTempoB = () => onTapTempo('B')
 
+// Loop sample handlers
+function onLoopSample(deck: 'A' | 'B', fraction: number) {
+  const state = deckStates[deck]
+  const hasFile = deck === 'A' ? deckAHasFile.value : deckBHasFile.value
+  const bpm = deck === 'A' ? deckABpm.value : deckBBpm.value
+  
+  if (!audioEngine || state.idx.value === null || !hasFile || bpm <= 0) return
+  
+  // Salva il punto corrente come inizio del loop
+  const loopStart = state.currentTime.value
+  
+  // Calcola la lunghezza del loop in base al BPM e alla frazione
+  // 1 beat = 60 / BPM secondi
+  const beatDuration = 60 / bpm
+  const loopDuration = beatDuration * 4 * fraction // 4 beats per misura completa
+  const loopEnd = loopStart + loopDuration
+  
+  // Attiva il loop
+  if (deck === 'A') {
+    deckALoopActive.value = true
+    deckALoopStart.value = loopStart
+    deckALoopEnd.value = loopEnd
+    deckALoopFraction.value = fraction
+    deckACuePoint.value = loopStart // Aggiorna anche il cue point
+  } else {
+    deckBLoopActive.value = true
+    deckBLoopStart.value = loopStart
+    deckBLoopEnd.value = loopEnd
+    deckBLoopFraction.value = fraction
+    deckBCuePoint.value = loopStart // Aggiorna anche il cue point
+  }
+}
+
+const onLoopSampleA = (fraction: number) => onLoopSample('A', fraction)
+const onLoopSampleB = (fraction: number) => onLoopSample('B', fraction)
+
 // Start tracking playback position
 function startPlaybackTracking() {
   if (playbackIntervalId !== null) return
@@ -646,6 +719,21 @@ function startPlaybackTracking() {
         const currentRate = deck === 'A' ? deckACurrentRate : deckBCurrentRate
         const elapsed = (Date.now() - state.playbackStartTime.value) / 1000
         state.currentTime.value = state.playbackOffset.value + (elapsed * currentRate)
+        
+        // Gestisci loop se attivo
+        const loopActive = deck === 'A' ? deckALoopActive.value : deckBLoopActive.value
+        if (loopActive) {
+          const loopStart = deck === 'A' ? deckALoopStart.value : deckBLoopStart.value
+          const loopEnd = deck === 'A' ? deckALoopEnd.value : deckBLoopEnd.value
+          
+          if (state.currentTime.value >= loopEnd) {
+            // Riporta al punto di inizio del loop
+            state.currentTime.value = loopStart
+            state.playbackOffset.value = loopStart
+            state.playbackStartTime.value = Date.now()
+            audioEngine.seekFile(state.idx.value, loopStart)
+          }
+        }
         
         // Update rotation - baseRotationTime già tiene conto del pitch!
         const baseRotationTime = getBaseRotationTime(deck)
@@ -722,6 +810,10 @@ watch(() => deckAParams.value?.fileName, (newFileName, oldFileName) => {
     state.playbackOffset.value = 0
     state.rotation.value = 0
     
+    // Disattiva il loop
+    deckALoopActive.value = false
+    deckALoopFraction.value = 0
+    
     // Inizializza il playback rate al valore del pitch corrente
     if (newFileName && state.idx.value !== null && audioEngine) {
       const rate = 1 + state.pitch.value / 100
@@ -748,6 +840,10 @@ watch(() => deckBParams.value?.fileName, (newFileName, oldFileName) => {
     state.playbackStartTime.value = 0
     state.playbackOffset.value = 0
     state.rotation.value = 0
+    
+    // Disattiva il loop
+    deckBLoopActive.value = false
+    deckBLoopFraction.value = 0
     
     // Inizializza il playback rate al valore del pitch corrente
     if (newFileName && state.idx.value !== null && audioEngine) {
