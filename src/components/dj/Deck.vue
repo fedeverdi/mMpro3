@@ -14,9 +14,27 @@
           Deck {{ deckName }}
         </span>
       </div>
-      <span class="text-[10px] text-gray-500 font-mono tabular-nums">
-        {{ bpm > 0 ? bpm.toFixed(1) + ' BPM' : '· · · BPM' }}
-      </span>
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] text-gray-500 font-mono tabular-nums">
+          {{ bpm > 0 ? bpm.toFixed(1) + ' BPM' : '· · · BPM' }}
+        </span>
+        <!-- Keyboard Settings Button -->
+        <button @click="showKeyboardModal = true"
+                class="w-6 h-6 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors flex items-center justify-center"
+                title="Keyboard Mapping">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <rect x="2" y="4" width="20" height="16" rx="2" stroke-width="2"/>
+            <line x1="6" y1="8" x2="6" y2="8" stroke-width="2" stroke-linecap="round"/>
+            <line x1="10" y1="8" x2="10" y2="8" stroke-width="2" stroke-linecap="round"/>
+            <line x1="14" y1="8" x2="14" y2="8" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="8" x2="18" y2="8" stroke-width="2" stroke-linecap="round"/>
+            <line x1="8" y1="12" x2="8" y2="12" stroke-width="2" stroke-linecap="round"/>
+            <line x1="12" y1="12" x2="12" y2="12" stroke-width="2" stroke-linecap="round"/>
+            <line x1="16" y1="12" x2="16" y2="12" stroke-width="2" stroke-linecap="round"/>
+            <line x1="8" y1="16" x2="16" y2="16" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Track Info Panel -->
@@ -341,6 +359,16 @@
         </div>
       </div>
     </div>
+    
+    <!-- Keyboard Mapping Modal -->
+    <KeyboardMappingModal
+      :is-open="showKeyboardModal"
+      :deck-name="deckName"
+      :theme-color="themeColor"
+      :initial-mappings="keyboardMappings"
+      @close="showKeyboardModal = false"
+      @update:mappings="handleMappingsUpdate"
+    />
   </div>
 </template>
 
@@ -348,10 +376,120 @@
 import { computed, ref, inject, watch, onMounted, onUnmounted, type Ref } from 'vue'
 import WaveformDisplay from '../audioTrack/WaveformDisplay.vue'
 import TrackMeter from '../audioTrack/TrackMeter.vue'
+import KeyboardMappingModal from './KeyboardMappingModal.vue'
 
 // Refs for dynamic height calculation
 const faderVolumeContainer = ref<HTMLElement | null>(null)
 const meterHeight = ref(0)
+
+// Keyboard mapping state
+const showKeyboardModal = ref(false)
+const keyboardMappings = ref<Record<string, string>>({})
+
+// Load keyboard mappings from localStorage
+function loadKeyboardMappings() {
+  const storageKey = `deck-${props.deckName}-keyboard-mappings`
+  const saved = localStorage.getItem(storageKey)
+  if (saved) {
+    try {
+      keyboardMappings.value = JSON.parse(saved)
+    } catch (e) {
+      console.error('Failed to load keyboard mappings:', e)
+    }
+  }
+}
+
+// Save keyboard mappings to localStorage
+function saveKeyboardMappings(mappings: Record<string, string>) {
+  const storageKey = `deck-${props.deckName}-keyboard-mappings`
+  localStorage.setItem(storageKey, JSON.stringify(mappings))
+}
+
+// Handle keyboard mappings update from modal
+function handleMappingsUpdate(mappings: Record<string, string>) {
+  keyboardMappings.value = mappings
+  saveKeyboardMappings(mappings)
+}
+
+// Handle keyboard events
+function handleKeyboardEvent(event: KeyboardEvent) {
+  // Ignore if typing in an input field
+  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+    return
+  }
+  
+  const key = event.key
+  
+  // Find action mapped to this key
+  const action = Object.entries(keyboardMappings.value).find(([_, mappedKey]) => mappedKey === key)?.[0]
+  
+  if (!action) return
+  
+  event.preventDefault()
+  event.stopPropagation()
+  
+  // Execute the corresponding action
+  switch (action) {
+    case 'play-pause':
+      // Only on keydown to avoid double trigger
+      if (event.type === 'keydown') {
+        emit('play-pause')
+      }
+      break
+    case 'cue':
+      if (event.type === 'keydown') {
+        emit('cue-press')
+      } else if (event.type === 'keyup') {
+        emit('cue-release')
+      }
+      break
+    case 'tap':
+      if (event.type === 'keydown') {
+        emit('tap-tempo')
+      }
+      break
+    case 'loop-in':
+      if (event.type === 'keydown') {
+        emit('loop-in')
+      }
+      break
+    case 'loop-out':
+      if (event.type === 'keydown') {
+        emit('loop-out')
+      }
+      break
+    case 'loop-1':
+      if (event.type === 'keydown') {
+        emit('loop-speed', 1)
+      }
+      break
+    case 'loop-1/2':
+      if (event.type === 'keydown') {
+        emit('loop-speed', 1/2)
+      }
+      break
+    case 'loop-1/4':
+      if (event.type === 'keydown') {
+        emit('loop-speed', 1/4)
+      }
+      break
+    case 'loop-1/8':
+      if (event.type === 'keydown') {
+        emit('loop-speed', 1/8)
+      }
+      break
+    case 'loop-1/16':
+      if (event.type === 'keydown') {
+        emit('loop-speed', 1/16)
+      }
+      break
+    case 'loop-1/32':
+      if (event.type === 'keydown') {
+        emit('loop-speed', 1/32)
+      }
+      break
+  }
+}
 
 interface Props {
   deckName: string
@@ -482,12 +620,23 @@ onMounted(() => {
     updateMeterHeight()
   })
   updateMeterHeight()
+  
+  // Load keyboard mappings
+  loadKeyboardMappings()
+  
+  // Add keyboard event listeners
+  window.addEventListener('keydown', handleKeyboardEvent)
+  window.addEventListener('keyup', handleKeyboardEvent)
 })
 
 onUnmounted(() => {
   if (updateMeterHeightTimeout) {
     clearTimeout(updateMeterHeightTimeout)
   }
+  
+  // Remove keyboard event listeners
+  window.removeEventListener('keydown', handleKeyboardEvent)
+  window.removeEventListener('keyup', handleKeyboardEvent)
 })
 
 // Event handlers
